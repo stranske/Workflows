@@ -1,0 +1,57 @@
+{
+  "checked_on": "2026-11-11",
+  "focused": {
+    "command": [
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_pr_verifier_ranked_remainder.py",
+      "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py",
+      "tests/scripts/test_pr_verifier_evidence_cache_miss.py",
+      "tests/tools/test_langchain_client.py",
+      "-m",
+      "not slow"
+    ],
+    "exit_code": 0,
+    "result": "239 passed in 5.39s"
+  },
+  "shallow_offline": {
+    "record": "evidence-fitting-shallow-validation.json",
+    "exit_code": 0,
+    "result": "74 passed in 4.65s"
+  },
+  "formatting": {
+    "command": "PYTHONPATH=/tmp/issue4426-black-serial timeout 110s black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "exit_code": 0,
+    "result": "1009 files would be left unchanged.",
+    "scheduling_only_adaptation": "sitecustomize replaces black.concurrency.reformat_many with serial calls to black.reformat_one; all formatter options and safety checks retained",
+    "sitecustomize_source": "import black\nimport black.concurrency\n\n\ndef serial_reformat_many(*, sources, fast, write_back, mode, report, workers=None,\n                         no_cache=False, cache_dir=None):\n    for source in sorted(sources):\n        black.reformat_one(source, fast, write_back, mode, report,\n                           no_cache=no_cache, cache_dir=cache_dir)\n\n\nblack.concurrency.reformat_many = serial_reformat_many\n",
+    "default_launch": "process-pool startup fails with PermissionError; workers=1 attempt was interrupted without a formatting result"
+  },
+  "lint": {
+    "command": [
+      "ruff",
+      "check",
+      "tests/scripts/test_pr_verifier_ranked_remainder.py"
+    ],
+    "exit_code": 0
+  },
+  "diff_check": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  "attributable_original_round_reduction": null,
+  "delivery": {
+    "commit_created": false,
+    "stage_command_exit_code": 128,
+    "error": "fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system",
+    "branch": "codex/issue-4500",
+    "patch": "/tmp/issue4426-evidence-fitting.patch",
+    "new_branch_or_pull_request_created": false
+  }
+}

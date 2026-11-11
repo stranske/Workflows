@@ -209,3 +209,16 @@ client. The fix consumes that override and keeps each slot's reviewed model.
 An unblocked `model1` still fills both slots, and an explicit `model2` stays
 on the second slot. Receipts are in `mutation-receipts.md`. The about-180
 rule is unchanged. No production mutation remains.
+
+
+## Evidence fitting follow-up, 2026-11-11
+
+`evidence-fitting-validation.json` records seven new tests (15 parameter cases),
+eight named mutation failures with restored passes, complete local coverage
+artifacts and all six target dispositions. Reproduce with
+`python docs/evidence/issue-4426/evidence-fitting-driver.txt`.
+`evidence-fitting-historical-symbol.json` pins the tested historical symbol's
+checkout, blob identity and source bytes. Local coverage gains 88 units; four
+mapped gaps were also missing in the historical Gate artifact. No original-round
+attribution is claimed. Focused, shallow offline and formatting results are in
+`evidence-fitting-checks.json` and `evidence-fitting-shallow-validation.json`.

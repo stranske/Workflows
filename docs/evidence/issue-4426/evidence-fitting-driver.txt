@@ -1,0 +1,168 @@
+"""Run from the repository root; local coverage and mutation evidence only."""
+import ast
+import gzip
+import hashlib
+import json
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / "docs/evidence/issue-4426"
+source = root / "scripts/langchain/pr_verifier.py"
+tests = root / "tests/scripts/test_pr_verifier_ranked_remainder.py"
+original_source, final_tests = source.read_bytes(), tests.read_bytes()
+marker = b"\n\n@pytest.fixture\ndef fitting_evidence"
+assert final_tests.count(marker) == 1
+baseline_tests = final_tests.split(marker, 1)[0] + b"\n"
+symbol_name = "_fit_required_evidence_prompt"
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def symbol(data):
+    node = next(n for n in ast.parse(data).body
+                if isinstance(n, ast.FunctionDef) and n.name == symbol_name)
+    return node, ast.get_source_segment(data.decode(), node)
+
+
+def run(command, expected=0):
+    start = time.monotonic()
+    result = subprocess.run(command, capture_output=True, text=True, timeout=110)
+    record = {"command": command, "exit_code": result.returncode,
+              "elapsed_seconds": round(time.monotonic() - start, 3),
+              "output": result.stdout + result.stderr}
+    if result.returncode != expected:
+        raise AssertionError(record)
+    return record
+
+
+node, source_symbol = symbol(original_source)
+ranking = json.loads((evidence / "ranking.json").read_bytes())
+dispositions = {
+    path: {"disposition": ("behavioral_tests_advanced" if path == str(source.relative_to(root))
+                           else "not_selected_this_chunk"),
+           "reason": ("named evidence-fitting gaps" if path == str(source.relative_to(root))
+                      else "original-round comparable remainder remains unknown"),
+           "target_exclusion": None, "attributable_round_reduction": None}
+    for path in ranking["regenerated_current"]["order"]
+}
+record = {
+    "checked_on": "2026-11-11", "symbol": symbol_name,
+    "scope": "matched local ranked-remainder suite; no original-round attribution",
+    "python": sys.version, "source_sha256": sha(original_source),
+    "source_symbol": source_symbol, "source_start_line": node.lineno,
+    "source_ast_sha256": sha(ast.dump(node, include_attributes=False).encode()),
+    "pyproject_sha256": sha((root / "pyproject.toml").read_bytes()),
+    "baseline_test_sha256": sha(baseline_tests), "final_test_sha256": sha(final_tests),
+    "new_test_source": final_tests[len(baseline_tests):].decode(),
+    "target_dispositions": dispositions,
+    "runs": {}, "mutations": [], "attributable_original_round_reduction": None,
+}
+reports = {}
+mutants = [
+    ("test_evidence_fitting_rejects_malformed_channel_boundaries",
+     'and line.rstrip("\\r\\n") not in headings', 'and False'),
+    ("test_evidence_fitting_rejects_unterminated_proof_fences",
+     '    if fence is not None:\n        return None', '    if False:\n        return None'),
+    ("test_evidence_fitting_keeps_fenced_heading_lookalikes_in_required_proof",
+     '        if fence is not None:', '        if False:'),
+    ("test_evidence_fitting_rejects_unusable_channel_alternatives",
+     '            or not channels <= present\n        ):\n            continue',
+     '            or not channels <= present\n        ):\n            pass'),
+    ("test_evidence_fitting_requires_a_real_evidence_section",
+     'if not present.intersection({"body", "comments", "artifacts"}):', 'if False:'),
+    ("test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof",
+     'in sorted(candidates):', 'in candidates:'),
+    ("test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof",
+     'mandatory_pieces = {"preamble", "selected_material", "selected_comments"}',
+     'mandatory_pieces = {"preamble"}'),
+    ("test_evidence_fitting_optional_section_respects_exact_budget",
+     'len(rendered) + len(body) + 2 <= budget', 'len(rendered) + len(body) + 2 < budget'),
+]
+try:
+    with tempfile.TemporaryDirectory(prefix="issue4426-fitting-") as temp:
+        for phase, test_bytes in [("before", baseline_tests), ("after", final_tests)]:
+            tests.write_bytes(test_bytes)
+            output = Path(temp) / f"{phase}.json"
+            command = [sys.executable, "-m", "pytest", "-q", str(tests.relative_to(root)),
+                       "--cov=scripts.langchain.pr_verifier", "--cov-branch",
+                       "--cov-report=json:" + str(output), "--cov-report=term", "-m", "not slow"]
+            record["runs"][phase] = run(command)
+            raw = output.read_bytes()
+            packed = gzip.compress(raw, mtime=0)
+            artifact = f"evidence-fitting-{phase}.coverage.json.gz"
+            (evidence / artifact).write_bytes(packed)
+            reports[phase] = json.loads(raw)["files"][str(source.relative_to(root))]
+            record["runs"][phase].update(artifact=artifact, archive_sha256=sha(packed),
+                                         coverage_json_sha256=sha(raw),
+                                         summary=reports[phase]["summary"])
+    for test_name, old, new in mutants:
+        assert source_symbol.count(old) == 1, old
+        mutated_symbol = source_symbol.replace(old, new)
+        mutated = original_source.replace(source_symbol.encode(), mutated_symbol.encode())
+        command = [sys.executable, "-m", "pytest", "-q",
+                   str(tests.relative_to(root)) + "::" + test_name,
+                   "-m", "not slow", "--tb=short"]
+        try:
+            source.write_bytes(mutated)
+            failure = run(command, 1)
+            assert "FAILED " in failure["output"] and test_name in failure["output"]
+            assert "AssertionError" in failure["output"]
+        finally:
+            source.write_bytes(original_source)
+        record["mutations"].append({"test": test_name, "old": old, "new": new,
+                                    "mutated_source_sha256": sha(mutated),
+                                    "failure": failure, "restored": run(command)})
+finally:
+    source.write_bytes(original_source)
+    tests.write_bytes(final_tests)
+
+before, after = reports["before"], reports["after"]
+for field in ("num_statements", "num_branches"):
+    assert before["summary"][field] == after["summary"][field]
+for field, convert in [("missing_lines", lambda x: x), ("missing_branches", tuple)]:
+    old, new = (set(map(convert, report[field])) for report in (before, after))
+    assert not new - old, field
+    record["newly_covered_" + field.removeprefix("missing_")] = sorted(old - new)
+record["local_missing_unit_reduction"] = (len(record["newly_covered_lines"])
+                                          + len(record["newly_covered_branches"]))
+record["lost_covered_units"] = 0
+historical_source = gzip.decompress(next((evidence / "frozen").glob("pr_verifier-*.py.gz")).read_bytes())
+historical_node, historical_symbol = symbol(historical_source)
+assert ast.dump(node, include_attributes=False) == ast.dump(historical_node, include_attributes=False)
+snapshot_bytes = (evidence / "evidence-fitting-historical-symbol.json").read_bytes()
+assert sha(snapshot_bytes) == "768138a2eccfc10c50ea3fd5bf32879e8db943ad8d590a55f0702fab2659a709"
+snapshot = json.loads(snapshot_bytes)
+assert snapshot["checkout_sha"] == "e4e584ea61852751c55749ab9ed6539fa10c9a31"
+assert snapshot["start_line"] == historical_node.lineno
+assert snapshot["end_line"] == historical_node.end_lineno
+assert snapshot["content"] == historical_symbol
+record["historical_source_evidence"] = "evidence-fitting-historical-symbol.json"
+record["historical_source_evidence_sha256"] = sha(snapshot_bytes)
+historical_coverage = json.loads(gzip.decompress((evidence / "historical-gate.coverage.json.gz").read_bytes()))
+historical = historical_coverage["files"][str(source.relative_to(root))]
+offset = node.lineno - historical_node.lineno
+historical_lines = set(historical["missing_lines"])
+historical_arcs = set(map(tuple, historical["missing_branches"]))
+record["historical_symbol_start_line"] = historical_node.lineno
+record["same_historical_symbol_ast"] = True
+record["historical_gap_lines_covered"] = [line - offset for line in record["newly_covered_lines"]
+                                          if line - offset in historical_lines]
+def historical_line(line):
+    return line - offset if line > 0 else line + offset
+
+mapped_arcs = [(historical_line(a), historical_line(b)) for a, b in record["newly_covered_branches"]]
+record["historical_gap_arcs_covered"] = sorted(historical_arcs.intersection(mapped_arcs))
+record["source_restored"] = source.read_bytes() == original_source
+record["final_tests_restored"] = tests.read_bytes() == final_tests
+assert record["source_restored"] and record["final_tests_restored"]
+(evidence / "evidence-fitting-validation.json").write_text(json.dumps(record, indent=2) + "\n")
+print("Local missing-unit reduction:", record["local_missing_unit_reduction"])
+print("Historical gap lines/arcs covered:", record["historical_gap_lines_covered"],
+      record["historical_gap_arcs_covered"])
+print("Named mutation failures and restored passes:", len(record["mutations"]))

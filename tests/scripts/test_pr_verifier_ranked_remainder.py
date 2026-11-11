@@ -432,3 +432,97 @@ def test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_ab
         "- [anthropic](https://smith.langchain.com/r/second-trace)\n"
         "- [provider-3](https://smith.langchain.com/r/third-trace)\n"
     )
+
+
+@pytest.fixture
+def fitting_evidence():
+    return (
+        "## Acceptance evidence\n"
+        "- Overall retrieval status: **present**\n"
+        "- PR body: **present**\n"
+        "- PR comments: **present**\n"
+        "- Referenced workflow artifacts: **present**\n"
+        "### Bounded PR body\nbody proof\n"
+    )
+
+
+@pytest.mark.parametrize("suffix", [" trailing text", " ", "\t"])
+def test_evidence_fitting_rejects_malformed_channel_boundaries(fitting_evidence, suffix):
+    evidence = fitting_evidence + "### Bounded PR comments" + suffix + "\noptional history"
+
+    assert verifier._fit_required_evidence_prompt(evidence, [{"body"}], 1) is None
+
+
+@pytest.mark.parametrize("fence", ["```text", "~~~~"])
+def test_evidence_fitting_rejects_unterminated_proof_fences(fitting_evidence, fence):
+    evidence = fitting_evidence + fence + "\n### Bounded PR comments\nunterminated proof"
+
+    assert verifier._fit_required_evidence_prompt(evidence, [{"body"}], 1) is None
+
+
+def test_evidence_fitting_keeps_fenced_heading_lookalikes_in_required_proof(fitting_evidence):
+    quoted = "```text\n### Bounded PR comments trailing text\nQUOTED_PROOF\n```"
+    required = fitting_evidence.replace("\n### Bounded PR body", "\n\n### Bounded PR body") + quoted
+    evidence = required + "\n### Bounded PR comments\nOPTIONAL_HISTORY"
+
+    assert verifier._fit_required_evidence_prompt(evidence, [{"body"}], 1) == (
+        required,
+        ("body",),
+        ("comments",),
+        len(required),
+    )
+
+
+@pytest.mark.parametrize("status", ["absent", "unavailable", "present-without-section", "overall"])
+def test_evidence_fitting_rejects_unusable_channel_alternatives(fitting_evidence, status):
+    evidence = fitting_evidence
+    if status in {"absent", "unavailable"}:
+        evidence += "### Bounded PR comments\nretained comment text"
+        evidence = evidence.replace("PR comments: **present**", f"PR comments: **{status}**")
+    channels = {"overall"} if status == "overall" else {"comments"}
+
+    assert verifier._fit_required_evidence_prompt(evidence, [channels], 10000) is None
+
+
+def test_evidence_fitting_requires_a_real_evidence_section(fitting_evidence):
+    preamble = fitting_evidence.split("### Bounded PR body", 1)[0]
+
+    # An empty authored duty still needs a real channel before any projection
+    # can be certified; status declarations alone are not captured proof.
+    assert verifier._fit_required_evidence_prompt(preamble, [set()], 10000) is None
+
+
+@pytest.mark.parametrize("body_first", [False, True])
+def test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof(
+    fitting_evidence, body_first
+):
+    preamble, body = fitting_evidence.rstrip().split("\n### Bounded PR body\n")
+    body_section = "### Bounded PR body\n" + body * 100
+    comments = "### Bounded PR comments\nshort proof"
+    selected = "### Selected required artifact proof\nSELECTED_ARTIFACT_PROOF"
+    evidence = "\n".join([preamble, body_section, comments, selected])
+    options = [{"body"}, {"comments"}] if body_first else [{"comments"}, {"body"}]
+    expected = "\n\n".join([preamble, comments, selected])
+
+    assert verifier._fit_required_evidence_prompt(evidence, options, 1) == (
+        expected,
+        ("comments",),
+        ("body",),
+        len(expected),
+    )
+
+
+@pytest.mark.parametrize("spare_chars", [0, -1])
+def test_evidence_fitting_optional_section_respects_exact_budget(fitting_evidence, spare_chars):
+    required = fitting_evidence.rstrip().replace("\n### Bounded PR body", "\n\n### Bounded PR body")
+    optional = "### Bounded PR comments\noptional history"
+    budget = len(required) + 2 + len(optional) + spare_chars
+
+    rendered, channels, omitted, required_chars = verifier._fit_required_evidence_prompt(
+        required + "\n" + optional, [{"body"}], budget
+    )
+
+    assert channels == ("body",)
+    assert required_chars == len(required)
+    assert rendered == (required + "\n\n" + optional if spare_chars == 0 else required)
+    assert omitted == (() if spare_chars == 0 else ("comments",))

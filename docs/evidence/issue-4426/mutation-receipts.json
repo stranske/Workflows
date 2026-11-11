@@ -2338,5 +2338,50 @@
     "named_failing_parameter_cases": 6,
     "source_restored": true,
     "attributable_round_reduction": null
+  },
+  "evidence_prompt_fitting_follow_up": {
+    "checked_on": "2026-11-11",
+    "status": "verified_local_increment_only",
+    "symbol": "_fit_required_evidence_prompt",
+    "baseline_command": [
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_pr_verifier_ranked_remainder.py",
+      "--cov=scripts.langchain.pr_verifier",
+      "--cov-branch",
+      "--cov-report=json:/tmp/issue4426-evidence-fit-before.json",
+      "--cov-report=term",
+      "-m",
+      "not slow"
+    ],
+    "baseline_exit_code": 0,
+    "baseline_result": "28 passed in 4.83s",
+    "stop_rule": "110 seconds per focused command; at most two failed attempts per required check; 20 minutes per broken step",
+    "attributable_original_round_reduction": null,
+    "receipt_record": "evidence-fitting-validation.json",
+    "reproduction_command": "python docs/evidence/issue-4426/evidence-fitting-driver.txt",
+    "named_tests": 7,
+    "parameter_cases": 15,
+    "named_mutation_failures_and_restored_passes": 8,
+    "source_restored": true,
+    "local_missing_unit_reduction": 88,
+    "historical_gate_gap_lines": [
+      6155,
+      6177
+    ],
+    "historical_gate_gap_arcs": [
+      [
+        6154,
+        6155
+      ],
+      [
+        6172,
+        6177
+      ]
+    ],
+    "historical_source_evidence": "evidence-fitting-historical-symbol.json",
+    "shallow_validation_record": "evidence-fitting-shallow-validation.json"
   }
 }

@@ -1,0 +1,641 @@
+{
+  "checked_on": "2026-11-11",
+  "symbol": "_fit_required_evidence_prompt",
+  "scope": "matched local ranked-remainder suite; no original-round attribution",
+  "python": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "source_sha256": "ae0acd181fa1f458d6724870a99c071a2226e85356352261d707bedc9be17d9d",
+  "source_symbol": "def _fit_required_evidence_prompt(\n    evidence: str, options: list[set[str]], budget: int\n) -> tuple[str, tuple[str, ...], tuple[str, ...], int] | None:\n    \"\"\"Fit one complete requirement alternative before optional builder sections.\n\n    Channel headings inside untrusted fences are inert. Retain complete selected\n    sections, never snippets of required proof; raw capture/statuses are untouched.\n    \"\"\"\n    headings = {\n        \"### Retrieval diagnostics\": \"diagnostics\",\n        \"### Bounded PR body\": \"body\",\n        \"### Bounded PR comments\": \"comments\",\n        \"### Bounded referenced workflow artifacts\": \"artifacts\",\n        \"### Selected required artifact proof\": \"selected_material\",\n        \"### Selected required comment proof\": \"selected_comments\",\n    }\n    pieces: list[tuple[str, str]] = []\n    name = \"preamble\"\n    lines: list[str] = []\n    fence: tuple[str, int, int] | None = None\n    legacy_selected_comments = False\n    for line in evidence.splitlines(keepends=True):\n        marker = _code_fence_marker(line)\n        if fence is not None:\n            if (\n                marker\n                and marker[0][0] == fence[0]\n                and len(marker[0]) >= fence[1]\n                and marker[1]\n                and marker[2] <= max(3, fence[2])\n            ):\n                fence = None\n        elif marker:\n            fence = (marker[0][0], len(marker[0]), marker[2])\n        elif (\n            any(line.startswith(header) for header in headings)\n            and line.rstrip(\"\\r\\n\") not in headings\n        ):\n            # A malformed builder heading can merge an optional artifact into\n            # the preceding required channel; do not certify that projection.\n            return None\n        elif line.rstrip(\"\\r\\n\") in headings:\n            pieces.append((name, \"\".join(lines).strip()))\n            name, lines = headings[line.rstrip(\"\\r\\n\")], []\n        elif name == \"comments\" and line.startswith(\"Selected source-comment provenance:\"):\n            legacy_selected_comments = True\n        lines.append(line)\n    if fence is not None:\n        return None\n    pieces.append((name, \"\".join(lines).strip()))\n    present = {name for name, _ in pieces}\n    if \"selected_material\" in present:\n        present.add(\"artifacts\")\n    if \"selected_comments\" in present:\n        present.add(\"comments\")\n    if not present.intersection({\"body\", \"comments\", \"artifacts\"}):\n        return None\n    mandatory_pieces = {\"preamble\", \"selected_material\", \"selected_comments\"}\n    if legacy_selected_comments:\n        # A legacy mixed section must remain whole even when the authored\n        # request declares no channel duty. Only refreshed producer packets\n        # can separate its required proof from optional history safely.\n        mandatory_pieces.add(\"comments\")\n    candidates = []\n    for channels in options:\n        if (\n            \"overall\" in channels\n            or _required_evidence_is_missing(evidence, channels)\n            or not channels <= present\n        ):\n            continue\n        required = [body for name, body in pieces if name in mandatory_pieces or name in channels]\n        rendered = \"\\n\\n\".join(required)\n        candidates.append((len(rendered), tuple(sorted(channels)), rendered))\n    # This budget bounds optional enrichment, never complete required proof.\n    # Choose the smallest valid complete alternative, then let native admission\n    # count the actual request rather than clipping it or inventing absence.\n    for required_chars, selected_channels, rendered in sorted(candidates):\n        channels = set(selected_channels)\n        omitted: list[str] = []\n        for name, body in pieces:\n            if name in mandatory_pieces or name in channels:\n                continue\n            if len(rendered) + len(body) + 2 <= budget:\n                rendered += \"\\n\\n\" + body\n            else:\n                omitted.append(name)\n        return rendered, tuple(sorted(channels)), tuple(omitted), required_chars\n    return None",
+  "source_start_line": 6133,
+  "source_ast_sha256": "08fb35cc8fc5121187568ceb03cda0e8636d4b9cd34021cd4afdaaf24e2c454f",
+  "pyproject_sha256": "75f2c53a8b40ba7c96bf5623adf671836c6dc82c40128b23742e7179dcfbd1a4",
+  "baseline_test_sha256": "bda524fdc10b4b51a7ab8f40756a249623b435f50475e53bd2c8633a3aae8ac0",
+  "final_test_sha256": "28f8bf6837fb282e58deec4be42669245d5049ed73df1f9df79f216d007fe554",
+  "new_test_source": "\n@pytest.fixture\ndef fitting_evidence():\n    return (\n        \"## Acceptance evidence\\n\"\n        \"- Overall retrieval status: **present**\\n\"\n        \"- PR body: **present**\\n\"\n        \"- PR comments: **present**\\n\"\n        \"- Referenced workflow artifacts: **present**\\n\"\n        \"### Bounded PR body\\nbody proof\\n\"\n    )\n\n\n@pytest.mark.parametrize(\"suffix\", [\" trailing text\", \" \", \"\\t\"])\ndef test_evidence_fitting_rejects_malformed_channel_boundaries(fitting_evidence, suffix):\n    evidence = fitting_evidence + \"### Bounded PR comments\" + suffix + \"\\noptional history\"\n\n    assert verifier._fit_required_evidence_prompt(evidence, [{\"body\"}], 1) is None\n\n\n@pytest.mark.parametrize(\"fence\", [\"```text\", \"~~~~\"])\ndef test_evidence_fitting_rejects_unterminated_proof_fences(fitting_evidence, fence):\n    evidence = fitting_evidence + fence + \"\\n### Bounded PR comments\\nunterminated proof\"\n\n    assert verifier._fit_required_evidence_prompt(evidence, [{\"body\"}], 1) is None\n\n\ndef test_evidence_fitting_keeps_fenced_heading_lookalikes_in_required_proof(fitting_evidence):\n    quoted = \"```text\\n### Bounded PR comments trailing text\\nQUOTED_PROOF\\n```\"\n    required = fitting_evidence.replace(\"\\n### Bounded PR body\", \"\\n\\n### Bounded PR body\") + quoted\n    evidence = required + \"\\n### Bounded PR comments\\nOPTIONAL_HISTORY\"\n\n    assert verifier._fit_required_evidence_prompt(evidence, [{\"body\"}], 1) == (\n        required,\n        (\"body\",),\n        (\"comments\",),\n        len(required),\n    )\n\n\n@pytest.mark.parametrize(\"status\", [\"absent\", \"unavailable\", \"present-without-section\", \"overall\"])\ndef test_evidence_fitting_rejects_unusable_channel_alternatives(fitting_evidence, status):\n    evidence = fitting_evidence\n    if status in {\"absent\", \"unavailable\"}:\n        evidence += \"### Bounded PR comments\\nretained comment text\"\n        evidence = evidence.replace(\"PR comments: **present**\", f\"PR comments: **{status}**\")\n    channels = {\"overall\"} if status == \"overall\" else {\"comments\"}\n\n    assert verifier._fit_required_evidence_prompt(evidence, [channels], 10000) is None\n\n\ndef test_evidence_fitting_requires_a_real_evidence_section(fitting_evidence):\n    preamble = fitting_evidence.split(\"### Bounded PR body\", 1)[0]\n\n    # An empty authored duty still needs a real channel before any projection\n    # can be certified; status declarations alone are not captured proof.\n    assert verifier._fit_required_evidence_prompt(preamble, [set()], 10000) is None\n\n\n@pytest.mark.parametrize(\"body_first\", [False, True])\ndef test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof(\n    fitting_evidence, body_first\n):\n    preamble, body = fitting_evidence.rstrip().split(\"\\n### Bounded PR body\\n\")\n    body_section = \"### Bounded PR body\\n\" + body * 100\n    comments = \"### Bounded PR comments\\nshort proof\"\n    selected = \"### Selected required artifact proof\\nSELECTED_ARTIFACT_PROOF\"\n    evidence = \"\\n\".join([preamble, body_section, comments, selected])\n    options = [{\"body\"}, {\"comments\"}] if body_first else [{\"comments\"}, {\"body\"}]\n    expected = \"\\n\\n\".join([preamble, comments, selected])\n\n    assert verifier._fit_required_evidence_prompt(evidence, options, 1) == (\n        expected,\n        (\"comments\",),\n        (\"body\",),\n        len(expected),\n    )\n\n\n@pytest.mark.parametrize(\"spare_chars\", [0, -1])\ndef test_evidence_fitting_optional_section_respects_exact_budget(fitting_evidence, spare_chars):\n    required = fitting_evidence.rstrip().replace(\"\\n### Bounded PR body\", \"\\n\\n### Bounded PR body\")\n    optional = \"### Bounded PR comments\\noptional history\"\n    budget = len(required) + 2 + len(optional) + spare_chars\n\n    rendered, channels, omitted, required_chars = verifier._fit_required_evidence_prompt(\n        required + \"\\n\" + optional, [{\"body\"}], budget\n    )\n\n    assert channels == (\"body\",)\n    assert required_chars == len(required)\n    assert rendered == (required + \"\\n\\n\" + optional if spare_chars == 0 else required)\n    assert omitted == (() if spare_chars == 0 else (\"comments\",))\n",
+  "runs": {
+    "before": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_pr_verifier_ranked_remainder.py",
+        "--cov=scripts.langchain.pr_verifier",
+        "--cov-branch",
+        "--cov-report=json:/tmp/issue4426-fitting-hnd0uz8h/before.json",
+        "--cov-report=term",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.909,
+      "output": "............................                                             [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                               Stmts   Miss Branch BrPart   Cover   Missing\n-------------------------------------------------------------------------------\nscripts/langchain/pr_verifier.py    3331   1958   1346    168  36.37%   354-355, 363-372, 379, 394, 403-432, 445, 453->450, 457->450, 459->450, 463, 479, 482, 494-495, 542, 604-608, 618, 654-657, 692-703, 705, 729-746, 750-756, 761-804, 809, 811-814, 831-847, 869, 870->853, 875, 876->853, 878-882, 890-923, 934, 956, 967, 976, 981-982, 993-997, 999, 1031, 1033-1034, 1045-1063, 1073-1091, 1095-1112, 1124-1154, 1193-1230, 1245, 1249-1268, 1358, 1605-1676, 1843-1889, 2185-2186, 2315-2326, 2358-2390, 2661-2685, 2718-2720, 2728, 2736, 2797-2850, 3013-3065, 3121-3147, 3325-3388, 3481-3492, 3601-3677, 3723-4009, 4013-4031, 4037-4052, 4067-4327, 4538-4546, 4550-5842, 5858, 5900-5907, 5937-5982, 5990->5988, 6000-6001, 6015, 6045-6046, 6047->6038, 6076-6099, 6114-6117, 6123->6122, 6130, 6141-6221, 6233-6253, 6285, 6300, 6306, 6317-6327, 6333, 6362-6387, 6389, 6391, 6393, 6404-6410, 6412-6420, 6434-6435, 6440, 6442-6443, 6447-6460, 6465-6469, 6471, 6482, 6522, 6533, 6543-6550, 6555-6584, 6680-6681, 6689, 6699-6712, 6741, 6763, 6777-6778, 6782, 6804, 6826-6841, 6894-6895, 6908->6808, 6933, 6983-6985, 6999-7033, 7040, 7045, 7055, 7070, 7107-7115, 7122-7126, 7135-7138, 7143, 7151, 7157, 7160, 7165, 7169-7174, 7196-7227, 7239-7242, 7257-7258, 7277, 7280, 7282, 7285-7286, 7289-7290, 7292-7299, 7301-7308, 7311-7317, 7328-7329, 7331-7335, 7345-7409, 7424-7446, 7475-7492, 7500, 7505->7510, 7512, 7514, 7519, 7521, 7527, 7530, 7533, 7536, 7538, 7540, 7558-7576, 7578, 7597, 7601, 7605, 7608, 7613-7614, 7620-7622, 7629-7633, 7667-7811, 7830, 7839-7849, 7874->7876, 7884, 7885->7887, 7905-7910, 7953->7965, 7973-7978, 7988-7993, 7999-8001, 8018-8046, 8051, 8061-8089, 8094-8095, 8113, 8133, 8139-8140, 8157-8159, 8165, 8171-8179, 8252-8255, 8277-8370, 8374, 8379-8385, 8389-8409, 8414-8438, 8466, 8512-8519, 8549-8718, 8739-8744, 8754, 8762-8793, 8807, 8810-8812, 8815-8855, 8866-8884, 8892-8909, 8913-8920, 8925-8926, 8931-8937, 8942-8943, 8953-8965, 8977-8984, 8988-8998, 9004-9018, 9028, 9045-9077, 9098-9132, 9145-9228, 9232-9239, 9251, 9265-9280, 9284-9285, 9289-9292, 9302, 9309-9313, 9316-9317, 9325-9328, 9334-9336, 9343-9351, 9363-9364, 9367, 9370-9371, 9374-9375, 9397, 9401-9406, 9408, 9410-9412, 9414, 9423-9424, 9430-9434, 9440, 9445, 9450->9453, 9460-9464, 9474, 9481->9485, 9484, 9485->9487, 9496->9502, 9506-9511, 9515-9518, 9522-9663\n-------------------------------------------------------------------------------\nTOTAL                               3331   1958   1346    168  36.37%\nCoverage JSON written to file /tmp/issue4426-fitting-hnd0uz8h/before.json\n28 passed in 5.22s\n",
+      "artifact": "evidence-fitting-before.coverage.json.gz",
+      "archive_sha256": "a373b337c31988a484dbaa567be5d5c80b17abed1107e457f7793586f3ca0d59",
+      "coverage_json_sha256": "f4a774798e5fbb70b49172b7489ff58783e97cc74afe1cbd7b3201ae12ca995e",
+      "summary": {
+        "covered_lines": 1373,
+        "num_statements": 3331,
+        "percent_covered": 36.36946760744067,
+        "percent_covered_display": "36.37",
+        "missing_lines": 1958,
+        "excluded_lines": 35,
+        "percent_statements_covered": 41.21885319723807,
+        "percent_statements_covered_display": "41.22",
+        "num_branches": 1346,
+        "num_partial_branches": 168,
+        "covered_branches": 328,
+        "missing_branches": 1018,
+        "percent_branches_covered": 24.368499257057948,
+        "percent_branches_covered_display": "24.37"
+      }
+    },
+    "after": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_pr_verifier_ranked_remainder.py",
+        "--cov=scripts.langchain.pr_verifier",
+        "--cov-branch",
+        "--cov-report=json:/tmp/issue4426-fitting-hnd0uz8h/after.json",
+        "--cov-report=term",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.764,
+      "output": "...........................................                              [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                               Stmts   Miss Branch BrPart   Cover   Missing\n-------------------------------------------------------------------------------\nscripts/langchain/pr_verifier.py    3331   1906   1346    170  38.25%   354-355, 363-372, 379, 394, 403-432, 445, 453->450, 457->450, 459->450, 463, 479, 482, 494-495, 542, 604-608, 618, 656, 692-703, 705, 729-746, 750-756, 761-804, 809, 811-814, 831-847, 869, 870->853, 875, 876->853, 878-882, 890-923, 934, 956, 967, 976, 981-982, 993-997, 999, 1031, 1033-1034, 1045-1063, 1073-1091, 1095-1112, 1124-1154, 1193-1230, 1245, 1249-1268, 1358, 1605-1676, 1843-1889, 2185-2186, 2315-2326, 2358-2390, 2661-2685, 2718-2720, 2728, 2736, 2797-2850, 3013-3065, 3121-3147, 3325-3388, 3481-3492, 3601-3677, 3723-4009, 4013-4031, 4037-4052, 4067-4327, 4538-4546, 4550-5842, 5858, 5900-5907, 5937-5982, 5990->5988, 6000-6001, 6015, 6045-6046, 6076-6099, 6114-6117, 6123->6122, 6130, 6178, 6187, 6195, 6233-6253, 6285, 6300, 6306, 6317-6327, 6333, 6362-6387, 6389, 6391, 6393, 6404-6410, 6412-6420, 6434-6435, 6440, 6442-6443, 6447-6460, 6465-6469, 6471, 6482, 6522, 6533, 6543-6550, 6555-6584, 6680-6681, 6689, 6699-6712, 6741, 6763, 6777-6778, 6782, 6804, 6826-6841, 6894-6895, 6908->6808, 6933, 6983-6985, 6999-7033, 7040, 7045, 7055, 7070, 7107-7115, 7122-7126, 7135-7138, 7143, 7151, 7157, 7160, 7165, 7169-7174, 7196-7227, 7239-7242, 7257-7258, 7277, 7280, 7282, 7285-7286, 7289-7290, 7292-7299, 7301-7308, 7311-7317, 7328-7329, 7331-7335, 7345-7409, 7424-7446, 7475-7492, 7500, 7505->7510, 7512, 7514, 7519, 7521, 7527, 7530, 7533, 7536, 7538, 7540, 7558-7576, 7578, 7597, 7601, 7605, 7608, 7613-7614, 7620-7622, 7629-7633, 7667-7811, 7830, 7839-7849, 7874->7876, 7884, 7885->7887, 7905-7910, 7953->7965, 7973-7978, 7988-7993, 7999-8001, 8018-8046, 8051, 8061-8089, 8094-8095, 8113, 8133, 8139-8140, 8157-8159, 8165, 8171-8179, 8252-8255, 8277-8370, 8374, 8379-8385, 8389-8409, 8414-8438, 8466, 8512-8519, 8549-8718, 8739-8744, 8754, 8762-8793, 8807, 8810-8812, 8815-8855, 8866-8884, 8892-8909, 8913-8920, 8925-8926, 8931-8937, 8942-8943, 8953-8965, 8977-8984, 8988-8998, 9004-9018, 9028, 9045-9077, 9098-9132, 9145-9228, 9232-9239, 9251, 9265-9280, 9284-9285, 9289-9292, 9302, 9309-9313, 9316-9317, 9325-9328, 9334-9336, 9343-9351, 9363-9364, 9367, 9370-9371, 9374-9375, 9397, 9401-9406, 9408, 9410-9412, 9414, 9423-9424, 9430-9434, 9440, 9445, 9450->9453, 9460-9464, 9474, 9481->9485, 9484, 9485->9487, 9496->9502, 9506-9511, 9515-9518, 9522-9663\n-------------------------------------------------------------------------------\nTOTAL                               3331   1906   1346    170  38.25%\nCoverage JSON written to file /tmp/issue4426-fitting-hnd0uz8h/after.json\n43 passed in 5.13s\n",
+      "artifact": "evidence-fitting-after.coverage.json.gz",
+      "archive_sha256": "c9df8786a093005ce7f8b354934b219095a3396eda842277805dc89c49f08468",
+      "coverage_json_sha256": "d61b799b94f6f9094081805c7a2aeef1c6a7baf03b8873b6570a1bd4b2043aa4",
+      "summary": {
+        "covered_lines": 1425,
+        "num_statements": 3331,
+        "percent_covered": 38.251015608295916,
+        "percent_covered_display": "38.25",
+        "missing_lines": 1906,
+        "excluded_lines": 35,
+        "percent_statements_covered": 42.77994596217352,
+        "percent_statements_covered_display": "42.78",
+        "num_branches": 1346,
+        "num_partial_branches": 170,
+        "covered_branches": 364,
+        "missing_branches": 982,
+        "percent_branches_covered": 27.043090638930163,
+        "percent_branches_covered_display": "27.04"
+      }
+    }
+  },
+  "mutations": [
+    {
+      "test": "test_evidence_fitting_rejects_malformed_channel_boundaries",
+      "old": "and line.rstrip(\"\\r\\n\") not in headings",
+      "new": "and False",
+      "mutated_source_sha256": "b3d2918c7c9b78b187709dc95456418106ff88d18091ac476997312f03ef3508",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_malformed_channel_boundaries",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.824,
+        "output": "FFF                                                                      [100%]\n=================================== FAILURES ===================================\n__ test_evidence_fitting_rejects_malformed_channel_boundaries[ trailing text] __\ntests/scripts/test_pr_verifier_ranked_remainder.py:453: in test_evidence_fitting_rejects_malformed_channel_boundaries\n    assert verifier._fit_required_evidence_prompt(evidence, [{\"body\"}], 1) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...ent**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments trailing text\\noptional history', ('body',), (), 244) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...ent**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments trailing text\\noptional history', ('body',), (), 244) = <function _fit_required_evidence_prompt at 0x77690ea8e980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...kflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments trailing text\\noptional history', [{'body'}], 1)\nE    +    where <function _fit_required_evidence_prompt at 0x77690ea8e980> = verifier._fit_required_evidence_prompt\n________ test_evidence_fitting_rejects_malformed_channel_boundaries[ ] _________\ntests/scripts/test_pr_verifier_ranked_remainder.py:453: in test_evidence_fitting_rejects_malformed_channel_boundaries\n    assert verifier._fit_required_evidence_prompt(evidence, [{\"body\"}], 1) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...facts: **present**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments \\noptional history', ('body',), (), 231) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...facts: **present**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments \\noptional history', ('body',), (), 231) = <function _fit_required_evidence_prompt at 0x77690ea8e980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments \\noptional history', [{'body'}], 1)\nE    +    where <function _fit_required_evidence_prompt at 0x77690ea8e980> = verifier._fit_required_evidence_prompt\n________ test_evidence_fitting_rejects_malformed_channel_boundaries[\\t] ________\ntests/scripts/test_pr_verifier_ranked_remainder.py:453: in test_evidence_fitting_rejects_malformed_channel_boundaries\n    assert verifier._fit_required_evidence_prompt(evidence, [{\"body\"}], 1) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...acts: **present**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\t\\noptional history', ('body',), (), 231) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...acts: **present**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\t\\noptional history', ('body',), (), 231) = <function _fit_required_evidence_prompt at 0x77690ea8e980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...ferenced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\t\\noptional history', [{'body'}], 1)\nE    +    where <function _fit_required_evidence_prompt at 0x77690ea8e980> = verifier._fit_required_evidence_prompt\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_malformed_channel_boundaries[ trailing text] - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...ent**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments trailing text\\noptional history', ('body',), (), 244) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...ent**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments trailing text\\noptional history', ('body',), (), 244) = <function _fit_required_evidence_prompt at 0x77690ea8e980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...kflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments trailing text\\noptional history', [{'body'}], 1)\n +    where <function _fit_required_evidence_prompt at 0x77690ea8e980> = verifier._fit_required_evidence_prompt\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_malformed_channel_boundaries[ ] - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...facts: **present**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments \\noptional history', ('body',), (), 231) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...facts: **present**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments \\noptional history', ('body',), (), 231) = <function _fit_required_evidence_prompt at 0x77690ea8e980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments \\noptional history', [{'body'}], 1)\n +    where <function _fit_required_evidence_prompt at 0x77690ea8e980> = verifier._fit_required_evidence_prompt\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_malformed_channel_boundaries[\\t] - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...acts: **present**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\t\\noptional history', ('body',), (), 231) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...acts: **present**\\n\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\t\\noptional history', ('body',), (), 231) = <function _fit_required_evidence_prompt at 0x77690ea8e980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...ferenced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\t\\noptional history', [{'body'}], 1)\n +    where <function _fit_required_evidence_prompt at 0x77690ea8e980> = verifier._fit_required_evidence_prompt\n3 failed in 0.92s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_malformed_channel_boundaries",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.887,
+        "output": "...                                                                      [100%]\n3 passed in 0.86s\n"
+      }
+    },
+    {
+      "test": "test_evidence_fitting_rejects_unterminated_proof_fences",
+      "old": "    if fence is not None:\n        return None",
+      "new": "    if False:\n        return None",
+      "mutated_source_sha256": "14bf0b94474e93961bbea4505ea713746072dc1a6c0952fcd6cb10348cd970f3",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unterminated_proof_fences",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 3.087,
+        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_______ test_evidence_fitting_rejects_unterminated_proof_fences[```text] _______\ntests/scripts/test_pr_verifier_ranked_remainder.py:460: in test_evidence_fitting_rejects_unterminated_proof_fences\n    assert verifier._fit_required_evidence_prompt(evidence, [{\"body\"}], 1) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...resent**\\n\\n### Bounded PR body\\nbody proof\\n```text\\n### Bounded PR comments\\nunterminated proof', ('body',), (), 240) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...resent**\\n\\n### Bounded PR body\\nbody proof\\n```text\\n### Bounded PR comments\\nunterminated proof', ('body',), (), 240) = <function _fit_required_evidence_prompt at 0x7f29ab3c6980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n```text\\n### Bounded PR comments\\nunterminated proof', [{'body'}], 1)\nE    +    where <function _fit_required_evidence_prompt at 0x7f29ab3c6980> = verifier._fit_required_evidence_prompt\n________ test_evidence_fitting_rejects_unterminated_proof_fences[~~~~] _________\ntests/scripts/test_pr_verifier_ranked_remainder.py:460: in test_evidence_fitting_rejects_unterminated_proof_fences\n    assert verifier._fit_required_evidence_prompt(evidence, [{\"body\"}], 1) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...**present**\\n\\n### Bounded PR body\\nbody proof\\n~~~~\\n### Bounded PR comments\\nunterminated proof', ('body',), (), 237) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...**present**\\n\\n### Bounded PR body\\nbody proof\\n~~~~\\n### Bounded PR comments\\nunterminated proof', ('body',), (), 237) = <function _fit_required_evidence_prompt at 0x7f29ab3c6980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...ed workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n~~~~\\n### Bounded PR comments\\nunterminated proof', [{'body'}], 1)\nE    +    where <function _fit_required_evidence_prompt at 0x7f29ab3c6980> = verifier._fit_required_evidence_prompt\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unterminated_proof_fences[```text] - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...resent**\\n\\n### Bounded PR body\\nbody proof\\n```text\\n### Bounded PR comments\\nunterminated proof', ('body',), (), 240) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...resent**\\n\\n### Bounded PR body\\nbody proof\\n```text\\n### Bounded PR comments\\nunterminated proof', ('body',), (), 240) = <function _fit_required_evidence_prompt at 0x7f29ab3c6980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n```text\\n### Bounded PR comments\\nunterminated proof', [{'body'}], 1)\n +    where <function _fit_required_evidence_prompt at 0x7f29ab3c6980> = verifier._fit_required_evidence_prompt\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unterminated_proof_fences[~~~~] - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...**present**\\n\\n### Bounded PR body\\nbody proof\\n~~~~\\n### Bounded PR comments\\nunterminated proof', ('body',), (), 237) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...**present**\\n\\n### Bounded PR body\\nbody proof\\n~~~~\\n### Bounded PR comments\\nunterminated proof', ('body',), (), 237) = <function _fit_required_evidence_prompt at 0x7f29ab3c6980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...ed workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n~~~~\\n### Bounded PR comments\\nunterminated proof', [{'body'}], 1)\n +    where <function _fit_required_evidence_prompt at 0x7f29ab3c6980> = verifier._fit_required_evidence_prompt\n2 failed in 1.01s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unterminated_proof_fences",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 3.01,
+        "output": "..                                                                       [100%]\n2 passed in 0.90s\n"
+      }
+    },
+    {
+      "test": "test_evidence_fitting_keeps_fenced_heading_lookalikes_in_required_proof",
+      "old": "        if fence is not None:",
+      "new": "        if False:",
+      "mutated_source_sha256": "8e6d9725996fa3c4144492974a36efe873ccca0feb45ed3dd1eb6adf067803ed",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_keeps_fenced_heading_lookalikes_in_required_proof",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.936,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___ test_evidence_fitting_keeps_fenced_heading_lookalikes_in_required_proof ____\ntests/scripts/test_pr_verifier_ranked_remainder.py:468: in test_evidence_fitting_keeps_fenced_heading_lookalikes_in_required_proof\n    assert verifier._fit_required_evidence_prompt(evidence, [{\"body\"}], 1) == (\nE   AssertionError: assert None == ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...PR body\\nbody proof\\n```text\\n### Bounded PR comments trailing text\\nQUOTED_PROOF\\n```', ('body',), ('comments',), 252)\nE    +  where None = <function _fit_required_evidence_prompt at 0x78f3b56beae0>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...dy proof\\n```text\\n### Bounded PR comments trailing text\\nQUOTED_PROOF\\n```\\n### Bounded PR comments\\nOPTIONAL_HISTORY', [{'body'}], 1)\nE    +    where <function _fit_required_evidence_prompt at 0x78f3b56beae0> = verifier._fit_required_evidence_prompt\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_keeps_fenced_heading_lookalikes_in_required_proof - AssertionError: assert None == ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\...PR body\\nbody proof\\n```text\\n### Bounded PR comments trailing text\\nQUOTED_PROOF\\n```', ('body',), ('comments',), 252)\n +  where None = <function _fit_required_evidence_prompt at 0x78f3b56beae0>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n...dy proof\\n```text\\n### Bounded PR comments trailing text\\nQUOTED_PROOF\\n```\\n### Bounded PR comments\\nOPTIONAL_HISTORY', [{'body'}], 1)\n +    where <function _fit_required_evidence_prompt at 0x78f3b56beae0> = verifier._fit_required_evidence_prompt\n1 failed in 0.94s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_keeps_fenced_heading_lookalikes_in_required_proof",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 3.212,
+        "output": ".                                                                        [100%]\n1 passed in 1.08s\n"
+      }
+    },
+    {
+      "test": "test_evidence_fitting_rejects_unusable_channel_alternatives",
+      "old": "            or not channels <= present\n        ):\n            continue",
+      "new": "            or not channels <= present\n        ):\n            pass",
+      "mutated_source_sha256": "fe1257090e25dd080c74077fd0a32b245764f37cadc7aa3614e95b04a6367c99",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unusable_channel_alternatives",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 3.035,
+        "output": "FFFF                                                                     [100%]\n=================================== FAILURES ===================================\n_____ test_evidence_fitting_rejects_unusable_channel_alternatives[absent] ______\ntests/scripts/test_pr_verifier_ranked_remainder.py:484: in test_evidence_fitting_rejects_unusable_channel_alternatives\n    assert verifier._fit_required_evidence_prompt(evidence, [channels], 10000) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **absent**\\n...resent**\\n\\n### Bounded PR comments\\nretained comment text\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 203) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **absent**\\n...resent**\\n\\n### Bounded PR comments\\nretained comment text\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 203) = <function _fit_required_evidence_prompt at 0x7b65eee8a980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **absent**\\n-...enced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\nretained comment text', [{'comments'}], 10000)\nE    +    where <function _fit_required_evidence_prompt at 0x7b65eee8a980> = verifier._fit_required_evidence_prompt\n___ test_evidence_fitting_rejects_unusable_channel_alternatives[unavailable] ___\ntests/scripts/test_pr_verifier_ranked_remainder.py:484: in test_evidence_fitting_rejects_unusable_channel_alternatives\n    assert verifier._fit_required_evidence_prompt(evidence, [channels], 10000) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **unavailabl...resent**\\n\\n### Bounded PR comments\\nretained comment text\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 208) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **unavailabl...resent**\\n\\n### Bounded PR comments\\nretained comment text\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 208) = <function _fit_required_evidence_prompt at 0x7b65eee8a980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **unavailable...enced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\nretained comment text', [{'comments'}], 10000)\nE    +    where <function _fit_required_evidence_prompt at 0x7b65eee8a980> = verifier._fit_required_evidence_prompt\n_ test_evidence_fitting_rejects_unusable_channel_alternatives[present-without-section] _\ntests/scripts/test_pr_verifier_ranked_remainder.py:484: in test_evidence_fitting_rejects_unusable_channel_alternatives\n    assert verifier._fit_required_evidence_prompt(evidence, [channels], 10000) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 157) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 157) = <function _fit_required_evidence_prompt at 0x7b65eee8a980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n', [{'comments'}], 10000)\nE    +    where <function _fit_required_evidence_prompt at 0x7b65eee8a980> = verifier._fit_required_evidence_prompt\n_____ test_evidence_fitting_rejects_unusable_channel_alternatives[overall] _____\ntests/scripts/test_pr_verifier_ranked_remainder.py:484: in test_evidence_fitting_rejects_unusable_channel_alternatives\n    assert verifier._fit_required_evidence_prompt(evidence, [channels], 10000) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proof', ('overall',), (), 157) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proof', ('overall',), (), 157) = <function _fit_required_evidence_prompt at 0x7b65eee8a980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n', [{'overall'}], 10000)\nE    +    where <function _fit_required_evidence_prompt at 0x7b65eee8a980> = verifier._fit_required_evidence_prompt\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unusable_channel_alternatives[absent] - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **absent**\\n...resent**\\n\\n### Bounded PR comments\\nretained comment text\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 203) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **absent**\\n...resent**\\n\\n### Bounded PR comments\\nretained comment text\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 203) = <function _fit_required_evidence_prompt at 0x7b65eee8a980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **absent**\\n-...enced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\nretained comment text', [{'comments'}], 10000)\n +    where <function _fit_required_evidence_prompt at 0x7b65eee8a980> = verifier._fit_required_evidence_prompt\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unusable_channel_alternatives[unavailable] - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **unavailabl...resent**\\n\\n### Bounded PR comments\\nretained comment text\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 208) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **unavailabl...resent**\\n\\n### Bounded PR comments\\nretained comment text\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 208) = <function _fit_required_evidence_prompt at 0x7b65eee8a980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **unavailable...enced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n### Bounded PR comments\\nretained comment text', [{'comments'}], 10000)\n +    where <function _fit_required_evidence_prompt at 0x7b65eee8a980> = verifier._fit_required_evidence_prompt\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unusable_channel_alternatives[present-without-section] - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 157) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proof', ('comments',), (), 157) = <function _fit_required_evidence_prompt at 0x7b65eee8a980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n', [{'comments'}], 10000)\n +    where <function _fit_required_evidence_prompt at 0x7b65eee8a980> = verifier._fit_required_evidence_prompt\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unusable_channel_alternatives[overall] - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proof', ('overall',), (), 157) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proof', ('overall',), (), 157) = <function _fit_required_evidence_prompt at 0x7b65eee8a980>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n### Bounded PR body\\nbody proof\\n', [{'overall'}], 10000)\n +    where <function _fit_required_evidence_prompt at 0x7b65eee8a980> = verifier._fit_required_evidence_prompt\n4 failed in 0.98s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_rejects_unusable_channel_alternatives",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.793,
+        "output": "....                                                                     [100%]\n4 passed in 0.84s\n"
+      }
+    },
+    {
+      "test": "test_evidence_fitting_requires_a_real_evidence_section",
+      "old": "if not present.intersection({\"body\", \"comments\", \"artifacts\"}):",
+      "new": "if False:",
+      "mutated_source_sha256": "4154e86e99aa9d53a3296883c01babc019d44a524b5ddd9944109b24f47fb0ca",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_requires_a_real_evidence_section",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.812,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________ test_evidence_fitting_requires_a_real_evidence_section ____________\ntests/scripts/test_pr_verifier_ranked_remainder.py:492: in test_evidence_fitting_requires_a_real_evidence_section\n    assert verifier._fit_required_evidence_prompt(preamble, [set()], 10000) is None\nE   AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**', (), (), 157) is None\nE    +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**', (), (), 157) = <function _fit_required_evidence_prompt at 0x73263fe7e8d0>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n', [set()], 10000)\nE    +    where <function _fit_required_evidence_prompt at 0x73263fe7e8d0> = verifier._fit_required_evidence_prompt\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_requires_a_real_evidence_section - AssertionError: assert ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**', (), (), 157) is None\n +  where ('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**', (), (), 157) = <function _fit_required_evidence_prompt at 0x73263fe7e8d0>('## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n', [set()], 10000)\n +    where <function _fit_required_evidence_prompt at 0x73263fe7e8d0> = verifier._fit_required_evidence_prompt\n1 failed in 0.90s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_requires_a_real_evidence_section",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.734,
+        "output": ".                                                                        [100%]\n1 passed in 0.82s\n"
+      }
+    },
+    {
+      "test": "test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof",
+      "old": "in sorted(candidates):",
+      "new": "in candidates:",
+      "mutated_source_sha256": "656df81f545e6b194e0f34099719e57c8f2475d96e061f7e76c35687ded36553",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.886,
+        "output": ".F                                                                       [100%]\n=================================== FAILURES ===================================\n_ test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof[True] _\ntests/scripts/test_pr_verifier_ranked_remainder.py:507: in test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof\n    assert verifier._fit_required_evidence_prompt(evidence, options, 1) == (\nE   AssertionError: assert ('## Acceptan...ents',), 1241) == ('## Acceptan...'body',), 256)\nE     \nE     At index 0 diff: '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proof\\n\\n### Selected required artifact proof\\nSELECTED_ARTIFACT_PROOF' != '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof\\n\\n### Selected required artifact proof\\nSELECTED_ARTIFACT_PROOF'\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       (\nE           '## Acceptance evidence\\n'\nE           '- Overall retrieval status: **present**\\n'\nE           '- PR body: **present**\\n'\nE           '- PR comments: **present**\\n'\nE           '- Referenced workflow artifacts: **present**\\n'\nE           '\\n'\nE     -     '### Bounded PR comments\\n'\nE     ?                     ^ ^^^^^^\nE     +     '### Bounded PR body\\n'\nE     ?                     ^ ^^\nE     -     'short proof\\n'\nE     +     'body proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\nE     +     'proofbody proofbody proof\\n'\nE           '\\n'\nE           '### Selected required artifact proof\\n'\nE           'SELECTED_ARTIFACT_PROOF',\nE           (\nE     +         'body',\nE     +     ),\nE     +     (\nE               'comments',\nE           ),\nE     +     1241,\nE     -     (\nE     -         'body',\nE     -     ),\nE     -     256,\nE       )\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof[True] - AssertionError: assert ('## Acceptan...ents',), 1241) == ('## Acceptan...'body',), 256)\n  \n  At index 0 diff: '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR body\\nbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proofbody proof\\n\\n### Selected required artifact proof\\nSELECTED_ARTIFACT_PROOF' != '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof\\n\\n### Selected required artifact proof\\nSELECTED_ARTIFACT_PROOF'\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    (\n        '## Acceptance evidence\\n'\n        '- Overall retrieval status: **present**\\n'\n        '- PR body: **present**\\n'\n        '- PR comments: **present**\\n'\n        '- Referenced workflow artifacts: **present**\\n'\n        '\\n'\n  -     '### Bounded PR comments\\n'\n  ?                     ^ ^^^^^^\n  +     '### Bounded PR body\\n'\n  ?                     ^ ^^\n  -     'short proof\\n'\n  +     'body proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proofbody proofbody proofbody proofbody proofbody '\n  +     'proofbody proofbody proof\\n'\n        '\\n'\n        '### Selected required artifact proof\\n'\n        'SELECTED_ARTIFACT_PROOF',\n        (\n  +         'body',\n  +     ),\n  +     (\n            'comments',\n        ),\n  +     1241,\n  -     (\n  -         'body',\n  -     ),\n  -     256,\n    )\n1 failed, 1 passed in 0.93s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.865,
+        "output": "..                                                                       [100%]\n2 passed in 0.90s\n"
+      }
+    },
+    {
+      "test": "test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof",
+      "old": "mandatory_pieces = {\"preamble\", \"selected_material\", \"selected_comments\"}",
+      "new": "mandatory_pieces = {\"preamble\"}",
+      "mutated_source_sha256": "b24e7a70aae4482b1b99e7f52a4550406c85526a31a7ffe6830d5b6c02a66b23",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.898,
+        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_ test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof[False] _\ntests/scripts/test_pr_verifier_ranked_remainder.py:507: in test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof\n    assert verifier._fit_required_evidence_prompt(evidence, options, 1) == (\nE   AssertionError: assert ('## Acceptan...terial'), 194) == ('## Acceptan...'body',), 256)\nE     \nE     At index 0 diff: '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof' != '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof\\n\\n### Selected required artifact proof\\nSELECTED_ARTIFACT_PROOF'\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       (\nE           '## Acceptance evidence\\n'\nE           '- Overall retrieval status: **present**\\n'\nE           '- PR body: **present**\\n'\nE           '- PR comments: **present**\\n'\nE           '- Referenced workflow artifacts: **present**\\n'\nE           '\\n'\nE           '### Bounded PR comments\\n'\nE     -     'short proof\\n'\nE     ?                 --\nE     +     'short proof',\nE     ?                  +\nE     -     '\\n'\nE     -     '### Selected required artifact proof\\n'\nE     -     'SELECTED_ARTIFACT_PROOF',\nE           (\nE               'comments',\nE           ),\nE           (\nE               'body',\nE     +         'selected_material',\nE           ),\nE     -     256,\nE     +     194,\nE       )\n_ test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof[True] _\ntests/scripts/test_pr_verifier_ranked_remainder.py:507: in test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof\n    assert verifier._fit_required_evidence_prompt(evidence, options, 1) == (\nE   AssertionError: assert ('## Acceptan...terial'), 194) == ('## Acceptan...'body',), 256)\nE     \nE     At index 0 diff: '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof' != '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof\\n\\n### Selected required artifact proof\\nSELECTED_ARTIFACT_PROOF'\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       (\nE           '## Acceptance evidence\\n'\nE           '- Overall retrieval status: **present**\\n'\nE           '- PR body: **present**\\n'\nE           '- PR comments: **present**\\n'\nE           '- Referenced workflow artifacts: **present**\\n'\nE           '\\n'\nE           '### Bounded PR comments\\n'\nE     -     'short proof\\n'\nE     ?                 --\nE     +     'short proof',\nE     ?                  +\nE     -     '\\n'\nE     -     '### Selected required artifact proof\\n'\nE     -     'SELECTED_ARTIFACT_PROOF',\nE           (\nE               'comments',\nE           ),\nE           (\nE               'body',\nE     +         'selected_material',\nE           ),\nE     -     256,\nE     +     194,\nE       )\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof[False] - AssertionError: assert ('## Acceptan...terial'), 194) == ('## Acceptan...'body',), 256)\n  \n  At index 0 diff: '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof' != '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof\\n\\n### Selected required artifact proof\\nSELECTED_ARTIFACT_PROOF'\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    (\n        '## Acceptance evidence\\n'\n        '- Overall retrieval status: **present**\\n'\n        '- PR body: **present**\\n'\n        '- PR comments: **present**\\n'\n        '- Referenced workflow artifacts: **present**\\n'\n        '\\n'\n        '### Bounded PR comments\\n'\n  -     'short proof\\n'\n  ?                 --\n  +     'short proof',\n  ?                  +\n  -     '\\n'\n  -     '### Selected required artifact proof\\n'\n  -     'SELECTED_ARTIFACT_PROOF',\n        (\n            'comments',\n        ),\n        (\n            'body',\n  +         'selected_material',\n        ),\n  -     256,\n  +     194,\n    )\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof[True] - AssertionError: assert ('## Acceptan...terial'), 194) == ('## Acceptan...'body',), 256)\n  \n  At index 0 diff: '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof' != '## Acceptance evidence\\n- Overall retrieval status: **present**\\n- PR body: **present**\\n- PR comments: **present**\\n- Referenced workflow artifacts: **present**\\n\\n### Bounded PR comments\\nshort proof\\n\\n### Selected required artifact proof\\nSELECTED_ARTIFACT_PROOF'\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    (\n        '## Acceptance evidence\\n'\n        '- Overall retrieval status: **present**\\n'\n        '- PR body: **present**\\n'\n        '- PR comments: **present**\\n'\n        '- Referenced workflow artifacts: **present**\\n'\n        '\\n'\n        '### Bounded PR comments\\n'\n  -     'short proof\\n'\n  ?                 --\n  +     'short proof',\n  ?                  +\n  -     '\\n'\n  -     '### Selected required artifact proof\\n'\n  -     'SELECTED_ARTIFACT_PROOF',\n        (\n            'comments',\n        ),\n        (\n            'body',\n  +         'selected_material',\n        ),\n  -     256,\n  +     194,\n    )\n2 failed in 0.93s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_selects_smallest_complete_alternative_and_keeps_selected_proof",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.839,
+        "output": "..                                                                       [100%]\n2 passed in 0.86s\n"
+      }
+    },
+    {
+      "test": "test_evidence_fitting_optional_section_respects_exact_budget",
+      "old": "len(rendered) + len(body) + 2 <= budget",
+      "new": "len(rendered) + len(body) + 2 < budget",
+      "mutated_source_sha256": "1fcac630036ca7f02a16605e9f846a6e9673fc5aa1882e2b2c9353f02de9cf5e",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_optional_section_respects_exact_budget",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.961,
+        "output": "F.                                                                       [100%]\n=================================== FAILURES ===================================\n_______ test_evidence_fitting_optional_section_respects_exact_budget[0] ________\ntests/scripts/test_pr_verifier_ranked_remainder.py:527: in test_evidence_fitting_optional_section_respects_exact_budget\n    assert rendered == (required + \"\\n\\n\" + optional if spare_chars == 0 else required)\nE   AssertionError: assert '## Acceptanc...y\\nbody proof' == '## Acceptanc...ional history'\nE     \nE     Skipping 178 identical leading characters in diff, use -v to show\nE       \nE     - body proof\nE     ?           -\nE     + body proof\nE     - \nE     - ### Bounded PR comments\nE     - optional history\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_optional_section_respects_exact_budget[0] - AssertionError: assert '## Acceptanc...y\\nbody proof' == '## Acceptanc...ional history'\n  \n  Skipping 178 identical leading characters in diff, use -v to show\n    \n  - body proof\n  ?           -\n  + body proof\n  - \n  - ### Bounded PR comments\n  - optional history\n1 failed, 1 passed in 0.92s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_evidence_fitting_optional_section_respects_exact_budget",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.745,
+        "output": "..                                                                       [100%]\n2 passed in 0.84s\n"
+      }
+    }
+  ],
+  "attributable_original_round_reduction": null,
+  "newly_covered_lines": [
+    654,
+    655,
+    657,
+    6141,
+    6149,
+    6150,
+    6151,
+    6152,
+    6153,
+    6154,
+    6155,
+    6156,
+    6157,
+    6164,
+    6165,
+    6166,
+    6167,
+    6173,
+    6174,
+    6175,
+    6176,
+    6177,
+    6179,
+    6180,
+    6181,
+    6182,
+    6183,
+    6184,
+    6185,
+    6186,
+    6188,
+    6189,
+    6190,
+    6191,
+    6196,
+    6197,
+    6198,
+    6203,
+    6204,
+    6205,
+    6206,
+    6210,
+    6211,
+    6212,
+    6213,
+    6214,
+    6215,
+    6216,
+    6217,
+    6219,
+    6220,
+    6221
+  ],
+  "newly_covered_branches": [
+    [
+      652,
+      654
+    ],
+    [
+      655,
+      657
+    ],
+    [
+      6047,
+      6038
+    ],
+    [
+      6154,
+      6155
+    ],
+    [
+      6154,
+      6180
+    ],
+    [
+      6156,
+      6157
+    ],
+    [
+      6156,
+      6165
+    ],
+    [
+      6157,
+      6164
+    ],
+    [
+      6157,
+      6179
+    ],
+    [
+      6165,
+      6166
+    ],
+    [
+      6165,
+      6167
+    ],
+    [
+      6167,
+      6173
+    ],
+    [
+      6167,
+      6174
+    ],
+    [
+      6174,
+      6175
+    ],
+    [
+      6174,
+      6177
+    ],
+    [
+      6177,
+      6179
+    ],
+    [
+      6180,
+      6181
+    ],
+    [
+      6180,
+      6182
+    ],
+    [
+      6184,
+      6185
+    ],
+    [
+      6184,
+      6186
+    ],
+    [
+      6186,
+      6188
+    ],
+    [
+      6188,
+      6189
+    ],
+    [
+      6188,
+      6190
+    ],
+    [
+      6191,
+      6196
+    ],
+    [
+      6197,
+      6198
+    ],
+    [
+      6197,
+      6210
+    ],
+    [
+      6198,
+      6203
+    ],
+    [
+      6198,
+      6204
+    ],
+    [
+      6210,
+      6211
+    ],
+    [
+      6210,
+      6221
+    ],
+    [
+      6213,
+      6214
+    ],
+    [
+      6213,
+      6220
+    ],
+    [
+      6214,
+      6215
+    ],
+    [
+      6214,
+      6216
+    ],
+    [
+      6216,
+      6217
+    ],
+    [
+      6216,
+      6219
+    ]
+  ],
+  "local_missing_unit_reduction": 88,
+  "lost_covered_units": 0,
+  "historical_source_evidence": "evidence-fitting-historical-symbol.json",
+  "historical_source_evidence_sha256": "768138a2eccfc10c50ea3fd5bf32879e8db943ad8d590a55f0702fab2659a709",
+  "historical_symbol_start_line": 6107,
+  "same_historical_symbol_ast": true,
+  "historical_gap_lines_covered": [
+    6155,
+    6177
+  ],
+  "historical_gap_arcs_covered": [
+    [
+      6154,
+      6155
+    ],
+    [
+      6172,
+      6177
+    ]
+  ],
+  "source_restored": true,
+  "final_tests_restored": true,
+  "target_dispositions": {
+    "scripts/langchain/pr_verifier.py": {
+      "disposition": "behavioral_tests_advanced",
+      "reason": "named evidence-fitting gaps",
+      "target_exclusion": null,
+      "attributable_round_reduction": null
+    },
+    "scripts/sync_test_dependencies.py": {
+      "disposition": "not_selected_this_chunk",
+      "reason": "original-round comparable remainder remains unknown",
+      "target_exclusion": null,
+      "attributable_round_reduction": null
+    },
+    "tools/langchain_client.py": {
+      "disposition": "not_selected_this_chunk",
+      "reason": "original-round comparable remainder remains unknown",
+      "target_exclusion": null,
+      "attributable_round_reduction": null
+    },
+    "scripts/langchain/task_validator.py": {
+      "disposition": "not_selected_this_chunk",
+      "reason": "original-round comparable remainder remains unknown",
+      "target_exclusion": null,
+      "attributable_round_reduction": null
+    },
+    "scripts/langchain/verifier_config.py": {
+      "disposition": "not_selected_this_chunk",
+      "reason": "original-round comparable remainder remains unknown",
+      "target_exclusion": null,
+      "attributable_round_reduction": null
+    },
+    "scripts/langchain/issue_pr_context.py": {
+      "disposition": "not_selected_this_chunk",
+      "reason": "original-round comparable remainder remains unknown",
+      "target_exclusion": null,
+      "attributable_round_reduction": null
+    }
+  }
+}

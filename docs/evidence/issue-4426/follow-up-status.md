@@ -1,5 +1,32 @@
 # Issue #4500 follow-up status, 2026-11-07
 
+## Evidence-fitting continuation, 2026-11-11
+
+Seven tests (15 parameter cases) advance Task 2 for
+`_fit_required_evidence_prompt`. Eight named mutants fail and pass after
+restoration; no production mutation remains. The matched local suite gains
+88 units (52 lines, 36 arcs), of which four map to historical Gate gaps using
+exact-head symbol evidence. These gains do not establish original-round
+attribution or satisfy the approximately 180-unit contract. All six target
+dispositions retain null attribution and no exclusions.
+
+Validation: 239 required behavioral tests pass in 5.39s; all 74 evidence tests
+pass in a depth-one offline checkout in 4.65s without credential copying.
+Ruff, diff checks and full-tree Black pass; Black uses the existing serial
+scheduling adaptation and reports 1009 unchanged files. Commands, complete
+mutation outputs, coverage artifacts and immutable symbol/test evidence are
+linked from `evidence-fitting-validation.json` and `evidence-fitting-checks.json`.
+
+The connector reverified final historical artifact 13537639987's head/digest,
+while original-round run 38980711116 lists no artifacts. Comparable original
+baseline and final follow-up-head Gate remain unverified. Tasks 1, 2 and 6
+remain incomplete and no checkbox is advanced. Historical records are retained.
+
+The active checkout cannot stage because `.git/index.lock` creation fails with
+`Read-only file system` (exit 128). No commit, new branch or PR is created.
+All changes remain in the workspace and are exported as
+`/tmp/issue4426-evidence-fitting.patch`.
+
 ## Current continuation disposition, 2026-11-07
 
 This section supersedes earlier live-state claims below; those remain historical.

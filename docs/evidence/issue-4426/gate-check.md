@@ -1,5 +1,71 @@
 # Issue #4426 Gate check and stop rule
 
+## Evidence prompt fitting follow-up, 2026-11-11
+
+Before source/test edits, the required four-module behavioral selection passes
+224 tests in 5.27s, exit 0. The real-input baseline command below passes 28 tests
+in 4.83s, exit 0, with 36.37% coverage for this local selection only:
+
+```bash
+python -m pytest -q tests/scripts/test_pr_verifier_ranked_remainder.py --cov=scripts.langchain.pr_verifier --cov-branch --cov-report=json:/tmp/issue4426-evidence-fit-before.json --cov-report=term -m 'not slow'
+```
+
+Selected symbol before editing: `_fit_required_evidence_prompt`, specifically
+malformed channel headings, fence integrity, usable channel alternatives and
+complete mandatory proof when fitting optional sections. Missing lines and arcs
+are selected from the verified historical/current Gate inventories; source line
+positions will be mapped to symbol-relative positions before credit is recorded.
+
+The GitHub connector reverified artifact 13537639987 under run 42287174423,
+head `97fa3cdd6b198623db4adc86f16f0b3788320794`, and digest
+`sha256:c754151adf08a07da718d76b40da09c814ef2ae09e69b982c0635cd9e608c839`.
+Original-round run 38980711116 currently lists no artifacts. Existing execution
+configuration evidence records changed runtime, reporting exclusions and test
+settings. Task 1 remains blocked on a comparable original-round baseline;
+continue Task 2 without claiming attributable original-round improvement.
+Historical measurement/ranking snapshots remain unchanged.
+
+Finite stop rule: each focused command has a 110-second timeout, with at most
+two failed attempts per required check and 20 minutes per broken step. Every new
+behavioral test must produce a named mutation failure and restored pass before
+this chunk is complete. Neither these local gains nor existing overlapping
+follow-ups may be summed into original-round credit. No task checkbox is advanced.
+
+Final results for the 2026-11-11 evidence-fitting chunk:
+
+- Seven new named tests cover 15 parameter cases. The required four-module
+  behavioral selection passes 239 tests in 5.39s, exit 0.
+- `python docs/evidence/issue-4426/evidence-fitting-driver.txt` records eight
+  named mutation failures (exit 1) and restored passes (exit 0). Complete
+  outputs, immutable source/test fragments and matched coverage artifacts are
+  in `evidence-fitting-validation.json` and `evidence-fitting-*.coverage.json.gz`.
+  Production source is restored byte for byte.
+- The same local suite gains 88 units: 52 lines and 36 branch outcomes, with
+  no lost coverage. Its module Cover column moves from 36.37% to 38.25%.
+  Exact-head source fetched from checkout `e4e584ea61852751c55749ab9ed6539fa10c9a31`
+  is retained in `evidence-fitting-historical-symbol.json`; its function AST
+  matches the tested symbol. Mapping by that symbol's offset identifies two
+  previously missing historical lines (6155, 6177) and two arcs (6154->6155,
+  6172->6177). These four historical gaps and the 88 local units do not
+  establish original-round causal attribution and are not added to other gains.
+- The six documentation modules pass 74 tests in 4.65s from a fresh depth-one
+  checkout with networking blocked and no credential copying. The runnable
+  command and complete output are in `evidence-fitting-shallow-validation.json`.
+- Ruff, `git diff --check`, and the required full-tree Black check pass. Black
+  reports 1009 files unchanged using the existing serial scheduling technique
+  because default process-pool startup fails in this sandbox. The exact
+  command, adaptation source and results are in `evidence-fitting-checks.json`.
+
+Staging fails with exit 128 because `.git/index.lock` cannot be created on
+the read-only metadata mount. No commit, new branch or PR is created. The
+verified workspace changes are also exported to
+`/tmp/issue4426-evidence-fitting.patch`.
+
+All six target dispositions are recorded without exclusions. Original-round
+comparable baseline evidence and final follow-up-head Gate remain unverified;
+Tasks 1, 2 and 6 remain incomplete. No historical snapshot is overwritten and
+no task checkbox is advanced.
+
 ## Continuation acceptance, 2026-11-07
 
 Outcome 1: verified archive inventories and unique attributable round-wide reduction
