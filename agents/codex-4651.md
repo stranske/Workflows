@@ -43,3 +43,34 @@ The requested commit could not be created: `git add` failed while creating
 `.git/index.lock` because `.git` is mounted read-only. The validated changes
 remain in the working tree on `codex/issue-4651`; no branch or PR was created.
 PR #4659 was verified open with `isDraft=false`.
+
+Next iteration: daily report persistence
+---------------------------------------
+
+Added `test_daily_runs_reload_native_sources_and_publish_before_recovery_closure`
+in `tests/scripts/test_ci_time_budget.py`. Unlike the earlier row-level regression,
+this exercises `run`, `load_report`, `publish`, and `reconcile` together through
+the report Contents API boundary. Each invocation reloads serialized state and
+uses the preceding blob SHA when publishing to `ci-time-budget`. The three cases
+retain native daily sources across missing, unavailable, and over-target dates,
+keep the reopened issue open until seven consecutive qualifying dates, and verify
+publication before the closure comment and issue close. Inputs remain simulated;
+this test does not establish live acceptance or modify the published report.
+
+Validation: `pytest tests/scripts/test_ci_time_budget.py
+tests/scripts/test_health85_followup.py -m 'not slow' -q` passed all 47 tests.
+`ruff check tests/scripts/test_ci_time_budget.py` and `git diff --check` passed.
+The required `black --check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` passed with 1,006 files unchanged. As in the
+prior iteration, serial Black checks populated a temporary cache before running
+the exact CLI check with one worker; the uncached worker invocation stalled.
+
+Live connector reads still show #4642 closed with `ci-budget`, and only the two
+over-target November 10/11 observations described above. The prior denied owner
+handoff writes were not repeated. No task or acceptance checkbox was completed.
+Both required CLI read commands were attempted again; `gh` could not connect to
+GitHub. PR #4659 remains open with `isDraft=false`.
+
+Staging this iteration also failed with `.git/index.lock: Read-only file system`.
+The test change remains uncommitted on the existing PR branch for the runner to
+commit; no branch or PR was created.
