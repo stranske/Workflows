@@ -432,8 +432,41 @@ jobs:
         if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
         with:
           node-version: '24'
-      - run: node --test .github/scripts/__tests__/*.test.js
+      - name: Run github script tests (bounded)
         if: ${{ steps.script_tests.outputs.node_tests == 'true' }}
+        timeout-minutes: 5
+        run: |
+          # GitHub runs this with `bash -eo pipefail`; the watchdog must survive
+          # pgrep finding no child (an async hang), so errexit is off here.
+          set +e -uo pipefail
+          # Bounded so a hung test file fails fast and is NAMED instead of
+          # holding the job open silently (PR #4639: two Gate runs hung 9-21 min
+          # behind an orphaned `unzip`). Sized from measured runs: the whole
+          # suite takes 15-23s and the longest single test or suite 3.5s.
+          #  - --test-timeout fails a hung async test by name.
+          #  - It cannot fire for a test blocked inside execFileSync (a hung
+          #    unzip/python3/git child freezes that file's event loop and Node
+          #    reports nothing). The watchdog names each test file still
+          #    running at the deadline and the child process it is waiting on.
+          #  - Step timeout-minutes is the last backstop.
+          deadline=180
+          node --test --test-timeout=60000 .github/scripts/__tests__/*.test.js &
+          runner=$!
+          SECONDS=0
+          while kill -0 "$runner" 2>/dev/null && [ "$SECONDS" -lt "$deadline" ]; do sleep 1; done
+          if ! kill -0 "$runner" 2>/dev/null; then
+            wait "$runner"
+            exit $?
+          fi
+          echo "::error title=github scripts tests exceeded ${deadline}s::the test files still running are named below"
+          for child in $(pgrep -P "$runner"); do
+            file=$(tr '\0' '\n' < "/proc/$child/cmdline" | tail -n 1)
+            waiting=$(pgrep -a -P "$child" | cut -d' ' -f2- | tr '\n' ';')
+            echo "::error file=${file}::${file} still running after ${deadline}s; waiting on: ${waiting:-no child process (async wait)}"
+          done
+          kill_tree() { local p; for p in $(pgrep -P "$1"); do kill_tree "$p"; done; kill -KILL "$1" 2>/dev/null; }
+          kill_tree "$runner"
+          exit 1
       - uses: actions/setup-python@v7
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}
         with:
