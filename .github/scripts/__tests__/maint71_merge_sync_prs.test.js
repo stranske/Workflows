@@ -3120,6 +3120,41 @@ test('an infrastructure-failed canary refresh does not debounce the next attempt
   assert.equal(`refresh: ${live.eligible ? 'allowed' : 'skipped'} (${live.state})`, 'refresh: allowed (unseen)');
 });
 
+test('a Sync job that failed only at Create sync PR is an infrastructure failure', () => {
+  for (const postStepConclusion of ['success', 'skipped']) {
+    const run = refreshFailureJobs([
+      { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'success' },
+      { name: 'Sync stranske/Template', status: 'completed', conclusion: 'failure', steps: [
+        { name: 'Detect and apply changes', conclusion: 'success' },
+        { name: 'Check for existing sync PR', conclusion: 'success' },
+        { name: 'Create sync PR', conclusion: 'failure' },
+        { name: 'Post Setup Python', conclusion: postStepConclusion },
+      ] },
+    ]);
+    const state = canaryRefreshDecision({ runs: [run], sha: 'a'.repeat(40),
+      candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+    assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'infrastructure');
+    assert.equal(state.eligible, true);
+  }
+});
+
+test('a Sync job that failed before Create sync PR is still a consumer failure', () => {
+  const contentFailure = { name: 'Sync stranske/Template', status: 'completed', conclusion: 'failure', steps: [
+    { name: 'Apply sync', conclusion: 'failure' },
+    { name: 'Create sync PR', conclusion: 'skipped' },
+  ] };
+  const prFailure = { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'failure', steps: [
+    { name: 'Apply sync', conclusion: 'success' },
+    { name: 'Create sync PR', conclusion: 'failure' },
+  ] };
+  for (const jobs of [[contentFailure], [prFailure, contentFailure]]) {
+    const state = canaryRefreshDecision({ runs: [refreshFailureJobs(jobs)], sha: 'a'.repeat(40),
+      candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+    assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'consumer');
+    assert.equal(state.eligible, false);
+  }
+});
+
 test('a consumer-failed canary refresh still debounces for six hours', () => {
   const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
     candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
