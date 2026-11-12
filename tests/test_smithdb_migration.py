@@ -13,6 +13,7 @@ NOW = datetime(2026, 11, 12, tzinfo=UTC)
 
 
 class SmithDBMigrationTests(unittest.TestCase):
+
     def query(self, endpoint="https://api.smith.langchain.com"):
         return health.query_latest_trace(
             api_key="synthetic-key",
@@ -47,34 +48,25 @@ class SmithDBMigrationTests(unittest.TestCase):
             }
 
         with patch.object(health, "_request_json", request):
-            self.assertEqual(self.query()["id"], "latest")
-        self.assertEqual(calls[1][1], "https://api.smith.langchain.com/api/v2/runs/query")
-        self.assertEqual(
-            calls[1][2],
-            {
-                "project_ids": ["project"],
-                "min_start_time": "2026-11-05T00:00:00+00:00",
-                "max_start_time": NOW.isoformat(),
-                "selects": ["ID", "TRACE_ID", "START_TIME", "STATUS"],
-                "page_size": 100,
-            },
-        )
-        self.assertEqual(calls[2][2]["cursor"], "next")
+            assert self.query()["id"] == "latest"
+        assert calls[1][1] == "https://api.smith.langchain.com/api/v2/runs/query"
+        assert calls[1][2] == {
+            "project_ids": ["project"],
+            "min_start_time": "2026-11-05T00:00:00+00:00",
+            "max_start_time": NOW.isoformat(),
+            "selects": ["ID", "TRACE_ID", "START_TIME", "STATUS"],
+            "page_size": 100,
+        }
+        assert calls[2][2]["cursor"] == "next"
 
     def test_v1_base_empty_results(self):
         with patch.object(
             health,
             "_request_json",
-            side_effect=[
-                [{"name": "workflows-agents", "id": "project"}],
-                {"items": []},
-            ],
+            side_effect=[[{"name": "workflows-agents", "id": "project"}], {"items": []}],
         ) as request:
-            self.assertIsNone(self.query("https://api.smith.langchain.com/api/v1"))
-        self.assertEqual(
-            request.call_args.args[1],
-            "https://api.smith.langchain.com/api/v2/runs/query",
-        )
+            assert self.query("https://api.smith.langchain.com/api/v1") is None
+        assert request.call_args.args[1] == "https://api.smith.langchain.com/api/v2/runs/query"
 
     def test_old_shape_is_error_not_false_no_traces(self):
         with (
