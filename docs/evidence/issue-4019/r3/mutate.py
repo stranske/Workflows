@@ -316,6 +316,8 @@ def main(out_dir: Path) -> int:
             }
         )
         print(mid, "red", red_code, "green", green_code, "ok" if passed else "NOT OK")
+        if red_code == 124 or green_code == 124:
+            break
     (out_dir / "mutation-receipts.json").write_text(json.dumps(receipts, indent=2) + "\n")
     return 0 if ok else 1
 

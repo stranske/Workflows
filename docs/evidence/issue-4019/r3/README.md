@@ -81,8 +81,13 @@ the mutation driver and environment isolation, and adds driver regressions.
 See `acceptance-integration.md` for current provenance and acceptance status.
 All validation/counts above describe historical #4431 runs. Final-head hosted
 Python 3.13/3.14 and raw coverage are PENDING, as are merge/main ancestry and
-delivered-revision focused pytest. New receipts use `integration-rerun/`;
-original `mutations/` receipts are preserved. No summary percentage substitutes
+delivered-revision focused pytest. New receipts use `integration-rerun/mutations/` (executed on the post-#4495 integrated
+tree `c1f18728c6b215fa7a66353b311fa12277074437` / cherry-pick `7ba92707`, where e.g.
+`04-red.txt` reports `tests/tools/test_llm_provider.py:2178`);
+original `mutations/` receipts are preserved byte-for-byte from #4431 candidate head
+`69e5b6d6cd3fb154be29890f2ae212772de8ce45` (where `04-red.txt` reports
+`tests/tools/test_llm_provider.py:2154` prior to #4495's 24-line regression addition).
+No summary percentage substitutes
 for separately identified raw runtime coverage or explicit residual lists.
 
 

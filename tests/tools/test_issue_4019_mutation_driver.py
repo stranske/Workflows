@@ -13,6 +13,9 @@ ROOT = Path(__file__).resolve().parents[2]
 DRIVER = ROOT / "docs/evidence/issue-4019/r3/mutate.py"
 TARGET_MISSING = ROOT / "docs/evidence/issue-4019/r3/target_missing.py"
 RECEIPTS_PATH = ROOT / "docs/evidence/issue-4019/r3/mutations/mutation-receipts.json"
+RERUN_RECEIPTS_PATH = (
+    ROOT / "docs/evidence/issue-4019/r3/integration-rerun/mutations/mutation-receipts.json"
+)
 
 
 def load_driver():
@@ -123,6 +126,76 @@ def test_count_mismatch_records_failed_receipt_without_replacing_source(tmp_path
     assert receipts[0]["proof_ok"] is False
 
 
+def test_successful_mutation_path_records_verified_receipt(tmp_path, monkeypatch):
+    """Verify main() executes red-then-green in order, restores source, and returns 0."""
+    driver = load_driver()
+    source = tmp_path / "source.py"
+    original = b"value = 1\n"
+    source.write_bytes(original)
+    monkeypatch.setattr(driver, "MUTATIONS", [("01", "test.py::test_ok", str(source), "1", "2", 1)])
+    observed_states = []
+
+    def stub_run(node):
+        current_text = source.read_text(encoding="utf-8")
+        observed_states.append((node, current_text))
+        if len(observed_states) == 1:
+            return 1, "FAILED test.py::test_ok - assert 2 == 1\n1 failed in 0.01s\n"
+        return 0, "1 passed in 0.01s\n"
+
+    monkeypatch.setattr(driver, "run", stub_run)
+
+    rc = driver.main(tmp_path)
+    assert rc == 0
+    assert observed_states == [
+        ("test.py::test_ok", "value = 2\n"),
+        ("test.py::test_ok", "value = 1\n"),
+    ]
+    assert source.read_bytes() == original
+    receipts = json.loads((tmp_path / "mutation-receipts.json").read_text())
+    assert len(receipts) == 1
+    assert receipts[0]["id"] == "01"
+    assert receipts[0]["red_exit"] == 1
+    assert receipts[0]["green_exit"] == 0
+    assert receipts[0]["red_last_line"] == "1 failed in 0.01s"
+    assert receipts[0]["green_last_line"] == "1 passed in 0.01s"
+    assert receipts[0]["sha256_before"] == receipts[0]["sha256_restored"]
+    assert receipts[0]["proof_ok"] is True
+
+
+def test_timeout_in_main_stops_subsequent_mutations(tmp_path, monkeypatch):
+    """Ensure main() stops the mutation loop after recording a timed-out (exit 124) run."""
+    driver = load_driver()
+    source = tmp_path / "source.py"
+    original = b"value = 1\n"
+    source.write_bytes(original)
+    monkeypatch.setattr(
+        driver,
+        "MUTATIONS",
+        [
+            ("01", "test.py::test_timeout", str(source), "1", "2", 1),
+            ("02", "test.py::test_never_called", str(source), "1", "3", 1),
+        ],
+    )
+    called_nodes = []
+
+    def stub_run(node):
+        called_nodes.append(node)
+        if len(called_nodes) == 1:
+            return 124, "TimeoutExpired: timed out\n"
+        return 0, "1 passed\n"
+
+    monkeypatch.setattr(driver, "run", stub_run)
+
+    rc = driver.main(tmp_path)
+    assert rc == 1
+    assert source.read_bytes() == original
+    assert called_nodes == ["test.py::test_timeout", "test.py::test_timeout"]
+    receipts = json.loads((tmp_path / "mutation-receipts.json").read_text())
+    assert [r["id"] for r in receipts] == ["01"]
+    assert receipts[0]["red_exit"] == 124
+    assert receipts[0]["proof_ok"] is False
+
+
 def test_target_missing_script_calculates_missing_totals(tmp_path):
     """Verify target_missing.py sums missing lines and branches across the three targets."""
     coverage_fixture = tmp_path / "coverage.json"
@@ -170,15 +243,23 @@ def test_target_missing_script_calculates_missing_totals(tmp_path):
 
 
 def test_verified_mutation_receipts_inventory():
-    """Verify the 27 mutation receipts on disk all have proof_ok and matching SHA-256 digests."""
-    assert RECEIPTS_PATH.is_file()
-    receipts = json.loads(RECEIPTS_PATH.read_text())
-    assert len(receipts) == 27
-    for receipt in receipts:
-        assert receipt["proof_ok"] is True
-        assert receipt["red_exit"] == 1
-        assert receipt["green_exit"] == 0
-        assert receipt["sha256_before"] == receipt["sha256_restored"]
+    """Verify the 27 mutation receipts on disk match MUTATIONS IDs and have proof_ok."""
+    driver = load_driver()
+    expected_ids = [mid for mid, *_ in driver.MUTATIONS]
+    assert len(expected_ids) == 27
+    assert len(set(expected_ids)) == 27
+    for path in (RECEIPTS_PATH, RERUN_RECEIPTS_PATH):
+        assert path.is_file()
+        receipts = json.loads(path.read_text())
+        receipt_ids = [receipt["id"] for receipt in receipts]
+        assert len(receipt_ids) == 27
+        assert len(set(receipt_ids)) == 27
+        assert receipt_ids == expected_ids
+        for receipt in receipts:
+            assert receipt["proof_ok"] is True
+            assert receipt["red_exit"] == 1
+            assert receipt["green_exit"] == 0
+            assert receipt["sha256_before"] == receipt["sha256_restored"]
 
 
 def test_target_missing_module_main_and_usage_guard(tmp_path):
