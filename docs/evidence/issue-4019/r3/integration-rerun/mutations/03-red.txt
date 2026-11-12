@@ -1,3 +1,4 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
 $ /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_codex_freshness_summary_tolerates_missing_update_targets -q -p no:cacheprovider
 F                                                                        [100%]
 =================================== FAILURES ===================================

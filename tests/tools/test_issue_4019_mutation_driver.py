@@ -50,8 +50,32 @@ def test_partial_write_restores_original(tmp_path, monkeypatch):
 
     monkeypatch.setattr(Path, "write_text", partial_write)
     with pytest.raises(OSError, match="injected partial write"):
-        driver.main(tmp_path)
+        driver.main(tmp_path, revision="deadbeef")
     assert source.read_bytes() == original
+
+
+def test_get_revision_handles_git_success_and_failure(monkeypatch):
+    """Ensure get_revision() returns the git HEAD SHA or falls back to 'unknown'."""
+    driver = load_driver()
+    monkeypatch.setattr(
+        driver.subprocess,
+        "run",
+        lambda argv, **kwargs: SimpleNamespace(returncode=0, stdout="abc1234\n", stderr=""),
+    )
+    assert driver.get_revision() == "abc1234"
+
+    monkeypatch.setattr(
+        driver.subprocess,
+        "run",
+        lambda argv, **kwargs: SimpleNamespace(returncode=128, stdout="", stderr="fatal"),
+    )
+    assert driver.get_revision() == "unknown"
+
+    def raise_os_error(argv, **kwargs):
+        raise OSError("git missing")
+
+    monkeypatch.setattr(driver.subprocess, "run", raise_os_error)
+    assert driver.get_revision() == "unknown"
 
 
 def test_subprocess_uses_active_interpreter(monkeypatch):
@@ -144,16 +168,19 @@ def test_successful_mutation_path_records_verified_receipt(tmp_path, monkeypatch
 
     monkeypatch.setattr(driver, "run", stub_run)
 
-    rc = driver.main(tmp_path)
+    rc = driver.main(tmp_path, revision="test-rev-001")
     assert rc == 0
     assert observed_states == [
         ("test.py::test_ok", "value = 2\n"),
         ("test.py::test_ok", "value = 1\n"),
     ]
     assert source.read_bytes() == original
+    assert (tmp_path / "01-red.txt").read_text().startswith("# revision: test-rev-001\n")
+    assert (tmp_path / "01-green.txt").read_text().startswith("# revision: test-rev-001\n")
     receipts = json.loads((tmp_path / "mutation-receipts.json").read_text())
     assert len(receipts) == 1
     assert receipts[0]["id"] == "01"
+    assert receipts[0]["revision"] == "test-rev-001"
     assert receipts[0]["red_exit"] == 1
     assert receipts[0]["green_exit"] == 0
     assert receipts[0]["red_last_line"] == "1 failed in 0.01s"
@@ -243,12 +270,24 @@ def test_target_missing_script_calculates_missing_totals(tmp_path):
 
 
 def test_verified_mutation_receipts_inventory():
-    """Verify the 27 mutation receipts on disk match MUTATIONS IDs and have proof_ok."""
+    """Verify the 27 mutation receipts on disk match MUTATIONS IDs, revisions, and proof_ok."""
     driver = load_driver()
     expected_ids = [mid for mid, *_ in driver.MUTATIONS]
     assert len(expected_ids) == 27
     assert len(set(expected_ids)) == 27
-    for path in (RECEIPTS_PATH, RERUN_RECEIPTS_PATH):
+    expected_sets = (
+        (
+            RECEIPTS_PATH,
+            "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
+            "tests/tools/test_llm_provider.py:2154: AssertionError",
+        ),
+        (
+            RERUN_RECEIPTS_PATH,
+            "c1f18728c6b215fa7a66353b311fa12277074437",
+            "tests/tools/test_llm_provider.py:2178: AssertionError",
+        ),
+    )
+    for path, expected_rev, expected_04_line in expected_sets:
         assert path.is_file()
         receipts = json.loads(path.read_text())
         receipt_ids = [receipt["id"] for receipt in receipts]
@@ -256,10 +295,14 @@ def test_verified_mutation_receipts_inventory():
         assert len(set(receipt_ids)) == 27
         assert receipt_ids == expected_ids
         for receipt in receipts:
+            assert receipt["revision"] == expected_rev
             assert receipt["proof_ok"] is True
             assert receipt["red_exit"] == 1
             assert receipt["green_exit"] == 0
             assert receipt["sha256_before"] == receipt["sha256_restored"]
+        red_04 = (path.parent / "04-red.txt").read_text()
+        assert red_04.startswith(f"# revision: {expected_rev}\n")
+        assert expected_04_line in red_04
 
 
 def test_target_missing_module_main_and_usage_guard(tmp_path):

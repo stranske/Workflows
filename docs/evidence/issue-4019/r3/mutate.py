@@ -238,6 +238,22 @@ MUTATIONS = [
 ]
 
 
+def get_revision() -> str:
+    """Return the current git HEAD commit SHA, or 'unknown' if unavailable."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    rev = proc.stdout.strip()
+    return rev if proc.returncode == 0 and rev else "unknown"
+
+
 def run(node: str) -> tuple[int, str]:
     """Execute pytest for a single test node and return exit code and combined output."""
     try:
@@ -262,8 +278,9 @@ def run(node: str) -> tuple[int, str]:
     return proc.returncode, proc.stdout + proc.stderr
 
 
-def main(out_dir: Path) -> int:
+def main(out_dir: Path, revision: str | None = None) -> int:
     """Run all configured mutations, verify byte restoration, and write receipts."""
+    resolved_revision = revision if revision is not None else get_revision()
     receipts = []
     ok = True
     for mid, node, path, old, new, count in MUTATIONS:
@@ -286,8 +303,12 @@ def main(out_dir: Path) -> int:
                 src.write_bytes(original)
             restored = hashlib.sha256(src.read_bytes()).hexdigest()
             green_code, green_out = run(node)
-        (out_dir / f"{mid}-red.txt").write_text(f"$ {cmd}\n{red_out}exit={red_code}\n")
-        (out_dir / f"{mid}-green.txt").write_text(f"$ {cmd}\n{green_out}exit={green_code}\n")
+        (out_dir / f"{mid}-red.txt").write_text(
+            f"# revision: {resolved_revision}\n$ {cmd}\n{red_out}exit={red_code}\n"
+        )
+        (out_dir / f"{mid}-green.txt").write_text(
+            f"# revision: {resolved_revision}\n$ {cmd}\n{green_out}exit={green_code}\n"
+        )
         passed = (
             actual_count == count
             and red_code == 1
@@ -301,6 +322,7 @@ def main(out_dir: Path) -> int:
         receipts.append(
             {
                 "id": mid,
+                "revision": resolved_revision,
                 "node": node,
                 "file": path,
                 "replace": old,

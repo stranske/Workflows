@@ -1,3 +1,4 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
 $ /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_step_with_unknown_success_value -q -p no:cacheprovider
 F                                                                        [100%]
 =================================== FAILURES ===================================

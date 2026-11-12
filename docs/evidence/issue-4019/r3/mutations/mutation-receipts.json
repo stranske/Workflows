@@ -1,6 +1,7 @@
 [
   {
     "id": "01",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/scripts/test_aggregate_agent_metrics.py::test_langsmith_trace_refs_skip_trace_list_item_without_id_or_url",
     "file": "scripts/aggregate_agent_metrics.py",
     "replace": "            elif item_trace_url:",
@@ -16,6 +17,7 @@
   },
   {
     "id": "02",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_step_with_unknown_success_value",
     "file": "scripts/aggregate_agent_metrics.py",
     "replace": "        elif success in (False, \"false\", \"False\", \"0\", 0):",
@@ -31,6 +33,7 @@
   },
   {
     "id": "03",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/scripts/test_aggregate_agent_metrics.py::test_codex_freshness_summary_tolerates_missing_update_targets",
     "file": "scripts/aggregate_agent_metrics.py",
     "replace": "        targets = entry.get(\"update_targets\")\n        if isinstance(targets, list):",
@@ -46,6 +49,7 @@
   },
   {
     "id": "04",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_configured_model_falls_back_when_registry_import_fails",
     "file": "tools/llm_provider.py",
     "replace": "    except ImportError:\n        return fallback\n",
@@ -61,6 +65,7 @@
   },
   {
     "id": "05",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_metadata_keeps_explicit_issue_or_pr_number",
     "file": "tools/llm_provider.py",
     "replace": "    if issue_or_pr_number is None:",
@@ -76,6 +81,7 @@
   },
   {
     "id": "06",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_extract_trace_id_uses_instance_dict_when_id_attribute_hidden",
     "file": "tools/llm_provider.py",
     "replace": "            if \"id\" in response_dict:",
@@ -91,6 +97,7 @@
   },
   {
     "id": "07",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_extract_trace_id_returns_none_when_metadata_access_raises",
     "file": "tools/llm_provider.py",
     "replace": "    except Exception as e:\n        logger.debug(f\"Failed to extract trace ID",
@@ -106,6 +113,7 @@
   },
   {
     "id": "08",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_base_supports_quality_context_false_when_signature_unavailable",
     "file": "tools/llm_provider.py",
     "replace": "        except (TypeError, ValueError):\n            return False\n        return \"quality_context\"",
@@ -121,6 +129,7 @@
   },
   {
     "id": "09",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_supports_quality_context_error_falls_back_to_legacy_signature",
     "file": "tools/llm_provider.py",
     "replace": "    elif supports is not None:",
@@ -136,6 +145,7 @@
   },
   {
     "id": "10",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_supports_quality_context_without_helper_uses_signature",
     "file": "tools/llm_provider.py",
     "replace": "    return \"quality_context\" in parameters or any(\n        param.kind",
@@ -151,6 +161,7 @@
   },
   {
     "id": "11",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_none_when_langchain_openai_missing",
     "file": "tools/llm_provider.py",
     "replace": "        except ImportError:\n            logger.warning(\"langchain_openai not installed\")",
@@ -166,6 +177,7 @@
   },
   {
     "id": "12",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_none_without_reviewed_model",
     "file": "tools/llm_provider.py",
     "replace": "        if not model_name:\n            logger.warning(\"No reviewed GitHub Models",
@@ -181,6 +193,7 @@
   },
   {
     "id": "13",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_targets_github_models_endpoint",
     "file": "tools/llm_provider.py",
     "replace": "            base_url=GITHUB_MODELS_BASE_URL,",
@@ -196,6 +209,7 @@
   },
   {
     "id": "14",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_analyze_requires_client",
     "file": "tools/llm_provider.py",
     "replace": "        if not client:\n            raise RuntimeError(\n                \"GitHub Models client",
@@ -211,6 +225,7 @@
   },
   {
     "id": "15",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_analyze_reraises_api_error",
     "file": "tools/llm_provider.py",
     "replace": "            logger.error(f\"GitHub Models API error: {e}\")\n            raise",
@@ -226,6 +241,7 @@
   },
   {
     "id": "16",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_langchain_client_none_when_helper_missing",
     "file": "tools/llm_provider.py",
     "replace": "        except ImportError:\n            logger.warning(\"LangChain client helper not available\")",
@@ -241,6 +257,7 @@
   },
   {
     "id": "17",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_langchain_client_none_when_build_returns_nothing",
     "file": "tools/llm_provider.py",
     "replace": "        if resolved:\n            self._model_name = resolved.model",
@@ -256,6 +273,7 @@
   },
   {
     "id": "18",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_openai_analyze_reraises_api_error",
     "file": "tools/llm_provider.py",
     "replace": "            logger.error(f\"OpenAI API error: {e}\")\n            raise",
@@ -271,6 +289,7 @@
   },
   {
     "id": "19",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_anthropic_does_not_retry_unrelated_type_error",
     "file": "tools/llm_provider.py",
     "replace": "                    if \"quality_context\" not in message:\n                        raise",
@@ -286,6 +305,7 @@
   },
   {
     "id": "20",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_fallback_chain_name_before_any_attempt",
     "file": "tools/llm_provider.py",
     "replace": "        return \"fallback-chain\"\n",
@@ -301,6 +321,7 @@
   },
   {
     "id": "21",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_fallback_chain_reports_no_available_providers",
     "file": "tools/llm_provider.py",
     "replace": "        raise RuntimeError(\"No providers available\")",
@@ -316,6 +337,7 @@
   },
   {
     "id": "22a",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_fallback_chain_does_not_retry_unrelated_type_error",
     "file": "tools/llm_provider.py",
     "replace": "                if not self._is_quality_context_type_error(exc):\n                    raise",
@@ -331,6 +353,7 @@
   },
   {
     "id": "22b",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_fallback_chain_does_not_retry_unrelated_type_error",
     "file": "tools/llm_provider.py",
     "replace": "        if \"quality_context\" not in message:\n            return False",
@@ -346,6 +369,7 @@
   },
   {
     "id": "23a",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_subscription_provider_unavailable_paths",
     "file": "tools/llm_provider.py",
     "replace": "else \"subscription-unavailable\"",
@@ -361,6 +385,7 @@
   },
   {
     "id": "23b",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_subscription_provider_unavailable_paths",
     "file": "tools/llm_provider.py",
     "replace": "        if self.resolved is None:\n            raise RuntimeError(\"Subscription analysis CLI unavailable\")",
@@ -376,6 +401,7 @@
   },
   {
     "id": "23c",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_subscription_provider_unavailable_paths",
     "file": "tools/llm_provider.py",
     "replace": "            raise RuntimeError(\"Subscription analysis CLI/auth unavailable; no API fallback\")",
@@ -391,6 +417,7 @@
   },
   {
     "id": "24",
+    "revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
     "node": "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_forced_available_provider_is_returned_directly",
     "file": "tools/llm_provider.py",
     "replace": "        logger.info(f\"Using forced provider: {force_provider}\")\n        return provider",

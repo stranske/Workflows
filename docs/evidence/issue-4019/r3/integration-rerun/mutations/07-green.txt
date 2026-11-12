@@ -1,3 +1,4 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
 $ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_extract_trace_id_returns_none_when_metadata_access_raises -q -p no:cacheprovider
 .                                                                        [100%]
 1 passed in 0.15s

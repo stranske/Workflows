@@ -649,11 +649,14 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
   - `docs/evidence/issue-4019/r3/target_missing.py`
   - `docs/evidence/issue-4019/r3/mutations/mutation-receipts.json` (27 verified receipts
     with `proof_ok: true`, `red_exit == 1`, `green_exit == 0`, and matching
-    `sha256_before == sha256_restored`; preserved byte-for-byte from #4431 candidate head
-    `69e5b6d6cd3fb154be29890f2ae212772de8ce45` with SHA-256
-    `9658a61c23ebf1c7aa23d3d8fddadac11ba46d70a721334981dbd25f849f48af`, where
-    `mutations/04-red.txt` reports `tests/tools/test_llm_provider.py:2154`, alongside
-    the post-#4495 rerun at `c1f18728c6b215fa7a66353b311fa12277074437` / `7ba92707` in
+    `sha256_before == sha256_restored`; annotated with
+    `"revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45"` and `# revision:` transcript
+    headers from #4431 candidate head `69e5b6d6cd3fb154be29890f2ae212772de8ce45`,
+    annotated SHA-256 `ad3c82caf1ad3ab834d6a2c4bbc2b16e13a472619ab5728450fc9ad983421166`
+    and pre-annotation SHA-256 `9658a61c23ebf1c7aa23d3d8fddadac11ba46d70a721334981dbd25f849f48af`,
+    where `mutations/04-red.txt` reports `tests/tools/test_llm_provider.py:2154`, alongside
+    the post-#4495 rerun annotated with
+    `"revision": "c1f18728c6b215fa7a66353b311fa12277074437"` / `7ba92707` in
     `docs/evidence/issue-4019/r3/integration-rerun/mutations/`, where
     `integration-rerun/mutations/04-red.txt` reports `tests/tools/test_llm_provider.py:2178`).
 - **Merged `origin/main` ancestry**:
@@ -675,14 +678,15 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
   exit=0
   ```
   Driver and helper regression suite (`tests/tools/test_issue_4019_mutation_driver.py`)
-  passes (`10 passed`, covering partial-write restoration, active interpreter selection,
-  `TimeoutExpired` handling, empty subprocess output fallback, runtime occurrence-count
-  verification, successful red-to-green mutation execution, timeout loop termination,
+  passes (`11 passed`, covering partial-write restoration, `get_revision()` git SHA and
+  fallback handling, active interpreter selection, `TimeoutExpired` handling, empty
+  subprocess output fallback, runtime occurrence-count verification, successful
+  red-to-green mutation execution with revision headers, timeout loop termination,
   `target_missing.py` missing-unit summation and CLI/zero-denominator guards,
-  and the 27-receipt identity and digest inventory),
+  and the 27-receipt identity, revision, and digest inventory),
   and fresh `mutate.py` execution against a temporary output directory confirms
   `27/27 proof_ok`.
-- **Final-head hosted Gate coverage (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`, `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`, and `43170114463` on `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`)**:
+- **Final-head hosted Gate coverage (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`, `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`, `43170114463` on `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`, and `43172506542` on `ade144b93e473e8017409e5ca5603a2f3c26a43e`)**:
   - [Gate 42342628461](https://github.com/stranske/Workflows/actions/runs/42342628461):
     `conclusion: success` (Python 3.13 job `128313615973` `success`; Python 3.14 job
     `128313616019` `success`).
@@ -718,6 +722,20 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
     `coverage.json` `sha256:a6cc9fdf4e71f233e2a37e156cba0a57de3025d093fecac26c0f8de2df320090`):
     ```text
     TOTAL 68030 74698 91.07338884575223
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+  - [Gate 43172506542](https://github.com/stranske/Workflows/actions/runs/43172506542)
+    on PR #4674 head `ade144b93e473e8017409e5ca5603a2f3c26a43e`: `conclusion: success`
+    (Python 3.13 job `131029172202` `success`; Python 3.14 job `131029172220` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13923071251`, `sha256:b0f28bd8a5f14a5cc44b4ff48027b24a8c8df1ca5e9bbed0bc30a6dabdbb2ceb`,
+    `coverage.json` `sha256:2b3e5adc7e676033105bef33058ef7aaab024e329e865300479fcabcc6993511`):
+    ```text
+    TOTAL 68032 74698 91.07606629360893
     scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
     scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
     tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
