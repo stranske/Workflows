@@ -913,12 +913,38 @@ jobs:
               *.tar.gz*)
                 mkdir -p "$stage/x"
                 tar -xzf "$stage/payload" -C "$stage/x"
-                found="$(find "$stage/x" -type f -name agy | head -n 1)"
+                # The archive does not name its binary `agy` (install.sh renames it during
+                # `agy install`; run 43155908688 found no file called agy). Try the known
+                # names, then the largest executable or ELF file that is not a shared
+                # library; list the archive if none.
+                found=""
+                for name in agy antigravity antigravity-cli agy-cli cli_linux_x64 cli_linux_arm64; do
+                  found="$(find "$stage/x" -type f -name "$name" | head -n 1)"
+                  [ -n "$found" ] && break
+                done
                 if [ -z "$found" ]; then
-                  echo "::error::agy release archive has no agy binary."
+                  best_size=-1
+                  while IFS= read -r -d '' candidate; do
+                    magic="$(head -c 4 "$candidate" | od -An -tx1 | tr -d ' \n')"
+                    if [ -x "$candidate" ] || [ "$magic" = "7f454c46" ]; then
+                      size=$(( $(wc -c < "$candidate") ))
+                      if [ "$size" -gt "$best_size" ]; then
+                        found="$candidate"
+                        best_size="$size"
+                      fi
+                    fi
+                  done < <(find "$stage/x" -type f -not -name '*.so' -not -name '*.so.*' -print0)
+                fi
+                if [ -z "$found" ]; then
+                  echo "::error::agy release archive has no executable file. Archive contents:"
+                  tar -tzvf "$stage/payload"
                   exit 1
                 fi
+                echo "agy binary in archive: ${found#"$stage/x/"}"
                 cp -R "$(dirname "$found")"/. "$bin_dir"/
+                if [ "$(basename "$found")" != agy ]; then
+                  cp "$found" "$bin_dir/agy"
+                fi
                 ;;
               *)
                 cp "$stage/payload" "$bin_dir/agy"

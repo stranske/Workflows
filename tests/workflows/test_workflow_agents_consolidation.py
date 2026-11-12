@@ -2032,6 +2032,89 @@ def test_hosted_gemini_runs_on_subscription_login_never_api_key():
         assert registry["agents"]["gemini"]["required_secrets"] == ["GEMINI_OAUTH_CREDS"]
 
 
+def _run_ensure_gemini_cli(tmp_path, members, url_suffix=".tar.gz"):
+    """Run the real "Ensure Gemini CLI" step against a fake agy release archive."""
+    import hashlib
+    import io
+    import os
+    import shutil
+    import subprocess
+    import tarfile
+
+    runner = yaml.safe_load((WORKFLOWS_DIR / "reusable-gemini-run.yml").read_text(encoding="utf-8"))
+    steps = runner["jobs"]["gemini"]["steps"]
+    script = next(s for s in steps if s.get("name") == "Ensure Gemini CLI")["run"]
+
+    archive = tmp_path / "release.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        for name, body, mode in members:
+            info = tarfile.TarInfo(name)
+            info.size = len(body)
+            info.mode = mode
+            tar.addfile(info, io.BytesIO(body))
+
+    shims = tmp_path / "shims"
+    shims.mkdir()
+    # curl -fsSL --retry 3 --retry-delay 2 -o <dest> <url>: copy the fixture to <dest>.
+    (shims / "curl").write_text(
+        "#!/usr/bin/env bash\n"
+        'while [ "$#" -gt 0 ]; do [ "$1" = -o ] && { cp "$FAKE_ARCHIVE" "$2"; exit 0; }; shift; done\n'
+        "exit 1\n"
+    )
+    if shutil.which("sha512sum") is None:
+        (shims / "sha512sum").write_text('#!/usr/bin/env bash\nexec shasum -a 512 "$@"\n')
+    for shim in shims.iterdir():
+        shim.chmod(0o755)
+
+    cli_dir = tmp_path / "cli"
+    env = {
+        **os.environ,
+        "PATH": f"{cli_dir / 'bin'}:{shims}:{os.environ['PATH']}",
+        "CLI_DIR": str(cli_dir),
+        "FAKE_ARCHIVE": str(archive),
+        "GEMINI_CLI_VERSION": "9.9.9",
+        "AGY_DOWNLOAD_URL": "https://example.invalid/cli_linux_x64" + url_suffix,
+        "AGY_SHA512": hashlib.sha512(archive.read_bytes()).hexdigest(),
+    }
+    result = subprocess.run(
+        ["bash", "-c", script], env=env, capture_output=True, text=True, timeout=60
+    )
+    return result, cli_dir
+
+
+_FAKE_AGY = b"#!/usr/bin/env bash\necho agy-fake 9.9.9\n" + b"#" * 4096
+
+
+def test_ensure_gemini_cli_installs_a_release_binary_not_named_agy(tmp_path):
+    """Run 43155908688 (2026-11-12): the 1.5.6 archive has no file named agy.
+
+    The step must find the release's executable under another name, install it as agy, and
+    pick the real binary over a smaller executable and a larger shared library beside it.
+    """
+    result, cli_dir = _run_ensure_gemini_cli(
+        tmp_path,
+        [
+            ("cli_linux_x64/antigravity-helper.sh", b"#!/bin/sh\necho helper\n", 0o755),
+            ("cli_linux_x64/README", b"not a binary " * 1000, 0o644),
+            ("cli_linux_x64/bin/launcher", _FAKE_AGY, 0o755),
+            ("cli_linux_x64/lib/libbig.so.1", b"\x7fELF" + b"\0" * 20000, 0o755),
+        ],
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "agy-fake 9.9.9" in result.stdout
+    assert (cli_dir / "bin" / "agy").read_bytes() == _FAKE_AGY
+    assert (cli_dir / ".agy-version").read_text() == "9.9.9"
+
+
+def test_ensure_gemini_cli_lists_the_archive_when_no_executable_is_found(tmp_path):
+    result, _ = _run_ensure_gemini_cli(
+        tmp_path, [("cli_linux_x64/README.txt", b"docs only\n", 0o644)]
+    )
+    assert result.returncode != 0
+    assert "has no executable file. Archive contents:" in result.stdout
+    assert "cli_linux_x64/README.txt" in result.stdout
+
+
 def test_reusable_agent_runners_export_actual_execution_start():
     runners = {
         "codex": "Codex",
