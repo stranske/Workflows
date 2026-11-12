@@ -450,3 +450,43 @@ def test_pinned_interpreter_forms_normalize_and_bare_forms_stay():
         Command(1, "python3 -m pytest tests/b.py -q"),
         Command(2, "python -m pytest tests/c.py"),
     ]
+
+
+# Plain-bullet acceptance sections, verbatim (Workflows#4454, Counter_Risk#1183; 2026-11-12).
+ISSUE_4454_ACCEPTANCE = "## Acceptance Criteria\n- Named test: `tests/scripts/test_update_versions_from_pypi.py::TestConsumerRepoSampling::test_stale_check_is_window_aware` asserting, with `get_latest_pypi_version` and the clock patched: (a) Wednesday, pin 7.17.1, latest 7.17.2 published Tuesday → passes; (b) Monday, same pins → fails with `STALE VERSIONS`; (c) any day, pin older than the latest at the previous Monday → fails.\n- Runnable: `python3 -m pytest -q tests/scripts/test_update_versions_from_pypi.py` passes on a non-Monday with a release newer than the pins.\n- Deliberate-break → revert: restore the unconditional `current_version != latest_version` comparison → confirm `test_stale_check_is_window_aware` case (a) FAILS → revert.\n- Live: the first `Python Tests` run on an open PR after this merges, with pins still lagging a midweek release, is green; verify with `gh run view <run-id>` on that PR."
+ISSUE_CR_1183_ACCEPTANCE = "## Acceptance Criteria\n\n- Named test: `pytest tests/test_runner_workbook.py -q` passes (including updated button expectations for D5 and I5).\n- Deliberate-break → revert: remove the new `RunnerActionButton` for `I5` from `scripts/build_runner_workbook.py` → confirm `tests/test_runner_workbook.py` FAILS → revert → passes."
+
+
+def test_bullet_criteria_are_gates_when_the_section_has_no_checkbox():
+    assert extract_commands(ISSUE_4454_ACCEPTANCE) == [
+        Command(1, "python3 -m pytest -q tests/scripts/test_update_versions_from_pypi.py"),
+    ]
+    assert extract_commands(ISSUE_CR_1183_ACCEPTANCE) == [
+        Command(0, "pytest tests/test_runner_workbook.py -q"),
+    ]
+
+
+def test_one_checkbox_keeps_checkbox_numbering_and_ignores_bullets():
+    markdown = """
+## Acceptance Criteria
+- `pytest tests/bullet.py` is prose beside a checkbox list.
+- [ ] `pytest tests/first.py` passes.
+- [ ] `pytest tests/second.py` passes.
+"""
+    assert extract_commands(markdown) == [
+        Command(0, "pytest tests/first.py"),
+        Command(1, "pytest tests/second.py"),
+    ]
+
+
+def test_nested_bullets_belong_to_their_top_level_criterion():
+    markdown = """
+## Acceptance Criteria
+- First criterion:
+  - `pytest tests/nested.py` passes.
+- `pytest tests/second.py` passes.
+"""
+    assert extract_commands(markdown) == [
+        Command(0, "pytest tests/nested.py"),
+        Command(1, "pytest tests/second.py"),
+    ]
