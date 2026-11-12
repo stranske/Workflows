@@ -51,9 +51,28 @@ class Result:
     output: str
 
 
+# Criterion markers. An acceptance section with no checkbox at all may still list its criteria as
+# plain top-level bullets: 113 of 514 fleet issues closed 10-13..11-12 did, 15 of them naming a
+# runnable command the gate never ran. Bullets count only when the section has no checkbox, so a
+# section that has even one keeps its checkbox numbering unchanged.
+CHECKBOX_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]\s+(.*)")
+BULLET_ITEM = re.compile(r"^(?:[-*+]|\d+[.)])\s+(?!\[[ xX]\])(.*)")
+
+
 def extract_commands(markdown: str) -> list[Command]:
-    """Read inline backticks and fenced command lines belonging to AC checkboxes."""
+    """Read inline backticks and fenced command lines belonging to AC checkboxes.
+
+    Without any checkbox in the acceptance section, its top-level bullets are the criteria.
+    """
+    commands, saw_checkbox = _scan_acceptance(markdown, CHECKBOX_ITEM)
+    if not saw_checkbox:
+        commands, _ = _scan_acceptance(markdown, BULLET_ITEM)
+    return commands
+
+
+def _scan_acceptance(markdown: str, item: re.Pattern[str]) -> tuple[list[Command], bool]:
     commands = []
+    saw_item = False
     in_acceptance = False
     heading_level = 0
     criterion = -1
@@ -85,8 +104,9 @@ def extract_commands(markdown: str) -> list[Command]:
                 continue
         if not in_acceptance:
             continue
-        checkbox = re.match(r"^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]\s+(.*)", line)
+        checkbox = item.match(line)
         if checkbox and not fence:
+            saw_item = True
             criterion += 1
             active_checkbox = True
             line = checkbox[1]
@@ -105,7 +125,7 @@ def extract_commands(markdown: str) -> list[Command]:
                 command = Command(criterion, candidate)
                 if command not in commands:
                     commands.append(command)
-    return commands
+    return commands, saw_item
 
 
 def run(commands: list[Command], cwd: str | Path) -> list[Result]:
