@@ -268,22 +268,38 @@ def query_latest_trace(
     exact = [item for item in sessions if isinstance(item, dict) and item.get("name") == project]
     if not exact:
         raise RuntimeError(f"LangSmith project {project} was not found")
-    response = _request_json(
-        "POST",
-        f"{endpoint}/runs/query",
-        api_key=api_key,
-        body={
-            "session": [str(exact[0]["id"])],
-            "start_time": (now - timedelta(hours=search_hours)).isoformat(),
-            "select": ["id", "trace_id", "start_time", "status"],
-            "limit": 100,
-        },
-    )
-    runs = response.get("runs", []) if isinstance(response, dict) else []
-    usable = [
-        run for run in runs if isinstance(run, dict) and parse_timestamp(run.get("start_time"))
-    ]
-    return max(usable, key=lambda run: parse_timestamp(run["start_time"])) if usable else None
+    # Explicitly preserve the search window: SmithDB defaults to only 24 hours.
+    api_root = endpoint.removesuffix("/api/v1")
+    body: dict[str, Any] = {
+        "project_ids": [str(exact[0]["id"])],
+        "min_start_time": (now - timedelta(hours=search_hours)).isoformat(),
+        "max_start_time": now.isoformat(),
+        "selects": ["ID", "TRACE_ID", "START_TIME", "STATUS"],
+        "page_size": 100,
+    }
+    latest = None
+    seen_cursors: set[str] = set()
+    while True:
+        response = _request_json(
+            "POST", f"{api_root}/api/v2/runs/query", api_key=api_key, body=body
+        )
+        if not isinstance(response, dict) or not isinstance(response.get("items"), list):
+            raise RuntimeError("LangSmith v2 query returned an invalid items response")
+        for run in response["items"]:
+            if not isinstance(run, dict):
+                continue
+            started_at = parse_timestamp(run.get("start_time"))
+            if started_at and (
+                latest is None or started_at > parse_timestamp(latest["start_time"])
+            ):
+                latest = run
+        cursor = response.get("next_cursor")
+        if cursor is None:
+            return latest
+        if not isinstance(cursor, str) or not cursor or cursor in seen_cursors:
+            raise RuntimeError("LangSmith v2 query returned an invalid or repeated cursor")
+        seen_cursors.add(cursor)
+        body["cursor"] = cursor
 
 
 def render_markdown(report: dict[str, Any]) -> str:

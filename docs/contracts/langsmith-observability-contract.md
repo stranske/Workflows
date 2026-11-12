@@ -206,3 +206,16 @@ simulation; restoring the old unfiltered `paginate(per_page=100)` must fail.
 Raw RED/restored GREEN logs, JUnit and hashes are retained under
 `docs/evidence/issue-3844-fleet-discovery/`. Actual hosted conformance against the
 live large repository remains a separate required gate after PR creation.
+
+## SmithDB cloud reads
+
+The health sentinel reads recent runs through `/api/v2/runs/query`, using explicit
+project IDs, time bounds and field projection. It follows `items`/`next_cursor`
+pagination rather than relying on the legacy `/runs/query` response. The search
+window remains explicit so SmithDB's default 24-hour window cannot conceal stale
+trace flow. Invalid response shapes or repeating cursors produce degraded health,
+not a misleading empty-success result. Project lookup remains a read-only
+`/sessions` request. No SDK installation is required by this sentinel.
+
+Regression validation: `python -m pytest tests/scripts/test_langsmith_observability_health.py
+tests/test_smithdb_migration.py tests/workflows/test_langsmith_observability_health_workflow.py`.
