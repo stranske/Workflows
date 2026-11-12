@@ -626,3 +626,59 @@ They remain pending at this checkpoint; no parent-head result is relabeled.
 The README function count is corrected to 24 (3 aggregate, 21 provider);
 original receipts remain unchanged. Four optional review items are recorded
 in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
+
+## #4523 cherry-pick integration and verification (2026-11-12 UTC)
+
+- **PR #4516 state**: `CLOSED` unmerged (`mergeCommit: null`) on 2026-11-09; branch
+  `closer-r1/issue-4433` retained at final head
+  `59c11ae720b4b57c406a5da54c1225af8b483f0d`.
+- **Cherry-pick path (PR #4674, `gemini/issue-4523`)**: Cherry-picked the four commits
+  from `closer-r1/issue-4433` (`c1f18728`, `c4c91e4c`, `b3db3da3`, `59c11ae7`) onto
+  `gemini/issue-4523` (branched from `origin/main`
+  `650ccf6d98a25b8a17a1e031880e4091f65b9843`), delivering:
+  - `tests/scripts/test_aggregate_agent_metrics.py`
+  - `tests/tools/test_llm_provider.py`
+  - `tests/tools/test_issue_4019_mutation_driver.py`
+  - `docs/evidence/issue-4019/r3/mutate.py`
+  - `docs/evidence/issue-4019/r3/target_missing.py`
+  - `docs/evidence/issue-4019/r3/mutations/mutation-receipts.json` (27 verified receipts
+    with `proof_ok: true`, `red_exit == 1`, `green_exit == 0`, and matching
+    `sha256_before == sha256_restored`).
+- **Merged `origin/main` ancestry**:
+  - PR #4495 merge commit `0fb506e6ab16f1b4105a587021d28d60c0f6eb8b`:
+    `git merge-base --is-ancestor 0fb506e6ab16f1b4105a587021d28d60c0f6eb8b origin/main`
+    exits `0`.
+  - PR #4602 merge commit `97532090dc5836381564f565bb056d9dcd91cfe1` (carried the 3
+    `test_aggregate_agent_metrics.py` tests and 16 `test_llm_provider.py` fallback
+    tests onto `main`):
+    `git merge-base --is-ancestor 97532090dc5836381564f565bb056d9dcd91cfe1 origin/main`
+    exits `0`.
+  - Current `origin/main` base `650ccf6d98a25b8a17a1e031880e4091f65b9843`:
+    `git merge-base --is-ancestor 650ccf6d98a25b8a17a1e031880e4091f65b9843 origin/main`
+    exits `0`.
+- **Focused pytest on integrated revision**:
+  ```text
+  $ python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py tests/scripts/test_check_consumer_sync_drift.py tests/tools/test_llm_provider.py
+  ============================= 290 passed in 3.39s ==============================
+  exit=0
+  ```
+  Driver regression suite (`tests/tools/test_issue_4019_mutation_driver.py`) passes
+  (`2 passed`), and fresh `mutate.py` execution against a temporary output directory
+  confirms `27/27 proof_ok`.
+- **Final-head hosted Gate coverage (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`)**:
+  - [Gate 42342628461](https://github.com/stranske/Workflows/actions/runs/42342628461):
+    `conclusion: success` (Python 3.13 job `128313615973` `success`; Python 3.14 job
+    `128313616019` `success`).
+  - Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13562643111`):
+    ```text
+    TOTAL 63868 70054 91.169669112399
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+    confirming `TARGET_MISSING` equals 3 statements in `tools/llm_provider.py` (lines
+    265, 270, 292).
+
