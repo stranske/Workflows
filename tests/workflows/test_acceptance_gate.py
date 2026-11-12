@@ -415,3 +415,38 @@ def test_python3_pytest_gate_gets_the_gate_venv(tmp_path, monkeypatch, gate_venv
     monkeypatch.setattr(acceptance_gate, "run", capture)
     assert acceptance_gate.prepare([Command(0, "python3 -m pytest tests")], tmp_path) == []
     assert any(call.endswith("install pytest ruff mypy") for call in calls), calls
+
+
+# Workflows#4523's acceptance criteria, verbatim (2026-11-12): criterion 0 pins an interpreter path.
+ISSUE_4523_ACCEPTANCE = """
+## Acceptance Criteria
+- [ ] `/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py tests/scripts/test_check_consumer_sync_drift.py tests/tools/test_llm_provider.py` exits 0 with >= 268 passed tests.
+- [ ] `git merge-base --is-ancestor $(gh pr view 4516 --repo stranske/Workflows --json mergeCommit --jq .mergeCommit.oid) origin/main` exits 0.
+- [ ] `docs/evidence/issue-4019/r3/mutations/mutation-receipts.json` exists on `origin/main` containing 27 verified mutation receipts.
+"""
+
+
+def test_a_path_pinned_interpreter_runs_as_python3_pytest_in_the_gate():
+    commands = extract_commands(ISSUE_4523_ACCEPTANCE)
+    assert commands, "the pinned-interpreter pytest criterion must be a gate"
+    assert commands[0].criterion == 0
+    assert commands[0].command.startswith(
+        "python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py"
+    )
+    assert all("/opt/anaconda3" not in command.command for command in commands)
+    assert all(not command.command.startswith("git ") for command in commands)
+
+
+def test_pinned_interpreter_forms_normalize_and_bare_forms_stay():
+    markdown = """
+## Acceptance Criteria
+- [ ] `/usr/bin/python -m pytest tests/a.py` passes.
+- [ ] `python3.13 -m pytest tests/b.py -q` passes.
+- [ ] `python -m pytest tests/c.py` passes.
+- [ ] `/opt/anaconda3/bin/python3 scripts/tool.py` is a script, not a test runner.
+"""
+    assert extract_commands(markdown) == [
+        Command(0, "python3 -m pytest tests/a.py"),
+        Command(1, "python3 -m pytest tests/b.py -q"),
+        Command(2, "python -m pytest tests/c.py"),
+    ]
