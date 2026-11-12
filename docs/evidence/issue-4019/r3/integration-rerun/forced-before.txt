@@ -1,0 +1,17 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_forced_available_provider_is_returned_directly _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x10af85400>
+
+    def test_forced_available_provider_is_returned_directly(self):
+        provider = get_llm_provider(force_provider="regex-fallback")
+    
+>       assert type(provider) is RegexFallbackProvider
+E       AssertionError: assert <class 'tools.llm_provider.SubscriptionCLIProvider'> is RegexFallbackProvider
+E        +  where <class 'tools.llm_provider.SubscriptionCLIProvider'> = type(<tools.llm_provider.SubscriptionCLIProvider object at 0x10af85850>)
+
+tests/tools/test_llm_provider.py:2374: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_forced_available_provider_is_returned_directly
+1 failed in 0.32s

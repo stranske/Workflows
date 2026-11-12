@@ -1,0 +1,5 @@
+# revision: 69e5b6d6cd3fb154be29890f2ae212772de8ce45
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_forced_available_provider_is_returned_directly -q -p no:cacheprovider
+.                                                                        [100%]
+1 passed in 0.15s
+exit=0

@@ -490,7 +490,13 @@ mutation evidence).
 - `required-tests.txt` records the 268-test focused command at the candidate;
   not re-run against #4431's head here.
 
-The mutation-receipt task is satisfied for the candidate head. Integration
+The mutation-receipt task is satisfied for the candidate head
+`69e5b6d6cd3fb154be29890f2ae212772de8ce45` (under `docs/evidence/issue-4019/r3/mutations/`,
+where e.g. `04-red.txt` fails at `tests/tools/test_llm_provider.py:2154` before #4495's
+24-line regression addition) and for the post-#4495 integrated tree
+`c1f18728c6b215fa7a66353b311fa12277074437` / cherry-pick `7ba92707` (under
+`docs/evidence/issue-4019/r3/integration-rerun/mutations/`, where `04-red.txt` fails at
+`tests/tools/test_llm_provider.py:2178`). Integration
 (merge commit, final focused pytest, ancestry check) remains UNMET until #4431
 merges.
 
@@ -515,3 +521,283 @@ merges.
 - `docs/evidence/issue-4019/r3/acceptance.md` exists only on #4431's branch
   (not on this branch), so this record lives in `acceptance-integration.md`.
   It should be reconciled once #4431 merges. Merge remains unauthorized here.
+
+
+## #4433 remainder acceptance recorded before code (2026-11-06 CST)
+
+Check time: 2026-11-07T03:36:40Z. Outcome 1 is the delivered integration's
+`TARGET_MISSING <= 5` from identified raw hosted Python 3.14 coverage, with each
+residual explained; focused pytest and both hosted runtime jobs must pass.
+Command: `/opt/anaconda3/bin/python3 docs/evidence/issue-4019/r3/target_missing.py <artifact>/runtimes/3.14/coverage.json`.
+Focused command: `/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py tests/scripts/test_check_consumer_sync_drift.py tests/tools/test_llm_provider.py`.
+Current outcome: UNKNOWN; integration is not delivered. Stop rule: two failures
+at one step or 60 minutes from 2026-11-07T03:36:40Z, whichever occurs first.
+First broken step must be reported; no next repair is authorized by elapsed time.
+Blocking/drainable: no integration result yet / integrate the named immutable
+#4431 payload under #4433's existing claim and run focused validation plus hosted CI.
+Original #4431 owner's dispatch is terminal with explicit released:true; no
+#4019/#4431 local claim exists. Coordination notice could not be posted: connector approval policy is never.
+The original owner is terminal; its source branch/worktree remain untouched.
+Only closer-r1/issue-4433 exists among closer*/issue-4433 branches; it equals
+current origin/main 0fb506e6ab16f1b4105a587021d28d60c0f6eb8b. Nothing to recover
+from another local #4433 branch; nothing discarded.
+
+## Current integration status (supersedes historical open-#4495 statements above)
+
+#4495 merged as `0fb506e6ab16f1b4105a587021d28d60c0f6eb8b`, current
+`origin/main` at the start of this run. Its production/template fix and focused
+regression are retained byte-for-byte; this integration changes no production
+source, dependency pins, or existing historical receipts. The payload is the
+three aggregate tests, remaining provider tests, and r3 evidence from #4431
+head `69e5b6d6cd3fb154be29890f2ae212772de8ce45`. No earlier tests were removed.
+
+The original #4431 owner's terminal dispatch and released claim were read; the
+source branch/worktree are untouched. An attempted coordination comment was
+rejected by connector approval policy `never`, so no remote handoff was posted.
+Its five unresolved review findings are accounted for here: active interpreter
+and protected write in mutate.py, partial-write/interpreter regressions,
+forced-provider environment isolation, portable documentation, and explicit
+final-head acceptance status. Its threads are not resolved by this integration.
+
+Reruns are separate in `integration-rerun/`; the `mutations/` receipts from
+#4431 were modified only to add `"revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45"`
+and `# revision:` transcript headers while preserving all original digests and output bodies. `driver-before.txt` records two behavioral
+assertion failures; `forced-before.txt` records the actual SubscriptionCLIProvider
+mismatch. Deliberate failing controls are expected evidence, not failed repair
+attempts. After files are corrected, the same commands are rerun.
+
+Final-head hosted Python 3.13/3.14 jobs, final raw coverage residuals, merge
+commit, main ancestry, and delivered-revision focused pytest remain PENDING.
+Historical counts above are not relabeled as current integration results.
+The historical 3.13 artifacts lacked coverage.json; a new artifact inventory
+must confirm whether that is still true. Historical summary.json percentages
+disagreed with raw coverage counters; use raw counters and report separately.
+
+Local integrated validation: 269 passed in 0.73s; driver regressions 2 passed
+in 0.20s; forced-provider test with CLI=codex initially set 1 passed in 0.23s.
+Fresh mutation reproduction: 27/27 behavioral red -> restored green; every
+source digest restored, no collection-error substitutes. Retention verification
+confirms the 55 `mutations/` files retain all original digests/bodies (annotated
+with the candidate revision) and both provider production
+copies plus the sync-drift tests identical to current main. See
+`integration-rerun/retention.json` and separate raw outputs.
+
+
+## Integrated-tree hosted checkpoint (2026-11-06 CST)
+
+Outcome 1: `TARGET_MISSING 3` at integration head
+`c4c91e4c91e3860c3519eb8bc61c7943b7cd8c5b`, base
+`0fb506e6ab16f1b4105a587021d28d60c0f6eb8b`.
+[Gate 42335283865](https://github.com/stranske/Workflows/actions/runs/42335283865)
+tested synthetic merge `5acad2470870e89618f92f7e58fe7c39d15dda21`; its
+parents are that base and head, and `git diff HEAD 5acad247` was empty.
+This whole-tree comparison is stronger than selected-blob identity alone.
+Python 3.13 job 128291070061: 50292 passed, 27 skipped, 3 xfailed, 504.50s.
+Python 3.14 job 128291069864: 50292 passed, 27 skipped, 3 xfailed, 552.87s.
+
+Downloaded raw artifacts are separately identified and digest-verified in
+`integration-rerun/green-3.13-manifest.json` and `green-3.14-manifest.json`.
+3.14 artifact 13559676412 prints:
+
+```text
+TOTAL 63868 70054 91.169669112399
+scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+TARGET_MISSING 3
+```
+
+All residuals: provider lines 265, 270, 292 are abstract-method `pass` bodies
+(`name`, `is_available`, `analyze_completion`); zero residual branches and no
+other target residuals. We retain these in coverage rather than adding padding.
+The 3.14 summary percentage is 92.60, distinct from raw blended 91.169669112399;
+raw counters above are authoritative for this criterion.
+3.13 artifact 13558944592 contains JUnit but no coverage.json or coverage.xml;
+its summary marks coverage minimum skipped. No 3.13 uncovered count is claimed.
+
+The freshly downloaded historical baseline 41668857273 has distinct artifacts
+13248466557 (3.14) and 13248291385 (3.13), identified by the baseline manifests.
+`target_missing.py` prints raw TOTAL 63040/69241 (91.04432344997906), target
+missing 73 (aggregate 0+3, sync 0+0, provider 54+16). Its summary reports 92.47.
+Its 3.13 artifact also lacks coverage JSON. Repository denominators changed
+69241 -> 70054 between historical baseline and this current-main integration;
+no causal repository-percentage gain is attributed to this test-only change.
+The historical round's whole target list contained only 107 units, so 180 was
+not reachable within scope; the three behaviorless residual lines explain
+the remaining target shortfall.
+
+This documentation reconciliation changes the PR head. The resulting final-head
+Gate and raw-artifact confirmation, merge commit, main ancestry, and delivered
+focused rerun must be recorded in the final acceptance section of
+[integration PR #4516](https://github.com/stranske/Workflows/pull/4516).
+They remain pending at this checkpoint; no parent-head result is relabeled.
+The README function count is corrected to 24 (3 aggregate, 21 provider);
+the candidate receipt digests and bodies remain unchanged (annotated with the
+tested revision). Four optional review items are recorded
+in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
+
+## #4523 cherry-pick integration and verification (2026-11-12 UTC)
+
+- **PR #4516 state**: `CLOSED` unmerged (`mergeCommit: null`) on 2026-11-09; branch
+  `closer-r1/issue-4433` retained at final head
+  `59c11ae720b4b57c406a5da54c1225af8b483f0d`.
+- **Cherry-pick path (PR #4674, `gemini/issue-4523`)**: Cherry-picked the four commits
+  from `closer-r1/issue-4433` (`c1f18728`, `c4c91e4c`, `b3db3da3`, `59c11ae7`) onto
+  `gemini/issue-4523` (branched from `origin/main`
+  `650ccf6d98a25b8a17a1e031880e4091f65b9843`), delivering:
+  - `tests/scripts/test_aggregate_agent_metrics.py`
+  - `tests/tools/test_llm_provider.py`
+  - `tests/tools/test_issue_4019_mutation_driver.py`
+  - `docs/evidence/issue-4019/r3/mutate.py`
+  - `docs/evidence/issue-4019/r3/target_missing.py`
+  - `docs/evidence/issue-4019/r3/mutations/mutation-receipts.json` (27 verified receipts
+    with `proof_ok: true`, `red_exit == 1`, `green_exit == 0`, and matching
+    `sha256_before == sha256_restored`; annotated with
+    `"revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45"` and `# revision:` transcript
+    headers from #4431 candidate head `69e5b6d6cd3fb154be29890f2ae212772de8ce45`,
+    annotated SHA-256 `ad3c82caf1ad3ab834d6a2c4bbc2b16e13a472619ab5728450fc9ad983421166`
+    and pre-annotation SHA-256 `9658a61c23ebf1c7aa23d3d8fddadac11ba46d70a721334981dbd25f849f48af`,
+    where `mutations/04-red.txt` reports `tests/tools/test_llm_provider.py:2154`, alongside
+    the post-#4495 rerun annotated with
+    `"revision": "c1f18728c6b215fa7a66353b311fa12277074437"` / `7ba92707` in
+    `docs/evidence/issue-4019/r3/integration-rerun/mutations/`, where
+    `integration-rerun/mutations/04-red.txt` reports `tests/tools/test_llm_provider.py:2178`).
+- **Merged `origin/main` ancestry**:
+  - PR #4495 merge commit `0fb506e6ab16f1b4105a587021d28d60c0f6eb8b`:
+    `git merge-base --is-ancestor 0fb506e6ab16f1b4105a587021d28d60c0f6eb8b origin/main`
+    exits `0`.
+  - PR #4602 merge commit `97532090dc5836381564f565bb056d9dcd91cfe1` (carried the 3
+    `test_aggregate_agent_metrics.py` tests and 16 `test_llm_provider.py` fallback
+    tests onto `main`):
+    `git merge-base --is-ancestor 97532090dc5836381564f565bb056d9dcd91cfe1 origin/main`
+    exits `0`.
+  - Current `origin/main` base `650ccf6d98a25b8a17a1e031880e4091f65b9843`:
+    `git merge-base --is-ancestor 650ccf6d98a25b8a17a1e031880e4091f65b9843 origin/main`
+    exits `0`.
+- **Focused pytest on integrated revision**:
+  ```text
+  $ python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py tests/scripts/test_check_consumer_sync_drift.py tests/tools/test_llm_provider.py
+  ============================= 290 passed in 3.39s ==============================
+  exit=0
+  ```
+  Driver and helper regression suite (`tests/tools/test_issue_4019_mutation_driver.py`)
+  passes (`13 passed`, covering partial-write restoration, `get_revision()` and
+  `is_worktree_clean()` clean/dirty/failure handling, dirty-worktree rejection vs
+  explicit `<sha>-dirty` non-commit marking in `main()`, active interpreter selection,
+  `TimeoutExpired` string and bytes/None handling, empty subprocess output fallback,
+  runtime occurrence-count verification, successful red-to-green mutation execution with
+  revision headers, timeout loop termination, `mutate.cli()` argument and `--allow-dirty`
+  validation, `target_missing.py` missing-unit summation and CLI/zero-denominator guards,
+  and the 27-receipt identity, operator, revision, transcript header, and live-source
+  digest inventory),
+  and fresh `mutate.py` execution against a temporary output directory confirms
+  `27/27 proof_ok`.
+- **Hosted Gate coverage checkpoints (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`, `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`, `43170114463` on `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`, `43172506542` on `ade144b93e473e8017409e5ca5603a2f3c26a43e`, `43175869464` on `37f7e8cd1a6a8861860ce575e68d670603831892`, `43178139478` on `3f04be7287a11a9da2c6fad49807bf2b8fd562bc`, and `43180601831` on `780fb7ff34eaa667605e5ba452e411368428a2e6`)**:
+  - [Gate 42342628461](https://github.com/stranske/Workflows/actions/runs/42342628461):
+    `conclusion: success` (Python 3.13 job `128313615973` `success`; Python 3.14 job
+    `128313616019` `success`).
+  - Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13562643111`):
+    ```text
+    TOTAL 63868 70054 91.169669112399
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+  - [Gate 43166948933](https://github.com/stranske/Workflows/actions/runs/43166948933)
+    on PR #4674 head `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`: `conclusion: success`
+    (Python 3.13 job `131011150858` `success`; Python 3.14 job `131011150993` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13920802310`, `sha256:9555a25ab5fe2ba25aca75c5640c29cb414f7944fa51e67025fa5ebfb618493e`):
+    ```text
+    TOTAL 68032 74698 91.07606629360893
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+  - [Gate 43170114463](https://github.com/stranske/Workflows/actions/runs/43170114463)
+    on PR #4674 head `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`: `conclusion: success`
+    (Python 3.13 job `131021375149` `success`; Python 3.14 job `131021375037` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13921568022`, `sha256:565a45c357a8a1defb4f1d03d6d5b89a327af76163a1fb7dc6433a1a93372e17`,
+    `coverage.json` `sha256:a6cc9fdf4e71f233e2a37e156cba0a57de3025d093fecac26c0f8de2df320090`):
+    ```text
+    TOTAL 68030 74698 91.07338884575223
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+  - [Gate 43172506542](https://github.com/stranske/Workflows/actions/runs/43172506542)
+    on PR #4674 head `ade144b93e473e8017409e5ca5603a2f3c26a43e`: `conclusion: success`
+    (Python 3.13 job `131029172202` `success`; Python 3.14 job `131029172220` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13923071251`, `sha256:b0f28bd8a5f14a5cc44b4ff48027b24a8c8df1ca5e9bbed0bc30a6dabdbb2ceb`,
+    `coverage.json` `sha256:2b3e5adc7e676033105bef33058ef7aaab024e329e865300479fcabcc6993511`):
+    ```text
+    TOTAL 68032 74698 91.07606629360893
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+  - [Gate 43175869464](https://github.com/stranske/Workflows/actions/runs/43175869464)
+    on PR #4674 head `37f7e8cd1a6a8861860ce575e68d670603831892`: `conclusion: success`
+    (Python 3.13 job `131040182178` `success`; Python 3.14 job `131040182265` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13924153688`, `sha256:68373d0ff09b8daf872fe5f0134e5a3517ed5373564b4642debb3035d5035901`,
+    `coverage.json` `sha256:a75c514d635eeb60edf819714501bbd03ad4a957a28a2edbae12615d6d7f5cd1`):
+    ```text
+    TOTAL 68032 74698 91.07606629360893
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+  - [Gate 43178139478](https://github.com/stranske/Workflows/actions/runs/43178139478)
+    on PR #4674 checkpoint head `3f04be7287a11a9da2c6fad49807bf2b8fd562bc`: `conclusion: success`
+    (Python 3.13 job `131047585117` `success`; Python 3.14 job `131047585027` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13926025844`, `sha256:ac5eb1c2d2000eed3a5ef5a92c52ec3b5eea1cd30fc5bea441857addd311444d`,
+    `coverage.json` `sha256:86f5eafb9e6fbf269730baa4533e5106dd73d1fdb6d0283293a6f03ebad9a1fb`):
+    ```text
+    TOTAL 68030 74698 91.07338884575223
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+  - [Gate 43180601831](https://github.com/stranske/Workflows/actions/runs/43180601831)
+    on PR #4674 checkpoint head `780fb7ff34eaa667605e5ba452e411368428a2e6`: `conclusion: success`
+    (Python 3.13 job `131055591904` `success`; Python 3.14 job `131055591874` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13926004370`, `sha256:2e1389e8662f98a09b3ba15e5f4060decc8b952734ab954915df19ee11c7c645`,
+    `coverage.json` `sha256:f07e632c684de3e78586a93f4dc6b72e8e6379da17ff033d0714f91f81db59c8`):
+    ```text
+    TOTAL 68133 74700 91.20883534136546
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+    confirming `TARGET_MISSING` equals 3 statements in `tools/llm_provider.py` (lines
+    265, 270, 292) across all checkpoints.
+- **Reviewed-revision final-head Gate status**:
+  Because committing an update to this document creates a new commit SHA, the runs
+  listed above are pre-commit checkpoints rather than the final-head Gate run for the
+  commit that records them. Final-head Gate verification for the latest commit on
+  PR #4674 is tracked separately on the PR's status checks before merge, and the
+  resulting merge commit SHA and `git merge-base --is-ancestor <mergeCommit> origin/main`
+  check remain post-merge checks on `origin/main`.
+
+
+

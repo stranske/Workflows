@@ -1,0 +1,21 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_fallback_chain_reports_no_available_providers -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_fallback_chain_reports_no_available_providers _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x110e9b740>
+
+    def test_fallback_chain_reports_no_available_providers(self):
+        unavailable = MagicMock()
+        unavailable.is_available.return_value = False
+>       with pytest.raises(RuntimeError, match="^No providers available$"):
+E       AssertionError: 
+E       - All providers failed
+E       + No providers available
+
+tests/tools/test_llm_provider.py:2335: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_fallback_chain_reports_no_available_providers
+1 failed in 0.19s
+exit=1

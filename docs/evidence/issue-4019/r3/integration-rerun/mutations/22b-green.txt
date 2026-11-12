@@ -1,0 +1,5 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_fallback_chain_does_not_retry_unrelated_type_error -q -p no:cacheprovider
+.                                                                        [100%]
+1 passed in 0.15s
+exit=0

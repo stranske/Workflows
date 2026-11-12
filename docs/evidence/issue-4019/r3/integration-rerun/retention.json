@@ -1,0 +1,8 @@
+{
+  "source": "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
+  "original_mutation_files_unchanged": 55,
+  "production_and_sync_test_unchanged": true,
+  "original_receipts_sha256": "9658a61c23ebf1c7aa23d3d8fddadac11ba46d70a721334981dbd25f849f48af",
+  "annotated_receipts_sha256": "ad3c82caf1ad3ab834d6a2c4bbc2b16e13a472619ab5728450fc9ad983421166",
+  "rerun_proof_ok": 27
+}

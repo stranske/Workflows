@@ -1,0 +1,64 @@
+# revision: 69e5b6d6cd3fb154be29890f2ae212772de8ce45
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_targets_github_models_endpoint -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_github_client_targets_github_models_endpoint _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x112f998b0>
+
+    def test_github_client_targets_github_models_endpoint(self):
+        fake = SimpleNamespace(ChatOpenAI=MagicMock(return_value="client"))
+        provider = GitHubModelsProvider()
+        with (
+            patch.dict(sys.modules, {"langchain_openai": fake}),
+            patch.dict(os.environ, {"GITHUB_TOKEN": "gh-token"}, clear=True),
+            patch("tools.llm_provider._configured_langchain_model", return_value="gm-model"),
+        ):
+            assert provider._get_client() == "client"
+    
+>       fake.ChatOpenAI.assert_called_once_with(
+            model="gm-model",
+            base_url="https://models.github.ai/inference",
+            api_key="gh-token",
+            temperature=0.1,
+        )
+
+tests/tools/test_llm_provider.py:2238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/anaconda3/lib/python3.12/unittest/mock.py:956: in assert_called_once_with
+    return self.assert_called_with(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock id='4613317904'>, args = ()
+kwargs = {'model': 'gm-model', 'base_url': 'https://models.github.ai/inference', 'api_key': 'gh-token', 'temperature': 0.1}
+
+    def assert_called_with(self, /, *args, **kwargs):
+        """assert that the last call was made with the specified arguments.
+    
+        Raises an AssertionError if the args and keyword args passed in are
+        different to the last call to the mock."""
+        if self.call_args is None:
+            expected = self._format_mock_call_signature(args, kwargs)
+            actual = 'not called.'
+            error_message = ('expected call not found.\nExpected: %s\n  Actual: %s'
+                    % (expected, actual))
+            raise AssertionError(error_message)
+    
+        def _error_message():
+            msg = self._format_mock_failure_message(args, kwargs)
+            return msg
+        expected = self._call_matcher(_Call((args, kwargs), two=True))
+        actual = self._call_matcher(self.call_args)
+        if actual != expected:
+            cause = expected if isinstance(expected, Exception) else None
+>           raise AssertionError(_error_message()) from cause
+E           AssertionError: expected call not found.
+E           Expected: mock(model='gm-model', base_url='https://models.github.ai/inference', api_key='gh-token', temperature=0.1)
+E             Actual: mock(model='gm-model', base_url=None, api_key='gh-token', temperature=0.1)
+
+/opt/anaconda3/lib/python3.12/unittest/mock.py:944: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_targets_github_models_endpoint
+1 failed in 0.22s
+exit=1

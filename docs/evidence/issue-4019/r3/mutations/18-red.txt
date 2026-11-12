@@ -1,0 +1,25 @@
+# revision: 69e5b6d6cd3fb154be29890f2ae212772de8ce45
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_openai_analyze_reraises_api_error -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ TestRemainingProviderPaths.test_openai_analyze_reraises_api_error _______
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x1065868d0>
+
+    def test_openai_analyze_reraises_api_error(self):
+        provider = OpenAIProvider()
+        client = MagicMock()
+        client.invoke.side_effect = ConnectionError("down")
+>       with (
+            patch.object(provider, "_get_client", return_value=client),
+            pytest.raises(ConnectionError, match="down"),
+        ):
+E       Failed: DID NOT RAISE ConnectionError
+
+tests/tools/test_llm_provider.py:2286: Failed
+------------------------------ Captured log call -------------------------------
+ERROR    tools.llm_provider:llm_provider.py:667 OpenAI API error: down
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_openai_analyze_reraises_api_error
+1 failed in 0.19s
+exit=1

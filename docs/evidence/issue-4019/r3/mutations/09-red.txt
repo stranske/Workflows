@@ -1,0 +1,23 @@
+# revision: 69e5b6d6cd3fb154be29890f2ae212772de8ce45
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_supports_quality_context_error_falls_back_to_legacy_signature -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_supports_quality_context_error_falls_back_to_legacy_signature _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x10b92ca70>
+
+    def test_supports_quality_context_error_falls_back_to_legacy_signature(self):
+        class ErroringLegacy(_LegacySignatureProvider):
+            def supports_quality_context(self) -> bool:
+                raise RuntimeError("boom")
+    
+>       assert supports_quality_context(ErroringLegacy()) is False
+E       AssertionError: assert True is False
+E        +  where True = supports_quality_context(<tests.tools.test_llm_provider.TestRemainingProviderPaths.test_supports_quality_context_error_falls_back_to_legacy_signature.<locals>.ErroringLegacy object at 0x10ae51d00>)
+E        +    where <tests.tools.test_llm_provider.TestRemainingProviderPaths.test_supports_quality_context_error_falls_back_to_legacy_signature.<locals>.ErroringLegacy object at 0x10ae51d00> = <class 'tests.tools.test_llm_provider.TestRemainingProviderPaths.test_supports_quality_context_error_falls_back_to_legacy_signature.<locals>.ErroringLegacy'>()
+
+tests/tools/test_llm_provider.py:2197: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_supports_quality_context_error_falls_back_to_legacy_signature
+1 failed in 0.18s
+exit=1

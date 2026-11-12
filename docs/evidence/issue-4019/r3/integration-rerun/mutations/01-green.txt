@@ -1,0 +1,5 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
+$ /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_langsmith_trace_refs_skip_trace_list_item_without_id_or_url -q -p no:cacheprovider
+.                                                                        [100%]
+1 passed in 0.21s
+exit=0

@@ -1,0 +1,27 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_extract_trace_id_uses_instance_dict_when_id_attribute_hidden -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_extract_trace_id_uses_instance_dict_when_id_attribute_hidden _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x106968e30>
+
+    def test_extract_trace_id_uses_instance_dict_when_id_attribute_hidden(self):
+        class HiddenId:
+            @property
+            def id(self):
+                raise AttributeError("hidden")
+    
+        response = HiddenId()
+        response.__dict__["id"] = "dict-id"
+    
+        with patch("tools.llm_provider._ensure_langsmith_enabled", return_value=True):
+>           assert extract_trace_id(response) == "dict-id"
+E           AssertionError: assert None == 'dict-id'
+E            +  where None = extract_trace_id(<tests.tools.test_llm_provider.TestRemainingProviderPaths.test_extract_trace_id_uses_instance_dict_when_id_attribute_hidden.<locals>.HiddenId object at 0x105596cf0>)
+
+tests/tools/test_llm_provider.py:2199: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_extract_trace_id_uses_instance_dict_when_id_attribute_hidden
+1 failed in 0.19s
+exit=1

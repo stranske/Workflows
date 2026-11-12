@@ -1,0 +1,21 @@
+# revision: 69e5b6d6cd3fb154be29890f2ae212772de8ce45
+$ /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_langsmith_trace_refs_skip_trace_list_item_without_id_or_url -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_langsmith_trace_refs_skip_trace_list_item_without_id_or_url _______
+
+    def test_langsmith_trace_refs_skip_trace_list_item_without_id_or_url() -> None:
+        entry = {"langsmith_traces": [{"note": "no identifiers"}, {"trace_id": "abc"}]}
+    
+>       assert aggregate_agent_metrics._langsmith_trace_refs(entry) == {"id:abc"}
+E       AssertionError: assert {'id:abc', 'url:'} == {'id:abc'}
+E         
+E         Extra items in the left set:
+E         'url:'
+E         Use -v to get more diff
+
+tests/scripts/test_aggregate_agent_metrics.py:2176: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_aggregate_agent_metrics.py::test_langsmith_trace_refs_skip_trace_list_item_without_id_or_url
+1 failed in 0.26s
+exit=1

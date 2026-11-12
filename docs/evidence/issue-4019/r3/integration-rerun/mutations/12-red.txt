@@ -1,0 +1,25 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_none_without_reviewed_model -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ TestRemainingProviderPaths.test_github_client_none_without_reviewed_model ___
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x1105e98e0>
+
+    def test_github_client_none_without_reviewed_model(self):
+        fake = SimpleNamespace(ChatOpenAI=MagicMock())
+        with (
+            patch.dict(sys.modules, {"langchain_openai": fake}),
+            patch("tools.llm_provider._configured_langchain_model", return_value=""),
+        ):
+>           assert GitHubModelsProvider()._get_client() is None
+E           AssertionError: assert <MagicMock name='mock()' id='4570454144'> is None
+E            +  where <MagicMock name='mock()' id='4570454144'> = _get_client()
+E            +    where _get_client = <tools.llm_provider.GitHubModelsProvider object at 0x1106b9790>._get_client
+E            +      where <tools.llm_provider.GitHubModelsProvider object at 0x1106b9790> = GitHubModelsProvider()
+
+tests/tools/test_llm_provider.py:2249: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_none_without_reviewed_model
+1 failed in 0.20s
+exit=1

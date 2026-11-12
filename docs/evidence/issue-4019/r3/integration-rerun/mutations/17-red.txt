@@ -1,0 +1,86 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_langchain_client_none_when_build_returns_nothing -q -p no:cacheprovider
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_langchain_client_none_when_build_returns_nothing[OpenAIProvider] _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x106e46930>
+provider_class = <class 'tools.llm_provider.OpenAIProvider'>
+
+    @pytest.mark.parametrize("provider_class", [OpenAIProvider, AnthropicProvider])
+    def test_langchain_client_none_when_build_returns_nothing(self, provider_class):
+        provider = provider_class()
+        with (
+            patch("tools.langchain_client.build_chat_client", return_value=None),
+            patch("tools.llm_provider._configured_langchain_model", return_value="model"),
+        ):
+>           assert provider._get_client() is None
+                   ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/tools/test_llm_provider.py:2303: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tools.llm_provider.OpenAIProvider object at 0x106e466c0>
+
+    def _get_client(self):
+        """Get LangChain ChatOpenAI client."""
+        try:
+            from tools.langchain_client import build_chat_client
+        except ImportError:
+            logger.warning("LangChain client helper not available")
+            return None
+    
+        model_name = _configured_langchain_model("openai", fallback=DEFAULT_OPENAI_ANALYSIS_MODEL)
+        if not model_name:
+            return None
+        resolved = build_chat_client(provider="openai", model=model_name)
+        if True:
+>           self._model_name = resolved.model
+                               ^^^^^^^^^^^^^^
+E           AttributeError: 'NoneType' object has no attribute 'model'
+
+tools/llm_provider.py:623: AttributeError
+_ TestRemainingProviderPaths.test_langchain_client_none_when_build_returns_nothing[AnthropicProvider] _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x106e46ae0>
+provider_class = <class 'tools.llm_provider.AnthropicProvider'>
+
+    @pytest.mark.parametrize("provider_class", [OpenAIProvider, AnthropicProvider])
+    def test_langchain_client_none_when_build_returns_nothing(self, provider_class):
+        provider = provider_class()
+        with (
+            patch("tools.langchain_client.build_chat_client", return_value=None),
+            patch("tools.llm_provider._configured_langchain_model", return_value="model"),
+        ):
+>           assert provider._get_client() is None
+                   ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/tools/test_llm_provider.py:2303: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tools.llm_provider.AnthropicProvider object at 0x106de63c0>
+
+    def _get_client(self):
+        try:
+            from tools.langchain_client import build_chat_client
+        except ImportError:
+            logger.warning("LangChain client helper not available")
+            return None
+    
+        model_name = _configured_langchain_model(
+            "anthropic", fallback=DEFAULT_ANTHROPIC_ANALYSIS_MODEL
+        )
+        if not model_name:
+            return None
+        resolved = build_chat_client(provider="anthropic", model=model_name)
+        if True:
+>           self._model_name = resolved.model
+                               ^^^^^^^^^^^^^^
+E           AttributeError: 'NoneType' object has no attribute 'model'
+
+tools/llm_provider.py:701: AttributeError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_langchain_client_none_when_build_returns_nothing[OpenAIProvider]
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_langchain_client_none_when_build_returns_nothing[AnthropicProvider]
+2 failed in 0.25s
+exit=1

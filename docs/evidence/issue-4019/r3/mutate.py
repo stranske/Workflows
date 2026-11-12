@@ -1,0 +1,397 @@
+"""Break-and-revert driver for issue 4433 integration (run from repo root).
+
+Each mutation applies exact source replacements, runs ONE test node (must fail),
+restores the original bytes (sha256 checked), and reruns it (must pass).
+"""
+
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+PY = sys.executable
+AGG = "scripts/aggregate_agent_metrics.py"
+LLM = "tools/llm_provider.py"
+TA = "tests/scripts/test_aggregate_agent_metrics.py::"
+TL = "tests/tools/test_llm_provider.py::TestRemainingProviderPaths::"
+
+# (id, node, file, old, new, expected_count)
+MUTATIONS = [
+    (
+        "01",
+        TA + "test_langsmith_trace_refs_skip_trace_list_item_without_id_or_url",
+        AGG,
+        "            elif item_trace_url:",
+        "            else:",
+        1,
+    ),
+    (
+        "02",
+        TA + "test_autopilot_summary_ignores_step_with_unknown_success_value",
+        AGG,
+        '        elif success in (False, "false", "False", "0", 0):',
+        "        else:",
+        1,
+    ),
+    (
+        "03",
+        TA + "test_codex_freshness_summary_tolerates_missing_update_targets",
+        AGG,
+        '        targets = entry.get("update_targets")\n        if isinstance(targets, list):',
+        '        targets = entry.get("update_targets")\n        if True:',
+        1,
+    ),
+    (
+        "04",
+        TL + "test_configured_model_falls_back_when_registry_import_fails",
+        LLM,
+        "    except ImportError:\n        return fallback\n",
+        '    except ImportError:\n        return ""\n',
+        1,
+    ),
+    (
+        "05",
+        TL + "test_metadata_keeps_explicit_issue_or_pr_number",
+        LLM,
+        "    if issue_or_pr_number is None:",
+        "    if True:",
+        1,
+    ),
+    (
+        "06",
+        TL + "test_extract_trace_id_uses_instance_dict_when_id_attribute_hidden",
+        LLM,
+        '            if "id" in response_dict:',
+        "            if False:",
+        1,
+    ),
+    (
+        "07",
+        TL + "test_extract_trace_id_returns_none_when_metadata_access_raises",
+        LLM,
+        '    except Exception as e:\n        logger.debug(f"Failed to extract trace ID',
+        '    except KeyError as e:\n        logger.debug(f"Failed to extract trace ID',
+        1,
+    ),
+    (
+        "08",
+        TL + "test_base_supports_quality_context_false_when_signature_unavailable",
+        LLM,
+        '        except (TypeError, ValueError):\n            return False\n        return "quality_context"',
+        '        except (TypeError, ValueError):\n            return True\n        return "quality_context"',
+        1,
+    ),
+    (
+        "09",
+        TL + "test_supports_quality_context_error_falls_back_to_legacy_signature",
+        LLM,
+        "    elif supports is not None:",
+        "    if supports is not None:",
+        1,
+    ),
+    (
+        "10",
+        TL + "test_supports_quality_context_without_helper_uses_signature",
+        LLM,
+        '    return "quality_context" in parameters or any(\n        param.kind',
+        "    return True or any(\n        param.kind",
+        1,
+    ),
+    (
+        "11",
+        TL + "test_github_client_none_when_langchain_openai_missing",
+        LLM,
+        '        except ImportError:\n            logger.warning("langchain_openai not installed")',
+        '        except KeyError:\n            logger.warning("langchain_openai not installed")',
+        1,
+    ),
+    (
+        "12",
+        TL + "test_github_client_none_without_reviewed_model",
+        LLM,
+        '        if not model_name:\n            logger.warning("No reviewed GitHub Models',
+        '        if False:\n            logger.warning("No reviewed GitHub Models',
+        1,
+    ),
+    (
+        "13",
+        TL + "test_github_client_targets_github_models_endpoint",
+        LLM,
+        "            base_url=GITHUB_MODELS_BASE_URL,",
+        "            base_url=None,",
+        1,
+    ),
+    (
+        "14",
+        TL + "test_github_analyze_requires_client",
+        LLM,
+        '        if not client:\n            raise RuntimeError(\n                "GitHub Models client',
+        '        if False:\n            raise RuntimeError(\n                "GitHub Models client',
+        1,
+    ),
+    (
+        "15",
+        TL + "test_github_analyze_reraises_api_error",
+        LLM,
+        '            logger.error(f"GitHub Models API error: {e}")\n            raise',
+        '            logger.error(f"GitHub Models API error: {e}")\n            return None',
+        1,
+    ),
+    (
+        "16",
+        TL + "test_langchain_client_none_when_helper_missing",
+        LLM,
+        '        except ImportError:\n            logger.warning("LangChain client helper not available")',
+        '        except KeyError:\n            logger.warning("LangChain client helper not available")',
+        2,
+    ),
+    (
+        "17",
+        TL + "test_langchain_client_none_when_build_returns_nothing",
+        LLM,
+        "        if resolved:\n            self._model_name = resolved.model",
+        "        if True:\n            self._model_name = resolved.model",
+        2,
+    ),
+    (
+        "18",
+        TL + "test_openai_analyze_reraises_api_error",
+        LLM,
+        '            logger.error(f"OpenAI API error: {e}")\n            raise',
+        '            logger.error(f"OpenAI API error: {e}")\n            return None',
+        1,
+    ),
+    (
+        "19",
+        TL + "test_anthropic_does_not_retry_unrelated_type_error",
+        LLM,
+        '                    if "quality_context" not in message:\n                        raise',
+        "                    if False:\n                        raise",
+        1,
+    ),
+    (
+        "20",
+        TL + "test_fallback_chain_name_before_any_attempt",
+        LLM,
+        '        return "fallback-chain"\n',
+        '        return "fallback-chain()"\n',
+        1,
+    ),
+    (
+        "21",
+        TL + "test_fallback_chain_reports_no_available_providers",
+        LLM,
+        '        raise RuntimeError("No providers available")',
+        '        raise RuntimeError("All providers failed")',
+        1,
+    ),
+    (
+        "22a",
+        TL + "test_fallback_chain_does_not_retry_unrelated_type_error",
+        LLM,
+        "                if not self._is_quality_context_type_error(exc):\n                    raise",
+        "                if False:\n                    raise",
+        1,
+    ),
+    (
+        "22b",
+        TL + "test_fallback_chain_does_not_retry_unrelated_type_error",
+        LLM,
+        '        if "quality_context" not in message:\n            return False',
+        '        if "quality_context" not in message:\n            return True',
+        1,
+    ),
+    (
+        "23a",
+        TL + "test_subscription_provider_unavailable_paths",
+        LLM,
+        'else "subscription-unavailable"',
+        'else "subscription"',
+        1,
+    ),
+    (
+        "23b",
+        TL + "test_subscription_provider_unavailable_paths",
+        LLM,
+        '        if self.resolved is None:\n            raise RuntimeError("Subscription analysis CLI unavailable")',
+        '        if False:\n            raise RuntimeError("Subscription analysis CLI unavailable")',
+        1,
+    ),
+    (
+        "23c",
+        TL + "test_subscription_provider_unavailable_paths",
+        LLM,
+        '            raise RuntimeError("Subscription analysis CLI/auth unavailable; no API fallback")',
+        "            pass",
+        1,
+    ),
+    (
+        "24",
+        TL + "test_forced_available_provider_is_returned_directly",
+        LLM,
+        '        logger.info(f"Using forced provider: {force_provider}")\n        return provider',
+        '        logger.info(f"Using forced provider: {force_provider}")\n'
+        "        return FallbackChainProvider([provider])",
+        1,
+    ),
+]
+
+
+def is_worktree_clean() -> bool:
+    """Return True only when git status reports no staged, unstaged, or untracked changes."""
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode == 0 and not proc.stdout.strip()
+
+
+def get_revision() -> str:
+    """Return the clean git HEAD SHA, '<sha>-dirty' when worktree is dirty, or 'unknown'."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    rev = proc.stdout.strip()
+    if proc.returncode != 0 or not rev:
+        return "unknown"
+    if not is_worktree_clean():
+        return f"{rev}-dirty"
+    return rev
+
+
+def run(node: str) -> tuple[int, str]:
+    """Execute pytest for a single test node and return exit code and combined output."""
+    try:
+        proc = subprocess.run(
+            [PY, "-m", "pytest", node, "-q", "-p", "no:cacheprovider"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = (
+            exc.stdout
+            if isinstance(exc.stdout, str)
+            else (exc.stdout or b"").decode(errors="replace")
+        )
+        stderr = (
+            exc.stderr
+            if isinstance(exc.stderr, str)
+            else (exc.stderr or b"").decode(errors="replace")
+        )
+        return 124, f"{stdout}{stderr}TimeoutExpired: {exc}\n"
+    return proc.returncode, proc.stdout + proc.stderr
+
+
+def main(out_dir: Path, revision: str | None = None, *, allow_dirty: bool = False) -> int:
+    """Run all configured mutations, verify byte restoration, and write receipts."""
+    if revision is None:
+        resolved_revision = get_revision()
+        if not allow_dirty and (
+            resolved_revision == "unknown" or resolved_revision.endswith("-dirty")
+        ):
+            raise RuntimeError(
+                "Refusing to record commit-keyed mutation proofs on dirty or unknown worktree "
+                f"({resolved_revision})"
+            )
+    else:
+        clean = is_worktree_clean()
+        if not allow_dirty and not clean:
+            raise RuntimeError("Refusing to record commit-keyed mutation proofs on dirty worktree")
+        resolved_revision = (
+            f"{revision}-dirty"
+            if not clean and not revision.endswith("-dirty") and revision != "unknown"
+            else revision
+        )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    receipts = []
+    ok = True
+    for mid, node, path, old, new, count in MUTATIONS:
+        src = Path(path)
+        original = src.read_bytes()
+        digest = hashlib.sha256(original).hexdigest()
+        text = original.decode()
+        actual_count = text.count(old)
+        cmd = f"{PY} -m pytest {node} -q -p no:cacheprovider"
+        if actual_count != count:
+            red_code = 2
+            red_out = f"Occurrence count mismatch for {mid}: expected {count}, got {actual_count}\n"
+            restored = hashlib.sha256(src.read_bytes()).hexdigest()
+            green_code, green_out = run(node)
+        else:
+            try:
+                src.write_text(text.replace(old, new))
+                red_code, red_out = run(node)
+            finally:
+                src.write_bytes(original)
+            restored = hashlib.sha256(src.read_bytes()).hexdigest()
+            green_code, green_out = run(node)
+        (out_dir / f"{mid}-red.txt").write_text(
+            f"# revision: {resolved_revision}\n$ {cmd}\n{red_out}exit={red_code}\n"
+        )
+        (out_dir / f"{mid}-green.txt").write_text(
+            f"# revision: {resolved_revision}\n$ {cmd}\n{green_out}exit={green_code}\n"
+        )
+        passed = (
+            actual_count == count
+            and red_code == 1
+            and "FAILED" in red_out
+            and green_code == 0
+            and restored == digest
+        )
+        ok &= passed
+        red_lines = red_out.strip().splitlines()
+        green_lines = green_out.strip().splitlines()
+        receipts.append(
+            {
+                "id": mid,
+                "revision": resolved_revision,
+                "node": node,
+                "file": path,
+                "replace": old,
+                "with": new,
+                "occurrences": count,
+                "red_exit": red_code,
+                "green_exit": green_code,
+                "red_last_line": red_lines[-1] if red_lines else "",
+                "green_last_line": green_lines[-1] if green_lines else "",
+                "sha256_before": digest,
+                "sha256_restored": restored,
+                "proof_ok": passed,
+            }
+        )
+        print(mid, "red", red_code, "green", green_code, "ok" if passed else "NOT OK")
+        if red_code == 124 or green_code == 124:
+            break
+    (out_dir / "mutation-receipts.json").write_text(json.dumps(receipts, indent=2) + "\n")
+    return 0 if ok else 1
+
+
+def cli(argv: list[str] | None = None) -> int:
+    """CLI entrypoint for mutate.py."""
+    args = list(sys.argv[1:] if argv is None else argv)
+    allow_dirty = False
+    if "--allow-dirty" in args:
+        allow_dirty = True
+        args.remove("--allow-dirty")
+    if len(args) != 1:
+        raise SystemExit("Usage: mutate.py [--allow-dirty] <output_dir>")
+    return main(Path(args[0]), allow_dirty=allow_dirty)
+
+
+if __name__ == "__main__":
+    raise SystemExit(cli())

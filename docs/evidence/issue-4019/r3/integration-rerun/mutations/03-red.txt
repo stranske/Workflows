@@ -1,0 +1,52 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
+$ /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_codex_freshness_summary_tolerates_missing_update_targets -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_codex_freshness_summary_tolerates_missing_update_targets _________
+
+    def test_codex_freshness_summary_tolerates_missing_update_targets() -> None:
+>       summary = aggregate_agent_metrics._summarise_codex_cli_freshness(
+            [
+                {"status": "current", "package": "codex-cli"},
+                {"status": "outdated", "package": "codex-cli", "update_targets": [{"path": "a.env"}]},
+            ]
+        )
+
+tests/scripts/test_aggregate_agent_metrics.py:2191: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+entries = [{'status': 'current', 'package': 'codex-cli'}, {'status': 'outdated', 'package': 'codex-cli', 'update_targets': [{'path': 'a.env'}]}]
+
+    def _summarise_codex_cli_freshness(entries: list[dict[str, Any]]) -> dict[str, Any]:
+        statuses: Counter[str] = Counter()
+        packages: Counter[str] = Counter()
+        pinned_versions: Counter[str] = Counter()
+        latest_versions: Counter[str] = Counter()
+        max_major_delta = 0
+        max_minor_delta = 0
+        max_patch_delta = 0
+        update_targets: Counter[str] = Counter()
+        for entry in entries:
+            status = _normalize_counter_token(entry.get("status"))
+            statuses[status] += 1
+            package = str(entry.get("package") or "unknown").strip() or "unknown"
+            packages[package] += 1
+            pinned = _normalize_version_text(entry.get("pinned_version")) or "unknown"
+            latest = _normalize_version_text(entry.get("latest_version")) or "unknown"
+            pinned_versions[pinned] += 1
+            latest_versions[latest] += 1
+            delta = entry.get("version_delta")
+            if isinstance(delta, dict):
+                max_major_delta = max(max_major_delta, _safe_int(delta.get("major")) or 0)
+                max_minor_delta = max(max_minor_delta, _safe_int(delta.get("minor")) or 0)
+                max_patch_delta = max(max_patch_delta, _safe_int(delta.get("patch")) or 0)
+            targets = entry.get("update_targets")
+            if True:
+>               for target in targets:
+E               TypeError: 'NoneType' object is not iterable
+
+scripts/aggregate_agent_metrics.py:1012: TypeError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_aggregate_agent_metrics.py::test_codex_freshness_summary_tolerates_missing_update_targets
+1 failed in 0.29s
+exit=1

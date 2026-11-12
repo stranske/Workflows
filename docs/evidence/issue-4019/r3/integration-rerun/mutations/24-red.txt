@@ -1,0 +1,22 @@
+# revision: c1f18728c6b215fa7a66353b311fa12277074437
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_forced_available_provider_is_returned_directly -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_forced_available_provider_is_returned_directly _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x112a23080>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x112a22660>
+
+    def test_forced_available_provider_is_returned_directly(self, monkeypatch):
+        monkeypatch.delenv("WORKFLOWS_ANALYSIS_CLI", raising=False)
+        provider = get_llm_provider(force_provider="regex-fallback")
+    
+>       assert type(provider) is RegexFallbackProvider
+E       AssertionError: assert <class 'tools.llm_provider.FallbackChainProvider'> is RegexFallbackProvider
+E        +  where <class 'tools.llm_provider.FallbackChainProvider'> = type(<tools.llm_provider.FallbackChainProvider object at 0x112a22960>)
+
+tests/tools/test_llm_provider.py:2375: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_forced_available_provider_is_returned_directly
+1 failed in 0.20s
+exit=1
