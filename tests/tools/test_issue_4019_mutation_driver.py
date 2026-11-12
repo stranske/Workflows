@@ -23,6 +23,14 @@ def load_driver():
     return module
 
 
+def load_target_missing():
+    """Dynamically load the issue 4019 target_missing helper module."""
+    spec = importlib.util.spec_from_file_location("issue_4019_target_missing", TARGET_MISSING)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_partial_write_restores_original(tmp_path, monkeypatch):
     """Ensure original source bytes are restored when writing a mutation fails mid-write."""
     driver = load_driver()
@@ -171,3 +179,34 @@ def test_verified_mutation_receipts_inventory():
         assert receipt["red_exit"] == 1
         assert receipt["green_exit"] == 0
         assert receipt["sha256_before"] == receipt["sha256_restored"]
+
+
+def test_target_missing_module_main_and_usage_guard(tmp_path):
+    """Verify target_missing.main() validates arguments and handles zero-unit denominators."""
+    helper = load_target_missing()
+    with pytest.raises(SystemExit, match="Usage: target_missing.py"):
+        helper.main([])
+
+    zero_fixture = tmp_path / "zero_coverage.json"
+    zero_fixture.write_text(
+        json.dumps(
+            {
+                "totals": {
+                    "num_statements": 0,
+                    "num_branches": 0,
+                    "covered_lines": 0,
+                    "covered_branches": 0,
+                },
+                "files": {
+                    target: {
+                        "summary": {"missing_lines": 0, "missing_branches": 0},
+                        "missing_lines": [],
+                        "missing_branches": [],
+                    }
+                    for target in helper.TARGETS
+                },
+            }
+        )
+    )
+    assert helper.summarize_coverage(zero_fixture) == 0
+    assert helper.main([str(zero_fixture)]) == 0

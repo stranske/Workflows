@@ -663,12 +663,13 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
   exit=0
   ```
   Driver and helper regression suite (`tests/tools/test_issue_4019_mutation_driver.py`)
-  passes (`7 passed`, covering partial-write restoration, active interpreter selection,
+  passes (`8 passed`, covering partial-write restoration, active interpreter selection,
   `TimeoutExpired` handling, empty subprocess output fallback, runtime occurrence-count
-  verification, `target_missing.py` missing-unit summation, and the 27-receipt inventory),
+  verification, `target_missing.py` missing-unit summation and CLI/zero-denominator guards,
+  and the 27-receipt inventory),
   and fresh `mutate.py` execution against a temporary output directory confirms
   `27/27 proof_ok`.
-- **Final-head hosted Gate coverage (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`)**:
+- **Final-head hosted Gate coverage (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d` and `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`)**:
   - [Gate 42342628461](https://github.com/stranske/Workflows/actions/runs/42342628461):
     `conclusion: success` (Python 3.13 job `128313615973` `success`; Python 3.14 job
     `128313616019` `success`).
@@ -682,6 +683,20 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
     tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
     TARGET_MISSING 3
     ```
+  - [Gate 43166948933](https://github.com/stranske/Workflows/actions/runs/43166948933)
+    on PR #4674 head `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`: `conclusion: success`
+    (Python 3.13 job `131011150858` `success`; Python 3.14 job `131011150993` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13920802310`, `sha256:9555a25ab5fe2ba25aca75c5640c29cb414f7944fa51e67025fa5ebfb618493e`):
+    ```text
+    TOTAL 68032 74698 91.07606629360893
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
     confirming `TARGET_MISSING` equals 3 statements in `tools/llm_provider.py` (lines
     265, 270, 292).
+
 
