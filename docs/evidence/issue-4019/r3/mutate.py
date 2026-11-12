@@ -239,16 +239,31 @@ MUTATIONS = [
 
 
 def run(node: str) -> tuple[int, str]:
-    proc = subprocess.run(
-        [PY, "-m", "pytest", node, "-q", "-p", "no:cacheprovider"],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
+    """Execute pytest for a single test node and return exit code and combined output."""
+    try:
+        proc = subprocess.run(
+            [PY, "-m", "pytest", node, "-q", "-p", "no:cacheprovider"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = (
+            exc.stdout
+            if isinstance(exc.stdout, str)
+            else (exc.stdout or b"").decode(errors="replace")
+        )
+        stderr = (
+            exc.stderr
+            if isinstance(exc.stderr, str)
+            else (exc.stderr or b"").decode(errors="replace")
+        )
+        return 124, f"{stdout}{stderr}TimeoutExpired: {exc}\n"
     return proc.returncode, proc.stdout + proc.stderr
 
 
 def main(out_dir: Path) -> int:
+    """Run all configured mutations, verify byte restoration, and write receipts."""
     receipts = []
     ok = True
     for mid, node, path, old, new, count in MUTATIONS:
@@ -256,19 +271,33 @@ def main(out_dir: Path) -> int:
         original = src.read_bytes()
         digest = hashlib.sha256(original).hexdigest()
         text = original.decode()
-        assert text.count(old) == count, (mid, text.count(old))
-        try:
-            src.write_text(text.replace(old, new))
-            red_code, red_out = run(node)
-        finally:
-            src.write_bytes(original)
-        restored = hashlib.sha256(src.read_bytes()).hexdigest()
-        green_code, green_out = run(node)
+        actual_count = text.count(old)
         cmd = f"{PY} -m pytest {node} -q -p no:cacheprovider"
+        if actual_count != count:
+            red_code = 2
+            red_out = f"Occurrence count mismatch for {mid}: expected {count}, got {actual_count}\n"
+            restored = hashlib.sha256(src.read_bytes()).hexdigest()
+            green_code, green_out = run(node)
+        else:
+            try:
+                src.write_text(text.replace(old, new))
+                red_code, red_out = run(node)
+            finally:
+                src.write_bytes(original)
+            restored = hashlib.sha256(src.read_bytes()).hexdigest()
+            green_code, green_out = run(node)
         (out_dir / f"{mid}-red.txt").write_text(f"$ {cmd}\n{red_out}exit={red_code}\n")
         (out_dir / f"{mid}-green.txt").write_text(f"$ {cmd}\n{green_out}exit={green_code}\n")
-        passed = red_code == 1 and "FAILED" in red_out and green_code == 0 and restored == digest
+        passed = (
+            actual_count == count
+            and red_code == 1
+            and "FAILED" in red_out
+            and green_code == 0
+            and restored == digest
+        )
         ok &= passed
+        red_lines = red_out.strip().splitlines()
+        green_lines = green_out.strip().splitlines()
         receipts.append(
             {
                 "id": mid,
@@ -279,8 +308,8 @@ def main(out_dir: Path) -> int:
                 "occurrences": count,
                 "red_exit": red_code,
                 "green_exit": green_code,
-                "red_last_line": red_out.strip().splitlines()[-1],
-                "green_last_line": green_out.strip().splitlines()[-1],
+                "red_last_line": red_lines[-1] if red_lines else "",
+                "green_last_line": green_lines[-1] if green_lines else "",
                 "sha256_before": digest,
                 "sha256_restored": restored,
                 "proof_ok": passed,

@@ -662,9 +662,12 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
   ============================= 290 passed in 3.39s ==============================
   exit=0
   ```
-  Driver regression suite (`tests/tools/test_issue_4019_mutation_driver.py`) passes
-  (`2 passed`), and fresh `mutate.py` execution against a temporary output directory
-  confirms `27/27 proof_ok`.
+  Driver and helper regression suite (`tests/tools/test_issue_4019_mutation_driver.py`)
+  passes (`7 passed`, covering partial-write restoration, active interpreter selection,
+  `TimeoutExpired` handling, empty subprocess output fallback, runtime occurrence-count
+  verification, `target_missing.py` missing-unit summation, and the 27-receipt inventory),
+  and fresh `mutate.py` execution against a temporary output directory confirms
+  `27/27 proof_ok`.
 - **Final-head hosted Gate coverage (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`)**:
   - [Gate 42342628461](https://github.com/stranske/Workflows/actions/runs/42342628461):
     `conclusion: success` (Python 3.13 job `128313615973` `success`; Python 3.14 job
