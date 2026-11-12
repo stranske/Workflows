@@ -2041,9 +2041,7 @@ def _run_ensure_gemini_cli(tmp_path, members, url_suffix=".tar.gz"):
     import subprocess
     import tarfile
 
-    runner = yaml.safe_load(
-        (WORKFLOWS_DIR / "reusable-gemini-run.yml").read_text(encoding="utf-8")
-    )
+    runner = yaml.safe_load((WORKFLOWS_DIR / "reusable-gemini-run.yml").read_text(encoding="utf-8"))
     steps = runner["jobs"]["gemini"]["steps"]
     script = next(s for s in steps if s.get("name") == "Ensure Gemini CLI")["run"]
 
@@ -2059,7 +2057,7 @@ def _run_ensure_gemini_cli(tmp_path, members, url_suffix=".tar.gz"):
     shims.mkdir()
     # curl -fsSL --retry 3 --retry-delay 2 -o <dest> <url>: copy the fixture to <dest>.
     (shims / "curl").write_text(
-        '#!/usr/bin/env bash\n'
+        "#!/usr/bin/env bash\n"
         'while [ "$#" -gt 0 ]; do [ "$1" = -o ] && { cp "$FAKE_ARCHIVE" "$2"; exit 0; }; shift; done\n'
         "exit 1\n"
     )
