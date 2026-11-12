@@ -14,6 +14,7 @@ import zipfile
 from copy import deepcopy
 
 import pytest
+from scripts import compare_gate_coverage as compare
 from scripts import reconcile_issue_4426_coverage as reconcile
 
 
@@ -559,3 +560,295 @@ def test_verified_archives_bind_unique_inventory_comparison():
         total += removed
     assert comparison["unique_observed_units_removed"] == total == 33
     assert comparison["attributable_round_reduction"] is None
+
+
+def _inventory(*, missing_lines=(), executed_lines=(), missing_branches=(), executed_branches=()):
+    return {
+        "summary": {
+            "num_statements": len(missing_lines) + len(executed_lines),
+            "covered_lines": len(executed_lines),
+            "missing_lines": len(missing_lines),
+            "num_branches": len(missing_branches) + len(executed_branches),
+            "covered_branches": len(executed_branches),
+            "missing_branches": len(missing_branches),
+        },
+        "missing_lines": list(missing_lines),
+        "executed_lines": list(executed_lines),
+        "missing_branches": [list(arc) for arc in missing_branches],
+        "executed_branches": [list(arc) for arc in executed_branches],
+    }
+
+
+def test_source_mapping_tracks_shifted_lines_and_negative_function_exits():
+    before = _inventory(
+        missing_lines=[3], executed_lines=[1, 2], missing_branches=[(2, 3), (2, -1)]
+    )
+    after = _inventory(executed_lines=[2, 3, 4], executed_branches=[(3, 4), (3, -2)])
+    result = compare.compare_target(
+        before,
+        after,
+        "def f():\n    if ready:\n        return 1\n",
+        "# inserted\ndef f():\n    if ready:\n        return 1\n",
+    )
+    assert result["lines"]["mapped"] == [[1, 2], [2, 3], [3, 4]]
+    assert result["arcs"]["mapped"] == [[(2, -1), (3, -2)], [(2, 3), (3, 4)]]
+    assert result["observed_newly_covered_units"] == 3
+    assert result["changed_baseline_lines"] == []
+    assert result["changed_final_lines"] == [1]
+    assert result["attributable_round_reduction"] is None
+
+
+def test_source_mapping_does_not_credit_changed_removed_or_excluded_units():
+    source = "if ready:\n    run()\nfinish()\n"
+    before = _inventory(missing_lines=[2, 3], missing_branches=[(1, 2), (1, 3)])
+    after = _inventory(executed_lines=[2], executed_branches=[(1, 2)])
+    result = compare.compare_target(before, after, source, source.replace("run()", "stop()"))
+    assert result["observed_newly_covered_units"] == 0
+    assert result["lines"]["unmatched_baseline_missing"] == [2, 3]
+    assert result["lines"]["unmatched_final"] == [2]
+    assert result["arcs"]["unmatched_baseline_missing"] == [(1, 2), (1, 3)]
+    assert result["arcs"]["unmatched_final"] == [(1, 2)]
+    assert result["changed_baseline_lines"] == result["changed_final_lines"] == [2]
+
+
+def test_source_mapping_keeps_regressions_separate_from_gains():
+    before = _inventory(
+        missing_lines=[2],
+        executed_lines=[1],
+        missing_branches=[(1, 2)],
+        executed_branches=[(1, -1)],
+    )
+    after = _inventory(
+        executed_lines=[2],
+        missing_lines=[1],
+        executed_branches=[(1, 2)],
+        missing_branches=[(1, -1)],
+    )
+    result = compare.compare_target(
+        before, after, "if ready:\n    run()\n", "if ready:\n    run()\n"
+    )
+    assert result["observed_newly_covered_units"] == result["observed_newly_missing_units"] == 2
+    assert result["lines"]["newly_missing"] == [[1, 1]]
+    assert result["arcs"]["newly_missing"] == [[(1, -1), (1, -1)]]
+
+
+@pytest.mark.parametrize("side", ["baseline", "final"])
+@pytest.mark.parametrize(
+    "field",
+    [
+        "num_statements",
+        "covered_lines",
+        "missing_lines",
+        "num_branches",
+        "covered_branches",
+        "missing_branches",
+    ],
+)
+@pytest.mark.parametrize("corruption", ["omitted_unit", "boolean", "float"])
+def test_source_mapping_rejects_incomplete_or_mistyped_summary(side, field, corruption):
+    before = _inventory(
+        missing_lines=[1],
+        executed_lines=[2],
+        missing_branches=[(1, 2)],
+        executed_branches=[(1, -1)],
+    )
+    after = deepcopy(before)
+    summary = (before if side == "baseline" else after)["summary"]
+    if corruption == "omitted_unit":
+        summary[field] += 1
+    elif corruption == "boolean":
+        summary[field] = bool(summary[field])
+    else:
+        summary[field] = float(summary[field])
+    with pytest.raises(ValueError, match=f"inventory disagrees with summary: {field}"):
+        compare.compare_target(before, after, "if ready:\n    run()\n", "if ready:\n    run()\n")
+
+
+def test_source_mapping_accounts_for_missing_units_without_crediting_removed_code():
+    before_source = "if ready:\n    run()\nfinish()\ncleanup()\n"
+    after_source = "if ready:\n    run()\nfinish()\nstop()\n"
+    before = _inventory(
+        missing_lines=[2, 4],
+        executed_lines=[1, 3],
+        missing_branches=[(1, 2), (1, 4)],
+        executed_branches=[(1, 3)],
+    )
+    after = _inventory(
+        missing_lines=[3],
+        executed_lines=[1, 2, 4],
+        missing_branches=[(1, 3)],
+        executed_branches=[(1, 2), (1, 4)],
+    )
+    result = compare.compare_target(before, after, before_source, after_source)
+    assert result["missing_unit_accounting"] == {
+        "baseline_missing_units": 4,
+        "final_missing_units": 2,
+        "newly_covered": 2,
+        "newly_missing": 2,
+        "unmatched_baseline_missing": 2,
+        "unmatched_final_missing": 0,
+        "mapped_net_reduction": 0,
+        "unmatched_net_difference": 2,
+        "snapshot_difference": 2,
+    }
+    assert result["attributable_round_reduction"] is None
+
+    reverse = compare.compare_target(after, before, after_source, before_source)
+    counts = reverse["missing_unit_accounting"]
+    assert counts["unmatched_final_missing"] == 2
+    assert counts["snapshot_difference"] == -2
+    assert counts["snapshot_difference"] == (
+        counts["mapped_net_reduction"] + counts["unmatched_net_difference"]
+    )
+
+
+def test_source_mapping_accepts_complete_retained_gate_inventories():
+    import gzip
+
+    for label in ("historical", "current"):
+        coverage = json.loads(
+            gzip.decompress((reconcile.EVIDENCE / f"{label}-gate.coverage.json.gz").read_bytes())
+        )
+        for path in reconcile.TARGETS:
+            lines, arcs, missing_lines, missing_arcs = compare._units(coverage["files"][path])
+            summary = coverage["files"][path]["summary"]
+            assert len(lines) + len(arcs) == summary["num_statements"] + summary["num_branches"]
+            assert len(missing_lines) + len(missing_arcs) == (
+                summary["missing_lines"] + summary["missing_branches"]
+            )
+
+
+@pytest.mark.parametrize("side", ["baseline", "final"])
+@pytest.mark.parametrize(
+    "corruption", ["duplicate", "boolean", "overlap", "out_of_bounds", "exit_out_of_bounds"]
+)
+def test_source_mapping_rejects_invalid_units(side, corruption):
+    before, after = _inventory(), _inventory()
+    row = before if side == "baseline" else after
+    if corruption == "duplicate":
+        row["executed_branches"] = [[1, -1], [1, -1]]
+    elif corruption == "boolean":
+        row["executed_lines"] = [True]
+    elif corruption == "overlap":
+        row["missing_lines"] = row["executed_lines"] = [1]
+    elif corruption == "out_of_bounds":
+        row.update(_inventory(missing_lines=[2]))
+    else:
+        row.update(_inventory(missing_branches=[(1, -2)]))
+    with pytest.raises(ValueError, match="invalid|overlap|source length"):
+        compare.compare_target(before, after, "run()\n", "run()\n")
+
+
+def test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout(
+    tmp_path, monkeypatch, capsys
+):
+    import gzip
+    from types import SimpleNamespace
+
+    baseline, final = "a" * 40, "b" * 40
+    ranking = tmp_path / "ranking.json"
+    ranking.write_text(json.dumps({"historical_issue_order": list(reversed(reconcile.TARGETS))}))
+    coverages = []
+    for name, row in (
+        ("before", _inventory(missing_lines=[1])),
+        ("after", _inventory(executed_lines=[2])),
+    ):
+        data = json.dumps(
+            {"meta": {"branch_coverage": True}, "files": dict.fromkeys(reconcile.TARGETS, row)}
+        ).encode()
+        path = tmp_path / name
+        path.write_bytes(data if name == "before" else gzip.compress(data))
+        coverages.append((path, hashlib.sha256(data).hexdigest()))
+
+    def git(command, **kwargs):
+        assert command[:3] == ["git", "-C", str(tmp_path)]
+        assert kwargs == {"check": True, "capture_output": True}
+        if command[3] == "rev-parse":
+            return SimpleNamespace(stdout=(command[-1].removesuffix("^{commit}") + "\n").encode())
+        assert command[3] == "show"
+        revision, path = command[-1].split(":")
+        assert path in reconcile.TARGETS
+        return SimpleNamespace(
+            stdout=b"run()\n" if revision == baseline else b"# inserted\nrun()\n"
+        )
+
+    monkeypatch.setattr(compare.subprocess, "run", git)
+    argv = [
+        str(coverages[0][0]),
+        str(coverages[1][0]),
+        "--baseline-checkout",
+        baseline,
+        "--final-checkout",
+        final,
+        "--repository",
+        str(tmp_path),
+        "--ranking",
+        str(ranking),
+    ]
+    assert compare.main(argv) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert list(result["targets"]) == list(reversed(reconcile.TARGETS))
+    assert result["source_checkouts"] == {"baseline": baseline, "final": final}
+    assert result["coverage_json_sha256"] == {"baseline": coverages[0][1], "final": coverages[1][1]}
+    assert all(row["observed_newly_covered_units"] == 1 for row in result["targets"].values())
+    assert result["tested_checkout_binding_verified"] is False
+    assert result["execution_configuration_verified"] is False
+    assert result["attributable_round_reduction"] is None
+
+    unbranched = json.loads(coverages[0][0].read_text())
+    unbranched["meta"]["branch_coverage"] = False
+    coverages[0][0].write_text(json.dumps(unbranched))
+    with pytest.raises(SystemExit) as error:
+        compare.main(argv)
+    assert error.value.code == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "branch coverage is required" in output.err
+
+    ranking.write_text(json.dumps({"historical_issue_order": list(reconcile.TARGETS[:-1])}))
+    with pytest.raises(SystemExit) as error:
+        compare.main(argv)
+    assert error.value.code == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "exactly the six selected targets" in output.err
+
+
+@pytest.mark.parametrize("compressed", [False, True])
+def test_source_comparison_bounds_plain_and_expanded_coverage(tmp_path, monkeypatch, compressed):
+    import gzip
+    from types import SimpleNamespace
+
+    data = b" " * 1001
+    coverage = tmp_path / "coverage.json"
+    coverage.write_bytes(gzip.compress(data) if compressed else data)
+    monkeypatch.setattr(compare, "MAX_BYTES", 1000)
+    monkeypatch.setattr(
+        compare.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(stdout=b"a" * 40)
+    )
+    with pytest.raises(ValueError, match="coverage.json exceeds byte limit"):
+        compare.compare_checkouts(
+            tmp_path, "HEAD", "HEAD", coverage, coverage, reconcile.EVIDENCE / "ranking.json"
+        )
+
+
+def test_source_comparison_reports_damaged_gzip_deflate(tmp_path, capsys):
+    coverage = tmp_path / "damaged.coverage.json.gz"
+    # Valid gzip header followed by a deflate block with reserved BTYPE=3.
+    coverage.write_bytes(bytes.fromhex("1f8b08000000000002ff07") + b"\x00" * 8)
+    with pytest.raises(SystemExit) as error:
+        compare.main(
+            [
+                str(coverage),
+                str(coverage),
+                "--baseline-checkout",
+                "HEAD",
+                "--final-checkout",
+                "HEAD",
+            ]
+        )
+    assert error.value.code == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "Cannot compare Gate inventories" in output.err
+    assert "Traceback" not in output.err

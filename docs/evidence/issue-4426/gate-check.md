@@ -1,5 +1,117 @@
 # Issue #4426 Gate check and stop rule
 
+## Inventory accounting continuation, 2026-11-11
+
+The mapper now rejects inventories whose statement/branch counts disagree with
+their summaries, including boolean and float counters. Both retained real Gate
+inventories pass this check for all six ranked paths. Each target now includes
+`missing_unit_accounting`: baseline/final missing counts, mapped gains and
+regressions, and unmatched missing counts. The snapshot difference equals the
+mapped net reduction plus the unmatched net difference; removed source never
+counts as a mapped gain. Attribution remains null.
+
+`inventory-accounting-mutations.json` retains three named deliberate breaks and
+restored passes for summary validation, removed-code accounting, and retention
+of real Gate branch inventories. Reproduce them with
+`python docs/evidence/issue-4426/inventory-accounting-mutation-driver.txt`.
+`inventory-accounting-validation.json` records the focused validation results.
+The combined reconciler, ranked remainder and three documentation selections
+pass 206 tests, with 100.00% targeted coverage for the mapper utility only.
+
+The original baseline object remains absent, and a fresh isolated fetch fails
+DNS resolution for github.com. The exact acceptance command exits 127 because
+`/opt/anaconda3/bin/python3` is absent; the equivalent selection is tested with
+the installed Python 3.14.10. No whole-Gate replay or attributable round-wide
+reduction is claimed, and the remaining task/acceptance checkboxes stay open.
+Staging the two changed Python files fails creating `.git/index.lock` on the
+read-only filesystem, so no commit is created. The connector rejects the
+`needs-human` label and blocker comment because approval is required while this
+run's approval policy is `never`. PR #4665 is verified open with `draft=false`.
+
+## Measurement continuation, 2026-11-11
+
+No controlled original-round comparison is claimed. Baseline checkout
+`682c12c02f24e2b8ee8d69da0d54dae28a87977d` is absent locally, and fetching it
+into an isolated object cache fails GitHub DNS resolution. The active `.git`
+mount is read-only. `/opt/anaconda3/bin/python3` is absent; local checks use
+Python 3.14.10. All acceptance checkboxes remain unchecked.
+
+`python -m scripts.compare_gate_coverage BASELINE.coverage.json FINAL.coverage.json
+--baseline-checkout 682c12c02f24e2b8ee8d69da0d54dae28a87977d
+--final-checkout FINAL_TESTED_CHECKOUT` maps the six ranking paths using source
+from the specified Git revisions. Plain and gzip coverage inputs are accepted.
+The output retains source/coverage digests, changed lines, mapped lines/arcs,
+newly covered/missing units, and unmatched executable/missing units. A negative
+branch destination maps its function definition line. Changed endpoints and
+removed/excluded executable units receive no observed coverage gain. Source
+mapping alone leaves attribution and execution verification unknown. The
+`controlled_whole_gate_comparison` record in coverage-measurement.json retains
+the missing-baseline disposition; unknown inventory sizes are not zero.
+
+The current reusable workflow builds the following coverage invocation after
+generating `ci_test_growth` and setting `PYTHONPATH` and `CI_TEST_RESOURCE_DIR`
+as described by the observer extraction below:
+
+```bash
+pytest -p ci_test_growth -m 'not quarantine and not slow' \
+  --junitxml=pytest-junit.xml --cov --cov-config=pyproject.toml \
+  --cov-report=xml:coverage.xml --cov-report=term-missing \
+  --cov-report=json:coverage.json -o faulthandler_timeout=600 \
+  -n auto --dist load \
+  --ignore=tests/scripts/test_pr_verifier_delivery_destinations.py \
+  --ignore=tests/scripts/test_pr_verifier_prompt_coverage.py \
+  --ignore=tests/scripts/test_pr_verifier_body_overall_integration.py \
+  -n 4 --dist=loadgroup
+```
+
+The final xdist options determine four workers and loadgroup scheduling.
+This invocation describes the **main shard**, not full-suite coverage. For a
+controlled whole-suite replay on each checkout, remove all three `--ignore`
+arguments on **both** runs and hold observer, configuration, dependency versions,
+runner, runtime and selection constant. A passing grammar shard with coverage
+disabled cannot supply those missing arcs. The faulthandler option is present
+in the current workflow; no claim is made that the earlier recorded job used it.
+
+`gate-selection-2026-11-11.json` retains freshly retrieved metadata and bounded
+log excerpts for successful run 43089486751, main job 130763450843, tested merge
+`4f2ad36497222425d6bea2135358f9c82a2f752d`, head
+`660ed8c62c7addfa835d9dc29bae3be5acc0ea1d`. It reports
+`15945 passed, 48 skipped, 3 xfailed in 311.71s`. Artifact 13888347102 has
+advertised ZIP SHA-256
+`6a80db80e3c6e4b2496a771213f4536650902eec4c507a96073f7d2e8ac84ea3`.
+Local ZIP verification and coverage.json SHA-256 remain unavailable.
+
+Each ignored module is explicitly selected by grammar job 130763616507:
+`test_pr_verifier_delivery_destinations.py`,
+`test_pr_verifier_prompt_coverage.py`, and
+`test_pr_verifier_body_overall_integration.py`. That job succeeds with
+`30340 passed in 89.64s`, at the same merge, with `COVERAGE_ENABLED: false`.
+All three therefore have pass/fail evidence but no contribution to the main
+coverage inventory. This job is not used for round-wide attribution.
+
+Local validation (`source-mapping-validation.json`) passes 168 selected tests,
+with 100.00% targeted coverage for `scripts/compare_gate_coverage.py` only.
+This percentage does not measure the six ranked modules or round-wide gains.
+Ruff and `git diff --check` pass. The exact full-tree Black CLI arguments pass
+with the repository's serial scheduler supplied by a temporary `sitecustomize`:
+1012 files unchanged. Its normal process pool fails sandbox socket creation.
+Staging fails with `.git/index.lock: Read-only file system`; no commit is claimed.
+
+`source-mapping-mutation-driver.txt` retains nine named deliberate-break failures
+and restored passes in `source-mapping-mutations.json`. Independently,
+`outstanding-archive-mutation-driver.txt` receipts the three previously
+unreceipted tests: `test_current_archive_stays_separate_from_historical_evidence`,
+all four cases of `test_current_archive_rejects_unbound_provenance`, and
+`test_verified_archives_bind_unique_inventory_comparison`. Its six named failures
+and restored passes are in `outstanding-archive-mutations.json`. Source, test and
+original inventory hashes bind the restored bytes. These receipts do not select
+new verifier behaviors from an unavailable original-round inventory.
+
+The requested `needs-human` label and PR blocker comment were attempted through
+the GitHub connector. Both writes were rejected: `MCP tool call requires
+approval, but approval policy is never`. No remote label/comment update is
+claimed. The prepared changes remain local because Git staging is also blocked.
+
 ## Continuation acceptance, 2026-11-07
 
 Outcome 1: verified archive inventories and unique attributable round-wide reduction

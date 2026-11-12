@@ -1,0 +1,52 @@
+"""Receipt the three pre-existing archive tests without changing their assertions."""
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[3]
+source = root / "scripts/reconcile_issue_4426_coverage.py"
+evidence = Path(__file__).parent
+inventory = evidence / "verified-inventory-comparison.json"
+test = "tests/scripts/test_reconcile_issue_4426_coverage.py"
+original_source, original_inventory = source.read_text(), inventory.read_text()
+current_start = original_source.index("def reconcile_current_archive(")
+cases = [
+    ("archive_attribution", '"attributable_round_reduction": None', '"attributable_round_reduction": 0', "test_current_archive_stays_separate_from_historical_evidence"),
+    ("archive_head", 'artifact["workflow_run"]["head_sha"] != head', "False", "test_current_archive_rejects_unbound_provenance[head]"),
+    ("archive_digest", 'artifact["digest"] != digest', "False", "test_current_archive_rejects_unbound_provenance[digest]"),
+    ("archive_merge_log", 'raise ValueError("current Gate checkout log mismatch")', "pass", "test_current_archive_rejects_unbound_provenance[merge_log]"),
+    ("archive_checkout_log", 'raise ValueError("current Gate tested checkout missing")', "pass", "test_current_archive_rejects_unbound_provenance[checkout_log]"),
+    ("inventory_removed_units", None, None, "test_verified_archives_bind_unique_inventory_comparison"),
+]
+
+def run(name):
+    command = [sys.executable, "-m", "pytest", "-q", f"{test}::{name}", "-m", "not slow", "--tb=short"]
+    result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=110)
+    return {"command": command, "exit_code": result.returncode, "output": result.stdout + result.stderr}
+
+receipts = []
+try:
+    for name, needle, replacement, selection in cases:
+        if needle is None:
+            data = json.loads(original_inventory)
+            data["targets"]["scripts/langchain/pr_verifier.py"]["unique_observed_units_removed"] += 1
+            inventory.write_text(json.dumps(data))
+        else:
+            current = original_source[current_start:]
+            assert needle in current, name
+            source.write_text(original_source[:current_start] + current.replace(needle, replacement, 1))
+        red = run(selection)
+        source.write_text(original_source)
+        inventory.write_text(original_inventory)
+        green = run(selection)
+        receipts.append({"name": name, "needle": needle, "replacement": replacement, "red": red, "restored_green": green})
+        assert red["exit_code"] == 1 and "FAILED " in red["output"], name
+        assert green["exit_code"] == 0 and "passed" in green["output"], name
+finally:
+    source.write_text(original_source)
+    inventory.write_text(original_inventory)
+    record = {"schema": "workflows.issue-4663-outstanding-archive-mutations/v1", "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(), "inventory_sha256": hashlib.sha256(inventory.read_bytes()).hexdigest(), "test_sha256": hashlib.sha256((root / test).read_bytes()).hexdigest(), "cases": receipts}
+    (evidence / "outstanding-archive-mutations.json").write_text(json.dumps(record, indent=2) + "\n")
+print(f"{len(receipts)} named deliberate breaks failed and restored selections passed")

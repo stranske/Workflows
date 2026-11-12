@@ -1,0 +1,77 @@
+{
+  "schema": "workflows.issue-4663-local-validation/v1",
+  "checkout": "5ac9e7421989bf02341798dec5e543928bd47355",
+  "python": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "checks": [
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_reconcile_issue_4426_coverage.py",
+        "tests/scripts/test_pr_verifier_ranked_remainder.py",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 127,
+      "output": "Requested executable is absent."
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_reconcile_issue_4426_coverage.py",
+        "tests/scripts/test_pr_verifier_ranked_remainder.py",
+        "tests/docs/test_issue_4426_gate_check.py",
+        "tests/docs/test_issue_4426_coverage_measurement.py",
+        "tests/docs/test_issue_4426_ranking.py",
+        "--cov=scripts.compare_gate_coverage",
+        "--cov-report=term-missing",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "output": "........................................................................ [ 42%]\n........................................................................ [ 85%]\n........................                                                 [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                               Stmts   Miss Branch BrPart    Cover   Missing\n--------------------------------------------------------------------------------\nscripts/compare_gate_coverage.py      83      0     26      0  100.00%\n--------------------------------------------------------------------------------\nTOTAL                                 83      0     26      0  100.00%\n168 passed in 4.51s\n"
+    },
+    {
+      "command": [
+        "ruff",
+        "check",
+        "scripts/compare_gate_coverage.py",
+        "tests/scripts/test_reconcile_issue_4426_coverage.py"
+      ],
+      "exit_code": 0,
+      "output": "All checks passed!\n"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "output": ""
+    }
+  ],
+  "formatting": {
+    "command": "PYTHONPATH=/tmp/issue4663-black black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "exit_code": 0,
+    "output": "1012 files would be left unchanged.",
+    "adaptation": "Repository serial scheduler via temporary sitecustomize; normal process pool fails sandbox socket creation."
+  },
+  "commit_status": "blocked: git add fails creating .git/index.lock (read-only file system)",
+  "whole_gate_replayed": false,
+  "acceptance_complete": false,
+  "source_sha256": {
+    "scripts/compare_gate_coverage.py": "7556d4d8d228fd773f2177eded81e94b91ee74d1e70e8cddf6e846c21e2bb2d6",
+    "tests/scripts/test_reconcile_issue_4426_coverage.py": "04945c6ce7de241c916c35e7f6648081b7ce216b88e4fe12cb899f231619df72"
+  },
+  "remote_blocker_reporting": {
+    "needs_human_label": "rejected",
+    "pr_comment": "rejected",
+    "reason": "MCP tool call requires approval, but approval policy is never"
+  }
+}

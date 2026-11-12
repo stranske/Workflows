@@ -1,0 +1,76 @@
+{
+  "schema": "workflows.issue-4663-gate-selection/v1",
+  "checked_on": "2026-11-11",
+  "repo": "stranske/Workflows",
+  "run_id": 43089486751,
+  "job_id": 130763450843,
+  "run_head": "660ed8c62c7addfa835d9dc29bae3be5acc0ea1d",
+  "tested_checkout": "4f2ad36497222425d6bea2135358f9c82a2f752d",
+  "result": "15945 passed, 48 skipped, 3 xfailed in 311.71s",
+  "artifact": {
+    "id": 13888347102,
+    "name": "gate-coverage-3.14-1",
+    "size_in_bytes": 861151,
+    "url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13888347102",
+    "archive_download_url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13888347102/zip",
+    "expired": false,
+    "created_at": "2026-11-11T19:49:07Z",
+    "expires_at": "2026-11-18T19:49:06Z",
+    "updated_at": "2026-11-11T19:49:07Z",
+    "digest": "sha256:6a80db80e3c6e4b2496a771213f4536650902eec4c507a96073f7d2e8ac84ea3",
+    "workflow_run": {
+      "id": 43089486751,
+      "repository_id": 1117447156,
+      "head_repository_id": 1117447156,
+      "head_branch": "codex/issue-4500",
+      "head_sha": "660ed8c62c7addfa835d9dc29bae3be5acc0ea1d"
+    }
+  },
+  "archive_bytes_locally_verified": false,
+  "coverage_json_sha256": null,
+  "ignored_modules": [
+    {
+      "path": "tests/scripts/test_pr_verifier_delivery_destinations.py",
+      "disposition": "selected by python-ci-grammar, coverage disabled",
+      "grammar_job_id": 130763616507,
+      "grammar_job_conclusion": "success",
+      "attributable_units": null
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_prompt_coverage.py",
+      "disposition": "selected by python-ci-grammar, coverage disabled",
+      "grammar_job_id": 130763616507,
+      "grammar_job_conclusion": "success",
+      "attributable_units": null
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_body_overall_integration.py",
+      "disposition": "selected by python-ci-grammar, coverage disabled",
+      "grammar_job_id": 130763616507,
+      "grammar_job_conclusion": "success",
+      "attributable_units": null
+    }
+  ],
+  "grammar_result": "30340 passed in 89.64s",
+  "grammar_coverage_enabled": false,
+  "round_wide_coverage_comparable": false,
+  "reason": "The grammar shard proves pass/fail execution but contributes no coverage inventory. Main-shard coverage cannot be equated with a whole-suite baseline.",
+  "log_excerpts": [
+    "2026-11-11T19:43:24.3941058Z HEAD is now at 4f2ad36 Merge 660ed8c62c7addfa835d9dc29bae3be5acc0ea1d into e621d8f0ed8b83b9648b7fa8577b4f236bd57f1d",
+    "2026-11-11T19:43:30.8648926Z HEAD is now at 4f2ad36 Merge 660ed8c62c7addfa835d9dc29bae3be5acc0ea1d into e621d8f0ed8b83b9648b7fa8577b4f236bd57f1d",
+    "2026-11-11T19:43:50.4077177Z   PYTEST_ARGS: -n auto --dist load --ignore=tests/scripts/test_pr_verifier_delivery_destinations.py --ignore=tests/scripts/test_pr_verifier_prompt_coverage.py --ignore=tests/scripts/test_pr_verifier_body_overall_integration.py",
+    "2026-11-11T19:44:24.9010170Z platform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.6.0",
+    "2026-11-11T19:49:03.9252603Z =========== 15945 passed, 48 skipped, 3 xfailed in 311.71s (0:05:11) ===========",
+    "2026-11-11T19:49:07.2056291Z SHA256 digest of uploaded artifact is 6a80db80e3c6e4b2496a771213f4536650902eec4c507a96073f7d2e8ac84ea3"
+  ],
+  "grammar_log_excerpts": [
+    "2026-11-11T19:44:06.6908737Z   COVERAGE_ENABLED: false",
+    "2026-11-11T19:44:07.8642946Z   PYTEST_ARGS: -n auto --dist load tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_prompt_coverage.py tests/scripts/test_pr_verifier_body_overall_integration.py",
+    "2026-11-11T19:44:07.8643626Z   COVERAGE_ENABLED: false",
+    "2026-11-11T19:45:39.3924212Z ======================= 30340 passed in 89.64s (0:01:29) =======================",
+    "2026-11-11T19:45:41.4887243Z   COVERAGE_ENABLED: false",
+    "2026-11-11T19:45:41.5167502Z   COVERAGE_ENABLED: false",
+    "2026-11-11T19:45:41.6324294Z   COVERAGE_ENABLED: false",
+    "2026-11-11T19:45:42.9500454Z   COVERAGE_ENABLED: false"
+  ]
+}

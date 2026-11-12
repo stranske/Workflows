@@ -731,5 +731,45 @@
     "result": "implementation tested with synthetic archives; actual final archive bytes remain inaccessible",
     "attributable_round_reduction": null,
     "historical_snapshots_overwritten": false
+  },
+  "controlled_whole_gate_comparison": {
+    "status": "blocked_before_baseline_replay",
+    "baseline_checkout": "682c12c02f24e2b8ee8d69da0d54dae28a87977d",
+    "working_checkout": "5ac9e7421989bf02341798dec5e543928bd47355",
+    "comparison_command": "python -m scripts.compare_gate_coverage BASELINE.coverage.json FINAL.coverage.json --baseline-checkout 682c12c02f24e2b8ee8d69da0d54dae28a87977d --final-checkout FINAL_TESTED_CHECKOUT",
+    "baseline_inventory_available": false,
+    "attributable_round_reduction": null,
+    "unmatched_baseline_units": null,
+    "unmatched_final_units": null,
+    "unknown_inventory_counts_are_not_zero": true,
+    "targets": [
+      "scripts/sync_test_dependencies.py",
+      "scripts/langchain/issue_pr_context.py",
+      "scripts/langchain/verifier_config.py",
+      "tools/langchain_client.py",
+      "scripts/langchain/task_validator.py",
+      "scripts/langchain/pr_verifier.py"
+    ],
+    "blockers": [
+      "Baseline Git object absent; isolated fetch fails DNS resolution for github.com.",
+      "Working checkout Git metadata is mounted read-only; staging/commit cannot update this PR branch.",
+      "Requested /opt/anaconda3/bin/python3 is absent; local verification uses Python 3.14.10.",
+      "Job 130763450843 omits three grammar suites; its passing grammar shard has coverage disabled."
+    ],
+    "gate_selection_record": "gate-selection-2026-11-11.json",
+    "mapper_receipts": "source-mapping-mutations.json",
+    "acceptance_complete": false,
+    "archive_receipts": "outstanding-archive-mutations.json",
+    "local_validation": "source-mapping-validation.json",
+    "inventory_accounting_validation": {
+      "record": "inventory-accounting-validation.json",
+      "mutation_receipts": "inventory-accounting-mutations.json",
+      "inventory_summaries_checked": true,
+      "retained_real_gate_inventories_checked": 2,
+      "ranked_paths_per_inventory": 6,
+      "missing_unit_accounting_identity": "snapshot_difference = mapped_net_reduction + unmatched_net_difference",
+      "attributable_round_reduction": null,
+      "whole_gate_replayed": false
+    }
   }
 }

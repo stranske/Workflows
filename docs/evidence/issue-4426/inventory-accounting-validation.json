@@ -1,0 +1,77 @@
+{
+  "schema": "workflows.issue-4663-inventory-accounting-validation/v1",
+  "checkout": "7ab2c775c2edd3ed493b4ad33767991d3c3597d3",
+  "whole_gate_replayed": false,
+  "attributable_round_reduction": null,
+  "acceptance_complete": false,
+  "checks": [
+    {
+      "command": "python -m pytest -q tests/scripts/test_reconcile_issue_4426_coverage.py tests/scripts/test_pr_verifier_ranked_remainder.py -m 'not slow'",
+      "purpose": "before source edits",
+      "exit_code": 0,
+      "output": "112 passed in 2.39s"
+    },
+    {
+      "command": "python -m pytest -q tests/scripts/test_reconcile_issue_4426_coverage.py tests/scripts/test_pr_verifier_ranked_remainder.py tests/docs/test_issue_4426_gate_check.py tests/docs/test_issue_4426_coverage_measurement.py tests/docs/test_issue_4426_ranking.py --cov=scripts.compare_gate_coverage --cov-report=term-missing -m 'not slow'",
+      "exit_code": 0,
+      "output": "........................................................................ [ 34%]\n........................................................................ [ 69%]\n..............................................................           [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                               Stmts   Miss Branch BrPart    Cover   Missing\n--------------------------------------------------------------------------------\nscripts/compare_gate_coverage.py      91      0     30      0  100.00%\n--------------------------------------------------------------------------------\nTOTAL                                 91      0     30      0  100.00%\n206 passed in 3.20s\n"
+    },
+    {
+      "command": "python -m pytest -q tests/docs/test_issue_4426_gate_check.py tests/docs/test_issue_4426_coverage_measurement.py tests/docs/test_issue_4426_ranking.py -m 'not slow'",
+      "purpose": "after evidence edits",
+      "exit_code": 0,
+      "output": ".......................................................                 [100%]\n56 passed in 0.74s\n"
+    },
+    {
+      "command": "ruff check scripts/compare_gate_coverage.py tests/scripts/test_reconcile_issue_4426_coverage.py",
+      "exit_code": 0,
+      "output": "All checks passed!"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "command": "PYTHONPATH=/tmp/issue4663-accounting-black black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+      "exit_code": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1012 files would be left unchanged.\n",
+      "adaptation": "Existing repository serial scheduler via temporary sitecustomize. The normal CLI fails at process-pool startup with PermissionError; installed formatting and safety checks are unchanged."
+    },
+    {
+      "command": "/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_reconcile_issue_4426_coverage.py tests/scripts/test_pr_verifier_ranked_remainder.py -m 'not slow'",
+      "exit_code": 127,
+      "output": "/bin/bash: line 1: /opt/anaconda3/bin/python3: No such file or directory\n"
+    }
+  ],
+  "mutation_receipts": "inventory-accounting-mutations.json",
+  "baseline_retrieval": {
+    "checkout": "682c12c02f24e2b8ee8d69da0d54dae28a87977d",
+    "object_present": false,
+    "command": "git -C /tmp/issue4663-baseline-objects -c credential.helper= fetch --no-tags https://github.com/stranske/Workflows.git 682c12c02f24e2b8ee8d69da0d54dae28a87977d",
+    "exit_code": 128,
+    "output": "fatal: unable to access 'https://github.com/stranske/Workflows.git/': Could not resolve host: github.com\n"
+  },
+  "staging": {
+    "command": "git add -- scripts/compare_gate_coverage.py tests/scripts/test_reconcile_issue_4426_coverage.py",
+    "exit_code": 128,
+    "output": "fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system\n"
+  },
+  "commit_created": false,
+  "pull_request": {
+    "number": 4665,
+    "state": "open",
+    "isDraft": false,
+    "head": "7ab2c775c2edd3ed493b4ad33767991d3c3597d3"
+  },
+  "python": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "source_sha256": {
+    "scripts/compare_gate_coverage.py": "0c73ff235fca7d72e1615818aa1d6ea78efd706c33246a08627c37adf3c3177f",
+    "tests/scripts/test_reconcile_issue_4426_coverage.py": "e4a784bc176169b087c2c495b2546bbf3196a4354f3e0d2f864d8b1f4f50e1fd"
+  },
+  "remote_blocker_reporting": {
+    "needs_human_label": "rejected",
+    "pr_comment": "rejected",
+    "reason": "MCP tool call requires approval, but approval policy is never"
+  }
+}
