@@ -3138,6 +3138,16 @@ test('a Sync job that failed only at Create sync PR is an infrastructure failure
   }
 });
 
+test('recorded canary run 43114630584 permits a retry after the PR creation rate limit', () => {
+  const { run, candidates } = require('./fixtures/canary-pr-creation-failure-43114630584.json');
+  const state = canaryRefreshDecision({ runs: [run], sha: run.head_sha, candidates,
+    now: Date.parse(run.updated_at) + 60000 });
+  assert.deepEqual(canaryRefreshDiagnostics(state).failure_classification, [
+    { classification: 'infrastructure', run_id: 43114630584, run_attempt: 1 },
+  ]);
+  assert.equal(state.eligible, true, 'the recorded failure alone permits the same source and candidates');
+});
+
 test('a Sync job that failed before Create sync PR is still a consumer failure', () => {
   const contentFailure = { name: 'Sync stranske/Template', status: 'completed', conclusion: 'failure', steps: [
     { name: 'Apply sync', conclusion: 'failure' },
