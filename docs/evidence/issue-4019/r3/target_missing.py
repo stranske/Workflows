@@ -41,8 +41,8 @@ def summarize_coverage(coverage_path: str | Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entrypoint for target_missing.py."""
-    args = sys.argv[1:] if argv is None else argv
-    if not args:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) != 1:
         raise SystemExit("Usage: target_missing.py <coverage.json>")
     summarize_coverage(args[0])
     return 0

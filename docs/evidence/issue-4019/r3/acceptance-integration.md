@@ -692,7 +692,7 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
   digest inventory),
   and fresh `mutate.py` execution against a temporary output directory confirms
   `27/27 proof_ok`.
-- **Hosted Gate coverage checkpoints (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`, `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`, `43170114463` on `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`, `43172506542` on `ade144b93e473e8017409e5ca5603a2f3c26a43e`, `43175869464` on `37f7e8cd1a6a8861860ce575e68d670603831892`, and `43178139478` on `3f04be7287a11a9da2c6fad49807bf2b8fd562bc`)**:
+- **Hosted Gate coverage checkpoints (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`, `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`, `43170114463` on `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`, `43172506542` on `ade144b93e473e8017409e5ca5603a2f3c26a43e`, `43175869464` on `37f7e8cd1a6a8861860ce575e68d670603831892`, `43178139478` on `3f04be7287a11a9da2c6fad49807bf2b8fd562bc`, and `43180601831` on `780fb7ff34eaa667605e5ba452e411368428a2e6`)**:
   - [Gate 42342628461](https://github.com/stranske/Workflows/actions/runs/42342628461):
     `conclusion: success` (Python 3.13 job `128313615973` `success`; Python 3.14 job
     `128313616019` `success`).
@@ -770,6 +770,20 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
     `coverage.json` `sha256:86f5eafb9e6fbf269730baa4533e5106dd73d1fdb6d0283293a6f03ebad9a1fb`):
     ```text
     TOTAL 68030 74698 91.07338884575223
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
+  - [Gate 43180601831](https://github.com/stranske/Workflows/actions/runs/43180601831)
+    on PR #4674 checkpoint head `780fb7ff34eaa667605e5ba452e411368428a2e6`: `conclusion: success`
+    (Python 3.13 job `131055591904` `success`; Python 3.14 job `131055591874` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13926004370`, `sha256:2e1389e8662f98a09b3ba15e5f4060decc8b952734ab954915df19ee11c7c645`,
+    `coverage.json` `sha256:f07e632c684de3e78586a93f4dc6b72e8e6379da17ff033d0714f91f81db59c8`):
+    ```text
+    TOTAL 68133 74700 91.20883534136546
     scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
     scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
     tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []

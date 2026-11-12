@@ -317,6 +317,7 @@ def main(out_dir: Path, revision: str | None = None, *, allow_dirty: bool = Fals
             if not clean and not revision.endswith("-dirty") and revision != "unknown"
             else revision
         )
+    out_dir.mkdir(parents=True, exist_ok=True)
     receipts = []
     ok = True
     for mid, node, path, old, new, count in MUTATIONS:

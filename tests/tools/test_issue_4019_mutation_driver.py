@@ -232,16 +232,17 @@ def test_successful_mutation_path_records_verified_receipt(tmp_path, monkeypatch
 
     monkeypatch.setattr(driver, "run", stub_run)
 
-    rc = driver.main(tmp_path, revision="test-rev-001")
+    nested_out = tmp_path / "nested" / "out"
+    rc = driver.main(nested_out, revision="test-rev-001")
     assert rc == 0
     assert observed_states == [
         ("test.py::test_ok", "value = 2\n"),
         ("test.py::test_ok", "value = 1\n"),
     ]
     assert source.read_bytes() == original
-    assert (tmp_path / "01-red.txt").read_text().startswith("# revision: test-rev-001\n")
-    assert (tmp_path / "01-green.txt").read_text().startswith("# revision: test-rev-001\n")
-    receipts = json.loads((tmp_path / "mutation-receipts.json").read_text())
+    assert (nested_out / "01-red.txt").read_text().startswith("# revision: test-rev-001\n")
+    assert (nested_out / "01-green.txt").read_text().startswith("# revision: test-rev-001\n")
+    receipts = json.loads((nested_out / "mutation-receipts.json").read_text())
     assert len(receipts) == 1
     assert receipts[0]["id"] == "01"
     assert receipts[0]["revision"] == "test-rev-001"
@@ -408,6 +409,8 @@ def test_target_missing_module_main_and_usage_guard(tmp_path):
     helper = load_target_missing()
     with pytest.raises(SystemExit, match="Usage: target_missing.py"):
         helper.main([])
+    with pytest.raises(SystemExit, match="Usage: target_missing.py"):
+        helper.main(["a.json", "b.json"])
 
     zero_fixture = tmp_path / "zero_coverage.json"
     zero_fixture.write_text(
