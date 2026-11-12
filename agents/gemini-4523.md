@@ -1,0 +1,1 @@
+<!-- bootstrap for hosted gemini on issue #4523, owner-authorized 2026-11-12 -->
