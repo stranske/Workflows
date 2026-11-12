@@ -18,7 +18,11 @@ class FakeGitHub:
     def pages(self, path, key=None, **params):
         assert path.endswith("/issues")
         assert params == {"state": "open", "labels": "ci-budget"}
-        return [issue for issue in self.issues if issue.get("state", "open") == "open"]
+        return [
+            issue
+            for issue in self.issues
+            if issue.get("state", "open") == "open" and "ci-budget" in issue.get("labels", [])
+        ]
 
     def optional(self, path):
         return {"name": path.rsplit("/", 1)[-1]}
@@ -108,6 +112,71 @@ def test_recurrence_starts_new_filing_clock():
     row = budget.observation(previous, metrics(), NOW + timedelta(days=20))
     assert row["first_over_target_at"] == (NOW + timedelta(days=20)).isoformat()
     assert "drained_at" not in row
+
+
+@pytest.mark.parametrize("interruption", [None, 11, "missing"])
+def test_owner_reopened_budget_issue_is_reused_until_uninterrupted_recovery(
+    monkeypatch, interruption
+):
+    api = FakeGitHub()
+    issue = {
+        "number": 4642,
+        "state": "closed",
+        "created_at": NOW.isoformat(),
+        "labels": ["ci-budget", "priority:high"],
+        "body": "- [x] Reduce Gate duration\n- [ ] Verify seven daily measurements",
+    }
+    api.issues.append(issue)
+    original = json.loads(json.dumps(issue))
+    row = budget.observation({}, metrics(8), NOW)
+    budget.reconcile(api, budget.SOURCE_REPO, row)
+    assert row["issue_numbers"] == []
+    assert api.calls == []
+    assert issue == original
+
+    # Reopening belongs to the authorized owner; reconciliation discovers open labels.
+    issue["state"] = "open"
+    monkeypatch.setenv("GITHUB_REPOSITORY", budget.SOURCE_REPO)
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    for offset in range(11):
+        if offset == 3 and interruption == "missing":
+            continue
+        now = NOW + timedelta(days=offset)
+        monkeypatch.setenv("GITHUB_RUN_ID", str(1000 + offset))
+        value = 11 if offset == 0 else 8
+        if offset == 3:
+            value = interruption
+        row = budget.observation(row, metrics(value) if value is not None else None, now)
+        budget.reconcile(api, budget.SOURCE_REPO, row)
+        assert row["issue_numbers"] == ([4642] if offset < 10 else [])
+        assert issue["state"] == ("open" if offset < 10 else "closed")
+        assert issue["labels"] == original["labels"]
+        assert issue["body"] == original["body"]
+        if offset < 10:
+            assert row["drainable_in"] > 0
+            assert all(
+                method == "POST" and path.endswith("/comments") for method, path, _ in api.calls
+            )
+
+    # The same issue gets the seven dated values before the automation closes it.
+    assert api.issues == [issue]
+    closing_comment, closing_patch = api.calls[-2:]
+    assert closing_comment[:2] == (
+        "POST",
+        f"/repos/{budget.SOURCE_REPO}/issues/4642/comments",
+    )
+    for offset in range(4, 11):
+        day = (NOW + timedelta(days=offset)).date().isoformat()
+        assert f"{day}: 8.00 min" in closing_comment[2]["body"]
+        assert row["daily_observations"][day]["source_run_url"] == (
+            f"https://github.com/{budget.SOURCE_REPO}/actions/runs/{1000 + offset}"
+        )
+    assert closing_patch == (
+        "PATCH",
+        f"/repos/{budget.SOURCE_REPO}/issues/4642",
+        {"state": "closed"},
+    )
+    assert row["drainable_in"] == 0
 
 
 @pytest.mark.parametrize("interruption", [None, 11, "missing"])
@@ -397,6 +466,102 @@ def test_partial_measurement_failure_continues_other_repos(monkeypatch):
     assert reconciled == [(REPO, "unknown"), (budget.SOURCE_REPO, "measured")]
     assert snapshots[-1][REPO]["share"] is None
     assert snapshots[-1][budget.SOURCE_REPO]["share"] == 0
+
+
+@pytest.mark.parametrize("interruption", ["missing", "unavailable", "over_target"])
+def test_daily_runs_reload_native_sources_and_publish_before_recovery_closure(
+    tmp_path, monkeypatch, interruption
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GITHUB_REPOSITORY", budget.SOURCE_REPO)
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    root = f"/repos/{budget.SOURCE_REPO}"
+    contents = f"{root}/contents/{budget.REPORT_PATH}"
+
+    class ReportAPI(FakeGitHub):
+        def __init__(self):
+            super().__init__()
+            self.saved = {}
+            self.revision = 0
+            self.published = []
+
+        def request(self, method, path, payload=None):
+            if method == "GET" and path == f"{contents}?ref=ci-time-budget":
+                return {
+                    "content": base64.b64encode(json.dumps(self.saved).encode()).decode(),
+                    "sha": str(self.revision),
+                }
+            if method == "PUT" and path == contents:
+                assert payload["branch"] == "ci-time-budget"
+                assert payload["sha"] == str(self.revision)
+                self.saved = json.loads(base64.b64decode(payload["content"]))
+                self.published.append(self.saved)
+                self.revision += 1
+                return {"content": {"sha": str(self.revision)}}
+            if method == "PATCH":
+                # Closure must follow durable publication of all seven native dates.
+                row = self.saved[budget.SOURCE_REPO]
+                assert row["drainable_in"] == 0
+                assert len(row["p50_series"]) == budget.RECOVERY_DAYS
+                for day, value in row["p50_series"].items():
+                    assert row["daily_observations"][day]["p50_minutes"] == value
+                assert self.calls[-1][1] == f"{root}/issues/4642/comments"
+            return super().request(method, path, payload)
+
+    api = ReportAPI()
+    # The owner has reopened the original issue before the scheduled invocation.
+    api.issues.append(
+        {
+            "number": 4642,
+            "state": "open",
+            "labels": ["ci-budget"],
+            "created_at": NOW.isoformat(),
+            "body": "- [ ] Wait for seven actual daily observations",
+        }
+    )
+
+    def measure(repo, *, api, now):
+        assert repo == budget.SOURCE_REPO
+        if now == NOW + timedelta(days=3) and interruption == "unavailable":
+            raise RuntimeError("Actions unavailable")
+        over_target = now == NOW or (
+            now == NOW + timedelta(days=3) and interruption == "over_target"
+        )
+        return metrics(11 if over_target else 10)
+
+    monkeypatch.setattr(budget, "measure", measure)
+    for offset in range(11):
+        if offset == 3 and interruption == "missing":
+            continue
+        now = NOW + timedelta(days=offset)
+        monkeypatch.setenv("GITHUB_RUN_ID", str(2000 + offset))
+        failed = offset == 3 and interruption == "unavailable"
+        assert budget.run(api, [], now) == int(failed)
+        row = api.saved[budget.SOURCE_REPO]
+        assert json.loads(budget.REPORT_PATH.read_text()) == api.saved
+        assert api.issues[0]["state"] == ("closed" if offset == 10 else "open")
+        assert row["issue_numbers"] == ([] if offset == 10 else [4642])
+        assert len(api.published) == 2 * (offset + 1 - (interruption == "missing" and offset > 3))
+        for earlier in range(offset + 1):
+            day = (NOW + timedelta(days=earlier)).date().isoformat()
+            if earlier == 3 and interruption == "missing":
+                assert day not in row["daily_observations"]
+                continue
+            item = row["daily_observations"][day]
+            assert item["p50_minutes"] == (
+                None
+                if earlier == 3 and interruption == "unavailable"
+                else 11 if earlier == 0 or (earlier == 3 and interruption == "over_target") else 10
+            )
+            assert item["source_run_url"] == (
+                f"https://github.com/{budget.SOURCE_REPO}/actions/runs/{2000 + earlier}"
+            )
+    assert len(api.issues) == 1
+    assert api.issues[0]["labels"] == ["ci-budget"]
+    assert api.issues[0]["body"] == "- [ ] Wait for seven actual daily observations"
+    closing_comment = api.calls[-2][2]["body"]
+    for day in row["p50_series"]:
+        assert f"{day}: 10.00 min" in closing_comment
 
 
 def test_missing_report_on_existing_state_branch_is_not_an_empty_history():
