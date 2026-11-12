@@ -37,7 +37,17 @@ ARTIFACT_DIRECTORIES = {
     ".venv",
     "venv",
 }
-ROOT_CHECKOUTS = {".workflows-lib", ".workflows-actions", ".reference", "coverage", "htmlcov"}
+# Root-level tool state written into the workspace by the CLIs a run uses (the gh CLI keeps its
+# device id in .local/state/gh/; a hosted codex round committed it to stranske/Orchestrator#1354
+# on 2026-11-12). No fleet repo tracks any of these three at its root.
+TOOL_STATE_DIRECTORIES = {".local", ".config", ".cache"}
+ROOT_CHECKOUTS = {
+    ".workflows-lib",
+    ".workflows-actions",
+    ".reference",
+    "coverage",
+    "htmlcov",
+} | TOOL_STATE_DIRECTORIES
 # These paths require a separately authorized repair, not automatic conflict staging.
 # Match the existing worker boundaries in .github/codex/AGENT_INSTRUCTIONS.md.
 PROTECTED_RESOLUTIONS = {

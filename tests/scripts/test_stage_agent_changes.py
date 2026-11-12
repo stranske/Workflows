@@ -304,6 +304,28 @@ def test_stages_work_preserves_partial_index_and_excludes_runtime_junk(repo):
         assert (repo / name).exists()
 
 
+def test_cli_tool_state_in_the_workspace_is_never_staged(repo):
+    # stranske/Orchestrator#1354, 2026-11-12: a hosted codex round committed the gh CLI's device id.
+    tool_state = {
+        ".local/state/gh/device-id",
+        ".config/gh/hosts.yml",
+        ".cache/pip/http/index",
+    }
+    intended = {
+        "src/feature.py",
+        "docs/.config/example.md",
+    }  # only ROOT-level tool state is excluded
+    for name in tool_state | intended:
+        write(repo, name)
+    stage(repo)
+    actual = set(
+        git(repo, "diff", "--cached", "--name-only", "-z").decode().strip("\0").split("\0")
+    )
+    assert actual == intended
+    for name in tool_state:
+        assert (repo / name).exists()
+
+
 def test_artifact_only_checkpoint_does_not_commit(repo):
     before = git(repo, "rev-parse", "HEAD")
     write(repo, "coverage.xml")
