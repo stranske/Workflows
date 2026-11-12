@@ -2091,7 +2091,7 @@ def test_ensure_gemini_cli_installs_a_release_binary_not_named_agy(tmp_path):
     """Run 43155908688 (2026-11-12): the 1.5.6 archive has no file named agy.
 
     The step must find the release's executable under another name, install it as agy, and
-    pick the real binary over a smaller executable shipped beside it.
+    pick the real binary over a smaller executable and a larger shared library beside it.
     """
     result, cli_dir = _run_ensure_gemini_cli(
         tmp_path,
@@ -2099,6 +2099,7 @@ def test_ensure_gemini_cli_installs_a_release_binary_not_named_agy(tmp_path):
             ("cli_linux_x64/antigravity-helper.sh", b"#!/bin/sh\necho helper\n", 0o755),
             ("cli_linux_x64/README", b"not a binary " * 1000, 0o644),
             ("cli_linux_x64/bin/launcher", _FAKE_AGY, 0o755),
+            ("cli_linux_x64/lib/libbig.so.1", b"\x7fELF" + b"\0" * 20000, 0o755),
         ],
     )
     assert result.returncode == 0, result.stdout + result.stderr

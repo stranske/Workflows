@@ -915,7 +915,8 @@ jobs:
                 tar -xzf "$stage/payload" -C "$stage/x"
                 # The archive does not name its binary `agy` (install.sh renames it during
                 # `agy install`; run 43155908688 found no file called agy). Try the known
-                # names, then the largest executable or ELF file; list the archive if none.
+                # names, then the largest executable or ELF file that is not a shared
+                # library; list the archive if none.
                 found=""
                 for name in agy antigravity antigravity-cli agy-cli cli_linux_x64 cli_linux_arm64; do
                   found="$(find "$stage/x" -type f -name "$name" | head -n 1)"
@@ -932,7 +933,7 @@ jobs:
                         best_size="$size"
                       fi
                     fi
-                  done < <(find "$stage/x" -type f -print0)
+                  done < <(find "$stage/x" -type f -not -name '*.so' -not -name '*.so.*' -print0)
                 fi
                 if [ -z "$found" ]; then
                   echo "::error::agy release archive has no executable file. Archive contents:"
