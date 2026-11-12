@@ -19,6 +19,7 @@ cases = [
     ("source_bounds", "if any(position > len(text) for position in positions):", "if False:", "test_source_mapping_rejects_invalid_units and out_of_bounds"),
     ("false_attribution", '"attributable_round_reduction": None', '"attributable_round_reduction": 0', "test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout"),
     ("input_bounds", "if len(data) > MAX_BYTES:", "if False:", "test_source_comparison_bounds_plain_and_expanded_coverage"),
+    ("offline_git_objects", 'str(EVIDENCE / "git-objects")', '""', "test_provisioned_baseline_and_final_gate_comparison_runs_offline_in_empty_repo"),
 ]
 
 def run(selection):

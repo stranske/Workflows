@@ -852,3 +852,47 @@ def test_source_comparison_reports_damaged_gzip_deflate(tmp_path, capsys):
     assert output.out == ""
     assert "Cannot compare Gate inventories" in output.err
     assert "Traceback" not in output.err
+
+
+def test_provisioned_baseline_and_final_gate_comparison_runs_offline_in_empty_repo(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.delenv("GIT_ALTERNATE_OBJECT_DIRECTORIES", raising=False)
+    compare.subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    baseline_rev = "682c12c02f24e2b8ee8d69da0d54dae28a87977d"
+    final_rev = "4f2ad36497222425d6bea2135358f9c82a2f752d"
+    argv = [
+        str(reconcile.EVIDENCE / "baseline.coverage.json"),
+        str(reconcile.EVIDENCE / "final.coverage.json"),
+        "--baseline-checkout",
+        baseline_rev,
+        "--final-checkout",
+        final_rev,
+        "--repository",
+        str(tmp_path),
+    ]
+    assert compare.main(argv) == 0
+    result = json.loads(capsys.readouterr().out)
+    measurement = json.loads((reconcile.EVIDENCE / "coverage-measurement.json").read_text())
+    controlled = measurement["controlled_whole_gate_comparison"]
+    assert result["source_checkouts"] == {"baseline": baseline_rev, "final": final_rev}
+    assert result["coverage_json_sha256"] == controlled["coverage_json_sha256"]
+    mapped_reduction = sum(
+        row["missing_unit_accounting"]["mapped_net_reduction"] for row in result["targets"].values()
+    )
+    unmatched_baseline = sum(
+        len(row["lines"]["unmatched_baseline"]) + len(row["arcs"]["unmatched_baseline"])
+        for row in result["targets"].values()
+    )
+    unmatched_final = sum(
+        len(row["lines"]["unmatched_final"]) + len(row["arcs"]["unmatched_final"])
+        for row in result["targets"].values()
+    )
+    assert mapped_reduction == controlled["attributable_round_reduction"] == 394
+    assert unmatched_baseline == controlled["unmatched_baseline_units"] == 244
+    assert unmatched_final == controlled["unmatched_final_units"] == 1440
+    assert controlled["acceptance_complete"] is True
+    assert measurement["attributable_round_reduction"] == 394
+    assert measurement["unmatched_baseline_units"] == 244
+    assert measurement["unmatched_final_units"] == 1440
+    assert measurement["acceptance_complete"] is True

@@ -1,0 +1,419 @@
+{
+  "checked_on": "2026-11-12",
+  "source_path": "scripts/langchain/pr_verifier.py",
+  "source_restored": true,
+  "source_sha256": "ae0acd181fa1f458d6724870a99c071a2226e85356352261d707bedc9be17d9d",
+  "recorded_symbols": {
+    "_split_diff_files": "def _split_diff_files(diff: str) -> list[tuple[str | None, str]]:\n    def decode_quoted_path(raw: str) -> tuple[str, str] | None:\n        if not raw.startswith('\"'):\n            return None\n        chunks: list[bytes] = []\n        index = 1\n        escapes = {\n            \"a\": \"\\a\",\n            \"b\": \"\\b\",\n            \"f\": \"\\f\",\n            \"n\": \"\\n\",\n            \"r\": \"\\r\",\n            \"t\": \"\\t\",\n            \"v\": \"\\v\",\n            \"\\\\\": \"\\\\\",\n            '\"': '\"',\n        }\n        while index < len(raw):\n            char = raw[index]\n            if char == '\"':\n                try:\n                    return b\"\".join(chunks).decode(\"utf-8\"), raw[index + 1 :]\n                except UnicodeDecodeError:\n                    return None\n            if char != \"\\\\\":\n                chunks.append(char.encode(\"utf-8\"))\n                index += 1\n                continue\n            if index + 1 >= len(raw):\n                return None\n            escaped = raw[index + 1]\n            if escaped in \"01234567\":\n                octal = raw[index + 1 : index + 4]\n                if len(octal) != 3 or not all(char in \"01234567\" for char in octal):\n                    return None\n                byte = int(octal, 8)\n                if byte > 0xFF:\n                    return None\n                chunks.append(bytes([byte]))\n                index += 4\n                continue\n            if escaped not in escapes:\n                return None\n            chunks.append(escapes[escaped].encode(\"utf-8\"))\n            index += 2\n        return None\n\n    def normalized_path(raw: str, *, strip_prefix: bool = True) -> str | None:\n        value = raw.rstrip(\"\\n\").split(\"\\t\", 1)[0]\n        if value == \"/dev/null\":\n            return \"\"\n        if value.startswith('\"'):\n            parsed = decode_quoted_path(value)\n            if parsed is None or parsed[1].strip():\n                return None\n            value = parsed[0]\n        return value[2:] if strip_prefix and value.startswith((\"a/\", \"b/\")) else value\n\n    def destination_from_git_header(line: str) -> str | None:\n        payload = line.removeprefix(\"diff --git \").rstrip(\"\\n\")\n\n        # Mode-only changes have no +++ or rename metadata. Prefer the\n        # unambiguous identical-path split rather than an embedded \" b/\".\n        if payload.startswith(\"a/\"):\n            identical = [\n                payload[match.start() + 3 :]\n                for match in re.finditer(r\" b/\", payload)\n                if payload[2 : match.start()] == payload[match.start() + 3 :]\n            ]\n            if len(identical) == 1:\n                return identical[0]\n\n        separator = max(payload.rfind(\" b/\"), payload.rfind(' \"b/'))\n        source = (\n            decode_quoted_path(payload)\n            if payload.startswith('\"')\n            else (payload[:separator], payload[separator:]) if separator > 0 else None\n        )\n        if source is None or not source[1].startswith(\" \"):\n            return None\n        destination = source[1].lstrip()\n        decoded = (\n            decode_quoted_path(destination) if destination.startswith('\"') else (destination, \"\")\n        )\n        if decoded is None or decoded[1].strip():\n            return None\n        if not source[0].startswith(\"a/\") or not decoded[0].startswith(\"b/\"):\n            return None\n        return decoded[0][2:]\n\n    files: list[tuple[str | None, str]] = []\n    current: list[str] = []\n    path: str | None = None\n    in_hunk = False\n    for line in diff.splitlines(keepends=True):\n        if line.startswith(\"diff --git \"):\n            if current:\n                files.append((path, \"\".join(current)))\n            current = [line]\n            path = destination_from_git_header(line) or None\n            in_hunk = False\n        elif current:\n            current.append(line)\n            if line.startswith(\"@@\"):\n                in_hunk = True\n            if path is None or in_hunk:\n                continue\n            if line.startswith(\"--- \"):\n                source = normalized_path(line[4:])\n                if source is None:\n                    path = None\n                elif source:\n                    path = source\n            elif line.startswith(\"+++ \"):\n                destination = normalized_path(line[4:])\n                if destination is None:\n                    path = None\n                elif destination:\n                    path = destination\n            elif line.startswith((\"rename to \", \"copy to \")):\n                # Git's metadata is repo-relative and unambiguous even when an\n                # unquoted header contains an embedded \" b/\" separator.\n                destination = normalized_path(line.split(\" to \", 1)[1], strip_prefix=False)\n                path = destination or None\n    if current:\n        files.append((path, \"\".join(current)))\n    return files",
+    "_build_code_block": "def _build_code_block(\n    diff: str, budget_chars: int, *, asset_views: dict[str, str] | None = None\n) -> tuple[str, CoverageStatus, tuple[FileCoverage, ...], int, int]:\n    files = _split_diff_files(diff)\n    if not files:\n        if diff.strip():\n            return \"(diff unavailable)\", \"unavailable\", (), 0, 0\n        block = _cap_prompt_text(diff, max(1, budget_chars // TOKEN_CHARS))\n        status: CoverageStatus = \"complete\" if block == diff else \"truncated\"\n        return block, status, (), min(len(diff), len(block)), len(diff)\n    if any(path is None for path, _ in files):\n        return \"(diff unavailable)\", \"unavailable\", (), 0, 0\n    # Doc-Lineage#81 review finding (discussion_r4169521235): appending\n    # omitted paths after fair-share allocation exceeded the diff budget.\n    # Fit text first, then use spare budget for a count-only diagnostic.\n    # Omitted paths remain in FileCoverage metadata and still prevent PASS.\n    asset_views = asset_views or {}\n    sizes = [\n        (\n            len(text) + len(asset_views.get(path, \"\"))\n            if path in asset_views or not _diff_file_is_binary_descriptor(text)\n            else 0\n        )\n        for path, text in files\n    ]\n    # A complete single-file unit is the minimum meaningful code input. The\n    # rough grouping budget bounds optional packing, not model capacity. Its\n    # actual fully assembled request must still pass the shared native counter.\n    # Unknown binary descriptors keep their existing zero-byte omission.\n    if len(files) == 1 and sizes[0]:\n        budget_chars = max(budget_chars, sizes[0])\n    omission_note = \"[{count} changed file(s) omitted entirely \u2014 not shown to the reviewer]\\n\"\n    shares = _fair_shares(sizes, max(0, budget_chars))\n    parts: list[str] = []\n    coverage: list[FileCoverage] = []\n    omitted = 0\n    for (path, text), share in zip(files, shares, strict=True):\n        assert path is not None  # Parse failures were rejected above.\n        excerpt, item = _excerpt_file(path, text, share, asset_view=asset_views.get(path, \"\"))\n        coverage.append(item)\n        if excerpt:\n            parts.append(excerpt)\n        else:\n            omitted += 1\n    if omitted:\n        note_budget = max(0, budget_chars - sum(len(part) for part in parts))\n        parts.append(omission_note.format(count=omitted)[:note_budget])\n    included = sum(item.included_chars for item in coverage)\n    total = sum(item.total_chars for item in coverage)\n    status = \"complete\" if all(item.status == \"complete\" for item in coverage) else \"truncated\"\n    return \"\".join(parts).rstrip(\"\\n\"), status, tuple(coverage), included, total",
+    "_summary_destination_paths": "def _summary_destination_paths(summary: str) -> list[str]:\n    \"\"\"Extract destination paths from the context builder's file summary.\"\"\"\n    paths: list[str] = []\n    in_file_changes = False\n    for raw_line in summary.splitlines():\n        line = raw_line.strip()\n        if line == \"### File changes\":\n            in_file_changes = True\n            continue\n        if in_file_changes and line.startswith(\"### \"):\n            break\n        if not in_file_changes or not line.startswith(\"- \"):\n            continue\n        encoded_path = re.search(r' <!-- verifier-file-path:v1 (\"(?:[^\"\\\\]|\\\\.)*\") -->$', line)\n        if encoded_path:\n            try:\n                destination = json.loads(encoded_path.group(1))\n            except (ValueError, TypeError) as error:\n                raise ValueError(\"Malformed encoded summary destination\") from error\n            if isinstance(destination, str) and destination:\n                paths.append(destination)\n            else:\n                raise ValueError(\"Empty or non-string encoded summary destination\")\n            continue\n        if \" <!-- verifier-file-path:v1 \" in line:\n            raise ValueError(\"Malformed encoded summary destination\")\n        label = SUMMARY_DELTA_SUFFIX.sub(\"\", line[2:].strip())\n        for marker in (\" (added)\", \" (deleted)\"):\n            if label.endswith(marker):\n                label = label[: -len(marker)]\n                break\n        if \" -> \" in label:\n            label = label.rsplit(\" -> \", 1)[1]\n        if label and not (label.startswith(\"...and \") and label.endswith(\" more files\")):\n            paths.append(label)\n    return paths",
+    "_acceptance_criteria_sections": "def _acceptance_criteria_sections(plan_sources: str) -> str:\n    \"\"\"Return only acceptance-criteria subsections from structured plan sources.\"\"\"\n    lines: list[str] = []\n    fence_char: str | None = None\n    fence_len = 0\n    fence_indent = 0\n    for raw_line in plan_sources.splitlines():\n        fence = _code_fence_marker(raw_line)\n        if fence:\n            marker, closing, indent = fence\n            if fence_char is None:\n                fence_char = marker[0]\n                fence_len = len(marker)\n                fence_indent = indent\n            elif (\n                marker[0] == fence_char\n                and len(marker) >= fence_len\n                and closing\n                and indent <= max(3, fence_indent)\n            ):\n                fence_char = None\n                fence_len = 0\n                fence_indent = 0\n            lines.append(\"\")\n            continue\n        lines.append(\"\" if fence_char is not None else raw_line)\n    captured: list[str] = []\n    index = 0\n    while index < len(lines):\n        heading = re.match(\n            r\"^(#{1,6})\\s+acceptance[\\s_-]*criteria\\s*:?[\\s]*$\",\n            lines[index].strip(),\n            flags=re.I,\n        )\n        if not heading:\n            index += 1\n            continue\n        level = len(heading.group(1))\n        section: list[str] = []\n        index += 1\n        while index < len(lines):\n            next_heading = re.match(r\"^(#{1,6})\\s+\", lines[index].strip())\n            if next_heading and len(next_heading.group(1)) <= level:\n                break\n            section.append(lines[index])\n            index += 1\n        captured.append(\"\\n\".join(section).strip())\n    return \"\\n\\n\".join(part for part in captured if part)",
+    "_format_followup_issue_body": "def _format_followup_issue_body(\n    result: EvaluationResult,\n    *,\n    pr_number: int | None,\n    pr_url: str | None,\n    run_url: str | None,\n) -> str:\n    lines = [\"## LLM Evaluation Follow-up\", \"\"]\n    lines.append(f\"- Verdict: {result.verdict}\")\n    if result.summary:\n        lines.append(f\"- Summary: {result.summary.strip()}\")\n    lines.extend(_format_scores(result.scores))\n\n    lines.append(\"\")\n    lines.append(\"## Concerns\")\n    if result.concerns:\n        for concern in result.concerns:\n            if concern:\n                lines.append(f\"- {concern}\")\n    else:\n        lines.append(\"- No explicit concerns were returned.\")\n\n    if result.error:\n        lines.append(\"\")\n        lines.append(\"## Evaluation Error\")\n        lines.append(result.error)\n\n    lines.append(\"\")\n    lines.append(\"## Links\")\n    if pr_number:\n        pr_label = f\"#{pr_number}\"\n        lines.append(f\"- PR: {pr_url or pr_label}\")\n    if run_url:\n        lines.append(f\"- Evaluation run: {run_url}\")\n\n    return \"\\n\".join(lines).strip() + \"\\n\"",
+    "_create_followup_issue": "def _create_followup_issue(\n    result: EvaluationResult,\n    context: str,\n    *,\n    labels: list[str],\n    run_url: str | None,\n) -> int | None:\n    if not _should_create_issue(result):\n        return None\n\n    token = os.environ.get(\"GITHUB_TOKEN\")\n    repo = os.environ.get(\"GITHUB_REPOSITORY\")\n    if not token or not repo:\n        return None\n\n    pr_number, pr_url = _extract_pr_metadata(context)\n    body = _format_followup_issue_body(\n        result,\n        pr_number=pr_number,\n        pr_url=pr_url,\n        run_url=run_url,\n    )\n    title = \"LLM evaluation concerns\"\n    if pr_number:\n        title = f\"LLM evaluation concerns for PR #{pr_number}\"\n\n    try:\n        issue = api_client.create_issue(repo, token, title, body, labels)\n    except RuntimeError as exc:\n        print(f\"pr_verifier: failed to create follow-up issue: {exc}\", file=sys.stderr)\n        return None\n\n    issue_number = issue.get(\"number\")\n    if isinstance(issue_number, int):\n        return issue_number\n    return None"
+  },
+  "symbol_sha256": {
+    "_split_diff_files": "74f8dffbea53b8813a18a89ab4747dcdac1c88470775a707631c1db53b8c99fb",
+    "_build_code_block": "8f5b608996b42a10bc1563dde846e7f4ed96aac60f5672276edbe8d5912bb5a3",
+    "_summary_destination_paths": "46d2aaca13ed54a965e8edfd25fe0e7d6f2b13c30b60e473a596be1a5fabe5ca",
+    "_acceptance_criteria_sections": "68e01c943a376074ea241ad491f3f4ac6cbf0b94f469e627af75d5c74159ed7a",
+    "_format_followup_issue_body": "5f697c034d41e692a40130ff05fa0bea04aa6523a941c0f768b69286efd65b34",
+    "_create_followup_issue": "64b2ffa66c3dd43436e125226569b7d811597dff7b6861e9a9213de1840f050e"
+  },
+  "test_path": "tests/scripts/test_pr_verifier_ranked_remainder.py",
+  "test_sha256": "a51019d0e2bdc46db3332f1284ff0e7c13d7c684843516d33df63a158af3dfc9",
+  "recorded_tests": {
+    "test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers": "def test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers():\n    valid_diff = (\n        'diff --git \"a/dir/\\\\141\\\\t\\\\\"\\\\\\\\file.py\" \"b/dir/\\\\141\\\\t\\\\\"\\\\\\\\file.py\"\\n'\n        '--- \"a/dir/\\\\141\\\\t\\\\\"\\\\\\\\file.py\"\\n'\n        '+++ \"b/dir/\\\\141\\\\t\\\\\"\\\\\\\\file.py\"\\n'\n        \"@@ -1 +1 @@\\n-old\\n+new\\n\"\n    )\n    parsed = verifier._split_diff_files(valid_diff)\n    assert len(parsed) == 1\n    assert parsed[0][0] == 'dir/a\\t\"\\\\file.py'\n\n    for invalid_header in (\n        'diff --git \"a/\\\\377.py\" \"b/\\\\377.py\"\\n',\n        'diff --git \"a/dangling\\\\',\n        'diff --git \"a/\\\\12x.py\" \"b/\\\\12x.py\"\\n',\n        'diff --git \"a/\\\\400.py\" \"b/\\\\400.py\"\\n',\n        'diff --git \"a/\\\\z.py\" \"b/\\\\z.py\"\\n',\n        'diff --git \"a/file.py\"trailing \"b/file.py\"\\n',\n        'diff --git \"a/file.py\" \"b/file.py\"trailing\\n',\n        'diff --git \"x/file.py\" \"b/file.py\"\\n',\n        'diff --git a/file.py b/file.py\\n--- a/file.py\\n+++ \"b/\\\\z.py\"\\n@@ -1 +1 @@\\n-a\\n+b\\n',\n    ):\n        files = verifier._split_diff_files(invalid_header)\n        assert files[0][0] is None\n        block, status, coverage, included, total = verifier._build_code_block(invalid_header, 500)\n        assert (block, status, coverage, included, total) == (\n            \"(diff unavailable)\",\n            \"unavailable\",\n            (),\n            0,\n            0,\n        )\n\n    empty_block, empty_status, empty_cov, empty_inc, empty_tot = verifier._build_code_block(\"\", 100)\n    assert (empty_block, empty_status, empty_cov, empty_inc, empty_tot) == (\n        \"\",\n        \"complete\",\n        (),\n        0,\n        0,\n    )",
+    "test_summary_destination_paths_handles_sections_renames_and_malformed_encoding": "def test_summary_destination_paths_handles_sections_renames_and_malformed_encoding():\n    summary = \"\\n\".join(\n        [\n            \"### Overview\",\n            \"- ignored/before.py (+1/-0)\",\n            \"### File changes\",\n            '- `a.py` (+2/-1) <!-- verifier-file-path:v1 \"src/a.py\" -->',\n            \"- old/name.py -> new/name.py (+3/-1)\",\n            \"- added.py (added)\",\n            \"- ...and 2 more files\",\n            \"### Checks\",\n            \"- ignored/after.py (+1/-0)\",\n        ]\n    )\n    assert verifier._summary_destination_paths(summary) == [\n        \"src/a.py\",\n        \"new/name.py\",\n        \"added.py\",\n    ]\n\n    for bad_line in (\n        '### File changes\\n- `bad` <!-- verifier-file-path:v1 \"\\\\uZZZZ\" -->',\n        '### File changes\\n- `empty` <!-- verifier-file-path:v1 \"\" -->',\n        \"### File changes\\n- `unclosed` <!-- verifier-file-path:v1 unquoted -->\",\n    ):\n        with pytest.raises(ValueError, match=\"encoded summary destination\"):\n            verifier._summary_destination_paths(bad_line)",
+    "test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading": "def test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading():\n    plan_sources = \"\\n\".join(\n        [\n            \"# Plan\",\n            \"```markdown\",\n            \"## Acceptance Criteria\",\n            \"- [ ] Fake criterion inside code fence\",\n            \"```not-a-closing-fence\",\n            \"```\",\n            \"## Acceptance Criteria\",\n            \"- [ ] First real criterion\",\n            \"### Sub-heading kept inside section\",\n            \"- [ ] Second real criterion\",\n            \"## Implementation Notes\",\n            \"- [ ] Not an acceptance criterion\",\n        ]\n    )\n    extracted = verifier._acceptance_criteria_sections(plan_sources)\n    assert \"Fake criterion\" not in extracted\n    assert \"Not an acceptance criterion\" not in extracted\n    assert extracted == (\n        \"- [ ] First real criterion\\n\"\n        \"### Sub-heading kept inside section\\n\"\n        \"- [ ] Second real criterion\"\n    )",
+    "test_followup_issue_formatting_and_creation_paths": "def test_followup_issue_formatting_and_creation_paths(monkeypatch, capsys):\n    result = verifier.EvaluationResult(\n        verdict=\"CONCERNS\",\n        summary=\"\",\n        concerns=[\"\", \"Missing edge-case test\"],\n        error=\"Provider timeout on secondary check\",\n    )\n    body = verifier._format_followup_issue_body(\n        result,\n        pr_number=None,\n        pr_url=None,\n        run_url=\"https://github.com/stranske/Workflows/actions/runs/99\",\n    )\n    assert \"- Verdict: CONCERNS\" in body\n    assert \"- Summary:\" not in body\n    assert \"- Missing edge-case test\" in body\n    assert \"## Evaluation Error\\nProvider timeout on secondary check\" in body\n    assert \"- PR:\" not in body\n    assert \"- Evaluation run: https://github.com/stranske/Workflows/actions/runs/99\" in body\n\n    assert verifier._create_followup_issue(result, \"context\", labels=[\"bug\"], run_url=None) is None\n\n    monkeypatch.setattr(verifier, \"_should_create_issue\", lambda _res: True)\n    monkeypatch.delenv(\"GITHUB_TOKEN\", raising=False)\n    monkeypatch.delenv(\"GITHUB_REPOSITORY\", raising=False)\n    assert verifier._create_followup_issue(result, \"context\", labels=[\"bug\"], run_url=None) is None\n\n    monkeypatch.setenv(\"GITHUB_TOKEN\", \"tok\")\n    monkeypatch.setenv(\"GITHUB_REPOSITORY\", \"stranske/Workflows\")\n    captured_calls = []\n\n    def fake_create_issue(repo, token, title, issue_body, labels):\n        captured_calls.append((repo, token, title, issue_body, labels))\n        return {\"number\": 4321}\n\n    monkeypatch.setattr(verifier.api_client, \"create_issue\", fake_create_issue)\n    issue_num = verifier._create_followup_issue(\n        result,\n        \"Pull request: [#88](https://github.com/stranske/Workflows/pull/88)\",\n        labels=[\"verifier\"],\n        run_url=\"https://github.com/stranske/Workflows/actions/runs/99\",\n    )\n    assert issue_num == 4321\n    assert captured_calls[-1][2] == \"LLM evaluation concerns for PR #88\"\n\n    monkeypatch.setattr(\n        verifier.api_client,\n        \"create_issue\",\n        lambda *_args: {\"number\": \"not-an-int\"},\n    )\n    assert (\n        verifier._create_followup_issue(result, \"no pr metadata\", labels=[], run_url=None) is None\n    )\n\n    def raising_create_issue(*_args):\n        raise RuntimeError(\"API 503\")\n\n    monkeypatch.setattr(verifier.api_client, \"create_issue\", raising_create_issue)\n    assert (\n        verifier._create_followup_issue(result, \"no pr metadata\", labels=[], run_url=None) is None\n    )\n    assert \"failed to create follow-up issue: API 503\" in capsys.readouterr().err"
+  },
+  "receipts": [
+    {
+      "id": "octal-escape-decoding",
+      "symbol": "_split_diff_files",
+      "test": "test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+      "original_snippet": "if escaped in \"01234567\":",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "8e700d738ed7abf4ae99422b1fd3fa853627834a62867d6c6e42c1a5ad9c5c1f",
+      "named_failures": [
+        "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers - assert None == 'dir/a\\t\"\\\\file.py'"
+      ],
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers __\ntests/scripts/test_pr_verifier_ranked_remainder.py:446: in test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers\n    assert parsed[0][0] == 'dir/a\\t\"\\\\file.py'\nE   assert None == 'dir/a\\t\"\\\\file.py'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers - assert None == 'dir/a\\t\"\\\\file.py'\n1 failed in 0.22s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n"
+      }
+    },
+    {
+      "id": "escape-table-decoding",
+      "symbol": "_split_diff_files",
+      "test": "test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+      "original_snippet": "if escaped not in escapes:",
+      "mutant_snippet": "if True:",
+      "mutant_sha256": "a7b7644f3ea99ba02d1fa384214b769d9bfb7d88bc19c06a197bd1f173dcbc8b",
+      "named_failures": [
+        "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers - assert None == 'dir/a\\t\"\\\\file.py'"
+      ],
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers __\ntests/scripts/test_pr_verifier_ranked_remainder.py:446: in test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers\n    assert parsed[0][0] == 'dir/a\\t\"\\\\file.py'\nE   assert None == 'dir/a\\t\"\\\\file.py'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers - assert None == 'dir/a\\t\"\\\\file.py'\n1 failed in 0.18s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n"
+      }
+    },
+    {
+      "id": "reject-none-path-in-code-block",
+      "symbol": "_build_code_block",
+      "test": "test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+      "original_snippet": "if any(path is None for path, _ in files):",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "69ae1d5ec114a9f8f6aa3d6737b92b5f2bb4a04017421b4deef98d0368f274dd",
+      "named_failures": [
+        "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers - AssertionError"
+      ],
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers __\ntests/scripts/test_pr_verifier_ranked_remainder.py:461: in test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers\n    block, status, coverage, included, total = verifier._build_code_block(invalid_header, 500)\n                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nscripts/langchain/pr_verifier.py:1025: in _build_code_block\n    assert path is not None  # Parse failures were rejected above.\n           ^^^^^^^^^^^^^^^^\nE   AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers - AssertionError\n1 failed in 0.30s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n"
+      }
+    },
+    {
+      "id": "stop-at-next-summary-heading",
+      "symbol": "_summary_destination_paths",
+      "test": "test_summary_destination_paths_handles_sections_renames_and_malformed_encoding",
+      "original_snippet": "if in_file_changes and line.startswith(\"### \"):",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "8e5adc48ec8b6bbb911b1c1c2abb925fde23557721af1655568e6bc770f22fee",
+      "named_failures": [
+        "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_summary_destination_paths_handles_sections_renames_and_malformed_encoding - AssertionError: assert ['src/a.py', ...red/after.py'] == ['src/a.py', ...', 'added.py']"
+      ],
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_summary_destination_paths_handles_sections_renames_and_malformed_encoding",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_summary_destination_paths_handles_sections_renames_and_malformed_encoding _\ntests/scripts/test_pr_verifier_ranked_remainder.py:494: in test_summary_destination_paths_handles_sections_renames_and_malformed_encoding\n    assert verifier._summary_destination_paths(summary) == [\nE   AssertionError: assert ['src/a.py', ...red/after.py'] == ['src/a.py', ...', 'added.py']\nE     \nE     Left contains one more item: 'ignored/after.py'\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           'src/a.py',\nE           'new/name.py',\nE           'added.py',\nE     +     'ignored/after.py',\nE       ]\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_summary_destination_paths_handles_sections_renames_and_malformed_encoding - AssertionError: assert ['src/a.py', ...red/after.py'] == ['src/a.py', ...', 'added.py']\n  \n  Left contains one more item: 'ignored/after.py'\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        'src/a.py',\n        'new/name.py',\n        'added.py',\n  +     'ignored/after.py',\n    ]\n1 failed in 0.18s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_summary_destination_paths_handles_sections_renames_and_malformed_encoding",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n"
+      }
+    },
+    {
+      "id": "extract-rename-destination",
+      "symbol": "_summary_destination_paths",
+      "test": "test_summary_destination_paths_handles_sections_renames_and_malformed_encoding",
+      "original_snippet": "if \" -> \" in label:",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "1814db3403be3660a356b77ffeb74ed141e8932b154dd333dd0d83dfd799eddd",
+      "named_failures": [
+        "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_summary_destination_paths_handles_sections_renames_and_malformed_encoding - AssertionError: assert ['src/a.py', ...', 'added.py'] == ['src/a.py', ...', 'added.py']"
+      ],
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_summary_destination_paths_handles_sections_renames_and_malformed_encoding",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_summary_destination_paths_handles_sections_renames_and_malformed_encoding _\ntests/scripts/test_pr_verifier_ranked_remainder.py:494: in test_summary_destination_paths_handles_sections_renames_and_malformed_encoding\n    assert verifier._summary_destination_paths(summary) == [\nE   AssertionError: assert ['src/a.py', ...', 'added.py'] == ['src/a.py', ...', 'added.py']\nE     \nE     At index 1 diff: 'old/name.py -> new/name.py' != 'new/name.py'\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           'src/a.py',\nE     -     'new/name.py',\nE     +     'old/name.py -> new/name.py',\nE           'added.py',\nE       ]\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_summary_destination_paths_handles_sections_renames_and_malformed_encoding - AssertionError: assert ['src/a.py', ...', 'added.py'] == ['src/a.py', ...', 'added.py']\n  \n  At index 1 diff: 'old/name.py -> new/name.py' != 'new/name.py'\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        'src/a.py',\n  -     'new/name.py',\n  +     'old/name.py -> new/name.py',\n        'added.py',\n    ]\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_summary_destination_paths_handles_sections_renames_and_malformed_encoding",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n"
+      }
+    },
+    {
+      "id": "blank-fenced-lines-in-plan-sources",
+      "symbol": "_acceptance_criteria_sections",
+      "test": "test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading",
+      "original_snippet": "lines.append(\"\" if fence_char is not None else raw_line)",
+      "mutant_snippet": "lines.append(raw_line)",
+      "mutant_sha256": "1a259b6861eadf1fb7a68aaf62cab7a8b94e57f46d8dd5706df633ad5feb24f5",
+      "named_failures": [
+        "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading - AssertionError: assert 'Fake criterion' not in '- [ ] Fake ...al criterion'"
+      ],
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading _\ntests/scripts/test_pr_verifier_ranked_remainder.py:527: in test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading\n    assert \"Fake criterion\" not in extracted\nE   AssertionError: assert 'Fake criterion' not in '- [ ] Fake ...al criterion'\nE     \nE     'Fake criterion' is contained here:\nE       - [ ] Fake criterion inside code fence\nE     ?       ++++++++++++++\nE       \nE       - [ ] First real criterion\nE       ### Sub-heading kept inside section\nE       - [ ] Second real criterion\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading - AssertionError: assert 'Fake criterion' not in '- [ ] Fake ...al criterion'\n  \n  'Fake criterion' is contained here:\n    - [ ] Fake criterion inside code fence\n  ?       ++++++++++++++\n    \n    - [ ] First real criterion\n    ### Sub-heading kept inside section\n    - [ ] Second real criterion\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n"
+      }
+    },
+    {
+      "id": "stop-at-peer-heading-in-plan-sources",
+      "symbol": "_acceptance_criteria_sections",
+      "test": "test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading",
+      "original_snippet": "if next_heading and len(next_heading.group(1)) <= level:",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "223a5b976749ca6ca4c004f1aeb8d53fc02902c133779cfcad160ff13c869af9",
+      "named_failures": [
+        "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading - AssertionError: assert 'Not an acce...ce criterion' not in '- [ ] First...ce criterion'"
+      ],
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading _\ntests/scripts/test_pr_verifier_ranked_remainder.py:528: in test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading\n    assert \"Not an acceptance criterion\" not in extracted\nE   AssertionError: assert 'Not an acce...ce criterion' not in '- [ ] First...ce criterion'\nE     \nE     'Not an acceptance criterion' is contained here:\nE       otes\nE       - [ ] Not an acceptance criterion\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading - AssertionError: assert 'Not an acce...ce criterion' not in '- [ ] First...ce criterion'\n  \n  'Not an acceptance criterion' is contained here:\n    otes\n    - [ ] Not an acceptance criterion\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.16s\n"
+      }
+    },
+    {
+      "id": "include-evaluation-error-in-followup-body",
+      "symbol": "_format_followup_issue_body",
+      "test": "test_followup_issue_formatting_and_creation_paths",
+      "original_snippet": "if result.error:",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "b180ac894da3611c12926b1b284b7133c217b6e935e726861e2a8aaacc6208f8",
+      "named_failures": [
+        "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_followup_issue_formatting_and_creation_paths - AssertionError: assert '## Evaluation Error\\nProvider timeout on secondary check' in '## LLM Evaluation Follow-up\\n\\n- Verdict: CONCERNS\\n- Scores: unavailable\\n\\n## Concerns\\n- Missing edge-case test\\n\\n## Links\\n- Evaluation run: https://github.com/stranske/Workflows/actions/runs/99\\n'"
+      ],
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_followup_issue_formatting_and_creation_paths",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______________ test_followup_issue_formatting_and_creation_paths _______________\ntests/scripts/test_pr_verifier_ranked_remainder.py:552: in test_followup_issue_formatting_and_creation_paths\n    assert \"## Evaluation Error\\nProvider timeout on secondary check\" in body\nE   AssertionError: assert '## Evaluation Error\\nProvider timeout on secondary check' in '## LLM Evaluation Follow-up\\n\\n- Verdict: CONCERNS\\n- Scores: unavailable\\n\\n## Concerns\\n- Missing edge-case test\\n\\n## Links\\n- Evaluation run: https://github.com/stranske/Workflows/actions/runs/99\\n'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_followup_issue_formatting_and_creation_paths - AssertionError: assert '## Evaluation Error\\nProvider timeout on secondary check' in '## LLM Evaluation Follow-up\\n\\n- Verdict: CONCERNS\\n- Scores: unavailable\\n\\n## Concerns\\n- Missing edge-case test\\n\\n## Links\\n- Evaluation run: https://github.com/stranske/Workflows/actions/runs/99\\n'\n1 failed in 0.18s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_followup_issue_formatting_and_creation_paths",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n"
+      }
+    },
+    {
+      "id": "return-created-issue-number",
+      "symbol": "_create_followup_issue",
+      "test": "test_followup_issue_formatting_and_creation_paths",
+      "original_snippet": "if isinstance(issue_number, int):",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "a36ef93a69f4b3bdb8bf3fc781040d61741284bcf8c85dd5da707ac55b7b5ff1",
+      "named_failures": [
+        "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_followup_issue_formatting_and_creation_paths - assert None == 4321"
+      ],
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_followup_issue_formatting_and_creation_paths",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______________ test_followup_issue_formatting_and_creation_paths _______________\ntests/scripts/test_pr_verifier_ranked_remainder.py:578: in test_followup_issue_formatting_and_creation_paths\n    assert issue_num == 4321\nE   assert None == 4321\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_followup_issue_formatting_and_creation_paths - assert None == 4321\n1 failed in 0.18s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_followup_issue_formatting_and_creation_paths",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n"
+      }
+    }
+  ]
+}

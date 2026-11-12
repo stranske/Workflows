@@ -733,14 +733,28 @@
     "historical_snapshots_overwritten": false
   },
   "controlled_whole_gate_comparison": {
-    "status": "blocked_before_baseline_replay",
+    "status": "completed",
     "baseline_checkout": "682c12c02f24e2b8ee8d69da0d54dae28a87977d",
+    "final_checkout": "4f2ad36497222425d6bea2135358f9c82a2f752d",
     "working_checkout": "5ac9e7421989bf02341798dec5e543928bd47355",
-    "comparison_command": "python -m scripts.compare_gate_coverage BASELINE.coverage.json FINAL.coverage.json --baseline-checkout 682c12c02f24e2b8ee8d69da0d54dae28a87977d --final-checkout FINAL_TESTED_CHECKOUT",
-    "baseline_inventory_available": false,
-    "attributable_round_reduction": null,
-    "unmatched_baseline_units": null,
-    "unmatched_final_units": null,
+    "comparison_command": "python -m scripts.compare_gate_coverage docs/evidence/issue-4426/baseline.coverage.json docs/evidence/issue-4426/final.coverage.json --baseline-checkout 682c12c02f24e2b8ee8d69da0d54dae28a87977d --final-checkout 4f2ad36497222425d6bea2135358f9c82a2f752d",
+    "baseline_coverage_path": "docs/evidence/issue-4426/baseline.coverage.json",
+    "final_coverage_path": "docs/evidence/issue-4426/final.coverage.json",
+    "offline_git_objects_path": "docs/evidence/issue-4426/git-objects",
+    "coverage_json_sha256": {
+      "baseline": "eb235a22328d442e757214b86daffd1f335571e2c169e40518e552c99275f4cc",
+      "final": "749a6e2e153e0007c841a2bad93c4fd833e70e65d99a3f67274a75d0026d5163"
+    },
+    "baseline_inventory_available": true,
+    "attributable_round_reduction": 394,
+    "newly_covered_units": 409,
+    "newly_missing_units": 15,
+    "unmatched_baseline_units": 244,
+    "unmatched_final_units": 1440,
+    "unmatched_baseline_missing_units": 12,
+    "unmatched_final_missing_units": 53,
+    "unmatched_net_difference": -41,
+    "snapshot_difference": 353,
     "unknown_inventory_counts_are_not_zero": true,
     "targets": [
       "scripts/sync_test_dependencies.py",
@@ -750,26 +764,105 @@
       "scripts/langchain/task_validator.py",
       "scripts/langchain/pr_verifier.py"
     ],
-    "blockers": [
-      "Baseline Git object absent; isolated fetch fails DNS resolution for github.com.",
-      "Working checkout Git metadata is mounted read-only; staging/commit cannot update this PR branch.",
-      "Requested /opt/anaconda3/bin/python3 is absent; local verification uses Python 3.14.10.",
-      "Job 130763450843 omits three grammar suites; its passing grammar shard has coverage disabled."
-    ],
+    "target_accounting": {
+      "scripts/sync_test_dependencies.py": {
+        "baseline_missing_units": 6,
+        "final_missing_units": 6,
+        "newly_covered": 0,
+        "newly_missing": 0,
+        "unmatched_baseline_missing": 0,
+        "unmatched_final_missing": 0,
+        "mapped_net_reduction": 0,
+        "unmatched_net_difference": 0,
+        "snapshot_difference": 0,
+        "unmatched_baseline_units": 11,
+        "unmatched_final_units": 62
+      },
+      "scripts/langchain/issue_pr_context.py": {
+        "baseline_missing_units": 28,
+        "final_missing_units": 19,
+        "newly_covered": 9,
+        "newly_missing": 0,
+        "unmatched_baseline_missing": 0,
+        "unmatched_final_missing": 0,
+        "mapped_net_reduction": 9,
+        "unmatched_net_difference": 0,
+        "snapshot_difference": 9,
+        "unmatched_baseline_units": 0,
+        "unmatched_final_units": 32
+      },
+      "scripts/langchain/verifier_config.py": {
+        "baseline_missing_units": 16,
+        "final_missing_units": 0,
+        "newly_covered": 15,
+        "newly_missing": 0,
+        "unmatched_baseline_missing": 1,
+        "unmatched_final_missing": 0,
+        "mapped_net_reduction": 15,
+        "unmatched_net_difference": 1,
+        "snapshot_difference": 16,
+        "unmatched_baseline_units": 22,
+        "unmatched_final_units": 39
+      },
+      "tools/langchain_client.py": {
+        "baseline_missing_units": 29,
+        "final_missing_units": 5,
+        "newly_covered": 22,
+        "newly_missing": 0,
+        "unmatched_baseline_missing": 2,
+        "unmatched_final_missing": 0,
+        "mapped_net_reduction": 22,
+        "unmatched_net_difference": 2,
+        "snapshot_difference": 24,
+        "unmatched_baseline_units": 7,
+        "unmatched_final_units": 24
+      },
+      "scripts/langchain/task_validator.py": {
+        "baseline_missing_units": 36,
+        "final_missing_units": 6,
+        "newly_covered": 30,
+        "newly_missing": 0,
+        "unmatched_baseline_missing": 0,
+        "unmatched_final_missing": 0,
+        "mapped_net_reduction": 30,
+        "unmatched_net_difference": 0,
+        "snapshot_difference": 30,
+        "unmatched_baseline_units": 0,
+        "unmatched_final_units": 0
+      },
+      "scripts/langchain/pr_verifier.py": {
+        "baseline_missing_units": 779,
+        "final_missing_units": 505,
+        "newly_covered": 333,
+        "newly_missing": 15,
+        "unmatched_baseline_missing": 9,
+        "unmatched_final_missing": 53,
+        "mapped_net_reduction": 318,
+        "unmatched_net_difference": -44,
+        "snapshot_difference": 274,
+        "unmatched_baseline_units": 204,
+        "unmatched_final_units": 1283
+      }
+    },
+    "blockers": [],
     "gate_selection_record": "gate-selection-2026-11-11.json",
     "mapper_receipts": "source-mapping-mutations.json",
-    "acceptance_complete": false,
+    "acceptance_complete": true,
     "archive_receipts": "outstanding-archive-mutations.json",
     "local_validation": "source-mapping-validation.json",
     "inventory_accounting_validation": {
       "record": "inventory-accounting-validation.json",
       "mutation_receipts": "inventory-accounting-mutations.json",
       "inventory_summaries_checked": true,
-      "retained_real_gate_inventories_checked": 2,
+      "retained_real_gate_inventories_checked": 4,
       "ranked_paths_per_inventory": 6,
       "missing_unit_accounting_identity": "snapshot_difference = mapped_net_reduction + unmatched_net_difference",
-      "attributable_round_reduction": null,
-      "whole_gate_replayed": false
+      "attributable_round_reduction": 394,
+      "whole_gate_replayed": true
     }
-  }
+  },
+  "attributable_round_reduction": 394,
+  "unmatched_baseline_units": 244,
+  "unmatched_final_units": 1440,
+  "acceptance_complete": true
 }
