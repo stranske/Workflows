@@ -77,26 +77,30 @@ class SmithDBMigrationTests(unittest.TestCase):
         )
 
     def test_old_shape_is_error_not_false_no_traces(self):
-        with patch.object(
-            health,
-            "_request_json",
-            side_effect=[[{"name": "workflows-agents", "id": "project"}], {"runs": []}],
+        with (
+            patch.object(
+                health,
+                "_request_json",
+                side_effect=[[{"name": "workflows-agents", "id": "project"}], {"runs": []}],
+            ),
+            self.assertRaisesRegex(RuntimeError, "invalid items"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "invalid items"):
-                self.query()
+            self.query()
 
     def test_repeated_cursor_fails(self):
-        with patch.object(
-            health,
-            "_request_json",
-            side_effect=[
-                [{"name": "workflows-agents", "id": "project"}],
-                {"items": [], "next_cursor": "repeat"},
-                {"items": [], "next_cursor": "repeat"},
-            ],
+        with (
+            patch.object(
+                health,
+                "_request_json",
+                side_effect=[
+                    [{"name": "workflows-agents", "id": "project"}],
+                    {"items": [], "next_cursor": "repeat"},
+                    {"items": [], "next_cursor": "repeat"},
+                ],
+            ),
+            self.assertRaisesRegex(RuntimeError, "repeated cursor"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "repeated cursor"):
-                self.query()
+            self.query()
 
 
 if __name__ == "__main__":
