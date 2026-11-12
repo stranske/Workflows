@@ -288,9 +288,8 @@ function syncJobStarted(job) {
   return job.status === 'in_progress' || ['success', 'failure', 'timed_out', 'action_required'].includes(job.conclusion);
 }
 
-// Job evidence already read by the guard. Prepare dying before any Sync job
-// starts is infrastructure (rate limit, runner, or transport). A Sync job that
-// actually ran is a consumer failure and keeps the six-hour debounce.
+// A failed Prepare before Sync starts, or a failure confined to PR creation
+// in every unsuccessful Sync job, counts as infrastructure.
 function canaryRefreshFailureClass(run) {
   if (!run || run.status !== 'completed' || !['failure', 'cancelled'].includes(run.conclusion)) return null;
   const jobs = Array.isArray(run.refresh_jobs) ? run.refresh_jobs : Array.isArray(run.jobs) ? run.jobs : null;
@@ -304,6 +303,15 @@ function canaryRefreshFailureClass(run) {
     && job.status !== 'queued' && job.status !== 'in_progress' && job.status !== 'waiting');
   const syncStarted = jobs.some(syncJobStarted);
   if (prepareFailed && !syncStarted) return 'infrastructure';
+  const unsuccessfulSyncJobs = jobs.filter(job => syncJobStarted(job) && job.conclusion !== 'success');
+  if (unsuccessfulSyncJobs.length > 0 && unsuccessfulSyncJobs.every(job => {
+    if (job.conclusion !== 'failure' || !Array.isArray(job.steps)) return false;
+    const steps = job.steps;
+    const failedStep = steps.findIndex(step => step?.conclusion === 'failure');
+    return steps[failedStep]?.name === 'Create sync PR'
+      && steps.slice(0, failedStep).every(step => step?.conclusion === 'success')
+      && !steps.slice(failedStep + 1).some(step => step?.conclusion === 'failure');
+  })) return 'infrastructure';
   if (syncStarted) return 'consumer';
   return null;
 }

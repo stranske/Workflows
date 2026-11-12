@@ -1,0 +1,367 @@
+{
+  "provenance": {
+    "run_url": "https://github.com/stranske/Workflows/actions/runs/43114630584",
+    "job_id": 130839840005,
+    "checked_on": "2026-11-11",
+    "error": "error checking for existing pull request: GraphQL: API rate limit already exceeded for user ID 23046322.",
+    "note": "Attempt 1 metadata and complete steps for Prepare and all configured Sync canaries; candidates read at the original source commit."
+  },
+  "candidates": [
+    "stranske/Travel-Plan-Permission",
+    "stranske/trip-planner",
+    "stranske/Portable-Alpha-Extension-Model"
+  ],
+  "run": {
+    "id": 43114630584,
+    "run_attempt": 1,
+    "head_sha": "f9cdef980286fe4080dc9427196378ea66bc2a0a",
+    "head_branch": "main",
+    "display_title": "Maint 68 canary auto  source=f9cdef980286fe4080dc9427196378ea66bc2a0a candidates=* dry=false  guard=delivery-v1",
+    "created_at": "2026-11-11T22:47:05Z",
+    "updated_at": "2026-11-11T22:49:42Z",
+    "status": "completed",
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "name": "Prepare sync from manifest",
+        "status": "completed",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Resolve immutable plan scope",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout",
+            "conclusion": "success"
+          },
+          {
+            "name": "Validate immutable source reachability",
+            "conclusion": "success"
+          },
+          {
+            "name": "Setup Python",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install dependencies",
+            "conclusion": "success"
+          },
+          {
+            "name": "Compile typed consumer sync plan",
+            "conclusion": "success"
+          },
+          {
+            "name": "Validate full plan repository scopes",
+            "conclusion": "success"
+          },
+          {
+            "name": "Select full or exact source-delta plan",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout delivery guard at workflow ref",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check content refresh guard",
+            "conclusion": "success"
+          },
+          {
+            "name": "Authorize canary payload mutation",
+            "conclusion": "success"
+          },
+          {
+            "name": "Build phase-gated repo matrix",
+            "conclusion": "success"
+          },
+          {
+            "name": "Upload plan and prospective-diff evidence",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout delivery guard at workflow ref",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Setup Python",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "name": "Sync stranske/Portable-Alpha-Extension-Model",
+        "status": "completed",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Compute result artifact name",
+            "conclusion": "success"
+          },
+          {
+            "name": "Mint Workflows App commit token",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout Workflows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Clone consumer repo",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record exact consumer base",
+            "conclusion": "success"
+          },
+          {
+            "name": "Download manifest",
+            "conclusion": "success"
+          },
+          {
+            "name": "Setup Python",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install dependencies",
+            "conclusion": "success"
+          },
+          {
+            "name": "Detect and apply changes",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check for required labels",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check for existing sync PR",
+            "conclusion": "success"
+          },
+          {
+            "name": "Create sync PR",
+            "conclusion": "success"
+          },
+          {
+            "name": "Dry run summary",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Write sync result artifact",
+            "conclusion": "success"
+          },
+          {
+            "name": "Upload sync result artifact",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Setup Python",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout Workflows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Mint Workflows App commit token",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "name": "Sync stranske/Travel-Plan-Permission",
+        "status": "completed",
+        "conclusion": "failure",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Compute result artifact name",
+            "conclusion": "success"
+          },
+          {
+            "name": "Mint Workflows App commit token",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout Workflows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Clone consumer repo",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record exact consumer base",
+            "conclusion": "success"
+          },
+          {
+            "name": "Download manifest",
+            "conclusion": "success"
+          },
+          {
+            "name": "Setup Python",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install dependencies",
+            "conclusion": "success"
+          },
+          {
+            "name": "Detect and apply changes",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check for required labels",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check for existing sync PR",
+            "conclusion": "success"
+          },
+          {
+            "name": "Create sync PR",
+            "conclusion": "failure"
+          },
+          {
+            "name": "Dry run summary",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Write sync result artifact",
+            "conclusion": "success"
+          },
+          {
+            "name": "Upload sync result artifact",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Setup Python",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Post Checkout Workflows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Mint Workflows App commit token",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "name": "Sync stranske/trip-planner",
+        "status": "completed",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Compute result artifact name",
+            "conclusion": "success"
+          },
+          {
+            "name": "Mint Workflows App commit token",
+            "conclusion": "success"
+          },
+          {
+            "name": "Checkout Workflows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Clone consumer repo",
+            "conclusion": "success"
+          },
+          {
+            "name": "Record exact consumer base",
+            "conclusion": "success"
+          },
+          {
+            "name": "Download manifest",
+            "conclusion": "success"
+          },
+          {
+            "name": "Setup Python",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install dependencies",
+            "conclusion": "success"
+          },
+          {
+            "name": "Detect and apply changes",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check for required labels",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check for existing sync PR",
+            "conclusion": "success"
+          },
+          {
+            "name": "Create sync PR",
+            "conclusion": "success"
+          },
+          {
+            "name": "Dry run summary",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Write sync result artifact",
+            "conclusion": "success"
+          },
+          {
+            "name": "Upload sync result artifact",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Setup Python",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Checkout Workflows",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Mint Workflows App commit token",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ]
+  }
+}

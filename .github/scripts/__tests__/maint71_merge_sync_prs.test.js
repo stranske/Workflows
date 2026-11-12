@@ -3120,6 +3120,77 @@ test('an infrastructure-failed canary refresh does not debounce the next attempt
   assert.equal(`refresh: ${live.eligible ? 'allowed' : 'skipped'} (${live.state})`, 'refresh: allowed (unseen)');
 });
 
+test('a Sync job that failed only at Create sync PR is an infrastructure failure', () => {
+  const refreshPlan = { plan_id: `sha256:${'c'.repeat(64)}`, plan_scope: 'source-delta',
+    scope_base_sha: 'b'.repeat(40), source_commit: 'a'.repeat(40) };
+  for (const postStepConclusion of ['success', 'skipped']) {
+    const run = refreshFailureJobs([
+      { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'success' },
+      { name: 'Sync stranske/Template', status: 'completed', conclusion: 'failure', steps: [
+        { name: 'Detect and apply changes', conclusion: 'success' },
+        { name: 'Check for existing sync PR', conclusion: 'success' },
+        { name: 'Create sync PR', conclusion: 'failure' },
+        { name: 'Post Setup Python', conclusion: postStepConclusion },
+      ] },
+    ]);
+    for (const plan of [null, refreshPlan]) {
+      const state = canaryRefreshDecision({ runs: [{ ...run, refresh_plan: plan }],
+        sha: 'a'.repeat(40), refreshPlan: plan,
+        candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+      assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'infrastructure');
+      assert.equal(state.eligible, true);
+    }
+  }
+});
+
+test('recorded canary run 43114630584 permits a retry after the PR creation rate limit', () => {
+  const { run, candidates } = require('./fixtures/canary-pr-creation-failure-43114630584.json');
+  const state = canaryRefreshDecision({ runs: [run], sha: run.head_sha, candidates,
+    now: Date.parse(run.updated_at) + 60000 });
+  assert.deepEqual(canaryRefreshDiagnostics(state).failure_classification, [
+    { classification: 'infrastructure', run_id: 43114630584, run_attempt: 1 },
+  ]);
+  assert.equal(state.eligible, true, 'the recorded failure alone permits the same source and candidates');
+});
+
+test('a Sync job that failed before Create sync PR is still a consumer failure', () => {
+  const contentFailure = { name: 'Sync stranske/Template', status: 'completed', conclusion: 'failure', steps: [
+    { name: 'Apply sync', conclusion: 'failure' },
+    { name: 'Create sync PR', conclusion: 'skipped' },
+  ] };
+  const prFailure = { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'failure', steps: [
+    { name: 'Apply sync', conclusion: 'success' },
+    { name: 'Create sync PR', conclusion: 'failure' },
+  ] };
+  for (const jobs of [[contentFailure], [prFailure, contentFailure]]) {
+    const state = canaryRefreshDecision({ runs: [refreshFailureJobs(jobs)], sha: 'a'.repeat(40),
+      candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+    assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'consumer');
+    assert.equal(state.eligible, false);
+  }
+});
+
+test('PR creation retry requires successful earlier steps and no other failed steps', () => {
+  const decide = (job) => canaryRefreshDecision({ runs: [refreshFailureJobs([job])],
+    sha: 'a'.repeat(40), candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const job = { name: 'Sync stranske/Template', status: 'completed', conclusion: 'failure' };
+  const createPr = { name: 'Create sync PR', conclusion: 'failure' };
+  const steps = [
+    undefined,
+    [],
+    ...['failure', 'skipped', 'cancelled', null, undefined].map(conclusion => [
+      { name: 'Apply sync', conclusion }, createPr,
+    ]),
+    [{ name: 'Apply sync', conclusion: 'success' }, createPr,
+      { name: 'Upload sync result artifact', conclusion: 'failure' }],
+  ];
+  for (const evidence of steps) {
+    const state = decide({ ...job, steps: evidence });
+    assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'consumer');
+    assert.equal(state.eligible, false, `unexpected retry for ${JSON.stringify(evidence)}`);
+  }
+});
+
 test('a consumer-failed canary refresh still debounces for six hours', () => {
   const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
     candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
@@ -3195,6 +3266,18 @@ test('a second consecutive infrastructure failure debounces for the same plan, s
     created_at: new Date(refreshNow - minutesAgo * 60000).toISOString(),
     jobs: [{ name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' }] });
   assert.equal(decide([infra(1, 30), infra(2, 5)]).eligible, false);
+  const prFailure = (id, minutesAgo) => ({ ...infra(id, minutesAgo), jobs: [
+    { name: 'Sync stranske/Template', status: 'completed', conclusion: 'failure', steps: [
+      { name: 'Apply sync', conclusion: 'success' },
+      { name: 'Create sync PR', conclusion: 'failure' },
+    ] },
+  ] });
+  for (const runs of [[prFailure(1, 30), prFailure(2, 5)],
+    [infra(1, 30), prFailure(2, 5)], [prFailure(1, 30), infra(2, 5)]]) {
+    const state = decide(runs);
+    assert.equal(canaryRefreshDiagnostics(state).inventory.infrastructure_failures, 2);
+    assert.equal(state.eligible, false, 'PR creation failures share the existing infrastructure retry budget');
+  }
   const otherSource = producerRun({ id: 9, conclusion: 'failure', head_sha: 'b'.repeat(40),
     display_title: producerRun().display_title.replaceAll('a'.repeat(40), 'b'.repeat(40)),
     jobs: [{ name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' }] });

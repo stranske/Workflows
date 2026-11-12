@@ -3901,13 +3901,15 @@ promotion writers hold refresh across all plans. Failed producer retries use
 source, and candidate set does not. The guard classifies it from that run's
 `actions.listJobsForWorkflowRunAttempt` jobs: `Prepare sync from manifest` failed
 and no `Sync <repo>` job started (rate limit, or a runner or transport failure
-before any consumer job). A second consecutive infrastructure failure for the
-same key keeps the six-hour debounce, as does any run whose consumer sync jobs
-ran and failed. `canaryRefreshDiagnostics` records each classified run as
-`infrastructure` or `consumer` without native error text. A cancelled run whose
-jobs show no `Sync <repo>` job started, or whose receipt says it never started, is
-not an attempt and never holds the next refresh; the stable-writer queue replaces
-pending Maint 68 runs, and such a run is reported as `cancelled_before_sync`.
+before any consumer job), or every unsuccessful Sync job failed only at
+`Create sync PR` after all earlier steps succeeded. A second consecutive
+infrastructure failure for the same key keeps the six-hour debounce, as does
+a consumer sync failure outside that exception. `canaryRefreshDiagnostics`
+records each classified run as `infrastructure` or `consumer` without native
+error text. A cancelled run whose jobs show no `Sync <repo>` job started, or
+whose receipt says it never started, is not an attempt and never holds the
+next refresh; the stable-writer queue replaces pending Maint 68 runs, and such
+a run is reported as `cancelled_before_sync`.
 Missing job evidence keeps the six-hour hold. Source-delta, dry-run, other-branch or
 subset runs cannot supply full-set success. No canary uses `pulls.updateBranch`.
 Producer success never substitutes for passing consumer CI, settled review,
