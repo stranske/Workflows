@@ -80,8 +80,9 @@ A live read of that query returned 58 candidates, `hasNextPage=false`, including
 #6189 merged and #6186 closed unmerged. This is API-read evidence, not a deployed
 Maint 71 acceptance run.
 
-**A2 remains pending:** after this source change ships, the native production
-owner must obtain a new unscoped/dev-tool report and record its run id. The issue's
+**A2 (pending at this 2026-11-10 writing; see the November 11 evidence below):**
+after this source change ships, the
+native production owner must obtain a new unscoped/dev-tool report and record its run id. The issue's
 acceptance command must print both candidate numbers:
 
 ```bash
@@ -198,8 +199,9 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
   the generated branch).
 - [x] Merge Trend_Model_Project#6189 (2026-11-08T05:33:47Z, merge commit `9937ec14`,
   delivered head `ad097285`); #6186 closed unmerged (2026-11-05T05:34:58Z).
-- [ ] Obtain a Maint 71 report that names the dev-tool delivery (#6189) and obsolete
-  #6186. Runs 42596605795 and 42762829524 name neither; dispatch refused by the production guard.
+- [x] Obtain a Maint 71 report that names the dev-tool delivery (#6189) and obsolete
+  #6186. Satisfied by native-schedule run 42966520283 (see final section below);
+  runs 42596605795 and 42762829524 named neither and dispatch was refused in this seat.
 - [x] Identify the first sync-core round on Trend_Model_Project after
   2026-11-08T05:33:47Z: `20261108T054334Z` delivered #6189, no handoff or old-finding bump.
 - [x] Re-run the pin grep and the two WASM test files at delivered head `ad097285`
@@ -541,15 +543,16 @@ No production run was started by this continuation. **T1/A2 remain pending**
 until both repository-qualified dispositions are observed in each native-owner
 run report as specified above.
 
-## Task completion status (issue #4612, current task IDs)
+## Task completion status (issue #4612)
 
-- **T1: pending.** The exact dispatch was refused; existing run logs do not
-  establish the requested newly dispatched report.
+- **T1: done.** Native-schedule run 42966520283 (2026-11-11T05:33:19Z, head
+  `c1f27d82180b10b7213aea099f8feec30c3e15b1` containing #4629 merge `e0cff78a`)
+  was obtained; see "Production evidence for #4632" below.
+  Earlier in-seat dispatches were refused by the production guard.
 - **T2: locally verified.** The closed-candidate omission was reproduced before
-  the collector repair (recorded above). The current two-file Node command passes
-  all 246 tests, including pagination, client-contract and per-candidate
-  log/summary dispositions (final continuation above). Deployment
-  observation is tracked separately under A2.
+  the collector repair (recorded above). The focused Node tests cover pagination,
+  the client contract and per-candidate log and summary dispositions. A2 records
+  the deployed verification.
 - **T3: observed with a hosting limitation.** First retained local sync-core round
   `20261108T054334Z` saw delivered head `ad09728581df4a27d421f272f9e307efaa581e63`,
   recorded zero mismatches and no handoff. No #6186/thread bump was found.
@@ -558,15 +561,108 @@ run report as specified above.
 - **T4: verified.** Fresh delivered-head archive: both pin lines read `pytest==9.2.0`
   and 23 WASM tests pass using the quoted repository interpreter.
 
-## Acceptance criteria status (issue #4612, current criterion IDs)
+## Acceptance criteria status (issue #4612)
 
-- **A1: locally verified.** Exact two-file Node command: 246 passed, zero failed;
-  covers the collector and report changes. Historical rows do not select merges.
-- **A2: pending.** No qualifying deployed Maint 71 report names both candidates.
-  A passing local regression is not production acceptance.
-- **A3: verified.** This handoff records the local sync-core round id and result,
-  distinguishes the hosted campaign run, and explicitly marks production report
-  acceptance pending. Status IDs here match the current issue #4612 instructions.
+- **A1 (locally verified).** The exact two-file Node command passed all 250 tests
+  on 2026-11-11. It covers the collector and report changes and confirms that
+  historical rows do not select merges.
+- **A2: verified in production.** On 2026-11-11, the full log and the
+  [rendered job summary](https://github.com/stranske/Workflows/actions/runs/42966520283#summary-130345550700)
+  of scheduled run 42966520283 both reported `#6189 merged` and
+  `#6186 closed unmerged` in the `stranske/Trend_Model_Project` dev-tool row.
+  The run provenance and readback are recorded below.
+- **A3: verified.** This handoff records the qualifying run id, event and source
+  head (final section below), retains sync-core round `20261108T054334Z` and its
+  delivered result, distinguishes the hosted campaign run, and each A1–A4 status
+  here matches the evidence cited beside it.
 - **A4 (scope-only reference): observed locally.** The retained post-merge round
   and exact delivered head are recorded above; this does not certify a hosted
   sync-core workflow run or future recurrence prevention.
+
+## Production evidence for #4632 (2026-11-11)
+
+Qualifying run: [42966520283](https://github.com/stranske/Workflows/actions/runs/42966520283),
+event `schedule` (`[unscoped]`), created 2026-11-11T05:33:19Z, conclusion `success`,
+Workflows head `c1f27d82180b10b7213aea099f8feec30c3e15b1` (descendant of PR #4629
+merge commit `e0cff78a8537be83e296761536fbda3038b4ca2d`; PR #4629 state `MERGED`,
+merged 2026-11-10T22:17:49Z, after #4612 opened 2026-11-10T03:08:47Z).
+Run started by the native scheduler, not by this seat.
+
+Acceptance command and matching log excerpt, verified on 2026-11-11:
+
+```bash
+gh run view 42966520283 --repo stranske/Workflows --log | grep -E '6189|6186'
+# merge_sync_prs ... 2026-11-11T05:37:34.0188027Z stranske/Trend_Model_Project dev-tool: none open; #6213 merged, #6189 merged, #6187 closed unmerged, #6186 closed unmerged, ...
+```
+
+On 2026-11-11, Chrome displayed the
+[`merge_sync_prs` job summary](https://github.com/stranske/Workflows/actions/runs/42966520283#summary-130345550700).
+Under **Sync PR Merge Summary**, the rendered `stranske/Trend_Model_Project`
+dev-tool row included `#6189 merged` and `#6186 closed unmerged`, matching the
+log excerpt. GitHub reported the run started at `2026-11-11T05:33:19Z`, after
+#4612 opened, and `git merge-base --is-ancestor` confirmed the full #4629
+merge SHA is an ancestor of the run head.
+
+For #4632, **T1, T2, and A1 are verified** by the native run provenance, log,
+and rendered job summary. **A2 is verified** by this handoff and the readback
+of the complete #4612 A1–A4 section above. The local sync-core round and target
+receipt again confirm `20261108T054334Z` delivered #6189 at head
+`ad09728581df4a27d421f272f9e307efaa581e63`, with five files, zero mismatches
+and no handoffs. The earlier A1–A4 statuses above refer to #4612.
+
+## Historical keepalive round 6 evidence readback for #4632 (2026-11-11)
+
+The round 7 browser readback in “Production evidence for #4632” supersedes
+the pending summary status recorded in this section.
+
+Outcome: **T2/A1 pending direct job-summary readback; log half verified**.
+Proof command (executed this round):
+
+```bash
+gh pr view 4629 --repo stranske/Workflows --json state,mergeCommit
+# {"mergeCommit":{"oid":"e0cff78a8537be83e296761536fbda3038b4ca2d"},"state":"MERGED"}
+gh run view 42966520283 --repo stranske/Workflows --log | grep -E '6189|6186'
+# merge_sync_prs ... 2026-11-11T05:37:34.0188027Z stranske/Trend_Model_Project dev-tool: none open; #6213 merged, #6189 merged, #6187 closed unmerged, #6186 closed unmerged, ...
+```
+
+The candidate line above abbreviates later candidates only. The literal grep
+also matches unrelated timestamp digits; those other matches are not evidence.
+Fresh run metadata confirms event `schedule`, conclusion `success`, created
+`2026-11-11T05:33:19Z`, source head
+`c1f27d82180b10b7213aea099f8feec30c3e15b1`. A local
+`git merge-base --is-ancestor` check succeeds for #4629's full merge SHA and
+that source head. Fresh issue metadata confirms #4612 opened
+`2026-11-10T03:08:47Z`, before this run.
+
+Summary retrieval results:
+
+- `gh run download 42966520283 --repo stranske/Workflows --name
+  sync-pr-merge-and-canary-evidence --dir /tmp/4656-artifact` succeeded.
+  Artifact `13831632530` contains `sync-pr-merge-report.json` and
+  `sync-canary-evidence.json`, but no summary Markdown.
+- `gh api repos/stranske/Workflows/check-runs/130345550700 --jq '.output'`
+  returned `summary: null`, `text: null`, `title: null`. Check output is not
+  a readback of the Actions job summary.
+- The browser access host is unavailable. Public HTTP reads of the Actions
+  run page and its linked `summary_partial` did not expose either candidate's
+  job-summary text. No authenticated browser summary was obtained.
+
+The complete issue #4612 A1–A4 section was read back: A1 retains its recorded
+local-test evidence (not rerun for this documentation-only change); A2 remains
+pending direct rendered-summary evidence; A3 retains the run provenance and
+local-round record; A4 remains a local observation with the stated hosting
+limitation. Fresh target-receipt readback confirms round `20261108T054334Z`,
+head `ad09728581df4a27d421f272f9e307efaa581e63`, disposition and terminal state
+`delivered`. The earlier five-file/zero-mismatch/no-handoff round evidence is
+retained above; the target receipt alone does not establish those details.
+
+For the current issue #4632: **T1 verified; T2 pending; A1 pending; A2 verified**.
+T2's log inspection and provenance recording are complete, but summary
+inspection is not. Source-code equivalence and report JSON do not satisfy
+that missing observation. No production dispatch, workflow change or pin
+change was made. Blocking/drainable pair: direct summary retrieval is blocked
+by the unavailable browser route; log, metadata, artifact and local-receipt
+readback and this documentation update are drainable. Next evidence needed:
+read the `merge_sync_prs` job summary on the linked native run and confirm both
+repository-qualified dispositions. No repeated dispatch attempt is needed
+from this seat.
