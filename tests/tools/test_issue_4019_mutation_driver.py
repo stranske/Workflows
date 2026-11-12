@@ -1,5 +1,6 @@
 """Protect source restoration, interpreter selection, and target coverage in r3 helpers."""
 
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -110,6 +111,15 @@ def test_run_handles_timeout_expired(monkeypatch):
     assert "partial out" in out
     assert "partial err" in out
     assert "TimeoutExpired" in out
+
+    def subprocess_run_bytes(argv, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=argv, timeout=120, output=b"bytes out\n", stderr=None)
+
+    monkeypatch.setattr(driver.subprocess, "run", subprocess_run_bytes)
+    code_bytes, out_bytes = driver.run("test.py::test_timeout_bytes")
+    assert code_bytes == 124
+    assert "bytes out" in out_bytes
+    assert "TimeoutExpired" in out_bytes
 
 
 def test_empty_subprocess_output_does_not_raise_index_error(tmp_path, monkeypatch):
@@ -280,29 +290,57 @@ def test_verified_mutation_receipts_inventory():
             RECEIPTS_PATH,
             "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
             "tests/tools/test_llm_provider.py:2154: AssertionError",
+            False,
         ),
         (
             RERUN_RECEIPTS_PATH,
             "c1f18728c6b215fa7a66353b311fa12277074437",
             "tests/tools/test_llm_provider.py:2178: AssertionError",
+            True,
         ),
     )
-    for path, expected_rev, expected_04_line in expected_sets:
+    for path, expected_rev, expected_04_line, verify_live_digest in expected_sets:
         assert path.is_file()
         receipts = json.loads(path.read_text())
         receipt_ids = [receipt["id"] for receipt in receipts]
         assert len(receipt_ids) == 27
         assert len(set(receipt_ids)) == 27
         assert receipt_ids == expected_ids
-        for receipt in receipts:
+        for (mid, node, rel_path, old, new, count), receipt in zip(
+            driver.MUTATIONS, receipts, strict=True
+        ):
+            assert receipt["id"] == mid
             assert receipt["revision"] == expected_rev
+            assert receipt["node"] == node
+            assert receipt["file"] == rel_path
+            assert receipt["replace"] == old
+            assert receipt["with"] == new
+            assert receipt["occurrences"] == count
             assert receipt["proof_ok"] is True
             assert receipt["red_exit"] == 1
             assert receipt["green_exit"] == 0
             assert receipt["sha256_before"] == receipt["sha256_restored"]
+            for kind in ("red", "green"):
+                transcript = (path.parent / f"{mid}-{kind}.txt").read_text()
+                assert transcript.startswith(f"# revision: {expected_rev}\n")
+            live_bytes = (ROOT / rel_path).read_bytes()
+            assert live_bytes.decode("utf-8").count(old) == count
+            if verify_live_digest:
+                assert hashlib.sha256(live_bytes).hexdigest() == receipt["sha256_before"]
         red_04 = (path.parent / "04-red.txt").read_text()
-        assert red_04.startswith(f"# revision: {expected_rev}\n")
         assert expected_04_line in red_04
+
+
+def test_driver_cli_validates_arguments_and_invokes_main(tmp_path, monkeypatch):
+    """Verify mutate.cli() validates arguments and forwards the output directory to main()."""
+    driver = load_driver()
+    with pytest.raises(SystemExit, match="Usage: mutate.py"):
+        driver.cli([])
+
+    captured = []
+    monkeypatch.setattr(driver, "main", lambda out_dir: captured.append(out_dir) or 0)
+    assert driver.cli([str(tmp_path)]) == 0
+    assert captured == [tmp_path]
 
 
 def test_target_missing_module_main_and_usage_guard(tmp_path):

@@ -678,15 +678,16 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
   exit=0
   ```
   Driver and helper regression suite (`tests/tools/test_issue_4019_mutation_driver.py`)
-  passes (`11 passed`, covering partial-write restoration, `get_revision()` git SHA and
-  fallback handling, active interpreter selection, `TimeoutExpired` handling, empty
-  subprocess output fallback, runtime occurrence-count verification, successful
-  red-to-green mutation execution with revision headers, timeout loop termination,
-  `target_missing.py` missing-unit summation and CLI/zero-denominator guards,
-  and the 27-receipt identity, revision, and digest inventory),
+  passes (`12 passed`, covering partial-write restoration, `get_revision()` git SHA and
+  fallback handling, active interpreter selection, `TimeoutExpired` string and bytes/None
+  handling, empty subprocess output fallback, runtime occurrence-count verification,
+  successful red-to-green mutation execution with revision headers, timeout loop
+  termination, `mutate.cli()` argument validation, `target_missing.py` missing-unit
+  summation and CLI/zero-denominator guards, and the 27-receipt identity, operator,
+  revision, transcript header, and live-source digest inventory),
   and fresh `mutate.py` execution against a temporary output directory confirms
   `27/27 proof_ok`.
-- **Final-head hosted Gate coverage (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`, `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`, `43170114463` on `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`, and `43172506542` on `ade144b93e473e8017409e5ca5603a2f3c26a43e`)**:
+- **Final-head hosted Gate coverage (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`, `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`, `43170114463` on `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`, `43172506542` on `ade144b93e473e8017409e5ca5603a2f3c26a43e`, and `43175869464` on `37f7e8cd1a6a8861860ce575e68d670603831892`)**:
   - [Gate 42342628461](https://github.com/stranske/Workflows/actions/runs/42342628461):
     `conclusion: success` (Python 3.13 job `128313615973` `success`; Python 3.14 job
     `128313616019` `success`).
@@ -741,7 +742,22 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
     tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
     TARGET_MISSING 3
     ```
+  - [Gate 43175869464](https://github.com/stranske/Workflows/actions/runs/43175869464)
+    on PR #4674 head `37f7e8cd1a6a8861860ce575e68d670603831892`: `conclusion: success`
+    (Python 3.13 job `131040182178` `success`; Python 3.14 job `131040182265` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13924153688`, `sha256:68373d0ff09b8daf872fe5f0134e5a3517ed5373564b4642debb3035d5035901`,
+    `coverage.json` `sha256:a75c514d635eeb60edf819714501bbd03ad4a957a28a2edbae12615d6d7f5cd1`):
+    ```text
+    TOTAL 68032 74698 91.07606629360893
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
     confirming `TARGET_MISSING` equals 3 statements in `tools/llm_provider.py` (lines
     265, 270, 292).
+
 
 

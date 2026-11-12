@@ -344,5 +344,13 @@ def main(out_dir: Path, revision: str | None = None) -> int:
     return 0 if ok else 1
 
 
+def cli(argv: list[str] | None = None) -> int:
+    """CLI entrypoint for mutate.py."""
+    args = sys.argv[1:] if argv is None else argv
+    if not args:
+        raise SystemExit("Usage: mutate.py <output_dir>")
+    return main(Path(args[0]))
+
+
 if __name__ == "__main__":
-    sys.exit(main(Path(sys.argv[1])))
+    raise SystemExit(cli())
