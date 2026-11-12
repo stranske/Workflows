@@ -94,6 +94,25 @@ class SmithDBMigrationTests(unittest.TestCase):
         ):
             self.query()
 
+    def test_malformed_false_cursor_cannot_report_fresh_trace(self):
+        for cursor in (False, 0, [], {}, ""):
+            with (
+                self.subTest(cursor=cursor),
+                patch.object(
+                    health,
+                    "_request_json",
+                    side_effect=[
+                        [{"name": "workflows-agents", "id": "project"}],
+                        {
+                            "items": [{"id": "fresh", "start_time": NOW.isoformat()}],
+                            "next_cursor": cursor,
+                        },
+                    ],
+                ),
+                self.assertRaisesRegex(RuntimeError, "invalid or repeated cursor"),
+            ):
+                self.query()
+
 
 if __name__ == "__main__":
     unittest.main()

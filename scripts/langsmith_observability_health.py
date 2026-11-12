@@ -294,9 +294,9 @@ def query_latest_trace(
             ):
                 latest = run
         cursor = response.get("next_cursor")
-        if not cursor:
+        if cursor is None:
             return latest
-        if not isinstance(cursor, str) or cursor in seen_cursors:
+        if not isinstance(cursor, str) or not cursor or cursor in seen_cursors:
             raise RuntimeError("LangSmith v2 query returned an invalid or repeated cursor")
         seen_cursors.add(cursor)
         body["cursor"] = cursor
