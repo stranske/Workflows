@@ -24,6 +24,14 @@ PYTEST_PREFIXES = ("pytest", "python -m pytest", "python3 -m pytest")
 COMMAND_PREFIX = re.compile(
     r"^(?:pytest|python3? -m pytest|node --test|npm test|npm run|ruff|mypy|make)(?:\s|$)"
 )
+# An issue may pin its interpreter by path or version ("/opt/anaconda3/bin/python3 -m pytest ...",
+# Workflows#4523): that path exists only on the author's machine and names a retired runtime, and the
+# prefix test above silently dropped the command, so the round recorded `results: []` (2026-11-12,
+# #4672 and #4674). Such a command runs as `python3 -m pytest ...` in the gate venv, like every
+# other pytest gate. Bare `pytest` / `python -m pytest` / `python3 -m pytest` are left as written.
+PINNED_INTERPRETER_PYTEST = re.compile(
+    r"^(?:\S*/python(?:3(?:\.\d+)?)?|python3\.\d+)\s+-m\s+pytest(?=\s|$)"
+)
 TIMEOUT_SECONDS = 300
 OUTPUT_BYTES = 2048
 TOTAL_OUTPUT_BYTES = 8192
@@ -90,6 +98,9 @@ def extract_commands(markdown: str) -> list[Command]:
             continue
         candidates = [line.strip()] if fence else re.findall(r"(?<!`)`([^`\n]+)`(?!`)", line)
         for candidate in candidates:
+            pinned = PINNED_INTERPRETER_PYTEST.match(candidate)
+            if pinned:
+                candidate = "python3 -m pytest" + candidate[pinned.end() :]
             if COMMAND_PREFIX.match(candidate):
                 command = Command(criterion, candidate)
                 if command not in commands:
