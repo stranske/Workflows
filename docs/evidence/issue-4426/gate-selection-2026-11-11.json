@@ -26,8 +26,8 @@
       "head_sha": "660ed8c62c7addfa835d9dc29bae3be5acc0ea1d"
     }
   },
-  "archive_bytes_locally_verified": false,
-  "coverage_json_sha256": null,
+  "archive_bytes_locally_verified": true,
+  "coverage_json_sha256": "749a6e2e153e0007c841a2bad93c4fd833e70e65d99a3f67274a75d0026d5163",
   "ignored_modules": [
     {
       "path": "tests/scripts/test_pr_verifier_delivery_destinations.py",

@@ -1,7 +1,7 @@
 {
   "schema": "workflows.issue-4663-source-mapping-mutations/v1",
-  "source_sha256": "7556d4d8d228fd773f2177eded81e94b91ee74d1e70e8cddf6e846c21e2bb2d6",
-  "test_sha256": "04945c6ce7de241c916c35e7f6648081b7ce216b88e4fe12cb899f231619df72",
+  "source_sha256": "60e424961596d509667f1cdc09201f251b853019d1d035b09f58b73ea4ab1c17",
+  "test_sha256": "350ef4c1134afbb1003fb9601dfca7ad78ddb0815ca234ec90bf755c1f26f707",
   "cases": [
     {
       "name": "shifted_lines",
@@ -9,7 +9,7 @@
       "replacement": "if line in after_lines",
       "red": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -21,11 +21,11 @@
           "--tb=short"
         ],
         "exit_code": 1,
-        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_source_mapping_tracks_shifted_lines_and_negative_function_exits _____\ntests/scripts/test_reconcile_issue_4426_coverage.py:585: in test_source_mapping_tracks_shifted_lines_and_negative_function_exits\n    assert result[\"lines\"][\"mapped\"] == [[1, 2], [2, 3], [3, 4]]\nE   assert [[2, 3], [3, 4]] == [[1, 2], [2, 3], [3, 4]]\nE     \nE     At index 0 diff: [2, 3] != [1, 2]\nE     Right contains one more item: [3, 4]\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE     -     [\nE     -         1,\nE     -         2,\nE     -     ],\nE           [\nE               2,\nE               3,\nE           ],\nE           [\nE               3,\nE               4,\nE           ],\nE       ]\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_tracks_shifted_lines_and_negative_function_exits - assert [[2, 3], [3, 4]] == [[1, 2], [2, 3], [3, 4]]\n  \n  At index 0 diff: [2, 3] != [1, 2]\n  Right contains one more item: [3, 4]\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n  -     [\n  -         1,\n  -         2,\n  -     ],\n        [\n            2,\n            3,\n        ],\n        [\n            3,\n            4,\n        ],\n    ]\n1 failed, 83 deselected in 0.92s\n"
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_source_mapping_tracks_shifted_lines_and_negative_function_exits _____\ntests/scripts/test_reconcile_issue_4426_coverage.py:593: in test_source_mapping_tracks_shifted_lines_and_negative_function_exits\n    assert result[\"lines\"][\"mapped\"] == [[1, 2], [2, 3], [3, 4]]\nE   assert [[2, 3], [3, 4]] == [[1, 2], [2, 3], [3, 4]]\nE     \nE     At index 0 diff: [2, 3] != [1, 2]\nE     Right contains one more item: [3, 4]\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE     -     [\nE     -         1,\nE     -         2,\nE     -     ],\nE           [\nE               2,\nE               3,\nE           ],\nE           [\nE               3,\nE               4,\nE           ],\nE       ]\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_tracks_shifted_lines_and_negative_function_exits - assert [[2, 3], [3, 4]] == [[1, 2], [2, 3], [3, 4]]\n  \n  At index 0 diff: [2, 3] != [1, 2]\n  Right contains one more item: [3, 4]\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n  -     [\n  -         1,\n  -         2,\n  -     ],\n        [\n            2,\n            3,\n        ],\n        [\n            3,\n            4,\n        ],\n    ]\n1 failed, 123 deselected in 0.28s\n"
       },
       "restored_green": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -37,7 +37,7 @@
           "--tb=short"
         ],
         "exit_code": 0,
-        "output": ".                                                                        [100%]\n1 passed, 83 deselected in 0.85s\n"
+        "output": ".                                                                        [100%]\n1 passed, 123 deselected in 0.17s\n"
       }
     },
     {
@@ -46,7 +46,7 @@
       "replacement": "1",
       "red": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -58,11 +58,11 @@
           "--tb=short"
         ],
         "exit_code": 1,
-        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_source_mapping_tracks_shifted_lines_and_negative_function_exits _____\ntests/scripts/test_reconcile_issue_4426_coverage.py:586: in test_source_mapping_tracks_shifted_lines_and_negative_function_exits\n    assert result[\"arcs\"][\"mapped\"] == [[(2, -1), (3, -2)], [(2, 3), (3, 4)]]\nE   assert [[(2, 3), (3, 4)]] == [[(2, -1), (3..., 3), (3, 4)]]\nE     \nE     At index 0 diff: [(2, 3), (3, 4)] != [(2, -1), (3, -2)]\nE     Right contains one more item: [(2, 3), (3, 4)]\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE     -     [\nE     -         (\nE     -             2,\nE     -             -1,\nE     -         ),\nE     -         (\nE     -             3,\nE     -             -2,\nE     -         ),\nE     -     ],\nE           [\nE               (\nE                   2,\nE                   3,\nE               ),\nE               (\nE                   3,\nE                   4,\nE               ),\nE           ],\nE       ]\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_tracks_shifted_lines_and_negative_function_exits - assert [[(2, 3), (3, 4)]] == [[(2, -1), (3..., 3), (3, 4)]]\n  \n  At index 0 diff: [(2, 3), (3, 4)] != [(2, -1), (3, -2)]\n  Right contains one more item: [(2, 3), (3, 4)]\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n  -     [\n  -         (\n  -             2,\n  -             -1,\n  -         ),\n  -         (\n  -             3,\n  -             -2,\n  -         ),\n  -     ],\n        [\n            (\n                2,\n                3,\n            ),\n            (\n                3,\n                4,\n            ),\n        ],\n    ]\n1 failed, 83 deselected in 0.95s\n"
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_source_mapping_tracks_shifted_lines_and_negative_function_exits _____\ntests/scripts/test_reconcile_issue_4426_coverage.py:594: in test_source_mapping_tracks_shifted_lines_and_negative_function_exits\n    assert result[\"arcs\"][\"mapped\"] == [[(2, -1), (3, -2)], [(2, 3), (3, 4)]]\nE   assert [[(2, 3), (3, 4)]] == [[(2, -1), (3..., 3), (3, 4)]]\nE     \nE     At index 0 diff: [(2, 3), (3, 4)] != [(2, -1), (3, -2)]\nE     Right contains one more item: [(2, 3), (3, 4)]\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE     -     [\nE     -         (\nE     -             2,\nE     -             -1,\nE     -         ),\nE     -         (\nE     -             3,\nE     -             -2,\nE     -         ),\nE     -     ],\nE           [\nE               (\nE                   2,\nE                   3,\nE               ),\nE               (\nE                   3,\nE                   4,\nE               ),\nE           ],\nE       ]\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_tracks_shifted_lines_and_negative_function_exits - assert [[(2, 3), (3, 4)]] == [[(2, -1), (3..., 3), (3, 4)]]\n  \n  At index 0 diff: [(2, 3), (3, 4)] != [(2, -1), (3, -2)]\n  Right contains one more item: [(2, 3), (3, 4)]\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n  -     [\n  -         (\n  -             2,\n  -             -1,\n  -         ),\n  -         (\n  -             3,\n  -             -2,\n  -         ),\n  -     ],\n        [\n            (\n                2,\n                3,\n            ),\n            (\n                3,\n                4,\n            ),\n        ],\n    ]\n1 failed, 123 deselected in 0.23s\n"
       },
       "restored_green": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -74,7 +74,7 @@
           "--tb=short"
         ],
         "exit_code": 0,
-        "output": ".                                                                        [100%]\n1 passed, 83 deselected in 0.85s\n"
+        "output": ".                                                                        [100%]\n1 passed, 123 deselected in 0.18s\n"
       }
     },
     {
@@ -83,7 +83,7 @@
       "replacement": "if True:",
       "red": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -95,11 +95,11 @@
           "--tb=short"
         ],
         "exit_code": 1,
-        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____ test_source_mapping_does_not_credit_changed_removed_or_excluded_units _____\ntests/scripts/test_reconcile_issue_4426_coverage.py:598: in test_source_mapping_does_not_credit_changed_removed_or_excluded_units\n    assert result[\"observed_newly_covered_units\"] == 0\nE   assert 1 == 0\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_does_not_credit_changed_removed_or_excluded_units - assert 1 == 0\n1 failed, 83 deselected in 0.93s\n"
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____ test_source_mapping_does_not_credit_changed_removed_or_excluded_units _____\ntests/scripts/test_reconcile_issue_4426_coverage.py:606: in test_source_mapping_does_not_credit_changed_removed_or_excluded_units\n    assert result[\"observed_newly_covered_units\"] == 0\nE   assert 1 == 0\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_does_not_credit_changed_removed_or_excluded_units - assert 1 == 0\n1 failed, 123 deselected in 0.22s\n"
       },
       "restored_green": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -111,7 +111,7 @@
           "--tb=short"
         ],
         "exit_code": 0,
-        "output": ".                                                                        [100%]\n1 passed, 83 deselected in 0.85s\n"
+        "output": ".                                                                        [100%]\n1 passed, 123 deselected in 0.19s\n"
       }
     },
     {
@@ -120,7 +120,7 @@
       "replacement": "0",
       "red": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -132,11 +132,11 @@
           "--tb=short"
         ],
         "exit_code": 1,
-        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________ test_source_mapping_keeps_regressions_separate_from_gains ___________\ntests/scripts/test_reconcile_issue_4426_coverage.py:622: in test_source_mapping_keeps_regressions_separate_from_gains\n    assert result[\"observed_newly_covered_units\"] == result[\"observed_newly_missing_units\"] == 2\nE   assert 2 == 0\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_keeps_regressions_separate_from_gains - assert 2 == 0\n1 failed, 83 deselected in 0.93s\n"
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________ test_source_mapping_keeps_regressions_separate_from_gains ___________\ntests/scripts/test_reconcile_issue_4426_coverage.py:630: in test_source_mapping_keeps_regressions_separate_from_gains\n    assert result[\"observed_newly_covered_units\"] == result[\"observed_newly_missing_units\"] == 2\nE   assert 2 == 0\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_keeps_regressions_separate_from_gains - assert 2 == 0\n1 failed, 123 deselected in 0.22s\n"
       },
       "restored_green": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -148,7 +148,7 @@
           "--tb=short"
         ],
         "exit_code": 0,
-        "output": ".                                                                        [100%]\n1 passed, 83 deselected in 0.85s\n"
+        "output": ".                                                                        [100%]\n1 passed, 123 deselected in 0.18s\n"
       }
     },
     {
@@ -157,7 +157,7 @@
       "replacement": "pass",
       "red": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -169,11 +169,11 @@
           "--tb=short"
         ],
         "exit_code": 1,
-        "output": "FFFF                                                                     [100%]\n=================================== FAILURES ===================================\n________ test_source_mapping_rejects_invalid_units[duplicate-baseline] _________\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n__________ test_source_mapping_rejects_invalid_units[duplicate-final] __________\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_________ test_source_mapping_rejects_invalid_units[boolean-baseline] __________\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n___________ test_source_mapping_rejects_invalid_units[boolean-final] ___________\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[duplicate-baseline] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[duplicate-final] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[boolean-baseline] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[boolean-final] - Failed: DID NOT RAISE ValueError\n4 failed, 80 deselected in 0.97s\n"
+        "output": "FFFF                                                                     [100%]\n=================================== FAILURES ===================================\n________ test_source_mapping_rejects_invalid_units[duplicate-baseline] _________\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'invalid|overlap|source length'\nE     Actual message: 'coverage inventory disagrees with summary: num_branches'\n__________ test_source_mapping_rejects_invalid_units[duplicate-final] __________\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'invalid|overlap|source length'\nE     Actual message: 'coverage inventory disagrees with summary: num_branches'\n_________ test_source_mapping_rejects_invalid_units[boolean-baseline] __________\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'invalid|overlap|source length'\nE     Actual message: 'coverage inventory disagrees with summary: num_statements'\n___________ test_source_mapping_rejects_invalid_units[boolean-final] ___________\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'invalid|overlap|source length'\nE     Actual message: 'coverage inventory disagrees with summary: num_statements'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[duplicate-baseline] - AssertionError: Regex pattern did not match.\n  Expected regex: 'invalid|overlap|source length'\n  Actual message: 'coverage inventory disagrees with summary: num_branches'\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[duplicate-final] - AssertionError: Regex pattern did not match.\n  Expected regex: 'invalid|overlap|source length'\n  Actual message: 'coverage inventory disagrees with summary: num_branches'\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[boolean-baseline] - AssertionError: Regex pattern did not match.\n  Expected regex: 'invalid|overlap|source length'\n  Actual message: 'coverage inventory disagrees with summary: num_statements'\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[boolean-final] - AssertionError: Regex pattern did not match.\n  Expected regex: 'invalid|overlap|source length'\n  Actual message: 'coverage inventory disagrees with summary: num_statements'\n4 failed, 120 deselected in 0.27s\n"
       },
       "restored_green": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -185,7 +185,7 @@
           "--tb=short"
         ],
         "exit_code": 0,
-        "output": "....                                                                     [100%]\n4 passed, 80 deselected in 0.86s\n"
+        "output": "....                                                                     [100%]\n4 passed, 120 deselected in 0.20s\n"
       }
     },
     {
@@ -194,7 +194,7 @@
       "replacement": "if False:",
       "red": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -206,11 +206,11 @@
           "--tb=short"
         ],
         "exit_code": 1,
-        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_________ test_source_mapping_rejects_invalid_units[overlap-baseline] __________\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n___________ test_source_mapping_rejects_invalid_units[overlap-final] ___________\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[overlap-baseline] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[overlap-final] - Failed: DID NOT RAISE ValueError\n2 failed, 82 deselected in 0.95s\n"
+        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_________ test_source_mapping_rejects_invalid_units[overlap-baseline] __________\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'invalid|overlap|source length'\nE     Actual message: 'coverage inventory disagrees with summary: num_statements'\n___________ test_source_mapping_rejects_invalid_units[overlap-final] ___________\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'invalid|overlap|source length'\nE     Actual message: 'coverage inventory disagrees with summary: num_statements'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[overlap-baseline] - AssertionError: Regex pattern did not match.\n  Expected regex: 'invalid|overlap|source length'\n  Actual message: 'coverage inventory disagrees with summary: num_statements'\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[overlap-final] - AssertionError: Regex pattern did not match.\n  Expected regex: 'invalid|overlap|source length'\n  Actual message: 'coverage inventory disagrees with summary: num_statements'\n2 failed, 122 deselected in 0.24s\n"
       },
       "restored_green": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -222,7 +222,7 @@
           "--tb=short"
         ],
         "exit_code": 0,
-        "output": "..                                                                       [100%]\n2 passed, 82 deselected in 0.85s\n"
+        "output": "..                                                                       [100%]\n2 passed, 122 deselected in 0.18s\n"
       }
     },
     {
@@ -231,7 +231,7 @@
       "replacement": "if False:",
       "red": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -243,11 +243,11 @@
           "--tb=short"
         ],
         "exit_code": 1,
-        "output": "FFFF                                                                     [100%]\n=================================== FAILURES ===================================\n______ test_source_mapping_rejects_invalid_units[out_of_bounds-baseline] _______\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n________ test_source_mapping_rejects_invalid_units[out_of_bounds-final] ________\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n____ test_source_mapping_rejects_invalid_units[exit_out_of_bounds-baseline] ____\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_____ test_source_mapping_rejects_invalid_units[exit_out_of_bounds-final] ______\ntests/scripts/test_reconcile_issue_4426_coverage.py:644: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[out_of_bounds-baseline] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[out_of_bounds-final] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[exit_out_of_bounds-baseline] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[exit_out_of_bounds-final] - Failed: DID NOT RAISE ValueError\n4 failed, 80 deselected in 0.98s\n"
+        "output": "FFFF                                                                     [100%]\n=================================== FAILURES ===================================\n______ test_source_mapping_rejects_invalid_units[out_of_bounds-baseline] _______\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n________ test_source_mapping_rejects_invalid_units[out_of_bounds-final] ________\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n____ test_source_mapping_rejects_invalid_units[exit_out_of_bounds-baseline] ____\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_____ test_source_mapping_rejects_invalid_units[exit_out_of_bounds-final] ______\ntests/scripts/test_reconcile_issue_4426_coverage.py:738: in test_source_mapping_rejects_invalid_units\n    with pytest.raises(ValueError, match=\"invalid|overlap|source length\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[out_of_bounds-baseline] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[out_of_bounds-final] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[exit_out_of_bounds-baseline] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_mapping_rejects_invalid_units[exit_out_of_bounds-final] - Failed: DID NOT RAISE ValueError\n4 failed, 120 deselected in 0.28s\n"
       },
       "restored_green": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -259,7 +259,7 @@
           "--tb=short"
         ],
         "exit_code": 0,
-        "output": "....                                                                     [100%]\n4 passed, 80 deselected in 0.87s\n"
+        "output": "....                                                                     [100%]\n4 passed, 120 deselected in 0.18s\n"
       }
     },
     {
@@ -268,7 +268,7 @@
       "replacement": "\"attributable_round_reduction\": 0",
       "red": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -280,11 +280,11 @@
           "--tb=short"
         ],
         "exit_code": 1,
-        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout __\ntests/scripts/test_reconcile_issue_4426_coverage.py:702: in test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout\n    assert result[\"attributable_round_reduction\"] is None\nE   assert 0 is None\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout - assert 0 is None\n1 failed, 83 deselected in 0.95s\n"
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout __\ntests/scripts/test_reconcile_issue_4426_coverage.py:796: in test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout\n    assert result[\"attributable_round_reduction\"] is None\nE   assert 0 is None\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout - assert 0 is None\n1 failed, 123 deselected in 0.22s\n"
       },
       "restored_green": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -296,7 +296,7 @@
           "--tb=short"
         ],
         "exit_code": 0,
-        "output": ".                                                                        [100%]\n1 passed, 83 deselected in 0.88s\n"
+        "output": ".                                                                        [100%]\n1 passed, 123 deselected in 0.18s\n"
       }
     },
     {
@@ -305,7 +305,7 @@
       "replacement": "if False:",
       "red": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -317,11 +317,11 @@
           "--tb=short"
         ],
         "exit_code": 1,
-        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_______ test_source_comparison_bounds_plain_and_expanded_coverage[False] _______\ntests/scripts/test_reconcile_issue_4426_coverage.py:735: in test_source_comparison_bounds_plain_and_expanded_coverage\n    with pytest.raises(ValueError, match=\"coverage.json exceeds byte limit\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'coverage.json exceeds byte limit'\nE     Actual message: 'Expecting value: line 1 column 1002 (char 1001)'\n_______ test_source_comparison_bounds_plain_and_expanded_coverage[True] ________\ntests/scripts/test_reconcile_issue_4426_coverage.py:735: in test_source_comparison_bounds_plain_and_expanded_coverage\n    with pytest.raises(ValueError, match=\"coverage.json exceeds byte limit\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'coverage.json exceeds byte limit'\nE     Actual message: 'Expecting value: line 1 column 1002 (char 1001)'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_comparison_bounds_plain_and_expanded_coverage[False] - AssertionError: Regex pattern did not match.\n  Expected regex: 'coverage.json exceeds byte limit'\n  Actual message: 'Expecting value: line 1 column 1002 (char 1001)'\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_comparison_bounds_plain_and_expanded_coverage[True] - AssertionError: Regex pattern did not match.\n  Expected regex: 'coverage.json exceeds byte limit'\n  Actual message: 'Expecting value: line 1 column 1002 (char 1001)'\n2 failed, 82 deselected in 0.97s\n"
+        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_______ test_source_comparison_bounds_plain_and_expanded_coverage[False] _______\ntests/scripts/test_reconcile_issue_4426_coverage.py:829: in test_source_comparison_bounds_plain_and_expanded_coverage\n    with pytest.raises(ValueError, match=\"coverage.json exceeds byte limit\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'coverage.json exceeds byte limit'\nE     Actual message: 'Expecting value: line 1 column 1002 (char 1001)'\n_______ test_source_comparison_bounds_plain_and_expanded_coverage[True] ________\ntests/scripts/test_reconcile_issue_4426_coverage.py:829: in test_source_comparison_bounds_plain_and_expanded_coverage\n    with pytest.raises(ValueError, match=\"coverage.json exceeds byte limit\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'coverage.json exceeds byte limit'\nE     Actual message: 'Expecting value: line 1 column 1002 (char 1001)'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_comparison_bounds_plain_and_expanded_coverage[False] - AssertionError: Regex pattern did not match.\n  Expected regex: 'coverage.json exceeds byte limit'\n  Actual message: 'Expecting value: line 1 column 1002 (char 1001)'\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_source_comparison_bounds_plain_and_expanded_coverage[True] - AssertionError: Regex pattern did not match.\n  Expected regex: 'coverage.json exceeds byte limit'\n  Actual message: 'Expecting value: line 1 column 1002 (char 1001)'\n2 failed, 122 deselected in 0.25s\n"
       },
       "restored_green": {
         "command": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
           "-m",
           "pytest",
           "-q",
@@ -333,7 +333,44 @@
           "--tb=short"
         ],
         "exit_code": 0,
-        "output": "..                                                                       [100%]\n2 passed, 82 deselected in 0.88s\n"
+        "output": "..                                                                       [100%]\n2 passed, 122 deselected in 0.18s\n"
+      }
+    },
+    {
+      "name": "offline_git_objects",
+      "needle": "str(EVIDENCE / \"git-objects\")",
+      "replacement": "\"\"",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-m",
+          "not slow",
+          "-k",
+          "test_provisioned_baseline_and_final_gate_comparison_runs_offline_in_empty_repo",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_provisioned_baseline_and_final_gate_comparison_runs_offline_in_empty_repo _\nscripts/compare_gate_coverage.py:209: in main\n    result = compare_checkouts(\nscripts/compare_gate_coverage.py:156: in compare_checkouts\n    \"baseline\": git(\nscripts/compare_gate_coverage.py:151: in git\n    return subprocess.run(\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/subprocess.py:578: in run\n    raise CalledProcessError(retcode, process.args,\nE   subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-runner/pytest-20/test_provisioned_baseline_and_0', 'rev-parse', '--verify', '--end-of-options', '682c12c02f24e2b8ee8d69da0d54dae28a87977d^{commit}']' returned non-zero exit status 128.\n\nDuring handling of the above exception, another exception occurred:\ntests/scripts/test_reconcile_issue_4426_coverage.py:874: in test_provisioned_baseline_and_final_gate_comparison_runs_offline_in_empty_repo\n    assert compare.main(argv) == 0\n           ^^^^^^^^^^^^^^^^^^\nscripts/compare_gate_coverage.py:226: in main\n    parser.exit(1, f\"Cannot compare Gate inventories: {exc}\\n\")\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/argparse.py:2772: in exit\n    _sys.exit(status)\nE   SystemExit: 1\n----------------------------- Captured stderr call -----------------------------\nCannot compare Gate inventories: Command '['git', '-C', '/tmp/pytest-of-runner/pytest-20/test_provisioned_baseline_and_0', 'rev-parse', '--verify', '--end-of-options', '682c12c02f24e2b8ee8d69da0d54dae28a87977d^{commit}']' returned non-zero exit status 128.\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_provisioned_baseline_and_final_gate_comparison_runs_offline_in_empty_repo - SystemExit: 1\n1 failed, 123 deselected in 0.30s\n"
+      },
+      "restored_green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-m",
+          "not slow",
+          "-k",
+          "test_provisioned_baseline_and_final_gate_comparison_runs_offline_in_empty_repo",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed, 123 deselected in 0.45s\n"
       }
     }
   ]

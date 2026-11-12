@@ -432,3 +432,166 @@ def test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_ab
         "- [anthropic](https://smith.langchain.com/r/second-trace)\n"
         "- [provider-3](https://smith.langchain.com/r/third-trace)\n"
     )
+
+
+def test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers():
+    valid_diff = (
+        'diff --git "a/dir/\\141\\t\\"\\\\file.py" "b/dir/\\141\\t\\"\\\\file.py"\n'
+        '--- "a/dir/\\141\\t\\"\\\\file.py"\n'
+        '+++ "b/dir/\\141\\t\\"\\\\file.py"\n'
+        "@@ -1 +1 @@\n-old\n+new\n"
+    )
+    parsed = verifier._split_diff_files(valid_diff)
+    assert len(parsed) == 1
+    assert parsed[0][0] == 'dir/a\t"\\file.py'
+
+    for invalid_header in (
+        'diff --git "a/\\377.py" "b/\\377.py"\n',
+        'diff --git "a/dangling\\',
+        'diff --git "a/\\12x.py" "b/\\12x.py"\n',
+        'diff --git "a/\\400.py" "b/\\400.py"\n',
+        'diff --git "a/\\z.py" "b/\\z.py"\n',
+        'diff --git "a/file.py"trailing "b/file.py"\n',
+        'diff --git "a/file.py" "b/file.py"trailing\n',
+        'diff --git "x/file.py" "b/file.py"\n',
+        'diff --git a/file.py b/file.py\n--- a/file.py\n+++ "b/\\z.py"\n@@ -1 +1 @@\n-a\n+b\n',
+    ):
+        files = verifier._split_diff_files(invalid_header)
+        assert files[0][0] is None
+        block, status, coverage, included, total = verifier._build_code_block(invalid_header, 500)
+        assert (block, status, coverage, included, total) == (
+            "(diff unavailable)",
+            "unavailable",
+            (),
+            0,
+            0,
+        )
+
+    empty_block, empty_status, empty_cov, empty_inc, empty_tot = verifier._build_code_block("", 100)
+    assert (empty_block, empty_status, empty_cov, empty_inc, empty_tot) == (
+        "",
+        "complete",
+        (),
+        0,
+        0,
+    )
+
+
+def test_summary_destination_paths_handles_sections_renames_and_malformed_encoding():
+    summary = "\n".join(
+        [
+            "### Overview",
+            "- ignored/before.py (+1/-0)",
+            "### File changes",
+            '- `a.py` (+2/-1) <!-- verifier-file-path:v1 "src/a.py" -->',
+            "- old/name.py -> new/name.py (+3/-1)",
+            "- added.py (added)",
+            "- ...and 2 more files",
+            "### Checks",
+            "- ignored/after.py (+1/-0)",
+        ]
+    )
+    assert verifier._summary_destination_paths(summary) == [
+        "src/a.py",
+        "new/name.py",
+        "added.py",
+    ]
+
+    for bad_line in (
+        '### File changes\n- `bad` <!-- verifier-file-path:v1 "\\uZZZZ" -->',
+        '### File changes\n- `empty` <!-- verifier-file-path:v1 "" -->',
+        "### File changes\n- `unclosed` <!-- verifier-file-path:v1 unquoted -->",
+    ):
+        with pytest.raises(ValueError, match="encoded summary destination"):
+            verifier._summary_destination_paths(bad_line)
+
+
+def test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading():
+    plan_sources = "\n".join(
+        [
+            "# Plan",
+            "```markdown",
+            "## Acceptance Criteria",
+            "- [ ] Fake criterion inside code fence",
+            "```not-a-closing-fence",
+            "```",
+            "## Acceptance Criteria",
+            "- [ ] First real criterion",
+            "### Sub-heading kept inside section",
+            "- [ ] Second real criterion",
+            "## Implementation Notes",
+            "- [ ] Not an acceptance criterion",
+        ]
+    )
+    extracted = verifier._acceptance_criteria_sections(plan_sources)
+    assert "Fake criterion" not in extracted
+    assert "Not an acceptance criterion" not in extracted
+    assert extracted == (
+        "- [ ] First real criterion\n"
+        "### Sub-heading kept inside section\n"
+        "- [ ] Second real criterion"
+    )
+
+
+def test_followup_issue_formatting_and_creation_paths(monkeypatch, capsys):
+    result = verifier.EvaluationResult(
+        verdict="CONCERNS",
+        summary="",
+        concerns=["", "Missing edge-case test"],
+        error="Provider timeout on secondary check",
+    )
+    body = verifier._format_followup_issue_body(
+        result,
+        pr_number=None,
+        pr_url=None,
+        run_url="https://github.com/stranske/Workflows/actions/runs/99",
+    )
+    assert "- Verdict: CONCERNS" in body
+    assert "- Summary:" not in body
+    assert "- Missing edge-case test" in body
+    assert "## Evaluation Error\nProvider timeout on secondary check" in body
+    assert "- PR:" not in body
+    assert "- Evaluation run: https://github.com/stranske/Workflows/actions/runs/99" in body
+
+    assert verifier._create_followup_issue(result, "context", labels=["bug"], run_url=None) is None
+
+    monkeypatch.setattr(verifier, "_should_create_issue", lambda _res: True)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    assert verifier._create_followup_issue(result, "context", labels=["bug"], run_url=None) is None
+
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Workflows")
+    captured_calls = []
+
+    def fake_create_issue(repo, token, title, issue_body, labels):
+        captured_calls.append((repo, token, title, issue_body, labels))
+        return {"number": 4321}
+
+    monkeypatch.setattr(verifier.api_client, "create_issue", fake_create_issue)
+    issue_num = verifier._create_followup_issue(
+        result,
+        "Pull request: [#88](https://github.com/stranske/Workflows/pull/88)",
+        labels=["verifier"],
+        run_url="https://github.com/stranske/Workflows/actions/runs/99",
+    )
+    assert issue_num == 4321
+    assert captured_calls[-1][2] == "LLM evaluation concerns for PR #88"
+
+    monkeypatch.setattr(
+        verifier.api_client,
+        "create_issue",
+        lambda *_args: {"number": "not-an-int"},
+    )
+    assert (
+        verifier._create_followup_issue(result, "no pr metadata", labels=[], run_url=None) is None
+    )
+
+    def raising_create_issue(*_args):
+        raise RuntimeError("API 503")
+
+    monkeypatch.setattr(verifier.api_client, "create_issue", raising_create_issue)
+    assert (
+        verifier._create_followup_issue(result, "no pr metadata", labels=[], run_url=None) is None
+    )
+    assert "failed to create follow-up issue: API 503" in capsys.readouterr().err

@@ -12,6 +12,7 @@ import argparse
 import gzip
 import hashlib
 import json
+import os
 import subprocess
 import zlib
 from difflib import SequenceMatcher
@@ -133,6 +134,18 @@ def compare_checkouts(
     paths = json.loads(ranking.read_text())["historical_issue_order"]
     if len(paths) != len(TARGETS) or set(paths) != set(TARGETS):
         raise ValueError("ranking must contain exactly the six selected targets")
+
+    os.environ["GIT_ALTERNATE_OBJECT_DIRECTORIES"] = os.pathsep.join(
+        dict.fromkeys(
+            filter(
+                None,
+                [
+                    *os.environ.get("GIT_ALTERNATE_OBJECT_DIRECTORIES", "").split(os.pathsep),
+                    str(EVIDENCE / "git-objects"),
+                ],
+            )
+        )
+    )
 
     def git(*args):
         return subprocess.run(

@@ -1,0 +1,162 @@
+"""Record deliberate-break mutation receipts for remaining uncovered symbols in pr_verifier.py."""
+
+import ast
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / "docs/evidence/issue-4426"
+source_path = root / "scripts/langchain/pr_verifier.py"
+test_path = root / "tests/scripts/test_pr_verifier_ranked_remainder.py"
+original = source_path.read_bytes()
+source = original.decode()
+
+
+def fragment(text, name):
+    node = next(
+        n for n in ast.parse(text).body if isinstance(n, ast.FunctionDef) and n.name == name
+    )
+    return ast.get_source_segment(text, node)
+
+
+def run(test):
+    command = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-q",
+        str(test_path.relative_to(root)) + "::" + test,
+        "-m",
+        "not slow",
+        "--tb=short",
+        "-p",
+        "no:cacheprovider",
+    ]
+    result = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=110)
+    return {
+        "command": command,
+        "exit_code": result.returncode,
+        "output": result.stdout + result.stderr,
+    }
+
+
+cases = [
+    (
+        "octal-escape-decoding",
+        "_split_diff_files",
+        "test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+        'if escaped in "01234567":',
+        "if False:",
+    ),
+    (
+        "escape-table-decoding",
+        "_split_diff_files",
+        "test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+        "if escaped not in escapes:",
+        "if True:",
+    ),
+    (
+        "reject-none-path-in-code-block",
+        "_build_code_block",
+        "test_split_diff_files_decodes_quoted_escapes_and_rejects_malformed_headers",
+        "if any(path is None for path, _ in files):",
+        "if False:",
+    ),
+    (
+        "stop-at-next-summary-heading",
+        "_summary_destination_paths",
+        "test_summary_destination_paths_handles_sections_renames_and_malformed_encoding",
+        'if in_file_changes and line.startswith("### "):',
+        "if False:",
+    ),
+    (
+        "extract-rename-destination",
+        "_summary_destination_paths",
+        "test_summary_destination_paths_handles_sections_renames_and_malformed_encoding",
+        'if " -> " in label:',
+        "if False:",
+    ),
+    (
+        "blank-fenced-lines-in-plan-sources",
+        "_acceptance_criteria_sections",
+        "test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading",
+        'lines.append("" if fence_char is not None else raw_line)',
+        "lines.append(raw_line)",
+    ),
+    (
+        "stop-at-peer-heading-in-plan-sources",
+        "_acceptance_criteria_sections",
+        "test_acceptance_criteria_sections_ignores_fenced_headings_and_stops_at_peer_heading",
+        "if next_heading and len(next_heading.group(1)) <= level:",
+        "if False:",
+    ),
+    (
+        "include-evaluation-error-in-followup-body",
+        "_format_followup_issue_body",
+        "test_followup_issue_formatting_and_creation_paths",
+        "if result.error:",
+        "if False:",
+    ),
+    (
+        "return-created-issue-number",
+        "_create_followup_issue",
+        "test_followup_issue_formatting_and_creation_paths",
+        "if isinstance(issue_number, int):",
+        "if False:",
+    ),
+]
+symbols = {name: fragment(source, name) for _, name, *_ in cases}
+receipts = []
+try:
+    for name, symbol_name, test, old, new in cases:
+        symbol = symbols[symbol_name]
+        assert symbol.count(old) == 1, (name, symbol.count(old))
+        mutated_symbol = symbol.replace(old, new, 1)
+        mutated = source.replace(symbol, mutated_symbol, 1)
+        try:
+            source_path.write_text(mutated)
+            red = run(test)
+        finally:
+            source_path.write_bytes(original)
+        green = run(test)
+        failures = [line for line in red["output"].splitlines() if line.startswith("FAILED ")]
+        assert red["exit_code"] == 1 and failures, red
+        assert all(test in line for line in failures), red
+        assert green["exit_code"] == 0, green
+        receipts.append(
+            {
+                "id": name,
+                "symbol": symbol_name,
+                "test": test,
+                "original_snippet": old,
+                "mutant_snippet": new,
+                "mutant_sha256": hashlib.sha256(mutated.encode()).hexdigest(),
+                "named_failures": failures,
+                "red": red,
+                "green": green,
+            }
+        )
+        print(name, "red=1 restored=0", flush=True)
+finally:
+    source_path.write_bytes(original)
+
+test_source = test_path.read_text()
+record = {
+    "checked_on": "2026-11-12",
+    "source_path": str(source_path.relative_to(root)),
+    "source_restored": source_path.read_bytes() == original,
+    "source_sha256": hashlib.sha256(original).hexdigest(),
+    "recorded_symbols": symbols,
+    "symbol_sha256": {
+        name: hashlib.sha256(text.encode()).hexdigest() for name, text in symbols.items()
+    },
+    "test_path": str(test_path.relative_to(root)),
+    "test_sha256": hashlib.sha256(test_path.read_bytes()).hexdigest(),
+    "recorded_tests": {test: fragment(test_source, test) for _, _, test, *_ in cases},
+    "receipts": receipts,
+}
+assert record["source_restored"]
+(evidence / "ranked-remainder-mutations.json").write_text(json.dumps(record, indent=2) + "\n")
