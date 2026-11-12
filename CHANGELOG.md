@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.51.1](https://github.com/stranske/Workflows/compare/v1.51.0...v1.51.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* automate genuine Health85 evidence reconciliation ([#4625](https://github.com/stranske/Workflows/issues/4625)) ([abf69b9](https://github.com/stranske/Workflows/commit/abf69b9dfb2bf4df35b5024723a6e8ab1199e6ae))
+* **gate:** bound github scripts tests so a hung file fails fast and is named ([#4640](https://github.com/stranske/Workflows/issues/4640)) ([4567545](https://github.com/stranske/Workflows/commit/4567545f5622c8cb11668609ccff32c23182ad1d))
+* **gemini:** install the agy release binary whatever the archive names it ([#4673](https://github.com/stranske/Workflows/issues/4673)) ([650ccf6](https://github.com/stranske/Workflows/commit/650ccf6d98a25b8a17a1e031880e4091f65b9843))
+* **intake:** name why the route-weights export was not used ([#4653](https://github.com/stranske/Workflows/issues/4653)) ([6ca5800](https://github.com/stranske/Workflows/commit/6ca5800a9545f5caf15d2700c844dbe87763ffdc))
+* **keepalive:** never stage CLI tool state from the workspace ([#4675](https://github.com/stranske/Workflows/issues/4675)) ([5af2003](https://github.com/stranske/Workflows/commit/5af20039976a243026bb0ace2240355efcac4bce))
+* **langsmith:** migrate deprecated reads to SmithDB v2 ([#4670](https://github.com/stranske/Workflows/issues/4670)) ([35df199](https://github.com/stranske/Workflows/commit/35df199b9e3897efba573a3538349a61c7e2a083))
+* **maint-71:** account for historical dev-tool candidates and record delivery evidence ([#4629](https://github.com/stranske/Workflows/issues/4629)) ([e0cff78](https://github.com/stranske/Workflows/commit/e0cff78a8537be83e296761536fbda3038b4ca2d))
+* **maint-71:** carry campaign no-change evidence to a newer head that touched no plan-managed path ([#4639](https://github.com/stranske/Workflows/issues/4639)) ([c1f27d8](https://github.com/stranske/Workflows/commit/c1f27d82180b10b7213aea099f8feec30c3e15b1))
+* **maint-79:** wait for required checks to report before reading them as failed ([#4622](https://github.com/stranske/Workflows/issues/4622)) ([da7ff94](https://github.com/stranske/Workflows/commit/da7ff9471106c47436f9b1ddceaec99fbf0a75e0))
+* **maint-82:** re-plan a checks_failed handoff whose checks recover on the same head ([#4638](https://github.com/stranske/Workflows/issues/4638)) ([aaa62c5](https://github.com/stranske/Workflows/commit/aaa62c5a717730c4032f145983d22d4551a74e14)), closes [#4636](https://github.com/stranske/Workflows/issues/4636)
+* **maint-82:** re-plan a recovered checks_failed handoff when the PR is unstable ([#4644](https://github.com/stranske/Workflows/issues/4644)) ([34e004a](https://github.com/stranske/Workflows/commit/34e004a3b4f4cc51a76460784d09991ba09d6366))
+* **maint-82:** wake the campaign commit once a plan's candidates are prepared and its deliveries are done ([#4645](https://github.com/stranske/Workflows/issues/4645)) ([7d68562](https://github.com/stranske/Workflows/commit/7d6856222f6df10a91a113a464f2741e0b82702d))
+* require published Health 85 evidence for issue 4619 ([#4634](https://github.com/stranske/Workflows/issues/4634)) ([e47d7a0](https://github.com/stranske/Workflows/commit/e47d7a0f0f15c212f2ab0afe7a3eb36e09538555))
+* **verifier:** complete retained-artifact classifier and collector evidence ([#4628](https://github.com/stranske/Workflows/issues/4628)) ([e991954](https://github.com/stranske/Workflows/commit/e99195408b0d916c14c2c2f34a4b7a0a91ef8fb9))
+
+
+### Performance Improvements
+
+* **ci:** guard large template parity assertions against difflib stalls ([#4620](https://github.com/stranske/Workflows/issues/4620)) ([a54f412](https://github.com/stranske/Workflows/commit/a54f412a4aea3a49241b502abf415bf769e08dea))
+* **ci:** reduce synthetic pytest subprocess startup in Gate ([#4647](https://github.com/stranske/Workflows/issues/4647)) ([40a103f](https://github.com/stranske/Workflows/commit/40a103f20968e85cba79a12ac5cebf1b7731e1dc))
+
 ## [1.51.0](https://github.com/stranske/Workflows/compare/v1.50.1...v1.51.0) (2026-11-10)
 
 
