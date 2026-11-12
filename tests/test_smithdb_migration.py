@@ -48,9 +48,7 @@ class SmithDBMigrationTests(unittest.TestCase):
 
         with patch.object(health, "_request_json", request):
             self.assertEqual(self.query()["id"], "latest")
-        self.assertEqual(
-            calls[1][1], "https://api.smith.langchain.com/api/v2/runs/query"
-        )
+        self.assertEqual(calls[1][1], "https://api.smith.langchain.com/api/v2/runs/query")
         self.assertEqual(
             calls[1][2],
             {
