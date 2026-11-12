@@ -84,16 +84,20 @@ Python 3.13/3.14 and raw coverage are PENDING, as are merge/main ancestry and
 delivered-revision focused pytest. New receipts use `integration-rerun/mutations/` (executed on the post-#4495 integrated
 tree `c1f18728c6b215fa7a66353b311fa12277074437` / cherry-pick `7ba92707`, where e.g.
 `04-red.txt` reports `tests/tools/test_llm_provider.py:2178`);
-original `mutations/` receipts are preserved byte-for-byte from #4431 candidate head
+the `mutations/` receipts and transcripts from #4431 candidate head
 `69e5b6d6cd3fb154be29890f2ae212772de8ce45` (where `04-red.txt` reports
-`tests/tools/test_llm_provider.py:2154` prior to #4495's 24-line regression addition).
+`tests/tools/test_llm_provider.py:2154` before #4495's 24-line regression addition)
+were modified only to add `"revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45"` in
+`mutation-receipts.json` and prepend `# revision: 69e5b6d6cd3fb154be29890f2ae212772de8ce45`
+to each `NN-red.txt` and `NN-green.txt` transcript, while preserving all original
+`sha256_before`/`sha256_restored` digests, exit codes, and transcript bodies.
 No summary percentage substitutes
 for separately identified raw runtime coverage or explicit residual lists.
 
 
 The actual mutation-table function count is 24 (3 aggregate, 21 provider);
-this corrects the historical 21/18 wording without altering any original
-receipt. Review dispositions and bounded follow-ups are recorded in
+this corrects the historical 21/18 wording while retaining the candidate
+receipt digests and output bodies described above. Review dispositions and bounded follow-ups are recorded in
 `integration-rerun/review-dispositions.md`. The final immutable head, hosted
 runs/raw artifact identities, merge SHA, and main ancestry are maintained in
 the acceptance section of [integration PR #4516](https://github.com/stranske/Workflows/pull/4516).

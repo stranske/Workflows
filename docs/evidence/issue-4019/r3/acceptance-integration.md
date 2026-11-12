@@ -492,7 +492,7 @@ mutation evidence).
 
 The mutation-receipt task is satisfied for the candidate head
 `69e5b6d6cd3fb154be29890f2ae212772de8ce45` (under `docs/evidence/issue-4019/r3/mutations/`,
-where e.g. `04-red.txt` fails at `tests/tools/test_llm_provider.py:2154` prior to #4495's
+where e.g. `04-red.txt` fails at `tests/tools/test_llm_provider.py:2154` before #4495's
 24-line regression addition) and for the post-#4495 integrated tree
 `c1f18728c6b215fa7a66353b311fa12277074437` / cherry-pick `7ba92707` (under
 `docs/evidence/issue-4019/r3/integration-rerun/mutations/`, where `04-red.txt` fails at
@@ -559,8 +559,9 @@ and protected write in mutate.py, partial-write/interpreter regressions,
 forced-provider environment isolation, portable documentation, and explicit
 final-head acceptance status. Its threads are not resolved by this integration.
 
-Reruns are separate in `integration-rerun/`; original `mutations/` receipts
-remain byte-identical to #4431. `driver-before.txt` records two behavioral
+Reruns are separate in `integration-rerun/`; the `mutations/` receipts from
+#4431 were modified only to add `"revision": "69e5b6d6cd3fb154be29890f2ae212772de8ce45"`
+and `# revision:` transcript headers while preserving all original digests and output bodies. `driver-before.txt` records two behavioral
 assertion failures; `forced-before.txt` records the actual SubscriptionCLIProvider
 mismatch. Deliberate failing controls are expected evidence, not failed repair
 attempts. After files are corrected, the same commands are rerun.
@@ -576,7 +577,8 @@ Local integrated validation: 269 passed in 0.73s; driver regressions 2 passed
 in 0.20s; forced-provider test with CLI=codex initially set 1 passed in 0.23s.
 Fresh mutation reproduction: 27/27 behavioral red -> restored green; every
 source digest restored, no collection-error substitutes. Retention verification
-confirms 55 original mutation files unchanged and both provider production
+confirms the 55 `mutations/` files retain all original digests/bodies (annotated
+with the candidate revision) and both provider production
 copies plus the sync-drift tests identical to current main. See
 `integration-rerun/retention.json` and separate raw outputs.
 
@@ -630,7 +632,8 @@ focused rerun must be recorded in the final acceptance section of
 [integration PR #4516](https://github.com/stranske/Workflows/pull/4516).
 They remain pending at this checkpoint; no parent-head result is relabeled.
 The README function count is corrected to 24 (3 aggregate, 21 provider);
-original receipts remain unchanged. Four optional review items are recorded
+the candidate receipt digests and bodies remain unchanged (annotated with the
+tested revision). Four optional review items are recorded
 in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
 
 ## #4523 cherry-pick integration and verification (2026-11-12 UTC)
@@ -678,16 +681,18 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
   exit=0
   ```
   Driver and helper regression suite (`tests/tools/test_issue_4019_mutation_driver.py`)
-  passes (`12 passed`, covering partial-write restoration, `get_revision()` git SHA and
-  fallback handling, active interpreter selection, `TimeoutExpired` string and bytes/None
-  handling, empty subprocess output fallback, runtime occurrence-count verification,
-  successful red-to-green mutation execution with revision headers, timeout loop
-  termination, `mutate.cli()` argument validation, `target_missing.py` missing-unit
-  summation and CLI/zero-denominator guards, and the 27-receipt identity, operator,
-  revision, transcript header, and live-source digest inventory),
+  passes (`13 passed`, covering partial-write restoration, `get_revision()` and
+  `is_worktree_clean()` clean/dirty/failure handling, dirty-worktree rejection vs
+  explicit `<sha>-dirty` non-commit marking in `main()`, active interpreter selection,
+  `TimeoutExpired` string and bytes/None handling, empty subprocess output fallback,
+  runtime occurrence-count verification, successful red-to-green mutation execution with
+  revision headers, timeout loop termination, `mutate.cli()` argument and `--allow-dirty`
+  validation, `target_missing.py` missing-unit summation and CLI/zero-denominator guards,
+  and the 27-receipt identity, operator, revision, transcript header, and live-source
+  digest inventory),
   and fresh `mutate.py` execution against a temporary output directory confirms
   `27/27 proof_ok`.
-- **Final-head hosted Gate coverage (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`, `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`, `43170114463` on `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`, `43172506542` on `ade144b93e473e8017409e5ca5603a2f3c26a43e`, and `43175869464` on `37f7e8cd1a6a8861860ce575e68d670603831892`)**:
+- **Hosted Gate coverage checkpoints (`42342628461` on `59c11ae720b4b57c406a5da54c1225af8b483f0d`, `43166948933` on `3ccdb9bb7f0b162e0ea0ea9e017acb0c0a8396f4`, `43170114463` on `6f3df09f9719eca8ba9d73b2fbac84566f0143fa`, `43172506542` on `ade144b93e473e8017409e5ca5603a2f3c26a43e`, `43175869464` on `37f7e8cd1a6a8861860ce575e68d670603831892`, and `43178139478` on `3f04be7287a11a9da2c6fad49807bf2b8fd562bc`)**:
   - [Gate 42342628461](https://github.com/stranske/Workflows/actions/runs/42342628461):
     `conclusion: success` (Python 3.13 job `128313615973` `success`; Python 3.14 job
     `128313616019` `success`).
@@ -756,8 +761,29 @@ in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.
     tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
     TARGET_MISSING 3
     ```
+  - [Gate 43178139478](https://github.com/stranske/Workflows/actions/runs/43178139478)
+    on PR #4674 checkpoint head `3f04be7287a11a9da2c6fad49807bf2b8fd562bc`: `conclusion: success`
+    (Python 3.13 job `131047585117` `success`; Python 3.14 job `131047585027` `success`).
+    Executed `python3 docs/evidence/issue-4019/r3/target_missing.py` against downloaded
+    hosted Python 3.14 Gate coverage artifact `gate-coverage-3.14-1` (artifact ID
+    `13926025844`, `sha256:ac5eb1c2d2000eed3a5ef5a92c52ec3b5eea1cd30fc5bea441857addd311444d`,
+    `coverage.json` `sha256:86f5eafb9e6fbf269730baa4533e5106dd73d1fdb6d0283293a6f03ebad9a1fb`):
+    ```text
+    TOTAL 68030 74698 91.07338884575223
+    scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+    scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+    tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+    TARGET_MISSING 3
+    ```
     confirming `TARGET_MISSING` equals 3 statements in `tools/llm_provider.py` (lines
-    265, 270, 292).
+    265, 270, 292) across all checkpoints.
+- **Reviewed-revision final-head Gate status**:
+  Because committing an update to this document creates a new commit SHA, the runs
+  listed above are pre-commit checkpoints rather than the final-head Gate run for the
+  commit that records them. Final-head Gate verification for the latest commit on
+  PR #4674 is tracked separately on the PR's status checks before merge, and the
+  resulting merge commit SHA and `git merge-base --is-ancestor <mergeCommit> origin/main`
+  check remain post-merge checks on `origin/main`.
 
 
 

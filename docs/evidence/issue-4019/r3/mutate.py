@@ -238,8 +238,23 @@ MUTATIONS = [
 ]
 
 
+def is_worktree_clean() -> bool:
+    """Return True only when git status reports no staged, unstaged, or untracked changes."""
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode == 0 and not proc.stdout.strip()
+
+
 def get_revision() -> str:
-    """Return the current git HEAD commit SHA, or 'unknown' if unavailable."""
+    """Return the clean git HEAD SHA, '<sha>-dirty' when worktree is dirty, or 'unknown'."""
     try:
         proc = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -251,7 +266,11 @@ def get_revision() -> str:
     except (OSError, subprocess.SubprocessError):
         return "unknown"
     rev = proc.stdout.strip()
-    return rev if proc.returncode == 0 and rev else "unknown"
+    if proc.returncode != 0 or not rev:
+        return "unknown"
+    if not is_worktree_clean():
+        return f"{rev}-dirty"
+    return rev
 
 
 def run(node: str) -> tuple[int, str]:
@@ -278,9 +297,26 @@ def run(node: str) -> tuple[int, str]:
     return proc.returncode, proc.stdout + proc.stderr
 
 
-def main(out_dir: Path, revision: str | None = None) -> int:
+def main(out_dir: Path, revision: str | None = None, *, allow_dirty: bool = False) -> int:
     """Run all configured mutations, verify byte restoration, and write receipts."""
-    resolved_revision = revision if revision is not None else get_revision()
+    if revision is None:
+        resolved_revision = get_revision()
+        if not allow_dirty and (
+            resolved_revision == "unknown" or resolved_revision.endswith("-dirty")
+        ):
+            raise RuntimeError(
+                "Refusing to record commit-keyed mutation proofs on dirty or unknown worktree "
+                f"({resolved_revision})"
+            )
+    else:
+        clean = is_worktree_clean()
+        if not allow_dirty and not clean:
+            raise RuntimeError("Refusing to record commit-keyed mutation proofs on dirty worktree")
+        resolved_revision = (
+            f"{revision}-dirty"
+            if not clean and not revision.endswith("-dirty") and revision != "unknown"
+            else revision
+        )
     receipts = []
     ok = True
     for mid, node, path, old, new, count in MUTATIONS:
@@ -346,10 +382,14 @@ def main(out_dir: Path, revision: str | None = None) -> int:
 
 def cli(argv: list[str] | None = None) -> int:
     """CLI entrypoint for mutate.py."""
-    args = sys.argv[1:] if argv is None else argv
-    if not args:
-        raise SystemExit("Usage: mutate.py <output_dir>")
-    return main(Path(args[0]))
+    args = list(sys.argv[1:] if argv is None else argv)
+    allow_dirty = False
+    if "--allow-dirty" in args:
+        allow_dirty = True
+        args.remove("--allow-dirty")
+    if len(args) != 1:
+        raise SystemExit("Usage: mutate.py [--allow-dirty] <output_dir>")
+    return main(Path(args[0]), allow_dirty=allow_dirty)
 
 
 if __name__ == "__main__":

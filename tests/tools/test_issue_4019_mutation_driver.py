@@ -38,6 +38,7 @@ def load_target_missing():
 def test_partial_write_restores_original(tmp_path, monkeypatch):
     """Ensure original source bytes are restored when writing a mutation fails mid-write."""
     driver = load_driver()
+    monkeypatch.setattr(driver, "is_worktree_clean", lambda: True)
     source = tmp_path / "source.py"
     original = b"original = True\n"
     source.write_bytes(original)
@@ -56,27 +57,77 @@ def test_partial_write_restores_original(tmp_path, monkeypatch):
 
 
 def test_get_revision_handles_git_success_and_failure(monkeypatch):
-    """Ensure get_revision() returns the git HEAD SHA or falls back to 'unknown'."""
+    """Ensure get_revision() returns clean HEAD SHA, '<sha>-dirty' for dirty trees, or 'unknown'."""
     driver = load_driver()
-    monkeypatch.setattr(
-        driver.subprocess,
-        "run",
-        lambda argv, **kwargs: SimpleNamespace(returncode=0, stdout="abc1234\n", stderr=""),
-    )
+
+    def clean_git(argv, **kwargs):
+        if argv[:2] == ["git", "rev-parse"]:
+            return SimpleNamespace(returncode=0, stdout="abc1234\n", stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(driver.subprocess, "run", clean_git)
+    assert driver.is_worktree_clean() is True
     assert driver.get_revision() == "abc1234"
+
+    def dirty_git(argv, **kwargs):
+        if argv[:2] == ["git", "rev-parse"]:
+            return SimpleNamespace(returncode=0, stdout="abc1234\n", stderr="")
+        return SimpleNamespace(
+            returncode=0, stdout=" M tools/llm_provider.py\n?? scratch.txt\n", stderr=""
+        )
+
+    monkeypatch.setattr(driver.subprocess, "run", dirty_git)
+    assert driver.is_worktree_clean() is False
+    assert driver.get_revision() == "abc1234-dirty"
 
     monkeypatch.setattr(
         driver.subprocess,
         "run",
         lambda argv, **kwargs: SimpleNamespace(returncode=128, stdout="", stderr="fatal"),
     )
+    assert driver.is_worktree_clean() is False
     assert driver.get_revision() == "unknown"
 
     def raise_os_error(argv, **kwargs):
         raise OSError("git missing")
 
     monkeypatch.setattr(driver.subprocess, "run", raise_os_error)
+    assert driver.is_worktree_clean() is False
     assert driver.get_revision() == "unknown"
+
+
+def test_main_rejects_dirty_worktree_or_marks_non_commit_evidence(tmp_path, monkeypatch):
+    """Ensure main() rejects dirty worktrees by default or marks results as <sha>-dirty."""
+    driver = load_driver()
+    source = tmp_path / "source.py"
+    original = b"value = 1\n"
+    source.write_bytes(original)
+    monkeypatch.setattr(driver, "MUTATIONS", [("01", "test.py::test_ok", str(source), "1", "2", 1)])
+    monkeypatch.setattr(driver, "is_worktree_clean", lambda: False)
+    monkeypatch.setattr(driver, "get_revision", lambda: "abc1234-dirty")
+
+    with pytest.raises(RuntimeError, match="Refusing to record commit-keyed mutation proofs"):
+        driver.main(tmp_path)
+    with pytest.raises(RuntimeError, match="Refusing to record commit-keyed mutation proofs"):
+        driver.main(tmp_path, revision="abc1234")
+    assert source.read_bytes() == original
+    assert not (tmp_path / "mutation-receipts.json").exists()
+
+    calls = []
+
+    def stub_run(node):
+        calls.append(node)
+        if len(calls) == 1:
+            return 1, "FAILED test.py::test_ok\n"
+        return 0, "1 passed\n"
+
+    monkeypatch.setattr(driver, "run", stub_run)
+    rc = driver.main(tmp_path, revision="abc1234", allow_dirty=True)
+    assert rc == 0
+    receipts = json.loads((tmp_path / "mutation-receipts.json").read_text())
+    assert receipts[0]["revision"] == "abc1234-dirty"
+    assert (tmp_path / "01-red.txt").read_text().startswith("# revision: abc1234-dirty\n")
+    assert (tmp_path / "01-green.txt").read_text().startswith("# revision: abc1234-dirty\n")
 
 
 def test_subprocess_uses_active_interpreter(monkeypatch):
@@ -125,6 +176,7 @@ def test_run_handles_timeout_expired(monkeypatch):
 def test_empty_subprocess_output_does_not_raise_index_error(tmp_path, monkeypatch):
     """Ensure empty red/green subprocess outputs fall back to empty strings in receipts."""
     driver = load_driver()
+    monkeypatch.setattr(driver, "get_revision", lambda: "clean-rev")
     source = tmp_path / "source.py"
     original = b"value = 1\n"
     source.write_bytes(original)
@@ -144,6 +196,7 @@ def test_empty_subprocess_output_does_not_raise_index_error(tmp_path, monkeypatc
 def test_count_mismatch_records_failed_receipt_without_replacing_source(tmp_path, monkeypatch):
     """Ensure an occurrence count mismatch prevents replacement and records a failed receipt."""
     driver = load_driver()
+    monkeypatch.setattr(driver, "get_revision", lambda: "clean-rev")
     source = tmp_path / "source.py"
     original = b"value = 1\n"
     source.write_bytes(original)
@@ -163,6 +216,7 @@ def test_count_mismatch_records_failed_receipt_without_replacing_source(tmp_path
 def test_successful_mutation_path_records_verified_receipt(tmp_path, monkeypatch):
     """Verify main() executes red-then-green in order, restores source, and returns 0."""
     driver = load_driver()
+    monkeypatch.setattr(driver, "is_worktree_clean", lambda: True)
     source = tmp_path / "source.py"
     original = b"value = 1\n"
     source.write_bytes(original)
@@ -202,6 +256,7 @@ def test_successful_mutation_path_records_verified_receipt(tmp_path, monkeypatch
 def test_timeout_in_main_stops_subsequent_mutations(tmp_path, monkeypatch):
     """Ensure main() stops the mutation loop after recording a timed-out (exit 124) run."""
     driver = load_driver()
+    monkeypatch.setattr(driver, "get_revision", lambda: "clean-rev")
     source = tmp_path / "source.py"
     original = b"value = 1\n"
     source.write_bytes(original)
@@ -332,15 +387,20 @@ def test_verified_mutation_receipts_inventory():
 
 
 def test_driver_cli_validates_arguments_and_invokes_main(tmp_path, monkeypatch):
-    """Verify mutate.cli() validates arguments and forwards the output directory to main()."""
+    """Verify mutate.cli() validates arguments and forwards output_dir and allow_dirty to main()."""
     driver = load_driver()
     with pytest.raises(SystemExit, match="Usage: mutate.py"):
         driver.cli([])
 
     captured = []
-    monkeypatch.setattr(driver, "main", lambda out_dir: captured.append(out_dir) or 0)
+    monkeypatch.setattr(
+        driver,
+        "main",
+        lambda out_dir, *, allow_dirty=False: captured.append((out_dir, allow_dirty)) or 0,
+    )
     assert driver.cli([str(tmp_path)]) == 0
-    assert captured == [tmp_path]
+    assert driver.cli(["--allow-dirty", str(tmp_path)]) == 0
+    assert captured == [(tmp_path, False), (tmp_path, True)]
 
 
 def test_target_missing_module_main_and_usage_guard(tmp_path):
