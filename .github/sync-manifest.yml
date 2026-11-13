@@ -337,7 +337,7 @@ scripts:
 
   - source: scripts/runner_lib/
     is_directory: true
-    description: "Shared runner prompt assembly, output parsing, dispatch debounce, and immutable completion receipts"
+    description: "Shared runner prompt assembly, authored/normalized acceptance commands, output parsing, dispatch debounce, and immutable completion receipts"
 
   - source: scripts/aggregate_agent_metrics.py
     description: "Aggregates downloaded weekly agent metrics - required by agents-weekly-metrics.yml"
@@ -483,7 +483,7 @@ scripts:
     description: "Generates keepalive instructions for Codex"
 
   - source: .github/scripts/keepalive_loop.js
-    description: "Core keepalive loop logic with evidence-gated authority reconciliation and full criterion cache binding"
+    description: "Core keepalive loop logic with evidence-gated authority reconciliation, full criterion cache binding, and authored/normalized gate matching"
 
   - source: .github/scripts/autofix_metrics.js
     description: "Autofix PR-head observation and fail-closed completion validation"

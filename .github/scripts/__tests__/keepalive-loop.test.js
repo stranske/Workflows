@@ -789,7 +789,7 @@ test('deterministic verification reads live issue commands instead of completed 
   assert.equal(result.action, 'run');
   assert.equal(result.reason, 'verify-acceptance');
   assert.deepEqual(result.deterministicGates.commands, [
-    { criterion: 0, command: 'pytest tests/test_live.py' },
+    { criterion: 0, command: 'pytest tests/test_live.py', original_command: null },
   ]);
   assert.equal(result.deterministicGates.complete, false);
   assert.match(result.taskAppendix, /pytest tests\/test_live.py \(exit not run on this head\/criteria\)/);
@@ -799,7 +799,7 @@ test('deterministic verification reads live issue commands instead of completed 
   assert.equal(fetches, 2);
   assert.equal(next.reason, 'verify-acceptance');
   assert.deepEqual(next.deterministicGates.commands, [
-    { criterion: 0, command: 'pytest tests/test_edited.py' },
+    { criterion: 0, command: 'pytest tests/test_edited.py', original_command: null },
   ]);
 });
 
@@ -813,7 +813,7 @@ test('deterministic verification falls back to PR criteria only without a linked
     assert.fail('An unlinked PR must not fetch an issue');
   };
   const plan = await acceptanceGatePlan({ github, context: buildContext(pr.number), pr, state: {} });
-  assert.deepEqual(plan.commands, [{ criterion: 0, command: 'make test' }]);
+  assert.deepEqual(plan.commands, [{ criterion: 0, command: 'make test', original_command: null }]);
   assert.equal(plan.markdown, pr.body);
   assert.equal(plan.complete, false);
 });
@@ -846,8 +846,12 @@ test('deterministic gate summary renders inside the automated status block', () 
   assert.equal(renderDeterministicGates(rendered, gates), rendered);
 });
 
-for (const passes of [true, false]) {
-  test(`deterministic CLI results publish a non-zero summary (${passes ? 'pass' : 'fail'})`, async (t) => {
+for (const [command, originalCommand, passes] of [
+  ['npm test', null],
+  ['/opt/anaconda3/bin/python -m pytest test_gate.py -q', '/opt/anaconda3/bin/python -m pytest test_gate.py -q'],
+  ['python3.11 -m pytest test_gate.py -q', 'python3.11 -m pytest test_gate.py -q'],
+].flatMap(([command, originalCommand]) => [true, false].map(passes => [command, originalCommand, passes]))) {
+  test(`deterministic CLI results publish a non-zero summary (${command}, ${passes ? 'pass' : 'fail'})`, async (t) => {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-summary-'));
     t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
     fs.writeFileSync(path.join(temporary, 'gate.js'),
@@ -855,7 +859,18 @@ for (const passes of [true, false]) {
     fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({
       scripts: { test: 'node gate.js' },
     }));
-    const command = 'npm test';
+    fs.writeFileSync(path.join(temporary, 'test_gate.py'),
+      `def test_gate():\n    assert ${passes ? 'True' : 'False'}\n`);
+    // The GitHub-script test job provisions Node only. Provide the minimal
+    // local module needed for the command-under-test so these cases do not
+    // depend on a runner-image pytest installation.
+    fs.writeFileSync(path.join(temporary, 'pytest.py'), [
+      'import pathlib',
+      'import sys',
+      "source = pathlib.Path(sys.argv[1]).read_text()",
+      "raise SystemExit(1 if 'assert False' in source else 0)",
+      '',
+    ].join('\n'));
     const pr = {
       number: 3979,
       head: { ref: 'feature/acceptance', sha: 'cli-tested-head' },
@@ -873,6 +888,9 @@ for (const passes of [true, false]) {
     const github = buildGithubStub({ pr });
     const plan = await acceptanceGatePlan({ github, context, pr, state: {} });
     assert.equal(plan.total, 1, 'the real extractor must find the named gate');
+    assert.equal(plan.commands[0].original_command, originalCommand);
+    assert.equal(plan.commands[0].command,
+      originalCommand ? 'python3 -m pytest test_gate.py -q' : command);
     const planPath = path.join(temporary, 'plan.json');
     const outputPath = path.join(temporary, 'results.json');
     fs.writeFileSync(planPath, JSON.stringify(plan));
@@ -884,6 +902,7 @@ for (const passes of [true, false]) {
     });
     const gates = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
     assert.equal(gates.results[0].exit_code, passes ? 0 : 1);
+    assert.equal(gates.results[0].original_command, originalCommand);
 
     await markAgentRunning({ github, context, core: buildCore(), inputs: {
       pr_number: pr.number, deterministic_gates: gates, tasks_total: 2, tasks_unchecked: 0,
@@ -914,6 +933,176 @@ test('deterministic gate failure unchecks only its acceptance criterion', () => 
   assert.match(rendered, /- \[x\] Human observation/);
   assert.match(rendered, /- \[x\] `ruff check .`/);
 });
+
+for (const surface of ['source', 'consumer-template']) {
+  const { renderDeterministicGates: render, acceptanceGatePlan: planFor } = surface === 'source'
+    ? require('../keepalive_loop.js')
+    : require('../../../templates/consumer-repo/.github/scripts/keepalive_loop.js');
+  for (const interpreter of ['/opt/anaconda3/bin/python', 'python3.11']) {
+    test(`normalized gate rejects cached success after an authored interpreter edit (${surface}, ${interpreter})`, async () => {
+      const previousInterpreter = interpreter === 'python3.11'
+        ? '/opt/anaconda3/bin/python' : 'python3.11';
+      const originalCommand = `${interpreter} -m pytest tests/test_gate.py`;
+      const body = command => [
+        '## Acceptance Criteria',
+        `- [x] \`${command}\` passes`,
+        '- [x] Human observation',
+      ].join('\n');
+      const pr = {
+        number: 3979, head: { sha: 'unchanged-gate-head' },
+        body: body(`${previousInterpreter} -m pytest tests/test_gate.py`),
+      };
+      const github = buildGithubStub({ pr });
+      const context = buildContext(pr.number);
+      const previous = await planFor({ github, context, pr, state: {} });
+      const state = { deterministic_gates: {
+        ...previous,
+        results: previous.commands.map(command => ({ ...command, exit_code: 0 })),
+      } };
+      const cached = await planFor({ github, context, pr, state });
+      assert.equal(cached.complete, true, 'the unchanged authored criterion reuses its success');
+
+      pr.body = body(originalCommand);
+      const current = await planFor({ github, context, pr, state });
+      assert.equal(current.head_sha, previous.head_sha);
+      assert.equal(current.commands[0].command, previous.commands[0].command);
+      assert.equal(current.commands[0].original_command, originalCommand);
+      assert.notEqual(current.source_hash, previous.source_hash);
+      assert.deepEqual(current.results, []);
+      assert.equal(current.passed, 0);
+      assert.equal(current.total, 1);
+      assert.equal(current.complete, false);
+      const rendered = render(pr.body, current);
+      assert.ok(rendered.includes(`- [ ] \`${originalCommand}\` passes`));
+      assert.ok(rendered.includes('- [x] Human observation'));
+      assert.ok(rendered.includes('Deterministic gates: 0/1 passed'));
+      assert.ok(rendered.includes('(exit missing)'));
+      assert.equal(render(rendered, current), rendered);
+    });
+  }
+  for (const interpreters of [
+    ['/opt/anaconda3/bin/python', 'python3.11'],
+    ['python3', '/opt/anaconda3/bin/python'],
+    ['python3', 'python3.11'],
+    ['/opt/anaconda3/bin/python', 'python3'],
+    ['python3.11', 'python3'],
+  ]) {
+    for (const failingGate of [0, 1]) {
+      for (const exitCode of [1, undefined]) {
+        test(`normalized gates sharing a criterion retain distinct results (${surface}, ${interpreters.join(' + ')}, gate ${failingGate}, exit ${exitCode ?? 'missing'})`, async () => {
+          const commands = interpreters.map(interpreter => ({
+            criterion: 0,
+            command: 'python3 -m pytest tests/test_gate.py',
+            original_command: interpreter === 'python3' ? null : `${interpreter} -m pytest tests/test_gate.py`,
+          }));
+          const body = [
+            '## Acceptance Criteria',
+            `- [x] ${commands.map(command => `\`${command.original_command || command.command}\``).join(' and ')} pass`,
+            '- [x] Human observation',
+          ].join('\n');
+          const gates = {
+            commands,
+            results: commands.flatMap((command, index) => index === failingGate
+              ? (exitCode === undefined ? [] : [{ ...command, exit_code: exitCode }])
+              : [{ ...command, exit_code: 0 }]),
+          };
+          const pr = { number: 3979, head: { sha: 'gate-head' }, body };
+          const github = buildGithubStub({ pr });
+          const context = buildContext(pr.number);
+          const initial = await planFor({ github, context, pr, state: {} });
+          assert.deepEqual(initial.commands, commands);
+          const cached = await planFor({ github, context, pr, state: {
+            deterministic_gates: { ...initial, results: gates.results },
+          } });
+          assert.equal(cached.passed, 1);
+          assert.equal(cached.complete, false);
+          const rendered = render(body, gates);
+          assert.ok(rendered.includes(body.replace('- [x]', '- [ ]')));
+          assert.ok(rendered.includes('Deterministic gates: 1/2 passed'));
+          const details = rendered.split('\n').filter(line => line.startsWith('Criterion 1:'));
+          assert.equal(details.length, 2);
+          for (const [index, detail] of details.entries()) {
+            assert.ok(detail.includes(index === failingGate ? 'FAIL' : 'PASS'));
+            if (index === failingGate) assert.ok(detail.includes(`exit ${exitCode ?? 'missing'}`));
+          }
+          assert.equal(render(rendered, gates), rendered);
+        });
+      }
+    }
+  }
+  for (const passingCriterion of [0, 1]) {
+    test(`normalized gates keep authored criterion results separate (${surface}, passing ${passingCriterion})`, () => {
+      const commands = ['/opt/anaconda3/bin/python', 'python3.11'].map((interpreter, criterion) => ({
+        criterion,
+        command: 'python3 -m pytest tests/test_gate.py',
+        original_command: `${interpreter} -m pytest tests/test_gate.py`,
+      }));
+      const body = [
+        '## Acceptance Criteria',
+        ...commands.map(command => `- [x] \`${command.original_command}\` passes`),
+        '- [x] Human observation',
+      ].join('\n');
+      const gates = {
+        commands,
+        results: commands.map(command => ({
+          ...command,
+          exit_code: command.criterion === passingCriterion ? 0 : 1,
+        })),
+      };
+      const rendered = render(body, gates);
+      for (const command of commands) {
+        const checked = command.criterion === passingCriterion ? 'x' : ' ';
+        assert.ok(rendered.includes(`- [${checked}] \`${command.original_command}\` passes`));
+      }
+      assert.ok(rendered.includes('- [x] Human observation'));
+      assert.ok(rendered.includes('Deterministic gates: 1/2 passed'));
+      assert.equal(render(rendered, gates), rendered);
+    });
+  }
+  for (const interpreter of ['/opt/anaconda3/bin/python', 'python3.11']) {
+    for (const exitCode of [0, 1, undefined]) {
+      test(`normalized gate reconciles authored checkboxes (${surface}, ${interpreter}, exit ${exitCode ?? 'missing'})`, () => {
+        const command = {
+          criterion: 0,
+          command: 'python3 -m pytest tests/test_gate.py',
+          original_command: `${interpreter} -m pytest tests/test_gate.py`,
+        };
+        const gates = {
+          commands: [command],
+          results: exitCode === undefined ? [] : [{
+            criterion: 0, command: command.command, exit_code: exitCode,
+          }],
+        };
+        for (const text of [command.original_command, command.command]) {
+          const body = [
+            '## Acceptance Criteria',
+            `- [x] \`${text}\` passes`,
+            '- [x] Human observation',
+            '- [ ] Unverified manual criterion',
+          ].join('\n');
+          const rendered = render(body, gates);
+          const passes = exitCode === 0;
+          assert.ok(rendered.includes(`- [${passes ? 'x' : ' '}] \`${text}\` passes`));
+          assert.ok(rendered.includes('- [x] Human observation'));
+          assert.ok(rendered.includes('- [ ] Unverified manual criterion'));
+          assert.ok(rendered.includes(`Deterministic gates: ${passes ? 1 : 0}/1 passed`));
+          assert.equal(render(rendered, gates), rendered);
+          if (!passes) {
+            const recoveredGates = { ...gates, results: [{ ...command, exit_code: 0 }] };
+            const recovered = render(rendered, recoveredGates);
+            assert.ok(recovered.includes(`- [ ] \`${text}\` passes`));
+            assert.ok(recovered.includes('- [x] Human observation'));
+            assert.ok(recovered.includes('- [ ] Unverified manual criterion'));
+            assert.ok(recovered.includes('Deterministic gates: 1/1 passed'));
+            assert.ok(!recovered.includes('Deterministic gates: 0/1 passed'));
+            assert.ok(!recovered.includes('Criterion 1: FAIL'));
+            assert.equal(render(recovered, recoveredGates), recovered);
+          }
+        }
+      });
+    }
+  }
+}
 
 test('deterministic results survive running and completion state JSON', async () => {
   const pr = {

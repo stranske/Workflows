@@ -41,6 +41,7 @@ TOTAL_OUTPUT_BYTES = 8192
 class Command:
     criterion: int
     command: str
+    original_command: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -49,6 +50,7 @@ class Result:
     command: str
     exit_code: int
     output: str
+    original_command: str | None = None
 
 
 # Criterion markers. An acceptance section with no checkbox at all may still list its criteria as
@@ -119,10 +121,11 @@ def _scan_acceptance(markdown: str, item: re.Pattern[str]) -> tuple[list[Command
         candidates = [line.strip()] if fence else re.findall(r"(?<!`)`([^`\n]+)`(?!`)", line)
         for candidate in candidates:
             pinned = PINNED_INTERPRETER_PYTEST.match(candidate)
+            original_command = candidate if pinned else None
             if pinned:
                 candidate = "python3 -m pytest" + candidate[pinned.end() :]
             if COMMAND_PREFIX.match(candidate):
-                command = Command(criterion, candidate)
+                command = Command(criterion, candidate, original_command)
                 if command not in commands:
                     commands.append(command)
     return commands, saw_item
@@ -164,7 +167,9 @@ def run(commands: list[Command], cwd: str | Path) -> list[Result]:
             tail = b"\n".join(output.read(limit).split(b"\n")[-41:]).decode(errors="ignore")
             tail = "".join(tail.splitlines(keepends=True)[-40:])
             remaining_bytes -= len(tail.encode())
-        results.append(Result(command.criterion, command.command, exit_code, tail))
+        results.append(
+            Result(command.criterion, command.command, exit_code, tail, command.original_command)
+        )
     return results
 
 
@@ -206,7 +211,13 @@ def prepare(commands: list[Command], cwd: Path) -> list[Result]:
         except (OSError, subprocess.SubprocessError) as error:
             reason = f"Gate environment setup failed: could not create a virtualenv: {error}"
             return [
-                Result(command.criterion, command.command, 127, reason[:OUTPUT_BYTES])
+                Result(
+                    command.criterion,
+                    command.command,
+                    127,
+                    reason[:OUTPUT_BYTES],
+                    command.original_command,
+                )
                 for command in commands
             ]
         _activate(gate_python)
@@ -258,7 +269,15 @@ def prepare(commands: list[Command], cwd: Path) -> list[Result]:
                     errors="ignore"
                 )
                 remaining_bytes -= len(tail.encode())
-                failures.append(Result(command.criterion, command.command, result.exit_code, tail))
+                failures.append(
+                    Result(
+                        command.criterion,
+                        command.command,
+                        result.exit_code,
+                        tail,
+                        command.original_command,
+                    )
+                )
             return failures
     return []
 

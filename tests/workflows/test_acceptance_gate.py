@@ -1,9 +1,11 @@
 """Named acceptance gates and the production keepalive stop decision."""
 
+import importlib.util
 import json
 import os
 import subprocess
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -446,10 +448,253 @@ def test_pinned_interpreter_forms_normalize_and_bare_forms_stay():
 - [ ] `/opt/anaconda3/bin/python3 scripts/tool.py` is a script, not a test runner.
 """
     assert extract_commands(markdown) == [
-        Command(0, "python3 -m pytest tests/a.py"),
-        Command(1, "python3 -m pytest tests/b.py -q"),
+        Command(0, "python3 -m pytest tests/a.py", "/usr/bin/python -m pytest tests/a.py"),
+        Command(1, "python3 -m pytest tests/b.py -q", "python3.13 -m pytest tests/b.py -q"),
         Command(2, "python -m pytest tests/c.py"),
     ]
+
+
+@pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
+@pytest.mark.parametrize("passes", [False, True], ids=["failed-gate", "passing-gate"])
+@pytest.mark.parametrize("surface", ["source", "consumer-template"])
+@pytest.mark.parametrize("markup", ["inline", "fenced"])
+@pytest.mark.parametrize("companion", [False, True], ids=["single-gate", "passing-companion"])
+def test_normalized_gate_matches_authored_acceptance_checkbox(
+    tmp_path, interpreter, passes, surface, markup, companion
+):
+    """Real extractor/runner JSON must let the renderer reconcile the authored checkbox."""
+    repo = Path(__file__).resolve().parents[2]
+    root = repo if surface == "source" else repo / "templates/consumer-repo"
+    gate_script = root / "scripts/runner_lib/acceptance_gate.py"
+    renderer = root / ".github/scripts/keepalive_loop.js"
+    original = f"{interpreter} -m pytest test_example.py -q"
+    normalized = "python3 -m pytest test_example.py -q"
+    other_command = "python3 -m pytest test_companion.py -q"
+    authored = [original, other_command] if companion else [original]
+    criterion = (
+        " and ".join(f"`{command}`" for command in authored) + " pass"
+        if markup == "inline"
+        else "Run:\n  ```sh\n  " + "\n  ".join(authored) + "\n  ```"
+    )
+    body = f"## Acceptance Criteria\n- [x] {criterion}\n- [x] Human observation"
+    (tmp_path / "test_example.py").write_text(f"def test_example():\n    assert {passes}\n")
+    (tmp_path / "test_companion.py").write_text("def test_companion():\n    assert True\n")
+    plan = {
+        "markdown": body,
+        "commands": json.loads(
+            subprocess.check_output(
+                [sys.executable, str(gate_script), "--extract"], input=body, text=True
+            )
+        ),
+    }
+    expected_commands = [{"criterion": 0, "command": normalized, "original_command": original}]
+    if companion:
+        expected_commands.append(
+            {"criterion": 0, "command": other_command, "original_command": None}
+        )
+    assert plan["commands"] == expected_commands
+    plan_path = tmp_path / "plan.json"
+    output_path = tmp_path / "results.json"
+    plan_path.write_text(json.dumps(plan))
+    subprocess.run(
+        [
+            sys.executable,
+            str(gate_script),
+            "--plan",
+            str(plan_path),
+            "--cwd",
+            str(tmp_path),
+            "--output",
+            str(output_path),
+        ],
+        check=True,
+    )
+    gates = json.loads(output_path.read_text())
+    result = gates["results"][0]
+    assert result["exit_code"] == (0 if passes else 1)
+    assert result["command"] == normalized
+    assert result["original_command"] == original
+    if companion:
+        assert gates["results"][1]["criterion"] == 0
+        assert gates["results"][1]["command"] == other_command
+        assert gates["results"][1]["exit_code"] == 0
+    rendered = json.loads(
+        subprocess.check_output(
+            [
+                "node",
+                "-e",
+                "const fs = require('fs');"
+                "const {renderDeterministicGates} = require(process.argv[1]);"
+                "const gates = JSON.parse(fs.readFileSync(0, 'utf8'));"
+                "const original = gates.commands[0].original_command;"
+                "const normalized = gates.commands[0].command;"
+                "console.log(JSON.stringify([gates.markdown, "
+                "gates.markdown.replace(original, normalized)]"
+                ".map(body => renderDeterministicGates(body, gates))));",
+                str(renderer),
+            ],
+            input=json.dumps(gates),
+            text=True,
+            cwd=repo,
+        )
+    )
+    for text, command in zip(rendered, [original, normalized], strict=True):
+        expected = body.replace(original, command)
+        if not passes:
+            expected = expected.replace("- [x]", "- [ ]", 1)
+        assert expected in text
+        assert "- [x] Human observation" in text
+        assert f"Deterministic gates: {int(passes) + int(companion)}/{len(authored)} passed" in text
+
+
+@pytest.mark.parametrize("failure", ["timeout", "missing-executable"])
+@pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
+@pytest.mark.parametrize("surface", ["source", "consumer-template"])
+def test_normalized_gate_execution_error_unchecks_authored_criterion(
+    tmp_path, monkeypatch, failure, interpreter, surface
+):
+    """Execution errors must retain the same checkbox identity as pytest failures."""
+    repo = Path(__file__).resolve().parents[2]
+    root = repo if surface == "source" else repo / "templates/consumer-repo"
+    gate_script = root / "scripts/runner_lib/acceptance_gate.py"
+    spec = importlib.util.spec_from_file_location("acceptance_gate_under_test", gate_script)
+    gate = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, gate)
+    spec.loader.exec_module(gate)
+    original = f"{interpreter} -m pytest test_example.py"
+    body = f"## Acceptance Criteria\n- [x] `{original}` passes\n- [x] Human observation"
+    commands = gate.extract_commands(body)
+    (tmp_path / "test_example.py").write_text(
+        "import time\ndef test_example():\n    time.sleep(30)\n"
+    )
+    with monkeypatch.context() as execution:
+        if failure == "timeout":
+            execution.setattr(gate, "TIMEOUT_SECONDS", 0.1)
+        else:
+            execution.setenv("PATH", str(tmp_path))
+        results = gate.run(commands, tmp_path)
+    assert len(results) == 1
+    result = results[0]
+    assert result.exit_code == (124 if failure == "timeout" else 127)
+    assert result.command == "python3 -m pytest test_example.py"
+    assert result.original_command == original
+    assert result.output
+    if failure == "timeout":
+        assert "Gate timed out." in result.output
+    gates = {
+        "markdown": body,
+        "commands": [asdict(command) for command in commands],
+        "results": [asdict(result) for result in results],
+    }
+    rendered = subprocess.check_output(
+        [
+            "node",
+            "-e",
+            "const fs = require('fs');"
+            "const {renderDeterministicGates} = require(process.argv[1]);"
+            "const gates = JSON.parse(fs.readFileSync(0, 'utf8'));"
+            "process.stdout.write(renderDeterministicGates(gates.markdown, gates));",
+            str(root / ".github/scripts/keepalive_loop.js"),
+        ],
+        input=json.dumps(gates),
+        text=True,
+        cwd=repo,
+    )
+    assert f"- [ ] `{original}` passes" in rendered
+    assert "- [x] Human observation" in rendered
+    assert "Deterministic gates: 0/1 passed" in rendered
+    assert f"(exit {result.exit_code})" in rendered
+
+
+@pytest.mark.parametrize("failure", ["venv", "install"])
+@pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
+@pytest.mark.parametrize("surface", ["source", "consumer-template"])
+def test_normalized_gate_preparation_failure_preserves_authored_command(
+    tmp_path, monkeypatch, gate_venv_is_test_python, failure, interpreter, surface
+):
+    repo = Path(__file__).resolve().parents[2]
+    root = repo if surface == "source" else repo / "templates/consumer-repo"
+    gate_script = root / "scripts/runner_lib/acceptance_gate.py"
+    spec = importlib.util.spec_from_file_location("acceptance_gate_under_test", gate_script)
+    gate = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, gate)
+    spec.loader.exec_module(gate)
+    original = f"{interpreter} -m pytest tests/test_gate.py"
+    body = f"## Acceptance Criteria\n- [x] `{original}` passes\n- [x] Human observation"
+    commands = gate.extract_commands(body)
+
+    def broken_venv():
+        raise OSError("venv unavailable")
+
+    setup_commands = []
+
+    def failed_install(commands, cwd):
+        assert cwd == tmp_path
+        assert len(commands) == 1 and commands[0].criterion == -1
+        setup_commands.append(commands[0].command)
+        return [gate.Result(-1, commands[0].command, 1, "failed")]
+
+    monkeypatch.setattr(gate, "run", failed_install)
+    if failure == "venv":
+        monkeypatch.setattr(gate, "make_gate_venv", broken_venv)
+    else:
+        monkeypatch.setattr(
+            gate,
+            "make_gate_venv",
+            lambda: (Path(sys.executable), f"{sys.executable} -m pip"),
+        )
+    plan_path = tmp_path / "plan.json"
+    output_path = tmp_path / "results.json"
+    appendix_path = tmp_path / "appendix.txt"
+    plan_path.write_text(
+        json.dumps({"markdown": body, "commands": [asdict(command) for command in commands]})
+    )
+    appendix_path.write_text("Original prompt")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(gate_script),
+            "--plan",
+            str(plan_path),
+            "--cwd",
+            str(tmp_path),
+            "--output",
+            str(output_path),
+            "--appendix",
+            str(appendix_path),
+            "--prepare",
+        ],
+    )
+    gate.main()
+    gates = json.loads(output_path.read_text())
+    assert len(gates["results"]) == 1
+    result = gates["results"][0]
+    assert result["exit_code"] == (127 if failure == "venv" else 1)
+    assert result["command"] == "python3 -m pytest tests/test_gate.py"
+    assert result["original_command"] == original
+    assert "Gate environment setup failed:" in result["output"]
+    assert len(setup_commands) == (0 if failure == "venv" else 1)
+    assert appendix_path.read_text().startswith("Deterministic acceptance gates failed:")
+    assert appendix_path.read_text().endswith("Original prompt")
+    # Render the CLI's actual JSON artifact, including setup failures that bypass run().
+    rendered = subprocess.check_output(
+        [
+            "node",
+            "-e",
+            "const fs = require('fs');"
+            "const {renderDeterministicGates} = require(process.argv[1]);"
+            "const gates = JSON.parse(fs.readFileSync(0, 'utf8'));"
+            "process.stdout.write(renderDeterministicGates(gates.markdown, gates));",
+            str(root / ".github/scripts/keepalive_loop.js"),
+        ],
+        input=json.dumps(gates),
+        text=True,
+        cwd=repo,
+    )
+    assert f"- [ ] `{original}` passes" in rendered
+    assert "- [x] Human observation" in rendered
+    assert "Deterministic gates: 0/1 passed" in rendered
 
 
 # Plain-bullet acceptance sections, verbatim (Workflows#4454, Counter_Risk#1183; 2026-11-12).

@@ -28,6 +28,15 @@ async function extractAcceptanceCommands(markdown) {
   return JSON.parse(stdout);
 }
 
+// Different authored gates can normalize to the same command in one criterion.
+// Older saved results omit original_command; explicit null identifies an unnormalized gate.
+function findGateResult(results, command) {
+  return results.find(result =>
+    result.command === command.command && result.criterion === command.criterion
+    && (result.original_command === undefined
+      || result.original_command === (command.original_command ?? null)));
+}
+
 async function acceptanceGatePlan({ github, context, pr, state }) {
   const issueNumber = extractIssueNumberFromPull(pr);
   // Deliberately bypass the API cache: edits must affect this verify round.
@@ -43,9 +52,7 @@ async function acceptanceGatePlan({ github, context, pr, state }) {
   const previous = state?.deterministic_gates;
   const current = previous?.head_sha === pr.head.sha && previous?.source_hash === sourceHash;
   const results = current && Array.isArray(previous.results) ? previous.results : [];
-  const passed = commands.filter(command => results.some(result =>
-    result.criterion === command.criterion && result.command === command.command && result.exit_code === 0
-  )).length;
+  const passed = commands.filter(command => findGateResult(results, command)?.exit_code === 0).length;
   return {
     markdown, commands, head_sha: pr.head.sha, source_hash: sourceHash,
     results, passed, total: commands.length, complete: passed === commands.length,
@@ -54,11 +61,9 @@ async function acceptanceGatePlan({ github, context, pr, state }) {
 
 function deterministicGatePrompt(gates) {
   if (!gates) return '';
-  const failures = gates.commands.filter(command => !gates.results.some(result =>
-    result.command === command.command && result.criterion === command.criterion && result.exit_code === 0
-  ));
+  const failures = gates.commands.filter(command => findGateResult(gates.results, command)?.exit_code !== 0);
   const details = failures.map(command => {
-    const result = gates.results.find(item => item.command === command.command && item.criterion === command.criterion);
+    const result = findGateResult(gates.results, command);
     return `${command.command} (exit ${result?.exit_code ?? 'not run on this head/criteria'})\n${result?.output || ''}`;
   });
   return [
@@ -69,12 +74,10 @@ function deterministicGatePrompt(gates) {
 }
 
 function renderDeterministicGates(body, gates) {
-  const passed = gates.commands.filter(command => gates.results.some(result =>
-    result.command === command.command && result.criterion === command.criterion && result.exit_code === 0
-  )).length;
+  const passed = gates.commands.filter(command => findGateResult(gates.results, command)?.exit_code === 0).length;
   const line = `Deterministic gates: ${passed}/${gates.commands.length} passed`;
   const details = gates.commands.map(command => {
-    const result = gates.results.find(item => item.command === command.command && item.criterion === command.criterion);
+    const result = findGateResult(gates.results, command);
     return `Criterion ${command.criterion + 1}: ${result?.exit_code === 0 ? 'PASS' : 'FAIL'} — \`${command.command}\` (exit ${result?.exit_code ?? 'missing'})`;
   });
   const report = [line, ...details].join('\n');
@@ -96,10 +99,11 @@ function renderDeterministicGates(body, gates) {
     let end = index + 1;
     while (end < lines.length && !/^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]|^#{1,6}\s/.test(lines[end])) end++;
     const criterion = lines.slice(index, end).join('\n');
-    const matched = gates.commands.filter(command => criterion.includes(command.command));
-    if (matched.some(command => !gates.results.some(result =>
-      result.command === command.command && result.criterion === command.criterion && result.exit_code === 0
-    ))) lines[index] = lines[index].replace(/\[[xX]\]/, '[ ]');
+    const matched = gates.commands.filter(command => criterion.includes(command.command)
+      || (command.original_command && criterion.includes(command.original_command)));
+    if (matched.some(command => findGateResult(gates.results, command)?.exit_code !== 0)) {
+      lines[index] = lines[index].replace(/\[[xX]\]/, '[ ]');
+    }
   }
   body = lines.join('\n');
   const end = '<!-- auto-status-summary:end -->';
