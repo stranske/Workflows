@@ -861,6 +861,16 @@ for (const [command, originalCommand, passes] of [
     }));
     fs.writeFileSync(path.join(temporary, 'test_gate.py'),
       `def test_gate():\n    assert ${passes ? 'True' : 'False'}\n`);
+    // The GitHub-script test job provisions Node only. Provide the minimal
+    // local module needed for the command-under-test so these cases do not
+    // depend on a runner-image pytest installation.
+    fs.writeFileSync(path.join(temporary, 'pytest.py'), [
+      'import pathlib',
+      'import sys',
+      "source = pathlib.Path(sys.argv[1]).read_text()",
+      "raise SystemExit(1 if 'assert False' in source else 0)",
+      '',
+    ].join('\n'));
     const pr = {
       number: 3979,
       head: { ref: 'feature/acceptance', sha: 'cli-tested-head' },
