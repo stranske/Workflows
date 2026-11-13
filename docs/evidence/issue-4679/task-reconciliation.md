@@ -154,3 +154,40 @@ filesystem. No commit was created; the test patch is saved at
 blocker comment and `needs-human` label because write tools require approval and
 the approval policy is `never`. PR #4680 was verified open with `draft=false`.
 Full-source and post-merge consumer verification criteria remain unchecked.
+
+## Execution-error identity follow-up
+
+Verified the duplicated source/serialization/renderer tasks against the existing
+implementation. Added eight Python regression cases for timed-out gates (exit
+124) and missing executables (exit 127). Both reported interpreter forms and
+both source/template surfaces retain authored-command metadata through real
+execution errors and JSON serialization. The renderer unchecks the authored
+criterion, preserves the manual criterion, and reports `0/1 passed`.
+
+- `python3 -m pytest -q tests/workflows/test_acceptance_gate.py -m 'not slow'`: 77 passed.
+- `node --test --test-isolation=none .github/scripts/__tests__/keepalive-loop.test.js`: 254 passed.
+- Isolated renderer copies with authored-command matching removed: all eight
+  execution-error cases failed on the checked acceptance criterion. Restoring
+  matching: all eight passed. Tracked renderers were unchanged.
+- `black --line-length 100 tests/workflows/test_acceptance_gate.py`, the
+  changed-file Black check, Ruff, source/template byte comparisons, and
+  `git diff --check`: passed.
+- Required repository-wide Black check: failed with `PermissionError` while
+  binding a multiprocessing socket. A `BLACK_NUM_WORKERS=1` retry timed out
+  after 60 seconds. Repository-wide formatting remains unverified.
+- `node --test .github/scripts/__tests__/*.test.js`: 142 test files passed,
+  nine failed, including `spawnSync python3 EPERM` errors.
+- The full Python gate ran with `-m 'not slow'` and was interrupted after the
+  delivery/full-source blockers were established. No passing result is claimed.
+
+`git add` failed because `.git/index.lock` cannot be created on the read-only
+filesystem. No commit was created, and the failed formatting gate also prohibits
+committing Python changes. The test patch is saved at
+`/tmp/issue-4679-execution-errors.patch`.
+
+GitHub rejected the verified-checkbox update, blocker comment, and `needs-human`
+label because writes require approval under policy `never`. The proposed PR
+body is saved at `/tmp/issue-4679-execution-errors-pr-body.md`. PR #4680 was
+verified open with `draft=false`. Full-source and post-merge consumer verification
+criteria remain unchecked. No protected workflows or generated consumer PRs
+were changed.

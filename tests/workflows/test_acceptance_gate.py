@@ -547,6 +547,65 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(
         assert f"Deterministic gates: {int(passes) + int(companion)}/{len(authored)} passed" in text
 
 
+@pytest.mark.parametrize("failure", ["timeout", "missing-executable"])
+@pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
+@pytest.mark.parametrize("surface", ["source", "consumer-template"])
+def test_normalized_gate_execution_error_unchecks_authored_criterion(
+    tmp_path, monkeypatch, failure, interpreter, surface
+):
+    """Execution errors must retain the same checkbox identity as pytest failures."""
+    repo = Path(__file__).resolve().parents[2]
+    root = repo if surface == "source" else repo / "templates/consumer-repo"
+    gate_script = root / "scripts/runner_lib/acceptance_gate.py"
+    spec = importlib.util.spec_from_file_location("acceptance_gate_under_test", gate_script)
+    gate = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, gate)
+    spec.loader.exec_module(gate)
+    original = f"{interpreter} -m pytest test_example.py"
+    body = f"## Acceptance Criteria\n- [x] `{original}` passes\n- [x] Human observation"
+    commands = gate.extract_commands(body)
+    (tmp_path / "test_example.py").write_text(
+        "import time\ndef test_example():\n    time.sleep(30)\n"
+    )
+    with monkeypatch.context() as execution:
+        if failure == "timeout":
+            execution.setattr(gate, "TIMEOUT_SECONDS", 0.1)
+        else:
+            execution.setenv("PATH", str(tmp_path))
+        results = gate.run(commands, tmp_path)
+    assert len(results) == 1
+    result = results[0]
+    assert result.exit_code == (124 if failure == "timeout" else 127)
+    assert result.command == "python3 -m pytest test_example.py"
+    assert result.original_command == original
+    assert result.output
+    if failure == "timeout":
+        assert "Gate timed out." in result.output
+    gates = {
+        "markdown": body,
+        "commands": [asdict(command) for command in commands],
+        "results": [asdict(result) for result in results],
+    }
+    rendered = subprocess.check_output(
+        [
+            "node",
+            "-e",
+            "const fs = require('fs');"
+            "const {renderDeterministicGates} = require(process.argv[1]);"
+            "const gates = JSON.parse(fs.readFileSync(0, 'utf8'));"
+            "process.stdout.write(renderDeterministicGates(gates.markdown, gates));",
+            str(root / ".github/scripts/keepalive_loop.js"),
+        ],
+        input=json.dumps(gates),
+        text=True,
+        cwd=repo,
+    )
+    assert f"- [ ] `{original}` passes" in rendered
+    assert "- [x] Human observation" in rendered
+    assert "Deterministic gates: 0/1 passed" in rendered
+    assert f"(exit {result.exit_code})" in rendered
+
+
 @pytest.mark.parametrize("failure", ["venv", "install"])
 @pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
 @pytest.mark.parametrize("surface", ["source", "consumer-template"])
