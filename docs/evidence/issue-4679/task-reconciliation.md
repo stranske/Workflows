@@ -93,3 +93,37 @@ rejected because GitHub write tools require approval and approval policy is
 commit was created. The test patch is saved at
 `/tmp/issue-4679-authored-criteria.patch`. No protected workflows or generated
 consumer PRs were changed.
+
+## Shared-criterion result identity follow-up
+
+Reviewed the six implementation/test commits through `a9e3a976`. The duplicated
+unchecked source and regression tasks are already implemented and verified.
+PR-body reconciliation was attempted before further changes, but the GitHub write
+tool requires approval and this run's approval policy is `never`. The reconciled
+body is saved at `/tmp/issue-4679-current-pr-body.md`.
+
+Added eight source/template regressions for two authored commands in one criterion
+that normalize to the same executable command. A passing result previously masked
+the other command's failed or missing result, leaving the checkbox checked and
+incorrectly allowing completion. Shared authored-command lookup now keeps the
+completion decision, failure prompt, checkbox reconciliation and report consistent.
+Results without authored-command metadata retain the legacy matching behavior.
+
+- New renderer regression before the fix: 8 failed.
+- New cached-plan regression before the completion fix: 8 failed (`2 != 1`).
+- `node --test --test-isolation=none .github/scripts/__tests__/keepalive-loop.test.js`: 250 passed after the fixes.
+- `python3 -m pytest -q tests/workflows/test_acceptance_gate.py -m 'not slow'`: 69 passed.
+- Source/template renderer byte comparison, JavaScript syntax and `git diff --check`: passed.
+- `node --test .github/scripts/__tests__/*.test.js` on the final patch: 142 test
+  files passed, 9 failed, including `spawnSync python3 EPERM`. Same failure-file
+  inventory as the pre-change run; the keepalive test file passes.
+- No Python files changed; the Python formatting gate does not apply this round.
+- The full Python gate was started with `-m 'not slow'` and interrupted after the
+  delivery/full-source blockers were confirmed. It did not establish a complete result.
+
+`git add` failed creating `.git/index.lock` on the read-only filesystem, so no
+commit was created. GitHub rejected the PR-body update, blocker comment and
+`needs-human` label because writes require approval under policy `never`.
+PR #4680 was verified open with `draft=false`. Full-source and live-verification
+criteria remain unchecked; consumer regeneration/review verification remains
+post-merge maintainer or automation work.

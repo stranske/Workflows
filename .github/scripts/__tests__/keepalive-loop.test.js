@@ -916,9 +916,51 @@ test('deterministic gate failure unchecks only its acceptance criterion', () => 
 });
 
 for (const surface of ['source', 'consumer-template']) {
-  const { renderDeterministicGates: render } = surface === 'source'
+  const { renderDeterministicGates: render, acceptanceGatePlan: planFor } = surface === 'source'
     ? require('../keepalive_loop.js')
     : require('../../../templates/consumer-repo/.github/scripts/keepalive_loop.js');
+  for (const failingGate of [0, 1]) {
+    for (const exitCode of [1, undefined]) {
+      test(`normalized gates sharing a criterion retain distinct results (${surface}, gate ${failingGate}, exit ${exitCode ?? 'missing'})`, async () => {
+        const commands = ['/opt/anaconda3/bin/python', 'python3.11'].map(interpreter => ({
+          criterion: 0,
+          command: 'python3 -m pytest tests/test_gate.py',
+          original_command: `${interpreter} -m pytest tests/test_gate.py`,
+        }));
+        const body = [
+          '## Acceptance Criteria',
+          `- [x] ${commands.map(command => `\`${command.original_command}\``).join(' and ')} pass`,
+          '- [x] Human observation',
+        ].join('\n');
+        const gates = {
+          commands,
+          results: commands.flatMap((command, index) => index === failingGate
+            ? (exitCode === undefined ? [] : [{ ...command, exit_code: exitCode }])
+            : [{ ...command, exit_code: 0 }]),
+        };
+        const pr = { number: 3979, head: { sha: 'gate-head' }, body };
+        const github = buildGithubStub({ pr });
+        const context = buildContext(pr.number);
+        const initial = await planFor({ github, context, pr, state: {} });
+        assert.deepEqual(initial.commands, commands);
+        const cached = await planFor({ github, context, pr, state: {
+          deterministic_gates: { ...initial, results: gates.results },
+        } });
+        assert.equal(cached.passed, 1);
+        assert.equal(cached.complete, false);
+        const rendered = render(body, gates);
+        assert.ok(rendered.includes(body.replace('- [x]', '- [ ]')));
+        assert.ok(rendered.includes('Deterministic gates: 1/2 passed'));
+        const details = rendered.split('\n').filter(line => line.startsWith('Criterion 1:'));
+        assert.equal(details.length, 2);
+        for (const [index, detail] of details.entries()) {
+          assert.ok(detail.includes(index === failingGate ? 'FAIL' : 'PASS'));
+          if (index === failingGate) assert.ok(detail.includes(`exit ${exitCode ?? 'missing'}`));
+        }
+        assert.equal(render(rendered, gates), rendered);
+      });
+    }
+  }
   for (const passingCriterion of [0, 1]) {
     test(`normalized gates keep authored criterion results separate (${surface}, passing ${passingCriterion})`, () => {
       const commands = ['/opt/anaconda3/bin/python', 'python3.11'].map((interpreter, criterion) => ({
