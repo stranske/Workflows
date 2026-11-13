@@ -915,6 +915,44 @@ test('deterministic gate failure unchecks only its acceptance criterion', () => 
   assert.match(rendered, /- \[x\] `ruff check .`/);
 });
 
+for (const surface of ['source', 'consumer-template']) {
+  const { renderDeterministicGates: render } = surface === 'source'
+    ? require('../keepalive_loop.js')
+    : require('../../../templates/consumer-repo/.github/scripts/keepalive_loop.js');
+  for (const interpreter of ['/opt/anaconda3/bin/python', 'python3.11']) {
+    for (const exitCode of [0, 1, undefined]) {
+      test(`normalized gate reconciles authored checkboxes (${surface}, ${interpreter}, exit ${exitCode ?? 'missing'})`, () => {
+        const command = {
+          criterion: 0,
+          command: 'python3 -m pytest tests/test_gate.py',
+          original_command: `${interpreter} -m pytest tests/test_gate.py`,
+        };
+        const gates = {
+          commands: [command],
+          results: exitCode === undefined ? [] : [{
+            criterion: 0, command: command.command, exit_code: exitCode,
+          }],
+        };
+        for (const text of [command.original_command, command.command]) {
+          const body = [
+            '## Acceptance Criteria',
+            `- [x] \`${text}\` passes`,
+            '- [x] Human observation',
+            '- [ ] Unverified manual criterion',
+          ].join('\n');
+          const rendered = render(body, gates);
+          const passes = exitCode === 0;
+          assert.ok(rendered.includes(`- [${passes ? 'x' : ' '}] \`${text}\` passes`));
+          assert.ok(rendered.includes('- [x] Human observation'));
+          assert.ok(rendered.includes('- [ ] Unverified manual criterion'));
+          assert.ok(rendered.includes(`Deterministic gates: ${passes ? 1 : 0}/1 passed`));
+          assert.equal(render(rendered, gates), rendered);
+        }
+      });
+    }
+  }
+}
+
 test('deterministic results survive running and completion state JSON', async () => {
   const pr = {
     number: 3979, head: { ref: 'feature/acceptance', sha: 'tested-head' },
