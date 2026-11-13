@@ -919,6 +919,35 @@ for (const surface of ['source', 'consumer-template']) {
   const { renderDeterministicGates: render } = surface === 'source'
     ? require('../keepalive_loop.js')
     : require('../../../templates/consumer-repo/.github/scripts/keepalive_loop.js');
+  for (const passingCriterion of [0, 1]) {
+    test(`normalized gates keep authored criterion results separate (${surface}, passing ${passingCriterion})`, () => {
+      const commands = ['/opt/anaconda3/bin/python', 'python3.11'].map((interpreter, criterion) => ({
+        criterion,
+        command: 'python3 -m pytest tests/test_gate.py',
+        original_command: `${interpreter} -m pytest tests/test_gate.py`,
+      }));
+      const body = [
+        '## Acceptance Criteria',
+        ...commands.map(command => `- [x] \`${command.original_command}\` passes`),
+        '- [x] Human observation',
+      ].join('\n');
+      const gates = {
+        commands,
+        results: commands.map(command => ({
+          ...command,
+          exit_code: command.criterion === passingCriterion ? 0 : 1,
+        })),
+      };
+      const rendered = render(body, gates);
+      for (const command of commands) {
+        const checked = command.criterion === passingCriterion ? 'x' : ' ';
+        assert.ok(rendered.includes(`- [${checked}] \`${command.original_command}\` passes`));
+      }
+      assert.ok(rendered.includes('- [x] Human observation'));
+      assert.ok(rendered.includes('Deterministic gates: 1/2 passed'));
+      assert.equal(render(rendered, gates), rendered);
+    });
+  }
   for (const interpreter of ['/opt/anaconda3/bin/python', 'python3.11']) {
     for (const exitCode of [0, 1, undefined]) {
       test(`normalized gate reconciles authored checkboxes (${surface}, ${interpreter}, exit ${exitCode ?? 'missing'})`, () => {

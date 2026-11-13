@@ -63,3 +63,33 @@ Both the requested blocker comment and `needs-human` label were rejected because
 the GitHub write tools require approval and the run's approval policy is `never`.
 PR #4680 was verified open with `draft=false`. Live consumer sync and review
 verification remain post-merge maintainer or automation work.
+
+## Authored criteria with identical normalized commands
+
+Reviewed commits `5dd8c6af` through `b0d7fde3`. The duplicate unchecked source,
+serialization, renderer, and regression tasks describe implemented work. Verified
+the existing implementation again before attempting PR-body reconciliation.
+
+Added four JavaScript regression cases: two authored criteria normalize to the
+same executable command but have different results. Each case verifies that only
+the failing criterion is unchecked, the passing and manual criteria remain
+checked, and the report remains `1/2 passed`. Both source and consumer renderers
+are exercised, with each criterion taking a turn as the passing gate.
+
+- `python3 -m pytest -q tests/workflows/test_acceptance_gate.py -m 'not slow'`: 69 passed.
+- `node --test --test-isolation=none --test-name-pattern='normalized gate' .github/scripts/__tests__/keepalive-loop.test.js`: 16 passed.
+- Isolated renderer copies with authored matching removed: all four new cases failed. Restoring matching: all four passed. Tracked renderer contents remained unchanged.
+- `node --test .github/scripts/__tests__/*.test.js`: 142 test files passed, nine failed, including `spawnSync python3 EPERM` errors. Same failure inventory before and after the test change.
+- `python3 -m pytest -q tests/ -m 'not slow'`: interrupted after the combined full-source gate and delivery were blocked; no complete result established.
+- `git diff --check`: passed. This round changes no Python files.
+
+The full-source and post-merge live-verification checkboxes remain unchecked.
+PR-body reconciliation, the blocker comment, and the `needs-human` label were
+rejected because GitHub write tools require approval and approval policy is
+`never`. The reconciled body is saved at
+`/tmp/issue-4679-reconciled-pr-body.md`.
+
+`git add` failed creating `.git/index.lock` on the read-only filesystem, so no
+commit was created. The test patch is saved at
+`/tmp/issue-4679-authored-criteria.patch`. No protected workflows or generated
+consumer PRs were changed.
