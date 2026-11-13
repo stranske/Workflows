@@ -1,0 +1,131 @@
+version: 1
+issue: 4679
+base: main
+branch: codex/issue-4679
+tasks:
+  - id: task-01
+    title: Fix `scripts/runner_lib/acceptance_gate.py` to preserve source-command
+      matching when normalizing interpreters.
+    status: doing
+    started_at: '2026-11-13T05:12:48Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Update acceptance_gate.py so each normalized command also keeps its original
+      authored command text in a separate field (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Update the gate output consumed by renderDeterministicGates() so criterion
+      matching can use the authored command as well as the normalized one (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: Add or extend a regression test beside `scripts/runner_lib/acceptance_gate.py`
+      covering failed gates for criteria using `/opt/anaconda3/bin/python -m pytest
+      ...` or `python3.11 -m pytest ...`.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js`
+      for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      that deliberate break restores passing results.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2506
+      without this review thread, and sync-core stops bumping this issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Fix the finding at its source in `stranske/Workflows`: `scripts/runner_lib/acceptance_gate.py`
+      (the consumer PR stranske/Portable-Alpha-Extension-Model#2506 is generated from
+      it by `.github/workflows/maint-68-sync-consumer-repos.yml` and must not be edited
+      by hand).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Add or extend a test beside `scripts/runner_lib/acceptance_gate.py` that
+      fails on the behaviour the reviewer describes and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2506
+      is resolved.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2506
+      is resolved. (This task appears only in the original issue. The rewritten Tasks
+      section correctly drops it. It would require triggering or observing a protected
+      workflow and checking a thread in another repository. The agent cannot modify
+      workflow files or retry CI pipelines, and it cannot verify the review state
+      of an external PR. | Keep it out of the agent task list. Leave regeneration
+      and thread resolution to the maintainers or to the automated sync run, and keep
+      the live-verification criterion as a post-merge human or automation check.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2506
+      without this review thread, and sync-core stops bumping this issue. (This depends
+      on an external workflow run and on behavior in another repository. The agent
+      cannot trigger, retry, or observe it, and it cannot edit the protected workflow
+      files. | Mark it as a post-merge manual verification step, not an agent-completable
+      acceptance criterion.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Reintroducing the reported behavior makes the regression test fail; reverting
+      that deliberate break restores passing results. (This is a process step that
+      mutates the code, runs the tests, and reverts. It is feasible locally, but it
+      is not a durable repo state that can be checked after the fact. | Convert it
+      to a checkable property: the regression test asserts that a failed gate for
+      a criterion containing `/opt/anaconda3/bin/python -m pytest` or `python3.11
+      -m pytest` is matched. The agent can report the break-and-revert result in the
+      PR description.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
