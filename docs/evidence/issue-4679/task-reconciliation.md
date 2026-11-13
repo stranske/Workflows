@@ -255,3 +255,33 @@ comment and `needs-human` label because writes require approval under policy
 `never`. PR #4680 was verified open with `draft=false`. The full-source and live
 consumer-verification checkboxes remain incomplete. No protected workflows or
 generated consumer PRs were changed.
+
+## Normalized gate recovery reports
+
+Extended the authored-checkbox regression so a failed or missing normalized gate
+is followed by a passing result. Both interpreter forms and source/template
+renderers must replace the stale failure report, preserve the unchecked authored
+criterion and manual checkboxes, and remain idempotent. Passing a gate does not
+automatically check a criterion that the failure previously unchecked.
+
+- `node --test --test-isolation=none .github/scripts/__tests__/keepalive-loop.test.js`: 290 passed.
+- `python3 -m pytest -q tests/workflows/test_acceptance_gate.py -m 'not slow'`: 77 passed.
+- Isolated renderer mutation removing authored-command matching: eight regression
+  cases failed and four passing controls passed. Restoring both renderer copies
+  made all 12 cases pass. Tracked renderers were unchanged.
+- `node --test .github/scripts/__tests__/*.test.js`: 142 test files passed and
+  nine failed, with the same failure-file inventory before and after the edit.
+  The baseline includes `spawnSync python3 EPERM` errors.
+- The full Python suite with `-m 'not slow'` was interrupted after the full-source
+  and delivery blockers were confirmed. No complete passing result is claimed.
+- JavaScript syntax and `git diff --check`: passed. No Python files changed.
+
+`git add` cannot create `.git/index.lock` because `.git` is read-only, so this run
+cannot create the requested commit. The patch is saved at
+`/tmp/issue-4679-recovery-reports.patch`. GitHub rejected the PR-body update
+because it requires approval under policy `never`; the proposed body is saved at
+`/tmp/issue-4679-recovery-pr-body.md`. Full-source and live consumer acceptance
+remain incomplete. PR #4680 was observed open with `draft=false`.
+
+The requested blocker comment and `needs-human` label were also rejected because
+the GitHub write tools require approval under policy `never`.

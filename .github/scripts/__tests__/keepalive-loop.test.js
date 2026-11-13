@@ -1087,6 +1087,17 @@ for (const surface of ['source', 'consumer-template']) {
           assert.ok(rendered.includes('- [ ] Unverified manual criterion'));
           assert.ok(rendered.includes(`Deterministic gates: ${passes ? 1 : 0}/1 passed`));
           assert.equal(render(rendered, gates), rendered);
+          if (!passes) {
+            const recoveredGates = { ...gates, results: [{ ...command, exit_code: 0 }] };
+            const recovered = render(rendered, recoveredGates);
+            assert.ok(recovered.includes(`- [ ] \`${text}\` passes`));
+            assert.ok(recovered.includes('- [x] Human observation'));
+            assert.ok(recovered.includes('- [ ] Unverified manual criterion'));
+            assert.ok(recovered.includes('Deterministic gates: 1/1 passed'));
+            assert.ok(!recovered.includes('Deterministic gates: 0/1 passed'));
+            assert.ok(!recovered.includes('Criterion 1: FAIL'));
+            assert.equal(render(recovered, recoveredGates), recovered);
+          }
         }
       });
     }
