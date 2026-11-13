@@ -223,3 +223,35 @@ writes require approval under policy `never`. PR #4680 was verified open with
 `draft=false`. Post-merge consumer regeneration and review verification remain
 maintainer or automation work; no protected workflows or generated consumer PRs
 were changed.
+
+## Authored interpreter edits invalidate cached success
+
+Reviewed the six recent commits through `a5448af6`. The duplicated source,
+serialization, renderer and regression tasks are already implemented. Attempted
+to reconcile their PR checkboxes before proceeding; GitHub rejected the update
+because write tools require approval under policy `never`.
+
+Added four JavaScript regression cases covering both source/template renderers
+and both directions of an authored interpreter edit. With the head and normalized
+command unchanged, editing the authored interpreter must discard cached success,
+uncheck the new criterion, preserve manual criteria and report `0/1 passed`.
+The unchanged criterion first proves that the cached success is reusable.
+
+- `node --test --test-isolation=none .github/scripts/__tests__/keepalive-loop.test.js`: 290 passed.
+- `python3 -m pytest -q tests/workflows/test_acceptance_gate.py -m 'not slow'`: 77 passed in 135.76 seconds.
+- Isolated renderer copies with authored-command matching removed: all four new
+  cases failed. Restored matching: all four passed. Tracked renderers were unchanged.
+- `node --test .github/scripts/__tests__/*.test.js`: 142 test files passed and
+  nine failed before and after the edit, with identical failing-file inventories,
+  including `spawnSync python3 EPERM` errors.
+- The full Python gate with `-m 'not slow'` was interrupted after the full-source
+  and delivery blockers were confirmed; no complete passing result is claimed.
+- JavaScript syntax and `git diff --check`: passed. No Python files changed.
+
+`git add` failed because `.git/index.lock` cannot be created on the read-only
+filesystem, so no commit was created. The test patch is saved at
+`/tmp/issue-4679-authored-interpreter-edit.patch`. GitHub also rejected the blocker
+comment and `needs-human` label because writes require approval under policy
+`never`. PR #4680 was verified open with `draft=false`. The full-source and live
+consumer-verification checkboxes remain incomplete. No protected workflows or
+generated consumer PRs were changed.

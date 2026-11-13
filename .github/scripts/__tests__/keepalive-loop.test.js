@@ -938,6 +938,48 @@ for (const surface of ['source', 'consumer-template']) {
   const { renderDeterministicGates: render, acceptanceGatePlan: planFor } = surface === 'source'
     ? require('../keepalive_loop.js')
     : require('../../../templates/consumer-repo/.github/scripts/keepalive_loop.js');
+  for (const interpreter of ['/opt/anaconda3/bin/python', 'python3.11']) {
+    test(`normalized gate rejects cached success after an authored interpreter edit (${surface}, ${interpreter})`, async () => {
+      const previousInterpreter = interpreter === 'python3.11'
+        ? '/opt/anaconda3/bin/python' : 'python3.11';
+      const originalCommand = `${interpreter} -m pytest tests/test_gate.py`;
+      const body = command => [
+        '## Acceptance Criteria',
+        `- [x] \`${command}\` passes`,
+        '- [x] Human observation',
+      ].join('\n');
+      const pr = {
+        number: 3979, head: { sha: 'unchanged-gate-head' },
+        body: body(`${previousInterpreter} -m pytest tests/test_gate.py`),
+      };
+      const github = buildGithubStub({ pr });
+      const context = buildContext(pr.number);
+      const previous = await planFor({ github, context, pr, state: {} });
+      const state = { deterministic_gates: {
+        ...previous,
+        results: previous.commands.map(command => ({ ...command, exit_code: 0 })),
+      } };
+      const cached = await planFor({ github, context, pr, state });
+      assert.equal(cached.complete, true, 'the unchanged authored criterion reuses its success');
+
+      pr.body = body(originalCommand);
+      const current = await planFor({ github, context, pr, state });
+      assert.equal(current.head_sha, previous.head_sha);
+      assert.equal(current.commands[0].command, previous.commands[0].command);
+      assert.equal(current.commands[0].original_command, originalCommand);
+      assert.notEqual(current.source_hash, previous.source_hash);
+      assert.deepEqual(current.results, []);
+      assert.equal(current.passed, 0);
+      assert.equal(current.total, 1);
+      assert.equal(current.complete, false);
+      const rendered = render(pr.body, current);
+      assert.ok(rendered.includes(`- [ ] \`${originalCommand}\` passes`));
+      assert.ok(rendered.includes('- [x] Human observation'));
+      assert.ok(rendered.includes('Deterministic gates: 0/1 passed'));
+      assert.ok(rendered.includes('(exit missing)'));
+      assert.equal(render(rendered, current), rendered);
+    });
+  }
   for (const interpreters of [
     ['/opt/anaconda3/bin/python', 'python3.11'],
     ['python3', '/opt/anaconda3/bin/python'],
