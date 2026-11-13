@@ -456,8 +456,9 @@ def test_pinned_interpreter_forms_normalize_and_bare_forms_stay():
 @pytest.mark.parametrize("passes", [False, True], ids=["failed-gate", "passing-gate"])
 @pytest.mark.parametrize("surface", ["source", "consumer-template"])
 @pytest.mark.parametrize("markup", ["inline", "fenced"])
+@pytest.mark.parametrize("companion", [False, True], ids=["single-gate", "passing-companion"])
 def test_normalized_gate_matches_authored_acceptance_checkbox(
-    tmp_path, interpreter, passes, surface, markup
+    tmp_path, interpreter, passes, surface, markup, companion
 ):
     """Real extractor/runner JSON must let the renderer reconcile the authored checkbox."""
     repo = Path(__file__).resolve().parents[2]
@@ -466,11 +467,16 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(
     renderer = root / ".github/scripts/keepalive_loop.js"
     original = f"{interpreter} -m pytest test_example.py -q"
     normalized = "python3 -m pytest test_example.py -q"
+    other_command = "python3 -m pytest test_companion.py -q"
+    authored = [original, other_command] if companion else [original]
     criterion = (
-        f"`{original}` passes" if markup == "inline" else f"Run:\n  ```sh\n  {original}\n  ```"
+        " and ".join(f"`{command}`" for command in authored) + " pass"
+        if markup == "inline"
+        else "Run:\n  ```sh\n  " + "\n  ".join(authored) + "\n  ```"
     )
     body = f"## Acceptance Criteria\n- [x] {criterion}\n- [x] Human observation"
     (tmp_path / "test_example.py").write_text(f"def test_example():\n    assert {passes}\n")
+    (tmp_path / "test_companion.py").write_text("def test_companion():\n    assert True\n")
     plan = {
         "markdown": body,
         "commands": json.loads(
@@ -479,9 +485,12 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(
             )
         ),
     }
-    assert plan["commands"] == [
-        {"criterion": 0, "command": normalized, "original_command": original}
-    ]
+    expected_commands = [{"criterion": 0, "command": normalized, "original_command": original}]
+    if companion:
+        expected_commands.append(
+            {"criterion": 0, "command": other_command, "original_command": None}
+        )
+    assert plan["commands"] == expected_commands
     plan_path = tmp_path / "plan.json"
     output_path = tmp_path / "results.json"
     plan_path.write_text(json.dumps(plan))
@@ -503,6 +512,10 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(
     assert result["exit_code"] == (0 if passes else 1)
     assert result["command"] == normalized
     assert result["original_command"] == original
+    if companion:
+        assert gates["results"][1]["criterion"] == 0
+        assert gates["results"][1]["command"] == other_command
+        assert gates["results"][1]["exit_code"] == 0
     rendered = json.loads(
         subprocess.check_output(
             [
@@ -529,7 +542,7 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(
             expected = expected.replace("- [x]", "- [ ]", 1)
         assert expected in text
         assert "- [x] Human observation" in text
-        assert f"Deterministic gates: {int(passes)}/1 passed" in text
+        assert f"Deterministic gates: {int(passes) + int(companion)}/{len(authored)} passed" in text
 
 
 @pytest.mark.parametrize("failure", ["venv", "install"])
