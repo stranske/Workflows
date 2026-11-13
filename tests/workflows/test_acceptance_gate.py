@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -546,11 +547,14 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(
 
 
 @pytest.mark.parametrize("failure", ["venv", "install"])
+@pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
+@pytest.mark.parametrize("surface", ["source", "consumer-template"])
 def test_normalized_gate_preparation_failure_preserves_authored_command(
-    tmp_path, monkeypatch, gate_venv_is_test_python, failure
+    tmp_path, monkeypatch, gate_venv_is_test_python, failure, interpreter, surface
 ):
-    original = "/opt/anaconda3/bin/python -m pytest tests/test_gate.py"
-    commands = extract_commands(f"## Acceptance Criteria\n- [x] `{original}` passes")
+    original = f"{interpreter} -m pytest tests/test_gate.py"
+    body = f"## Acceptance Criteria\n- [x] `{original}` passes\n- [x] Human observation"
+    commands = extract_commands(body)
 
     def broken_venv():
         raise OSError("venv unavailable")
@@ -567,6 +571,33 @@ def test_normalized_gate_preparation_failure_preserves_authored_command(
     assert result.exit_code != 0
     assert result.command == "python3 -m pytest tests/test_gate.py"
     assert result.original_command == original
+    repo = Path(__file__).resolve().parents[2]
+    root = repo if surface == "source" else repo / "templates/consumer-repo"
+    # Setup failures use a different Result construction path from executed gates.
+    # Exercise its serialized payload against the same renderer used in production.
+    rendered = subprocess.check_output(
+        [
+            "node",
+            "-e",
+            "const fs = require('fs');"
+            "const {renderDeterministicGates} = require(process.argv[1]);"
+            "const gates = JSON.parse(fs.readFileSync(0, 'utf8'));"
+            "process.stdout.write(renderDeterministicGates(gates.markdown, gates));",
+            str(root / ".github/scripts/keepalive_loop.js"),
+        ],
+        input=json.dumps(
+            {
+                "markdown": body,
+                "commands": [asdict(command) for command in commands],
+                "results": [asdict(result)],
+            }
+        ),
+        text=True,
+        cwd=repo,
+    )
+    assert f"- [ ] `{original}` passes" in rendered
+    assert "- [x] Human observation" in rendered
+    assert "Deterministic gates: 0/1 passed" in rendered
 
 
 # Plain-bullet acceptance sections, verbatim (Workflows#4454, Counter_Risk#1183; 2026-11-12).
