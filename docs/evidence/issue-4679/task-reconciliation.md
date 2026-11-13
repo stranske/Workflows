@@ -127,3 +127,30 @@ commit was created. GitHub rejected the PR-body update, blocker comment and
 PR #4680 was verified open with `draft=false`. Full-source and live-verification
 criteria remain unchecked; consumer regeneration/review verification remains
 post-merge maintainer or automation work.
+
+## Real CLI publication follow-up
+
+Extended the existing CLI publication test with the two reported interpreter
+forms, each with passing and failing pytest gates. The test verifies authored
+command metadata in extractor and execution JSON, publication through
+`markAgentRunning`, checkbox reconciliation, persisted results, and cached-plan
+reuse. This adds four cases alongside the existing two npm controls.
+
+- `node --test --test-isolation=none .github/scripts/__tests__/keepalive-loop.test.js`: 254 passed.
+- `python3 -m pytest -q tests/workflows/test_acceptance_gate.py -m 'not slow'`: 69 passed.
+- Isolated renderer mutation removing authored-command matching: the two new
+  failing-Python-gate cases failed; four controls passed. Restoring matching:
+  all six publication cases passed. Tracked source files were never mutated.
+- `node --test .github/scripts/__tests__/*.test.js` on the final patch: 142 test
+  files passed, nine failed. The failure-file inventory matches the pre-edit
+  baseline, including `spawnSync python3 EPERM` errors.
+- `python3 -m pytest -q tests/ -m 'not slow'` was interrupted after the combined
+  full-source gate and delivery were blocked; no complete Python result is claimed.
+- JavaScript syntax validation and `git diff --check`: passed. No Python files changed.
+
+`git add` failed because `.git/index.lock` cannot be created on the read-only
+filesystem. No commit was created; the test patch is saved at
+`/tmp/issue-4679-cli-publishing.patch`. GitHub rejected the PR-body reconciliation,
+blocker comment and `needs-human` label because write tools require approval and
+the approval policy is `never`. PR #4680 was verified open with `draft=false`.
+Full-source and post-merge consumer verification criteria remain unchecked.

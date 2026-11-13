@@ -846,8 +846,12 @@ test('deterministic gate summary renders inside the automated status block', () 
   assert.equal(renderDeterministicGates(rendered, gates), rendered);
 });
 
-for (const passes of [true, false]) {
-  test(`deterministic CLI results publish a non-zero summary (${passes ? 'pass' : 'fail'})`, async (t) => {
+for (const [command, originalCommand, passes] of [
+  ['npm test', null],
+  ['/opt/anaconda3/bin/python -m pytest test_gate.py -q', '/opt/anaconda3/bin/python -m pytest test_gate.py -q'],
+  ['python3.11 -m pytest test_gate.py -q', 'python3.11 -m pytest test_gate.py -q'],
+].flatMap(([command, originalCommand]) => [true, false].map(passes => [command, originalCommand, passes]))) {
+  test(`deterministic CLI results publish a non-zero summary (${command}, ${passes ? 'pass' : 'fail'})`, async (t) => {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-summary-'));
     t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
     fs.writeFileSync(path.join(temporary, 'gate.js'),
@@ -855,7 +859,8 @@ for (const passes of [true, false]) {
     fs.writeFileSync(path.join(temporary, 'package.json'), JSON.stringify({
       scripts: { test: 'node gate.js' },
     }));
-    const command = 'npm test';
+    fs.writeFileSync(path.join(temporary, 'test_gate.py'),
+      `def test_gate():\n    assert ${passes ? 'True' : 'False'}\n`);
     const pr = {
       number: 3979,
       head: { ref: 'feature/acceptance', sha: 'cli-tested-head' },
@@ -873,6 +878,9 @@ for (const passes of [true, false]) {
     const github = buildGithubStub({ pr });
     const plan = await acceptanceGatePlan({ github, context, pr, state: {} });
     assert.equal(plan.total, 1, 'the real extractor must find the named gate');
+    assert.equal(plan.commands[0].original_command, originalCommand);
+    assert.equal(plan.commands[0].command,
+      originalCommand ? 'python3 -m pytest test_gate.py -q' : command);
     const planPath = path.join(temporary, 'plan.json');
     const outputPath = path.join(temporary, 'results.json');
     fs.writeFileSync(planPath, JSON.stringify(plan));
@@ -884,6 +892,7 @@ for (const passes of [true, false]) {
     });
     const gates = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
     assert.equal(gates.results[0].exit_code, passes ? 0 : 1);
+    assert.equal(gates.results[0].original_command, originalCommand);
 
     await markAgentRunning({ github, context, core: buildCore(), inputs: {
       pr_number: pr.number, deterministic_gates: gates, tasks_total: 2, tasks_unchecked: 0,
