@@ -454,17 +454,28 @@ def test_pinned_interpreter_forms_normalize_and_bare_forms_stay():
 
 @pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
 @pytest.mark.parametrize("passes", [False, True], ids=["failed-gate", "passing-gate"])
-def test_normalized_gate_matches_authored_acceptance_checkbox(tmp_path, interpreter, passes):
+@pytest.mark.parametrize("surface", ["source", "consumer-template"])
+@pytest.mark.parametrize("markup", ["inline", "fenced"])
+def test_normalized_gate_matches_authored_acceptance_checkbox(
+    tmp_path, interpreter, passes, surface, markup
+):
     """Real extractor/runner JSON must let the renderer reconcile the authored checkbox."""
+    repo = Path(__file__).resolve().parents[2]
+    root = repo if surface == "source" else repo / "templates/consumer-repo"
+    gate_script = root / "scripts/runner_lib/acceptance_gate.py"
+    renderer = root / ".github/scripts/keepalive_loop.js"
     original = f"{interpreter} -m pytest test_example.py -q"
     normalized = "python3 -m pytest test_example.py -q"
-    body = f"## Acceptance Criteria\n- [x] `{original}` passes\n- [x] Human observation"
+    criterion = (
+        f"`{original}` passes" if markup == "inline" else f"Run:\n  ```sh\n  {original}\n  ```"
+    )
+    body = f"## Acceptance Criteria\n- [x] {criterion}\n- [x] Human observation"
     (tmp_path / "test_example.py").write_text(f"def test_example():\n    assert {passes}\n")
     plan = {
         "markdown": body,
         "commands": json.loads(
             subprocess.check_output(
-                [sys.executable, acceptance_gate.__file__, "--extract"], input=body, text=True
+                [sys.executable, str(gate_script), "--extract"], input=body, text=True
             )
         ),
     }
@@ -477,7 +488,7 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(tmp_path, interpre
     subprocess.run(
         [
             sys.executable,
-            acceptance_gate.__file__,
+            str(gate_script),
             "--plan",
             str(plan_path),
             "--cwd",
@@ -492,20 +503,20 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(tmp_path, interpre
     assert result["exit_code"] == (0 if passes else 1)
     assert result["command"] == normalized
     assert result["original_command"] == original
-    repo = Path(__file__).resolve().parents[2]
     rendered = json.loads(
         subprocess.check_output(
             [
                 "node",
                 "-e",
                 "const fs = require('fs');"
-                "const {renderDeterministicGates} = require('./.github/scripts/keepalive_loop');"
+                "const {renderDeterministicGates} = require(process.argv[1]);"
                 "const gates = JSON.parse(fs.readFileSync(0, 'utf8'));"
                 "const original = gates.commands[0].original_command;"
                 "const normalized = gates.commands[0].command;"
                 "console.log(JSON.stringify([gates.markdown, "
                 "gates.markdown.replace(original, normalized)]"
                 ".map(body => renderDeterministicGates(body, gates))));",
+                str(renderer),
             ],
             input=json.dumps(gates),
             text=True,
@@ -513,7 +524,10 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(tmp_path, interpre
         )
     )
     for text, command in zip(rendered, [original, normalized], strict=True):
-        assert f"- [{'x' if passes else ' '}] `{command}` passes" in text
+        expected = body.replace(original, command)
+        if not passes:
+            expected = expected.replace("- [x]", "- [ ]", 1)
+        assert expected in text
         assert "- [x] Human observation" in text
         assert f"Deterministic gates: {int(passes)}/1 passed" in text
 
