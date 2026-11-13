@@ -789,7 +789,7 @@ test('deterministic verification reads live issue commands instead of completed 
   assert.equal(result.action, 'run');
   assert.equal(result.reason, 'verify-acceptance');
   assert.deepEqual(result.deterministicGates.commands, [
-    { criterion: 0, command: 'pytest tests/test_live.py' },
+    { criterion: 0, command: 'pytest tests/test_live.py', original_command: null },
   ]);
   assert.equal(result.deterministicGates.complete, false);
   assert.match(result.taskAppendix, /pytest tests\/test_live.py \(exit not run on this head\/criteria\)/);
@@ -799,7 +799,7 @@ test('deterministic verification reads live issue commands instead of completed 
   assert.equal(fetches, 2);
   assert.equal(next.reason, 'verify-acceptance');
   assert.deepEqual(next.deterministicGates.commands, [
-    { criterion: 0, command: 'pytest tests/test_edited.py' },
+    { criterion: 0, command: 'pytest tests/test_edited.py', original_command: null },
   ]);
 });
 
@@ -813,7 +813,7 @@ test('deterministic verification falls back to PR criteria only without a linked
     assert.fail('An unlinked PR must not fetch an issue');
   };
   const plan = await acceptanceGatePlan({ github, context: buildContext(pr.number), pr, state: {} });
-  assert.deepEqual(plan.commands, [{ criterion: 0, command: 'make test' }]);
+  assert.deepEqual(plan.commands, [{ criterion: 0, command: 'make test', original_command: null }]);
   assert.equal(plan.markdown, pr.body);
   assert.equal(plan.complete, false);
 });

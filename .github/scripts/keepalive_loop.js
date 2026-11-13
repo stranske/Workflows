@@ -96,7 +96,8 @@ function renderDeterministicGates(body, gates) {
     let end = index + 1;
     while (end < lines.length && !/^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]|^#{1,6}\s/.test(lines[end])) end++;
     const criterion = lines.slice(index, end).join('\n');
-    const matched = gates.commands.filter(command => criterion.includes(command.command));
+    const matched = gates.commands.filter(command => criterion.includes(command.command)
+      || (command.original_command && criterion.includes(command.original_command)));
     if (matched.some(command => !gates.results.some(result =>
       result.command === command.command && result.criterion === command.criterion && result.exit_code === 0
     ))) lines[index] = lines[index].replace(/\[[xX]\]/, '[ ]');

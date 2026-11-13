@@ -446,10 +446,100 @@ def test_pinned_interpreter_forms_normalize_and_bare_forms_stay():
 - [ ] `/opt/anaconda3/bin/python3 scripts/tool.py` is a script, not a test runner.
 """
     assert extract_commands(markdown) == [
-        Command(0, "python3 -m pytest tests/a.py"),
-        Command(1, "python3 -m pytest tests/b.py -q"),
+        Command(0, "python3 -m pytest tests/a.py", "/usr/bin/python -m pytest tests/a.py"),
+        Command(1, "python3 -m pytest tests/b.py -q", "python3.13 -m pytest tests/b.py -q"),
         Command(2, "python -m pytest tests/c.py"),
     ]
+
+
+@pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
+@pytest.mark.parametrize("passes", [False, True], ids=["failed-gate", "passing-gate"])
+def test_normalized_gate_matches_authored_acceptance_checkbox(tmp_path, interpreter, passes):
+    """Real extractor/runner JSON must let the renderer reconcile the authored checkbox."""
+    original = f"{interpreter} -m pytest test_example.py -q"
+    normalized = "python3 -m pytest test_example.py -q"
+    body = f"## Acceptance Criteria\n- [x] `{original}` passes\n- [x] Human observation"
+    (tmp_path / "test_example.py").write_text(f"def test_example():\n    assert {passes}\n")
+    plan = {
+        "markdown": body,
+        "commands": json.loads(
+            subprocess.check_output(
+                [sys.executable, acceptance_gate.__file__, "--extract"], input=body, text=True
+            )
+        ),
+    }
+    assert plan["commands"] == [
+        {"criterion": 0, "command": normalized, "original_command": original}
+    ]
+    plan_path = tmp_path / "plan.json"
+    output_path = tmp_path / "results.json"
+    plan_path.write_text(json.dumps(plan))
+    subprocess.run(
+        [
+            sys.executable,
+            acceptance_gate.__file__,
+            "--plan",
+            str(plan_path),
+            "--cwd",
+            str(tmp_path),
+            "--output",
+            str(output_path),
+        ],
+        check=True,
+    )
+    gates = json.loads(output_path.read_text())
+    result = gates["results"][0]
+    assert result["exit_code"] == (0 if passes else 1)
+    assert result["command"] == normalized
+    assert result["original_command"] == original
+    repo = Path(__file__).resolve().parents[2]
+    rendered = json.loads(
+        subprocess.check_output(
+            [
+                "node",
+                "-e",
+                "const fs = require('fs');"
+                "const {renderDeterministicGates} = require('./.github/scripts/keepalive_loop');"
+                "const gates = JSON.parse(fs.readFileSync(0, 'utf8'));"
+                "const original = gates.commands[0].original_command;"
+                "const normalized = gates.commands[0].command;"
+                "console.log(JSON.stringify([gates.markdown, "
+                "gates.markdown.replace(original, normalized)]"
+                ".map(body => renderDeterministicGates(body, gates))));",
+            ],
+            input=json.dumps(gates),
+            text=True,
+            cwd=repo,
+        )
+    )
+    for text, command in zip(rendered, [original, normalized], strict=True):
+        assert f"- [{'x' if passes else ' '}] `{command}` passes" in text
+        assert "- [x] Human observation" in text
+        assert f"Deterministic gates: {int(passes)}/1 passed" in text
+
+
+@pytest.mark.parametrize("failure", ["venv", "install"])
+def test_normalized_gate_preparation_failure_preserves_authored_command(
+    tmp_path, monkeypatch, gate_venv_is_test_python, failure
+):
+    original = "/opt/anaconda3/bin/python -m pytest tests/test_gate.py"
+    commands = extract_commands(f"## Acceptance Criteria\n- [x] `{original}` passes")
+
+    def broken_venv():
+        raise OSError("venv unavailable")
+
+    if failure == "venv":
+        monkeypatch.setattr(acceptance_gate, "make_gate_venv", broken_venv)
+    else:
+        monkeypatch.setattr(
+            acceptance_gate,
+            "run",
+            lambda commands, cwd: [acceptance_gate.Result(-1, commands[0].command, 1, "failed")],
+        )
+    result = acceptance_gate.prepare(commands, tmp_path)[0]
+    assert result.exit_code != 0
+    assert result.command == "python3 -m pytest tests/test_gate.py"
+    assert result.original_command == original
 
 
 # Plain-bullet acceptance sections, verbatim (Workflows#4454, Counter_Risk#1183; 2026-11-12).

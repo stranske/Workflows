@@ -336,7 +336,11 @@ Before the next round begins:
 
 For callers that enable deterministic acceptance gates, checked criteria also require
 passing command results for the current head and extracted command set. The Python
-extractor runs asynchronously with a 30-second timeout so the loop can continue
+extractor preserves a pinned interpreter's authored text in `original_command`
+alongside the normalized executable `command`, including in execution and setup-failure
+results. Checkbox reconciliation matches either form, so a failed normalized gate
+unchecks the criterion that names the author's interpreter path or version.
+The extractor runs asynchronously with a 30-second timeout so the loop can continue
 servicing subprocess input and output. A missing interpreter, failed extraction,
 or invalid JSON rejects the plan; it never establishes an empty, passing gate set.
 Gate preparation and PR commands run in a separate `acceptance-gates` job with
