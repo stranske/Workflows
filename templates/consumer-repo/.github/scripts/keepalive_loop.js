@@ -29,11 +29,12 @@ async function extractAcceptanceCommands(markdown) {
 }
 
 // Different authored gates can normalize to the same command in one criterion.
-// Older saved results omit original_command, so retain their existing matching.
+// Older saved results omit original_command; explicit null identifies an unnormalized gate.
 function findGateResult(results, command) {
   return results.find(result =>
     result.command === command.command && result.criterion === command.criterion
-    && (!result.original_command || result.original_command === command.original_command));
+    && (result.original_command === undefined
+      || result.original_command === (command.original_command ?? null)));
 }
 
 async function acceptanceGatePlan({ github, context, pr, state }) {

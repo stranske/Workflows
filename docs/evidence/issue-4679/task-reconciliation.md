@@ -191,3 +191,35 @@ body is saved at `/tmp/issue-4679-execution-errors-pr-body.md`. PR #4680 was
 verified open with `draft=false`. Full-source and post-merge consumer verification
 criteria remain unchecked. No protected workflows or generated consumer PRs
 were changed.
+
+## Bare and pinned interpreter result identity
+
+The implementation tasks are already present. A remaining matching defect let an
+explicit `original_command: null` result from a bare `python3` gate stand in for
+a pinned interpreter gate with the same normalized command and criterion. That
+could hide a failed or missing result and incorrectly report completion.
+
+Source and consumer-template lookup now distinguish explicit null metadata from
+older results that omit the field. Expanded shared-criterion tests cover both
+reported pinned interpreter forms paired with bare `python3`, both command
+orders, and failed or missing results.
+
+- Before the fix, the expanded regression had 16 failures among 40 cases.
+- After the fix, `node --test --test-isolation=none .github/scripts/__tests__/keepalive-loop.test.js`: 286 passed.
+- `python3 -m pytest -q tests/workflows/test_acceptance_gate.py -m 'not slow'`: 77 passed in 189.87 seconds.
+- `node --test .github/scripts/__tests__/*.test.js`: 142 test files passed,
+  nine failed before and after the change, with identical failing-file inventories,
+  including `spawnSync python3 EPERM` errors. Full-source acceptance remains unchecked.
+- The full Python gate with `-m 'not slow'` was interrupted after delivery and
+  combined full-source validation were blocked; no complete passing result is claimed.
+- JavaScript syntax, source/template byte comparison and `git diff --check`: passed.
+  No Python files changed, so the Python formatting gate does not apply this round.
+
+`git add` failed because `.git/index.lock` cannot be created on the read-only
+filesystem. No commit was created. The code/test patch is saved at
+`/tmp/issue-4679-bare-pinned-identity.patch`.
+GitHub rejected the PR update, blocker comment and `needs-human` label because
+writes require approval under policy `never`. PR #4680 was verified open with
+`draft=false`. Post-merge consumer regeneration and review verification remain
+maintainer or automation work; no protected workflows or generated consumer PRs
+were changed.
