@@ -1,0 +1,120 @@
+version: 1
+issue: 4684
+base: main
+branch: codex/issue-4684
+tasks:
+  - id: task-01
+    title: Fix checkbox matching in `.github/scripts/keepalive_loop.js` to use the
+      authored command identity and criterion, not the normalized command as an unconditional
+      alternative.
+    status: doing
+    started_at: '2026-11-15T16:40:04Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add or update a regression test beside `.github/scripts/keepalive_loop.js`
+      for a passing bare command and failing pinned command that normalize identically.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: Test the regression by reintroducing the reported behavior in `.github/scripts/keepalive_loop.js`,
+      confirming the regression test fails with `node --test .github/scripts/__tests__/*.test.js`,
+      then reverting the deliberate break.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Temporarily restore the unconditional normalized-command lookup in `.github/scripts/keepalive_loop.js`
+      to reproduce the reported behavior. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Run `node --test .github/scripts/__tests__/*.test.js` (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'record that the new regression test fails with the deliberate break in
+      place. (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Revert the deliberate break (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'rerun `node --test .github/scripts/__tests__/*.test.js` to confirm all
+      tests pass. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: The regression test leaves the passing `python3 -m pytest tests/test_a.py`
+      criterion checked and the failing `/opt/python3 -m pytest tests/test_a.py` criterion
+      unchecked.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Source gates pass: `node --test .github/scripts/__tests__/*.test.js` and
+      `python3 -m pytest -q tests/`.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Trend_Model_Project#6223
+      without this review thread, and sync-core stops bumping this issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Fix the finding at its source in `stranske/Workflows`: `.github/scripts/keepalive_loop.js`
+      (the consumer PR stranske/Trend_Model_Project#6223 is generated from it by `.github/workflows/maint-68-sync-consumer-repos.yml`
+      and must not be edited by hand).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add or extend a test beside `.github/scripts/keepalive_loop.js` that fails
+      on the behaviour the reviewer describes and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Trend_Model_Project#6223
+      is resolved.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
