@@ -8,9 +8,17 @@
 # Skipping any of these silently breaks Gate / keepalive / autofix on the new
 # consumer or makes its backlog unreachable to priority-ordered opener selection
 # (see stranske/Fine-Art-Archive #13 bootstrap, 2026-05-29).
+#
+# Weekly, the same settings are VERIFIED on every registered consumer (read-only). On 2026-11-15
+# four lane repos (Portable-Alpha-Extension-Model, Travel-Plan-Permission, Trend_Model_Project,
+# Manager-Database) were found never to have had USE_CONSOLIDATED_WORKFLOWS set: their PR event
+# hub (task lists, bot comments, verify-to-issue) had never run, and nothing reported it, because
+# this workflow only ran on hand dispatch and `--health-check` reads labels, not settings.
 name: Maint 83 Bootstrap Consumer
 
 on:
+  schedule:
+    - cron: "17 6 * * 1"  # Mondays 06:17 UTC
   workflow_dispatch:
     inputs:
       repo:
@@ -30,11 +38,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.repo }}
+  group: ${{ github.workflow }}-${{ inputs.repo || 'weekly-verify' }}
   cancel-in-progress: false
 
 jobs:
   bootstrap:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       # Cross-repo admin settings need an owner/bot PAT; the default GITHUB_TOKEN
@@ -64,3 +73,46 @@ jobs:
             args+=(--execute)
           fi
           python scripts/bootstrap_consumer_settings.py "${args[@]}"
+
+  verify-fleet:
+    # Read-only and FYI: it reports which consumer is missing which bootstrap setting and fails the
+    # run so the gap is visible; it never changes a setting. Template is a template repository,
+    # not a lane repo, and carries no lane settings by design.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Verify bootstrap settings on every registered consumer
+        run: |
+          set -uo pipefail
+          failed=0
+          {
+            echo "## Consumer bootstrap settings"
+            echo
+            echo "| Repository | Result |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for repo in $(python scripts/list_registered_consumer_repos.py); do
+            if [ "$repo" = "stranske/Template" ]; then
+              continue
+            fi
+            if out="$(python scripts/bootstrap_consumer_settings.py --repo "$repo" --verify 2>&1)"; then
+              echo "| $repo | all OK |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              failed=1
+              missing="$(printf '%s\n' "$out" | grep -E '^\[FAIL\]' | sed 's/^\[FAIL\] //' | paste -sd ',' -)"
+              echo "| $repo | FAIL: ${missing:-see log} |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::$repo is missing bootstrap settings: ${missing:-see log}. Fix: dispatch Maint 83 for it."
+              printf '%s\n' "$out"
+            fi
+          done
+          exit "$failed"
