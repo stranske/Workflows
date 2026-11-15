@@ -841,6 +841,80 @@ def parse_runner_output(provider: str, raw_output: str) -> RunnerResult:
     )
 
 
+_CODEX_HEADER_MODEL_RE = re.compile(r"^\s*model:\s*(\S+)\s*$", re.MULTILINE)
+
+
+def _json_lines(raw_output: str) -> Iterator[dict[str, Any]]:
+    for line in raw_output.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event, dict):
+            yield event
+
+
+def _codex_reported_model(raw_output: str) -> str:
+    """Last model codex recorded for a turn.
+
+    Sources, all written by the codex CLI itself: the rollout file under
+    ``$CODEX_HOME/sessions`` (``turn_context`` events carry ``payload.model``), the legacy
+    ``--json`` config line (top-level ``model``), and the human session header (``model: <id>``).
+    The current ``codex exec --json`` event stream carries no model, so it yields "".
+    """
+    found = ""
+    for event in _json_lines(raw_output):
+        payload = event.get("payload")
+        if event.get("type") == "turn_context" and isinstance(payload, dict):
+            found = _model_id(payload.get("model")) or found
+        elif "model" in event and "type" not in event:
+            found = _model_id(event.get("model")) or found
+    if found:
+        return found
+    headers = [_model_id(match) for match in _CODEX_HEADER_MODEL_RE.findall(raw_output)]
+    headers = [model for model in headers if model]
+    return headers[-1] if headers else ""
+
+
+def _claude_reported_model(raw_output: str) -> str:
+    """Model of the last main-thread assistant message the claude CLI recorded.
+
+    Reads the session transcript (``~/.claude/projects/<cwd>/<session>.jsonl``) or
+    ``--output-format stream-json`` output. A ``--fallback-model`` switch therefore shows up as
+    the fallback model. Sub-agent (sidechain) turns and ``<synthetic>`` placeholder messages are
+    skipped; the ``system``/``init`` model is used only when no assistant message exists.
+    """
+    assistant = ""
+    init = ""
+    for event in _json_lines(raw_output):
+        event_type = event.get("type")
+        message = event.get("message")
+        if event_type == "assistant" and isinstance(message, dict):
+            if event.get("isSidechain") is True:
+                continue
+            assistant = _model_id(message.get("model")) or assistant
+        elif event_type == "system" and event.get("subtype") == "init":
+            init = _model_id(event.get("model")) or init
+    return assistant or init
+
+
+def extract_reported_model(provider: str, raw_output: str) -> str:
+    """Return the model the provider CLI says it ran on, or "" when its output does not say.
+
+    Never infers: cursor, gemini (agy) and muse print plain text with no model, so they yield "".
+    """
+    provider = _validate_provider(provider)
+    raw = raw_output or ""
+    if provider == "codex":
+        return _codex_reported_model(raw)
+    if provider == "claude":
+        return _claude_reported_model(raw)
+    return ""
+
+
 def _marker_re(
     pr_number: int, provider: str, *, marker_prefix: str = MARKER_PREFIX
 ) -> re.Pattern[str]:
@@ -876,6 +950,17 @@ def _marker_safe_text(value: Any, limit: int = 1000) -> str:
     return text.replace("-->", "--\\u003e")
 
 
+# A model id as a CLI accepts or reports it: gpt-6.1-sol, claude-opus-5-5, composer-2.5,
+# gemini-3-pro[1m], provider/model@rev. Anything else (prose, JSON, a multi-line blob) is not a
+# model id and is recorded as "" rather than stored in a receipt.
+MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+\[\]-]{0,199}$")
+
+
+def _model_id(value: Any) -> str:
+    text = "" if value is None else str(value).strip()
+    return text if MODEL_ID_RE.fullmatch(text) else ""
+
+
 def _compact_runner_result_payload(result_payload: dict[str, Any]) -> dict[str, Any]:
     final_message_value = result_payload.get("final_message")
     final_message = "" if final_message_value is None else str(final_message_value)
@@ -886,6 +971,11 @@ def _compact_runner_result_payload(result_payload: dict[str, Any]) -> dict[str, 
         "summary": _marker_safe_text(result_payload.get("summary")),
         "error": _marker_safe_text(result_payload.get("error")),
         "truncated": bool(result_payload.get("truncated")),
+        # requested_model: what the runner asked the CLI for ("" = unpinned run).
+        # reported_model: what the CLI itself recorded it ran on ("" = not determinable).
+        # They differ when the CLI fell back; reported is never copied from requested.
+        "requested_model": _model_id(result_payload.get("requested_model")),
+        "reported_model": _model_id(result_payload.get("reported_model")),
     }
     if final_message:
         compact["final_message_sha256"] = hashlib.sha256(final_message.encode("utf-8")).hexdigest()
@@ -1985,6 +2075,8 @@ def record_completion(
     observed_head_sha: str = "",
     task_progress_after: object = None,
     completion_reason: str = "",
+    requested_model: str = "",
+    reported_model: str = "",
 ) -> dict[str, Any]:
     """Persist terminal runner state after a dispatch finishes.
 
@@ -1992,6 +2084,9 @@ def record_completion(
     reservation plus that live head and a comparable task snapshot. A changed head or positive
     completed-task delta is productive. Unknown/mismatched task progress stays unmeasured.
     Legacy callers may still supply ``produced_work`` directly.
+
+    ``requested_model`` / ``reported_model`` (or the same keys in a dict ``result``) land in
+    the compact result summary; absent values are recorded as "".
     """
     provider = _validate_provider(provider)
     storage = storage or _storage_from_name("auto")
@@ -1999,6 +2094,10 @@ def record_completion(
     result_payload = (
         dataclasses.asdict(result) if dataclasses.is_dataclass(result) else dict(result)
     )
+    if requested_model:
+        result_payload["requested_model"] = requested_model
+    if reported_model:
+        result_payload["reported_model"] = reported_model
     status = "completed" if result_payload.get("success") else "error"
     compact_result = _compact_runner_result_payload(result_payload)
     # Dispatch and completion both require the authoritative reservation.
@@ -2339,6 +2438,8 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
         observed_head_sha=args.observed_head_sha,
         task_progress_after=args.task_progress_after,
         completion_reason=args.completion_reason,
+        requested_model=args.requested_model,
+        reported_model=args.reported_model,
     )
     outputs = {
         "recorded": "false" if record.get("completion_recorded") is False else "true",
@@ -2347,6 +2448,20 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
         "key": str(record["key"]),
         "productive": "" if "productive" not in record else str(record["productive"]).lower(),
     }
+    _write_github_output(outputs)
+    print(json.dumps(outputs, sort_keys=True))
+    return 0
+
+
+def _cmd_detect_model(args: argparse.Namespace) -> int:
+    """Print the model the provider CLI reported, reading its own session/output files."""
+    raw_parts: list[str] = []
+    for source in args.source_file or []:
+        path = Path(source)
+        if source and path.is_file():
+            raw_parts.append(path.read_text(encoding="utf-8", errors="replace"))
+    reported = extract_reported_model(args.provider, "\n".join(raw_parts))
+    outputs = {"reported-model": reported}
     _write_github_output(outputs)
     print(json.dumps(outputs, sort_keys=True))
     return 0
@@ -2469,7 +2584,29 @@ def build_parser() -> argparse.ArgumentParser:
             "the default, means unmeasured and preserves an existing unproductive retry streak."
         ),
     )
+    complete.add_argument(
+        "--requested-model",
+        default="",
+        help="model the runner asked the CLI for; empty when the run was unpinned",
+    )
+    complete.add_argument(
+        "--reported-model",
+        default="",
+        help="model the CLI reported it ran on (detect-model); empty when undeterminable",
+    )
     complete.set_defaults(func=_cmd_record_completion)
+
+    detect = subparsers.add_parser(
+        "detect-model", help="read the model a provider CLI reported from its own output"
+    )
+    detect.add_argument("--provider", choices=sorted(PROVIDERS), required=True)
+    detect.add_argument(
+        "--source-file",
+        action="append",
+        default=[],
+        help="CLI session/output file to read (repeatable; missing files are skipped)",
+    )
+    detect.set_defaults(func=_cmd_detect_model)
 
     evidence = subparsers.add_parser(
         "normalize-evidence", help="validate optional capability/effect evidence"

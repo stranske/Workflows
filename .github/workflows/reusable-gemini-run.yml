@@ -160,6 +160,9 @@ on:
       exit-code:
         description: 'Gemini CLI exit code (0=success)'
         value: ${{ jobs.gemini.outputs.exit-code }}
+      requested-model:
+        description: 'Model the runner asked the Gemini CLI for (empty when unpinned)'
+        value: ${{ jobs.gemini.outputs.requested-model }}
       changes-made:
         description: 'Whether Gemini made file changes (true/false)'
         value: ${{ jobs.gemini.outputs.changes-made }}
@@ -239,6 +242,7 @@ jobs:
       final-message: ${{ steps.run_gemini.outputs.final-message }}
       final-message-summary: ${{ steps.run_gemini.outputs.final-message-summary }}
       exit-code: ${{ steps.run_gemini.outputs.exit-code }}
+      requested-model: ${{ steps.run_gemini.outputs.requested-model }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
@@ -1160,6 +1164,16 @@ jobs:
           # the real tree unchanged (seen 2026-06-15). Tee to $SESSION_LOG so we keep a debug
           # artifact even if the run fails.
           GEMINI_CLI_ARGS=("${extra_args[@]}")
+          # requested-model is what the CLI is asked for: caller extra args come after the
+          # pinned --model on the command line, so their last --model wins.
+          requested_model="${MODEL:-}"
+          for ((i = 0; i < ${#GEMINI_CLI_ARGS[@]}; i++)); do
+            case "${GEMINI_CLI_ARGS[i]}" in
+              --model) requested_model="${GEMINI_CLI_ARGS[i+1]:-}" ;;
+              --model=*) requested_model="${GEMINI_CLI_ARGS[i]#--model=}" ;;
+            esac
+          done
+          echo "requested-model=$requested_model" >> "$GITHUB_OUTPUT"
           echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
           set +e
           agy -p "$prompt_content" \

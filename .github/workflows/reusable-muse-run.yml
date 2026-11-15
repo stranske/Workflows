@@ -154,6 +154,9 @@ on:
       exit-code:
         description: 'Muse CLI exit code (0=success)'
         value: ${{ jobs.muse.outputs.exit-code }}
+      requested-model:
+        description: 'Model the runner asked the Muse CLI for (empty when unpinned)'
+        value: ${{ jobs.muse.outputs.requested-model }}
       changes-made:
         description: 'Whether Muse made file changes (true/false)'
         value: ${{ jobs.muse.outputs.changes-made }}
@@ -236,6 +239,7 @@ jobs:
       final-message: ${{ steps.run_muse.outputs.final-message }}
       final-message-summary: ${{ steps.run_muse.outputs.final-message-summary }}
       exit-code: ${{ steps.run_muse.outputs.exit-code }}
+      requested-model: ${{ steps.run_muse.outputs.requested-model }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
@@ -1069,6 +1073,16 @@ jobs:
           # out of a fleet worker; --no-session-log keeps the prompt off disk. Tee to $SESSION_LOG so a
           # debug artifact survives a failed run. META_API_KEY comes from this step's env only.
           echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
+          # requested-model is what the CLI is asked for: caller extra args come after the
+          # pinned --model on the command line, so their last --model wins.
+          requested_model="${MODEL:-}"
+          for ((i = 0; i < ${#extra_args[@]}; i++)); do
+            case "${extra_args[i]}" in
+              --model) requested_model="${extra_args[i+1]:-}" ;;
+              --model=*) requested_model="${extra_args[i]#--model=}" ;;
+            esac
+          done
+          echo "requested-model=$requested_model" >> "$GITHUB_OUTPUT"
           STDERR_FILE="${RUNNER_TEMP:-/tmp}/muse-stderr.log"
           : > "$STDERR_FILE"
           started_at=$(date +%s)

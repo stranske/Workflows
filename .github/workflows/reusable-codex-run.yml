@@ -175,6 +175,12 @@ on:
       exit-code:
         description: 'Codex CLI exit code (0=success)'
         value: ${{ jobs.codex.outputs.exit-code }}
+      requested-model:
+        description: 'Model the runner asked the Codex CLI for (empty when unpinned)'
+        value: ${{ jobs.codex.outputs.requested-model }}
+      reported-model:
+        description: 'Model the Codex CLI recorded it ran on (empty when undeterminable)'
+        value: ${{ jobs.codex.outputs.reported-model }}
       changes-made:
         description: 'Whether Codex made file changes (true/false)'
         value: ${{ jobs.codex.outputs.changes-made }}
@@ -295,6 +301,8 @@ jobs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
       final-message-summary: ${{ steps.run_codex.outputs.final-message-summary }}
       exit-code: ${{ steps.run_codex.outputs.exit-code }}
+      requested-model: ${{ steps.run_codex.outputs.requested-model }}
+      reported-model: ${{ steps.reported_model.outputs.reported-model }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
@@ -1216,6 +1224,17 @@ jobs:
             echo "::error::No Codex model candidates resolved."
           fi
 
+          # requested-model is what the CLI is asked for: caller extra args come after the
+          # pinned --model on the command line, so their last --model wins.
+          requested_model="${codex_models[0]:-}"
+          for ((i = 0; i < ${#EXTRA_ARGS[@]}; i++)); do
+            case "${EXTRA_ARGS[i]}" in
+              --model) requested_model="${EXTRA_ARGS[i+1]:-}" ;;
+              -m) requested_model="${EXTRA_ARGS[i+1]:-}" ;;
+              --model=*) requested_model="${EXTRA_ARGS[i]#--model=}" ;;
+            esac
+          done
+          echo "requested-model=$requested_model" >> "$GITHUB_OUTPUT"
           attempt=0
           for codex_model in "${codex_models[@]}"; do
             attempt=$((attempt + 1))
@@ -1340,6 +1359,26 @@ jobs:
 
           # Exit with original code to mark job as failed if Codex failed
           exit "$CODEX_EXIT"
+
+      - name: Detect reported model
+        id: reported_model
+        if: always() && steps.run_codex.outputs.agent-execution-started == 'true'
+        continue-on-error: true
+        env:
+          CODEX_HOME: ${{ runner.temp }}/.codex
+        run: |
+          set -uo pipefail
+          # The codex --json event stream carries no model; the rollout codex writes under
+          # $CODEX_HOME/sessions does (turn_context.payload.model). CODEX_HOME is per-job, so the
+          # newest rollout is this run's last attempt, including a runtime fallback model.
+          rollout="$(
+            find "$CODEX_HOME/sessions" -name 'rollout-*.jsonl' -print0 2>/dev/null |
+              xargs -0 -r ls -t 2>/dev/null | head -n 1
+          )"
+          PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" \
+            python -m scripts.runner_lib detect-model \
+              --provider codex --source-file "$rollout" ||
+            echo "reported-model=" >> "$GITHUB_OUTPUT"
 
       - name: Write worker model attempt artifact
         if: always()

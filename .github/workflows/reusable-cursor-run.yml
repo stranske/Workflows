@@ -153,6 +153,9 @@ on:
       exit-code:
         description: 'Cursor CLI exit code (0=success)'
         value: ${{ jobs.cursor.outputs.exit-code }}
+      requested-model:
+        description: 'Model the runner asked the Cursor CLI for (auto when the table is unavailable)'
+        value: ${{ jobs.cursor.outputs.requested-model }}
       changes-made:
         description: 'Whether Cursor made file changes (true/false)'
         value: ${{ jobs.cursor.outputs.changes-made }}
@@ -233,6 +236,7 @@ jobs:
       final-message: ${{ steps.run_cursor.outputs.final-message }}
       final-message-summary: ${{ steps.run_cursor.outputs.final-message-summary }}
       exit-code: ${{ steps.run_cursor.outputs.exit-code }}
+      requested-model: ${{ steps.run_cursor.outputs.requested-model }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}
@@ -1109,6 +1113,16 @@ jobs:
           # headless `--model auto` runs even when the metered API bucket is
           # 100% spent). Callers may still override MODEL explicitly.
           MODEL="${MODEL:-auto}"
+          # requested-model is what the CLI is asked for: caller extra args come after the
+          # pinned --model on the command line, so their last --model wins.
+          requested_model="$MODEL"
+          for ((i = 0; i < ${#extra_args[@]}; i++)); do
+            case "${extra_args[i]}" in
+              --model) requested_model="${extra_args[i+1]:-}" ;;
+              --model=*) requested_model="${extra_args[i]#--model=}" ;;
+            esac
+          done
+          echo "requested-model=$requested_model" >> "$GITHUB_OUTPUT"
           echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
           set +e
           "$CURSOR_BIN" -p "$prompt_content" \
