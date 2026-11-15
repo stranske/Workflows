@@ -73,6 +73,18 @@ function deterministicGatePrompt(gates) {
   ].join('\n\n');
 }
 
+// A gate belongs to a criterion only by the command text its author wrote (`original_command` for a
+// pinned interpreter the gate normalized), and only as a whole token: inside backticks, or bounded
+// by whitespace / line ends. Matching the normalized command as an alternative attached a pinned
+// gate to a bare criterion with the same normalized text, so a failing pinned gate unchecked a
+// passing criterion (stranske/learning-management-system#829 review, Workflows#4686).
+function criterionNamesGate(criterion, command) {
+  const authored = command.original_command || command.command;
+  if (!authored) return false;
+  const escaped = authored.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[\\s\`])${escaped}(?=$|[\\s\`])`, 'm').test(criterion);
+}
+
 function renderDeterministicGates(body, gates) {
   const passed = gates.commands.filter(command => findGateResult(gates.results, command)?.exit_code === 0).length;
   const line = `Deterministic gates: ${passed}/${gates.commands.length} passed`;
@@ -99,8 +111,7 @@ function renderDeterministicGates(body, gates) {
     let end = index + 1;
     while (end < lines.length && !/^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]|^#{1,6}\s/.test(lines[end])) end++;
     const criterion = lines.slice(index, end).join('\n');
-    const matched = gates.commands.filter(command => criterion.includes(command.command)
-      || (command.original_command && criterion.includes(command.original_command)));
+    const matched = gates.commands.filter(command => criterionNamesGate(criterion, command));
     if (matched.some(command => findGateResult(gates.results, command)?.exit_code !== 0)) {
       lines[index] = lines[index].replace(/\[[xX]\]/, '[ ]');
     }

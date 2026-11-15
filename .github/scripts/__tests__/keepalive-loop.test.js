@@ -8222,3 +8222,25 @@ for (const loopPath of ['../keepalive_loop.js',
     assert.equal(policy.recentInstallFailures(completion, now).has('cursor'), true);
   });
 }
+
+test('a pinned gate is bound to its own authored criterion, not a bare criterion with the same normalized command', () => {
+  // Reproduction from the stranske/learning-management-system#829 review (Workflows#4686).
+  const body = [
+    '## Acceptance Criteria',
+    '- [x] `python3 -m pytest tests/test_a.py` passes.',
+    '- [x] `/opt/python3 -m pytest tests/test_a.py` passes.',
+  ].join('\n');
+  const gates = {
+    commands: [
+      { criterion: 0, command: 'python3 -m pytest tests/test_a.py', original_command: null },
+      { criterion: 1, command: 'python3 -m pytest tests/test_a.py', original_command: '/opt/python3 -m pytest tests/test_a.py' },
+    ],
+    results: [
+      { criterion: 0, command: 'python3 -m pytest tests/test_a.py', exit_code: 0, output: '' },
+      { criterion: 1, command: 'python3 -m pytest tests/test_a.py', exit_code: 1, output: 'FAILED' },
+    ],
+  };
+  const rendered = renderDeterministicGates(body, gates);
+  assert.match(rendered, /^- \[x\] `python3 -m pytest tests\/test_a\.py` passes\.$/m);
+  assert.match(rendered, /^- \[ \] `\/opt\/python3 -m pytest tests\/test_a\.py` passes\.$/m);
+});
