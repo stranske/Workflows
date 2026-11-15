@@ -52,6 +52,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@v7
@@ -84,10 +86,12 @@ jobs:
       GH_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.14'
 
@@ -101,7 +105,12 @@ jobs:
             echo "| Repository | Result |"
             echo "|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for repo in $(python scripts/list_registered_consumer_repos.py); do
+          if ! repos="$(python scripts/list_registered_consumer_repos.py)" || [ -z "$repos" ]; then
+            echo "| (discovery) | FAIL: registered consumer list unavailable or empty |" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Cannot list registered consumers; no repository was verified."
+            exit 1
+          fi
+          for repo in $repos; do
             if [ "$repo" = "stranske/Template" ]; then
               continue
             fi
@@ -109,7 +118,7 @@ jobs:
               echo "| $repo | all OK |" >> "$GITHUB_STEP_SUMMARY"
             else
               failed=1
-              missing="$(printf '%s\n' "$out" | grep -E '^\[FAIL\]' | sed 's/^\[FAIL\] //' | paste -sd ',' -)"
+              missing="$(printf '%s\n' "$out" | grep -E '^\[FAIL\]' | sed 's/^\[FAIL\] //' | paste -sd ',' - || true)"
               echo "| $repo | FAIL: ${missing:-see log} |" >> "$GITHUB_STEP_SUMMARY"
               echo "::error::$repo is missing bootstrap settings: ${missing:-see log}. Fix: dispatch Maint 83 for it."
               printf '%s\n' "$out"
