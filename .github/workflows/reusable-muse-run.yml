@@ -154,6 +154,9 @@ on:
       exit-code:
         description: 'Muse CLI exit code (0=success)'
         value: ${{ jobs.muse.outputs.exit-code }}
+      requested-model:
+        description: 'Model the runner asked the Muse CLI for (empty when unpinned)'
+        value: ${{ jobs.muse.outputs.requested-model }}
       changes-made:
         description: 'Whether Muse made file changes (true/false)'
         value: ${{ jobs.muse.outputs.changes-made }}
@@ -236,6 +239,7 @@ jobs:
       final-message: ${{ steps.run_muse.outputs.final-message }}
       final-message-summary: ${{ steps.run_muse.outputs.final-message-summary }}
       exit-code: ${{ steps.run_muse.outputs.exit-code }}
+      requested-model: ${{ steps.model_table.outputs.model }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
       files-changed: ${{ steps.commit.outputs.files-changed }}

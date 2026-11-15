@@ -1546,6 +1546,17 @@ jobs:
                 needs.run-cursor.outputs.exit-code ||
                 needs.run-muse.outputs.exit-code ||
                 needs.run-gemini.outputs.exit-code || '' }}
+          # Model the runner asked for, and the model the CLI recorded it ran on (codex/claude
+          # only; "" when undeterminable). Both land in the completion receipt's result.
+          REQUESTED_MODEL: >-
+            ${{ needs.run-codex.outputs.requested-model ||
+                needs.run-claude.outputs.requested-model ||
+                needs.run-cursor.outputs.requested-model ||
+                needs.run-muse.outputs.requested-model ||
+                needs.run-gemini.outputs.requested-model || '' }}
+          REPORTED_MODEL: >-
+            ${{ needs.run-codex.outputs.reported-model ||
+                needs.run-claude.outputs.reported-model || '' }}
           JOB_RESULT: >-
             ${{ needs.run-codex.result != 'skipped' && needs.run-codex.result ||
                 (needs.run-claude.result != 'skipped' && needs.run-claude.result ||
@@ -1579,6 +1590,8 @@ jobs:
             --produced-work "$PRODUCED_WORK" \
             --observed-head-sha "$OBSERVED_HEAD_SHA" \
             --task-progress-after "$TASK_PROGRESS_AFTER" \
+            --requested-model "$REQUESTED_MODEL" \
+            --reported-model "$REPORTED_MODEL" \
             --storage auto
 
   prepare:

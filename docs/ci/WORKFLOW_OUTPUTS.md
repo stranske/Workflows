@@ -82,6 +82,8 @@ reusable workflow in the no-output section.
 | `reusable-codex-run.yml` | `final-message-summary` | string | First 500 chars of Codex output (safe for PR comments) | `needs.codex.outputs.final-message-summary` |
 | `reusable-codex-run.yml` | `error-summary` | string | Failure summary message (prefers Codex output, falls back to preflight errors) | `needs.codex.outputs.error-summary` |
 | `reusable-codex-run.yml` | `exit-code` | string (number-like) | Codex CLI exit code (0=success) | `needs.codex.outputs.exit-code` |
+| `reusable-codex-run.yml` | `requested-model` | string | Model the runner asked the Codex CLI for (empty when unpinned) | `needs.codex.outputs.requested-model` |
+| `reusable-codex-run.yml` | `reported-model` | string | Model the Codex CLI recorded it ran on (empty when undeterminable) | `needs.codex.outputs.reported-model` |
 | `reusable-codex-run.yml` | `changes-made` | string (boolean-like) | Whether Codex made file changes (true/false) | `needs.codex.outputs.changes-made` |
 | `reusable-codex-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.codex.outputs.commit-sha` |
 | `reusable-codex-run.yml` | `files-changed` | string (number-like) | Number of files changed by Codex | `needs.codex.outputs.files-changed` |
@@ -116,6 +118,8 @@ reusable workflow in the no-output section.
 | `reusable-claude-run.yml` | `final-message-summary` | string | First 500 chars of Claude output (safe for PR comments) | `needs.claude.outputs.final-message-summary` |
 | `reusable-claude-run.yml` | `error-summary` | string | Failure summary message (prefers Claude output, falls back to preflight errors) | `needs.claude.outputs.error-summary` |
 | `reusable-claude-run.yml` | `exit-code` | string (number-like) | Claude CLI exit code (0=success) | `needs.claude.outputs.exit-code` |
+| `reusable-claude-run.yml` | `requested-model` | string | Model the runner asked the Claude CLI for (empty when unpinned) | `needs.claude.outputs.requested-model` |
+| `reusable-claude-run.yml` | `reported-model` | string | Model the Claude CLI recorded it ran on (empty when undeterminable) | `needs.claude.outputs.reported-model` |
 | `reusable-claude-run.yml` | `changes-made` | string (boolean-like) | Whether Claude made file changes (true/false) | `needs.claude.outputs.changes-made` |
 | `reusable-claude-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.claude.outputs.commit-sha` |
 | `reusable-claude-run.yml` | `files-changed` | string (number-like) | Number of files changed by Claude | `needs.claude.outputs.files-changed` |
@@ -139,6 +143,7 @@ reusable workflow in the no-output section.
 | `reusable-cursor-run.yml` | `final-message-summary` | string | First 500 chars of Cursor output (safe for PR comments) | `needs.cursor.outputs.final-message-summary` |
 | `reusable-cursor-run.yml` | `error-summary` | string | Failure summary message (prefers Cursor output, falls back to preflight errors) | `needs.cursor.outputs.error-summary` |
 | `reusable-cursor-run.yml` | `exit-code` | string (number-like) | Cursor CLI exit code (0=success) | `needs.cursor.outputs.exit-code` |
+| `reusable-cursor-run.yml` | `requested-model` | string | Model the runner asked the Cursor CLI for (auto when the table is unavailable) | `needs.cursor.outputs.requested-model` |
 | `reusable-cursor-run.yml` | `changes-made` | string (boolean-like) | Whether Cursor made file changes (true/false) | `needs.cursor.outputs.changes-made` |
 | `reusable-cursor-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.cursor.outputs.commit-sha` |
 | `reusable-cursor-run.yml` | `files-changed` | string (number-like) | Number of files changed by Cursor | `needs.cursor.outputs.files-changed` |
@@ -162,6 +167,7 @@ reusable workflow in the no-output section.
 | `reusable-muse-run.yml` | `final-message-summary` | string | First 500 chars of Muse output (safe for PR comments) | `needs.muse.outputs.final-message-summary` |
 | `reusable-muse-run.yml` | `error-summary` | string | Failure summary message (prefers Muse output, falls back to preflight errors) | `needs.muse.outputs.error-summary` |
 | `reusable-muse-run.yml` | `exit-code` | string (number-like) | Muse CLI exit code (0=success) | `needs.muse.outputs.exit-code` |
+| `reusable-muse-run.yml` | `requested-model` | string | Model the runner asked the Muse CLI for (empty when unpinned) | `needs.muse.outputs.requested-model` |
 | `reusable-muse-run.yml` | `changes-made` | string (boolean-like) | Whether Muse made file changes (true/false) | `needs.muse.outputs.changes-made` |
 | `reusable-muse-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.muse.outputs.commit-sha` |
 | `reusable-muse-run.yml` | `files-changed` | string (number-like) | Number of files changed by Muse | `needs.muse.outputs.files-changed` |
@@ -186,6 +192,7 @@ reusable workflow in the no-output section.
 | `reusable-gemini-run.yml` | `final-message-summary` | string | First 500 chars of Gemini output (safe for PR comments) | `needs.gemini.outputs.final-message-summary` |
 | `reusable-gemini-run.yml` | `error-summary` | string | Failure summary message (prefers Gemini output, falls back to preflight errors) | `needs.gemini.outputs.error-summary` |
 | `reusable-gemini-run.yml` | `exit-code` | string (number-like) | Gemini CLI exit code (0=success) | `needs.gemini.outputs.exit-code` |
+| `reusable-gemini-run.yml` | `requested-model` | string | Model the runner asked the Gemini CLI for (empty when unpinned) | `needs.gemini.outputs.requested-model` |
 | `reusable-gemini-run.yml` | `changes-made` | string (boolean-like) | Whether Gemini made file changes (true/false) | `needs.gemini.outputs.changes-made` |
 | `reusable-gemini-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed | `needs.gemini.outputs.commit-sha` |
 | `reusable-gemini-run.yml` | `files-changed` | string (number-like) | Number of files changed by Gemini | `needs.gemini.outputs.files-changed` |
