@@ -2375,6 +2375,66 @@ test('closing-keyword and branch sources retain closing intent across two body s
   }
 });
 
+test('keepalive-gate-citation survives status refresh only for the current acceptance plan', async () => {
+  const { acceptanceGatePlan, renderDeterministicGates } = require('../keepalive_loop');
+  const { formatStateComment } = require('../keepalive_state');
+  const context = { repo: { owner: 'octo', repo: 'demo' }, eventName: 'pull_request',
+    payload: { pull_request: { number: 55, head: { sha: 'abc123' } } } };
+  const pull = {
+    number: 55, state: 'open', title: 'Repair a local request',
+    body: '<!-- meta:issue:123 -->\nCloses #123',
+    head: { sha: 'abc123', ref: 'feature/gate-report' }, base: { ref: 'main' }, labels: [],
+  };
+  let issueBody = '## Tasks\n- [x] Ship the fix\n\n## Acceptance Criteria\n- [x] `node --test gate.test.js` passes';
+  let comments = [];
+  const failures = [];
+  const github = {
+    paginate: async () => comments,
+    graphql: async () => ({ repository: { ref: { branchProtectionRule: null } } }),
+    rest: {
+      pulls: {
+        get: async () => ({ data: { ...pull } }),
+        update: async ({ body }) => { pull.body = body; },
+      },
+      issues: {
+        get: async () => ({ data: { body: issueBody, labels: [] } }),
+        listComments: async () => ({ data: comments }),
+      },
+      actions: {
+        listWorkflowRunsForRepo: async () => ({ data: { workflow_runs: [] } }),
+        listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      },
+    },
+  };
+  const core = { info() {}, debug() {}, warning() {}, error() {}, setFailed(message) { failures.push(message); } };
+  const args = { github, core, inputs: {}, context };
+  await run(args);
+  const gates = await acceptanceGatePlan({ github, context, pr: pull });
+  gates.results = [{ ...gates.commands[0], exit_code: 0 }];
+  pull.body = renderDeterministicGates(pull.body, gates);
+  comments = [{
+    user: { login: 'stranske-keepalive[bot]', type: 'Bot' },
+    body: formatStateComment({ pr_number: pull.number, deterministic_gates: gates }),
+  }];
+  await run(args);
+  assert.match(pull.body, /^Deterministic gates: 1\/1 passed\nCriterion 1: PASS — `node --test gate.test.js` \(exit 0\)/m);
+  const bodyWithReport = pull.body;
+  issueBody = issueBody.replace('gate.test.js', 'different.test.js');
+  await run(args);
+  assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
+  issueBody = issueBody.replace('different.test.js', 'gate.test.js');
+  pull.body = bodyWithReport;
+  pull.head.sha = context.payload.pull_request.head.sha = 'different-head';
+  await run(args);
+  assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
+  pull.head.sha = context.payload.pull_request.head.sha = 'abc123';
+  pull.body = bodyWithReport;
+  comments[0].user = { login: 'untrusted', type: 'User' };
+  await run(args);
+  assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
+  assert.deepEqual(failures, []);
+});
+
 async function assertIssueSyncPreservesIntent(sync, overrides = {}, closing = false) {
   const pull = {
     number: 55, state: 'open', title: 'Repair a local request',
