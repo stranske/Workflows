@@ -2375,6 +2375,128 @@ test('closing-keyword and branch sources retain closing intent across two body s
   }
 });
 
+test('keepalive-gate-citation survives status refresh only for the current acceptance plan', async (t) => {
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, () => assertGateCitationRefresh(sync));
+  }
+});
+
+async function assertGateCitationRefresh(sync) {
+  const { acceptanceGatePlan, renderDeterministicGates } = require('../keepalive_loop');
+  const { formatStateComment } = require('../keepalive_state');
+  const context = { repo: { owner: 'octo', repo: 'demo' }, eventName: 'pull_request',
+    payload: { pull_request: { number: 55, head: { sha: 'abc123' } } } };
+  const pull = {
+    number: 55, state: 'open', title: 'Repair a local request',
+    body: '<!-- meta:issue:123 -->\nCloses #123',
+    head: { sha: 'abc123', ref: 'feature/gate-report' }, base: { ref: 'main' }, labels: [],
+  };
+  let issueBody = '## Tasks\n- [x] Ship the fix\n\n## Acceptance Criteria\n- [x] `node --test gate.test.js` passes';
+  let comments = [];
+  let pullReads = 0;
+  let issueReads = 0;
+  let simulatePush = false;
+  const failures = [];
+  const github = {
+    paginate: async () => comments,
+    graphql: async () => ({ repository: { ref: { branchProtectionRule: null } } }),
+    rest: {
+      pulls: {
+        get: async () => {
+          pullReads++;
+          if (simulatePush && pullReads === 2) {
+            pull.head.sha = 'new-head';
+            pull.body = 'Body for the new head';
+          }
+          return { data: { ...pull, head: { ...pull.head } } };
+        },
+        update: async ({ body }) => { pull.body = body; },
+      },
+      issues: {
+        get: async () => {
+          issueReads++;
+          return { data: { body: issueBody, labels: [] } };
+        },
+        listComments: async () => ({ data: comments }),
+      },
+      actions: {
+        listWorkflowRunsForRepo: async () => ({ data: { workflow_runs: [] } }),
+        listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      },
+    },
+  };
+  const core = { info() {}, debug() {}, warning() {}, error() {}, setFailed(message) { failures.push(message); } };
+  const args = { github, core, inputs: {}, context };
+  await sync(args);
+  const gates = await acceptanceGatePlan({ github, context, pr: pull });
+  gates.results = [{ ...gates.commands[0], exit_code: 0 }];
+  pull.body = renderDeterministicGates(pull.body, gates);
+  comments = [{
+    user: { login: 'stranske-keepalive[bot]', type: 'Bot' },
+    body: formatStateComment({ pr_number: pull.number, deterministic_gates: gates }),
+  }];
+  issueReads = 0;
+  await sync(args);
+  assert.match(pull.body, /^Deterministic gates: 1\/1 passed\nCriterion 1: PASS — `node --test gate.test.js` \(exit 0\)/m);
+  assert.equal(issueReads, 1, 'the report and status must use one issue snapshot');
+  const bodyWithReport = pull.body;
+  await sync(args);
+  assert.equal(pull.body, bodyWithReport, 'repeated refreshes must preserve exactly one report');
+  const currentIssueBody = issueBody;
+  for (const [before, after] of [
+    ['Ship the fix', 'Ship the fix and verify deployment'],
+    ['`node --test gate.test.js` passes', '`node --test gate.test.js` passes without retries'],
+  ]) {
+    issueBody = currentIssueBody.replace(before, after);
+    pull.body = bodyWithReport;
+    await sync(args);
+    assert.doesNotMatch(pull.body, /^Deterministic gates:/m,
+      'changed source requirements must invalidate results even when the command is unchanged');
+    assert.ok(pull.body.includes(after), 'the refreshed status must contain the new requirement');
+  }
+  issueBody = currentIssueBody;
+  const trustedComment = comments[0];
+  comments = [trustedComment, {
+    user: { login: 'untrusted', type: 'User' },
+    body: formatStateComment({
+      pr_number: pull.number,
+      deterministic_gates: { ...gates, results: [{ ...gates.commands[0], exit_code: 1 }] },
+    }),
+  }];
+  pull.body = bodyWithReport;
+  await sync(args);
+  assert.equal(pull.body, bodyWithReport, 'a newer untrusted comment cannot override trusted results');
+  comments = [trustedComment];
+  issueBody = issueBody.replace('gate.test.js', 'different.test.js');
+  await sync(args);
+  assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
+  issueBody = issueBody.replace('different.test.js', 'gate.test.js');
+  pull.body = bodyWithReport;
+  pull.head.sha = context.payload.pull_request.head.sha = 'different-head';
+  await sync(args);
+  assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
+  pull.head.sha = context.payload.pull_request.head.sha = 'abc123';
+  pull.body = bodyWithReport;
+  comments[0].user = { login: 'untrusted', type: 'User' };
+  await sync(args);
+  assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
+  comments[0].user = { login: 'stranske-keepalive[bot]', type: 'Bot' };
+  pull.body = bodyWithReport;
+  pullReads = 0;
+  simulatePush = true;
+  await sync(args);
+  assert.equal(pull.body, 'Body for the new head');
+  assert.deepEqual(failures, []);
+}
+
+test('keepalive-gate-citation extractor is included in the reusable metadata checkout', () => {
+  const workflow = fs.readFileSync(path.join(
+    __dirname, '../../workflows/reusable-20-pr-meta.yml',
+  ), 'utf8');
+  const bodyUpdateJob = workflow.split('\n  pr_body_update:\n')[1]?.split(/\n {2}\w+:/)[0];
+  assert.match(bodyUpdateJob, /^          sparse-checkout: \|\n(?: {12}[^\n]+\n)* {12}scripts\/runner_lib\/acceptance_gate\.py$/m);
+});
+
 async function assertIssueSyncPreservesIntent(sync, overrides = {}, closing = false) {
   const pull = {
     number: 55, state: 'open', title: 'Repair a local request',

@@ -17,6 +17,7 @@ const os = require('os');
 const childProcess = require('child_process');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 const { isRateLimitError: classifyRateLimitError } = require('./error_classifier');
+const { isTrustedKeepaliveStateComment, parseStateComment } = require('./keepalive_state');
 const {
   extractIssueNumbersFromText,
   extractClosingIssueNumbersFromText,
@@ -1787,7 +1788,29 @@ async function run({github: rawGithub, context, core, inputs}) {
   const cleanedBody = stripPrTemplateContent(pr.body || '');
   
   const bodyWithPreamble = upsertBlock(cleanedBody, 'pr-preamble', preamble);
-  const newBody = upsertBlock(bodyWithPreamble, 'auto-status-summary', statusBlock);
+  let newBody = upsertBlock(bodyWithPreamble, 'auto-status-summary', statusBlock);
+  // A status refresh replaces the block that Keepalive uses for its gate report.
+  // Rebuild it from trusted results for the live head and acceptance criteria.
+  const gateState = issueComments.filter(isTrustedKeepaliveStateComment)
+    .map(comment => parseStateComment(comment.body)?.data)
+    .findLast(state => state?.pr_number === pr.number
+      && state.deterministic_gates?.head_sha === pr.head.sha);
+  if (gateState?.deterministic_gates?.results?.length) {
+    try {
+      const { acceptanceGatePlan, renderDeterministicGates } = require('./keepalive_loop');
+      const gates = await acceptanceGatePlan({ github, context, pr, state: gateState, markdown: issueBody });
+      if (gates.results.length) {
+        const { data: livePr } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
+        if (livePr.state !== 'open' || livePr.head.sha !== pr.head.sha || livePr.body !== pr.body) {
+          core.info(`Skipping gate report refresh for PR #${pr.number} because the PR changed.`);
+          return;
+        }
+        newBody = renderDeterministicGates(newBody, gates);
+      }
+    } catch (error) {
+      core.warning(`Unable to revalidate the Keepalive gate report for PR #${pr.number}: ${error.message}`);
+    }
+  }
 
   if (newBody !== (pr.body || '')) {
     await withRetries(
