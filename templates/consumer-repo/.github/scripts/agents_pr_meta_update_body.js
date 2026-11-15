@@ -1798,8 +1798,15 @@ async function run({github: rawGithub, context, core, inputs}) {
   if (gateState?.deterministic_gates?.results?.length) {
     try {
       const { acceptanceGatePlan, renderDeterministicGates } = require('./keepalive_loop');
-      const gates = await acceptanceGatePlan({ github, context, pr, state: gateState });
-      if (gates.results.length) newBody = renderDeterministicGates(newBody, gates);
+      const gates = await acceptanceGatePlan({ github, context, pr, state: gateState, markdown: issueBody });
+      if (gates.results.length) {
+        const { data: livePr } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
+        if (livePr.state !== 'open' || livePr.head.sha !== pr.head.sha || livePr.body !== pr.body) {
+          core.info(`Skipping gate report refresh for PR #${pr.number} because the PR changed.`);
+          return;
+        }
+        newBody = renderDeterministicGates(newBody, gates);
+      }
     } catch (error) {
       core.warning(`Unable to revalidate the Keepalive gate report for PR #${pr.number}: ${error.message}`);
     }

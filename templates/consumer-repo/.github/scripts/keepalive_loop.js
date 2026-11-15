@@ -37,12 +37,12 @@ function findGateResult(results, command) {
       || result.original_command === (command.original_command ?? null)));
 }
 
-async function acceptanceGatePlan({ github, context, pr, state }) {
+async function acceptanceGatePlan({ github, context, pr, state, markdown: issueSnapshot }) {
   const issueNumber = extractIssueNumberFromPull(pr);
   // Deliberately bypass the API cache: edits must affect this verify round.
-  const markdown = issueNumber
+  const markdown = issueSnapshot ?? (issueNumber
     ? (await github.rest.issues.get({ ...context.repo, issue_number: issueNumber })).data.body || ''
-    : pr.body || '';
+    : pr.body || '');
   const commands = await extractAcceptanceCommands(markdown);
   const authored = markdown.replace(/(?:\n)?^Deterministic gates: \d+\/\d+ passed[^\S\n]*\n?(?:Criterion \d+:.*\n?)*/gm, '');
   const sections = parseScopeTasksAcceptanceSections(authored);

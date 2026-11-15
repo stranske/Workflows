@@ -2387,17 +2387,30 @@ test('keepalive-gate-citation survives status refresh only for the current accep
   };
   let issueBody = '## Tasks\n- [x] Ship the fix\n\n## Acceptance Criteria\n- [x] `node --test gate.test.js` passes';
   let comments = [];
+  let pullReads = 0;
+  let issueReads = 0;
+  let simulatePush = false;
   const failures = [];
   const github = {
     paginate: async () => comments,
     graphql: async () => ({ repository: { ref: { branchProtectionRule: null } } }),
     rest: {
       pulls: {
-        get: async () => ({ data: { ...pull } }),
+        get: async () => {
+          pullReads++;
+          if (simulatePush && pullReads === 2) {
+            pull.head.sha = 'new-head';
+            pull.body = 'Body for the new head';
+          }
+          return { data: { ...pull, head: { ...pull.head } } };
+        },
         update: async ({ body }) => { pull.body = body; },
       },
       issues: {
-        get: async () => ({ data: { body: issueBody, labels: [] } }),
+        get: async () => {
+          issueReads++;
+          return { data: { body: issueBody, labels: [] } };
+        },
         listComments: async () => ({ data: comments }),
       },
       actions: {
@@ -2416,8 +2429,10 @@ test('keepalive-gate-citation survives status refresh only for the current accep
     user: { login: 'stranske-keepalive[bot]', type: 'Bot' },
     body: formatStateComment({ pr_number: pull.number, deterministic_gates: gates }),
   }];
+  issueReads = 0;
   await run(args);
   assert.match(pull.body, /^Deterministic gates: 1\/1 passed\nCriterion 1: PASS — `node --test gate.test.js` \(exit 0\)/m);
+  assert.equal(issueReads, 1, 'the report and status must use one issue snapshot');
   const bodyWithReport = pull.body;
   issueBody = issueBody.replace('gate.test.js', 'different.test.js');
   await run(args);
@@ -2432,6 +2447,12 @@ test('keepalive-gate-citation survives status refresh only for the current accep
   comments[0].user = { login: 'untrusted', type: 'User' };
   await run(args);
   assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
+  comments[0].user = { login: 'stranske-keepalive[bot]', type: 'Bot' };
+  pull.body = bodyWithReport;
+  pullReads = 0;
+  simulatePush = true;
+  await run(args);
+  assert.equal(pull.body, 'Body for the new head');
   assert.deepEqual(failures, []);
 });
 
