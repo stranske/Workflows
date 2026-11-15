@@ -506,7 +506,10 @@ jobs:
     permissions:
       contents: read
       issues: write
-      pull-requests: read
+      # Write: "Apply runtime acceptance-criteria label" labels the PR itself, and adding a label to a
+      # pull request needs pull-requests write. With read it failed "Resource not accessible by
+      # integration" (stranske/Orchestrator#1354, 2026-11-12; #1382, 2026-11-15) and failed Gate.
+      pull-requests: write
     env:
       GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
