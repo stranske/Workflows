@@ -2375,7 +2375,13 @@ test('closing-keyword and branch sources retain closing intent across two body s
   }
 });
 
-test('keepalive-gate-citation survives status refresh only for the current acceptance plan', async () => {
+test('keepalive-gate-citation survives status refresh only for the current acceptance plan', async (t) => {
+  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+    await t.test(name, () => assertGateCitationRefresh(sync));
+  }
+});
+
+async function assertGateCitationRefresh(sync) {
   const { acceptanceGatePlan, renderDeterministicGates } = require('../keepalive_loop');
   const { formatStateComment } = require('../keepalive_state');
   const context = { repo: { owner: 'octo', repo: 'demo' }, eventName: 'pull_request',
@@ -2421,7 +2427,7 @@ test('keepalive-gate-citation survives status refresh only for the current accep
   };
   const core = { info() {}, debug() {}, warning() {}, error() {}, setFailed(message) { failures.push(message); } };
   const args = { github, core, inputs: {}, context };
-  await run(args);
+  await sync(args);
   const gates = await acceptanceGatePlan({ github, context, pr: pull });
   gates.results = [{ ...gates.commands[0], exit_code: 0 }];
   pull.body = renderDeterministicGates(pull.body, gates);
@@ -2430,31 +2436,58 @@ test('keepalive-gate-citation survives status refresh only for the current accep
     body: formatStateComment({ pr_number: pull.number, deterministic_gates: gates }),
   }];
   issueReads = 0;
-  await run(args);
+  await sync(args);
   assert.match(pull.body, /^Deterministic gates: 1\/1 passed\nCriterion 1: PASS — `node --test gate.test.js` \(exit 0\)/m);
   assert.equal(issueReads, 1, 'the report and status must use one issue snapshot');
   const bodyWithReport = pull.body;
+  await sync(args);
+  assert.equal(pull.body, bodyWithReport, 'repeated refreshes must preserve exactly one report');
+  const currentIssueBody = issueBody;
+  for (const [before, after] of [
+    ['Ship the fix', 'Ship the fix and verify deployment'],
+    ['`node --test gate.test.js` passes', '`node --test gate.test.js` passes without retries'],
+  ]) {
+    issueBody = currentIssueBody.replace(before, after);
+    pull.body = bodyWithReport;
+    await sync(args);
+    assert.doesNotMatch(pull.body, /^Deterministic gates:/m,
+      'changed source requirements must invalidate results even when the command is unchanged');
+    assert.ok(pull.body.includes(after), 'the refreshed status must contain the new requirement');
+  }
+  issueBody = currentIssueBody;
+  const trustedComment = comments[0];
+  comments = [trustedComment, {
+    user: { login: 'untrusted', type: 'User' },
+    body: formatStateComment({
+      pr_number: pull.number,
+      deterministic_gates: { ...gates, results: [{ ...gates.commands[0], exit_code: 1 }] },
+    }),
+  }];
+  pull.body = bodyWithReport;
+  await sync(args);
+  assert.equal(pull.body, bodyWithReport, 'a newer untrusted comment cannot override trusted results');
+  comments = [trustedComment];
   issueBody = issueBody.replace('gate.test.js', 'different.test.js');
-  await run(args);
+  await sync(args);
   assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
   issueBody = issueBody.replace('different.test.js', 'gate.test.js');
   pull.body = bodyWithReport;
   pull.head.sha = context.payload.pull_request.head.sha = 'different-head';
-  await run(args);
+  await sync(args);
   assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
   pull.head.sha = context.payload.pull_request.head.sha = 'abc123';
   pull.body = bodyWithReport;
   comments[0].user = { login: 'untrusted', type: 'User' };
-  await run(args);
+  await sync(args);
   assert.doesNotMatch(pull.body, /^Deterministic gates:/m);
   comments[0].user = { login: 'stranske-keepalive[bot]', type: 'Bot' };
   pull.body = bodyWithReport;
   pullReads = 0;
   simulatePush = true;
-  await run(args);
+  await sync(args);
   assert.equal(pull.body, 'Body for the new head');
   assert.deepEqual(failures, []);
-});
+}
 
 test('keepalive-gate-citation extractor is included in the reusable metadata checkout', () => {
   const workflow = fs.readFileSync(path.join(
