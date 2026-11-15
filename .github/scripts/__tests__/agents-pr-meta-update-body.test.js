@@ -2435,6 +2435,14 @@ test('keepalive-gate-citation survives status refresh only for the current accep
   assert.deepEqual(failures, []);
 });
 
+test('keepalive-gate-citation extractor is included in the reusable metadata checkout', () => {
+  const workflow = fs.readFileSync(path.join(
+    __dirname, '../../workflows/reusable-20-pr-meta.yml',
+  ), 'utf8');
+  const bodyUpdateJob = workflow.split('\n  pr_body_update:\n')[1]?.split(/\n {2}\w+:/)[0];
+  assert.match(bodyUpdateJob, /^          sparse-checkout: \|\n(?: {12}[^\n]+\n)* {12}scripts\/runner_lib\/acceptance_gate\.py$/m);
+});
+
 async function assertIssueSyncPreservesIntent(sync, overrides = {}, closing = false) {
   const pull = {
     number: 55, state: 'open', title: 'Repair a local request',

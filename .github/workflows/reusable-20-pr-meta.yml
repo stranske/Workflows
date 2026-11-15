@@ -545,6 +545,7 @@ jobs:
           sparse-checkout: |
             .github/scripts
             .github/actions/setup-api-client
+            scripts/runner_lib/acceptance_gate.py
           sparse-checkout-cone-mode: false
           path: workflows-lib
           token: >-
