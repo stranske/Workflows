@@ -65,11 +65,11 @@
     },
     {
       "provider": "gemini-api",
-      "model": "gemini-3.8-flash",
+      "model": "gemini-4-hydrogen",
       "runner": "external",
       "corpus_only": true,
       "replaces_provider": "anthropic",
-      "why": "Owner decision 2026-10-30: the verifier's slot 3 becomes a capacity backup filled from Cursor, Vibe, Muse or Gemini. Google's Gemini 3.8 Flash on its own API key, public repositories only. Corpus trial only, so it adds no daily cost."
+      "why": "Owner decision 2026-10-30: the verifier's slot 3 becomes a capacity backup filled from Cursor, Vibe, Muse or Gemini. This slot held Google's Gemini 3.8 Flash on its own API key, public repositories only; owner decision 2026-11-15 moved it to Gemini 4 Hydrogen (API model code gemini-4-hydrogen), which replaced Flash across the fleet's model lists. Corpus trial only, so it adds no daily cost."
     },
     {
       "provider": "gemini-api",

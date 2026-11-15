@@ -288,6 +288,28 @@ why the default agy logs showed no work. Consequence for pilots: an Argon pilot 
 off the full tier for its window; a reset alone does not leave capacity for it.
 Orchestrator#1300 caps lane dispatches at Flash while an Argon quota marker is active.
 
+**Fifth pilot run (2026-11-15): Gemini 4 Hydrogen replaces 3.8 Flash for cheap/mid.** agy 1.5.9 added
+Gemini 4 Hydrogen (low/medium/high/xhigh) and two "Orchestrator" models (Carbon or Argon as planner
+with Hydrogen executing). `/usage` now reports one `Gemini Models` quota group covering Carbon, Argon,
+Hydrogen, both Orchestrator models and Flash; the per-model quota described above no longer exists
+(Orchestrator#1387). Same harness and fixtures as 11-11, single runs, fixture evidence:
+
+| Arm | Judge replay usable / MAE (real judges 1.33) | Testgen kills, single / batched (of 28) |
+|---|---|---|
+| gemini-3.8-flash-high | 29 / 1.736 (11-11: 1.705) | 17 / 17 (11-11) |
+| gemini-4-hydrogen-high | 32 / 1.182 | 28 / 22 |
+| gemini-4-argon-high | 32 / 1.377 | 19 / 22 (11-11) |
+| Orchestrator (Argon) | 32 / 1.389, about 2x Argon's quota | 20 / 25 |
+| gemini-4-carbon-high | 32 / 1.399 (11-11) | 25 / 25 (11-11) |
+| Orchestrator (Carbon) | 32 / 1.549 | 22 / 28 |
+
+Hydrogen costs less per usable result than Flash at list price everywhere except batched testgen
+($0.069 vs $0.063 per file), and uses 2.3x more of the 5-hour window per replay result. Owner decision
+2026-11-15: Hydrogen replaces Flash in the model table (local `gemini-4-hydrogen-low`/`-high`, hosted
+`gemini-4-hydrogen`) and in the verifier's Gemini backup slot; Argon and Carbon stay; the Orchestrator
+models are not adopted, because plan-mode fixtures cannot exercise their planner-executor design and
+nothing they measured beat the plain models at equal quota.
+
 ### Rule checks
 
 - **Subscription over API spend:** every option uses the subscription login. One risk to close first:
