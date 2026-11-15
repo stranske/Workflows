@@ -73,16 +73,21 @@ function deterministicGatePrompt(gates) {
   ].join('\n\n');
 }
 
-// A gate belongs to a criterion only by the command text its author wrote (`original_command` for a
-// pinned interpreter the gate normalized), and only as a whole token: inside backticks, or bounded
-// by whitespace / line ends. Matching the normalized command as an alternative attached a pinned
-// gate to a bare criterion with the same normalized text, so a failing pinned gate unchecked a
-// passing criterion (stranske/learning-management-system#829 review, Workflows#4686).
-function criterionNamesGate(criterion, command) {
-  const authored = command.original_command || command.command;
-  if (!authored) return false;
-  const escaped = authored.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(?:^|[\\s\`])${escaped}(?=$|[\\s\`])`, 'm').test(criterion);
+// A gate belongs to the acceptance checkbox with its own criterion number (the k-th checkbox is
+// criterion k, the numbering acceptance_gate.py extracts), and the checkbox must name the gate's
+// authored or normalized command as a whole token (inside backticks, or bounded by whitespace /
+// line ends). Text alone attached a pinned gate to a bare criterion with the same normalized
+// command, so a failing pinned gate unchecked a passing criterion
+// (stranske/learning-management-system#829 review, Workflows#4686).
+function textNamesCommand(text, command) {
+  if (!command) return false;
+  const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[\\s\`])${escaped}(?=$|[\\s\`])`, 'm').test(text);
+}
+
+function criterionNamesGate(criterion, criterionIndex, command) {
+  return command.criterion === criterionIndex
+    && (textNamesCommand(criterion, command.original_command) || textNamesCommand(criterion, command.command));
 }
 
 function renderDeterministicGates(body, gates) {
@@ -98,6 +103,7 @@ function renderDeterministicGates(body, gates) {
   // Preserve manual-only criteria and never auto-check them from test output.
   let inAcceptance = false;
   let acceptanceLevel = 0;
+  let checkboxIndex = -1;
   const lines = body.split('\n');
   for (let index = 0; index < lines.length; index++) {
     const heading = lines[index].match(/^(#{1,6})\s+(.+)/);
@@ -105,13 +111,16 @@ function renderDeterministicGates(body, gates) {
       if (/^Acceptance criteria\s*$/i.test(heading[2])) {
         inAcceptance = true;
         acceptanceLevel = heading[1].length;
+        checkboxIndex = -1;
       } else if (heading[1].length <= acceptanceLevel) inAcceptance = false;
     }
-    if (!inAcceptance || !/^\s*(?:[-*+]|\d+[.)])\s+\[[xX]\]/.test(lines[index])) continue;
+    if (!inAcceptance || !/^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]/.test(lines[index])) continue;
+    checkboxIndex++;
+    if (!/^\s*(?:[-*+]|\d+[.)])\s+\[[xX]\]/.test(lines[index])) continue;
     let end = index + 1;
     while (end < lines.length && !/^\s*(?:[-*+]|\d+[.)])\s+\[[ xX]\]|^#{1,6}\s/.test(lines[end])) end++;
     const criterion = lines.slice(index, end).join('\n');
-    const matched = gates.commands.filter(command => criterionNamesGate(criterion, command));
+    const matched = gates.commands.filter(command => criterionNamesGate(criterion, checkboxIndex, command));
     if (matched.some(command => findGateResult(gates.results, command)?.exit_code !== 0)) {
       lines[index] = lines[index].replace(/\[[xX]\]/, '[ ]');
     }
