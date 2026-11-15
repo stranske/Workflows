@@ -248,7 +248,7 @@ jobs:
       final-message: ${{ steps.run_claude.outputs.final-message }}
       final-message-summary: ${{ steps.run_claude.outputs.final-message-summary }}
       exit-code: ${{ steps.run_claude.outputs.exit-code }}
-      requested-model: ${{ steps.model_table.outputs.model }}
+      requested-model: ${{ steps.run_claude.outputs.requested-model }}
       reported-model: ${{ steps.reported_model.outputs.reported-model }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
@@ -944,6 +944,16 @@ jobs:
           # even if the run fails.
           echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
           set +e
+          # requested-model is what the CLI is asked for: caller extra args come after the
+          # pinned --model on the command line, so their last --model wins.
+          requested_model="${MODEL:-}"
+          for ((i = 0; i < ${#extra_args[@]}; i++)); do
+            case "${extra_args[i]}" in
+              --model) requested_model="${extra_args[i+1]:-}" ;;
+              --model=*) requested_model="${extra_args[i]#--model=}" ;;
+            esac
+          done
+          echo "requested-model=$requested_model" >> "$GITHUB_OUTPUT"
           # Transcripts written after this marker belong to this run (Detect reported model).
           touch "${RUNNER_TEMP:-/tmp}/claude-run-start.marker"
           claude -p "$prompt_content" \

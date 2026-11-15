@@ -207,6 +207,23 @@ def test_claude_reported_model_is_last_main_thread_turn() -> None:
     assert core.extract_reported_model("claude", CLAUDE_TRANSCRIPT) == "claude-sonnet-5-0"
 
 
+@pytest.mark.parametrize(
+    "trailing",
+    [
+        {
+            "type": "assistant",
+            "isSidechain": True,
+            "message": {"model": "claude-haiku-5-0", "content": []},
+        },
+        {"type": "assistant", "message": {"model": "<synthetic>", "content": []}},
+    ],
+    ids=["trailing-sidechain", "trailing-synthetic"],
+)
+def test_claude_trailing_non_main_turn_does_not_replace_the_model(trailing: dict) -> None:
+    transcript = CLAUDE_TRANSCRIPT + "\n" + json.dumps(trailing)
+    assert core.extract_reported_model("claude", transcript) == "claude-sonnet-5-0"
+
+
 def test_claude_stream_json_init_model_when_no_assistant_turn() -> None:
     init = json.dumps({"type": "system", "subtype": "init", "model": "claude-opus-5-5"})
     assert core.extract_reported_model("claude", init) == "claude-opus-5-5"

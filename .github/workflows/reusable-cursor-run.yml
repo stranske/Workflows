@@ -1113,7 +1113,16 @@ jobs:
           # headless `--model auto` runs even when the metered API bucket is
           # 100% spent). Callers may still override MODEL explicitly.
           MODEL="${MODEL:-auto}"
-          echo "requested-model=$MODEL" >> "$GITHUB_OUTPUT"
+          # requested-model is what the CLI is asked for: caller extra args come after the
+          # pinned --model on the command line, so their last --model wins.
+          requested_model="$MODEL"
+          for ((i = 0; i < ${#extra_args[@]}; i++)); do
+            case "${extra_args[i]}" in
+              --model) requested_model="${extra_args[i+1]:-}" ;;
+              --model=*) requested_model="${extra_args[i]#--model=}" ;;
+            esac
+          done
+          echo "requested-model=$requested_model" >> "$GITHUB_OUTPUT"
           echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
           set +e
           "$CURSOR_BIN" -p "$prompt_content" \

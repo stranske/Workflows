@@ -301,7 +301,7 @@ jobs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
       final-message-summary: ${{ steps.run_codex.outputs.final-message-summary }}
       exit-code: ${{ steps.run_codex.outputs.exit-code }}
-      requested-model: ${{ steps.codex_model.outputs.model || inputs.codex_model }}
+      requested-model: ${{ steps.run_codex.outputs.requested-model }}
       reported-model: ${{ steps.reported_model.outputs.reported-model }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}
@@ -1224,6 +1224,17 @@ jobs:
             echo "::error::No Codex model candidates resolved."
           fi
 
+          # requested-model is what the CLI is asked for: caller extra args come after the
+          # pinned --model on the command line, so their last --model wins.
+          requested_model="${codex_models[0]:-}"
+          for ((i = 0; i < ${#EXTRA_ARGS[@]}; i++)); do
+            case "${EXTRA_ARGS[i]}" in
+              --model) requested_model="${EXTRA_ARGS[i+1]:-}" ;;
+              -m) requested_model="${EXTRA_ARGS[i+1]:-}" ;;
+              --model=*) requested_model="${EXTRA_ARGS[i]#--model=}" ;;
+            esac
+          done
+          echo "requested-model=$requested_model" >> "$GITHUB_OUTPUT"
           attempt=0
           for codex_model in "${codex_models[@]}"; do
             attempt=$((attempt + 1))
