@@ -34,17 +34,17 @@ def _active_workflow_guide_text() -> str:
     )
 
 
-def _integration_guide_ci_table_text() -> str:
+def _integration_guide_workflow_tables_text() -> str:
     content = INTEGRATION_GUIDE.read_text(encoding="utf-8")
     start = content.index("## Reusable Workflows\n")
-    end = content.index("## Workflow Outputs", start)
-    return content[start:end]
+    end = content.index("## Template Workflows\n", start)
+    return "\n".join(line for line in content[start:end].splitlines() if line.startswith("|"))
 
 
 def test_active_catalog_workflows_exist() -> None:
     names = {
         match.group("name")
-        for catalog in (_active_workflow_guide_text(), _integration_guide_ci_table_text())
+        for catalog in (_active_workflow_guide_text(), _integration_guide_workflow_tables_text())
         for match in ACTIVE_YML_PATTERN.finditer(catalog)
     }
     assert names, "expected at least one catalog workflow name"
@@ -52,9 +52,8 @@ def test_active_catalog_workflows_exist() -> None:
     assert not missing, f"missing workflow files: {', '.join(missing)}"
 
 
-def test_retired_selftest_reusable_absent_from_integration_ci_table() -> None:
-    table = _integration_guide_ci_table_text()
-    assert "reusable-99-selftest.yml" not in table
+def test_retired_selftest_reusable_absent_from_integration_workflow_tables() -> None:
+    assert "reusable-99-selftest.yml" not in _integration_guide_workflow_tables_text()
 
 
 def test_retired_autofix_rebase_absent_from_active_workflow_guide() -> None:

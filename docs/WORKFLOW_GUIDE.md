@@ -159,7 +159,8 @@ _Inline Gate helper_
 - **`autofix.yml`** — CI Autofix Loop triggered on `pull_request` and `pull_request_target`. It now treats lint/format, Ruff, type-check (`mypy`), and pytest/test failures as “relevant,” automatically re-running when those jobs fail so most routine regressions are handled before humans see Gate noise, and the unnecessary `push` trigger was removed so we no longer spawn no-op runs on every commit. Commits still land directly on the PR branch via the shared token load balancer.
 - **`agents-autofix-dispatcher.yml`** — Dispatches the repair loop in Workflows and acknowledges the Gate notification in consumer repositories.
 - **`agents-autofix-loop.yml`** — Dispatches eligible Gate failures to a repair agent and flags unresolved failures for human follow-up.
-- **`agents-bot-comment-handler.yml`** — Routes trusted bot review comments to a repair agent after the `autofix:bot-comments` label, successful Gate on an eligible agent PR, or manual dispatch.
+- **Stale branches** — Gate has no dedicated branch-rebase workflow. Keepalive can dispatch `agents-keepalive-branch-sync.yml` to merge the base branch into an eligible PR.
+- **`agents-bot-comment-handler.yml`** — Routes trusted bot review comments to a repair agent after the `autofix:bot-comments` label, successful Gate on an eligible agent PR, or manual dispatch. A new review comment alone does not apply the label or start a repair.
 
 Autofix budgets count only same-head Gate runs concluded `failure` or `timed_out`
 with at least one job carrying either conclusion. Cancelled, skipped, successful,
@@ -169,7 +170,7 @@ jobs; a current Gate without a failed job cannot escalate even after earlier
 failures. Consumer Gate Followups uses the same rule.
 
 #### Autofix & Lint Coordination
-1. **Gate emits signals** — Workflows `pr-00-gate.yml` uploads `gate-summary.md` and attempts an `autofix_gate_failure` dispatch on a failed Gate result with pull request context. Consumer Gate Followups receives Gate completion directly.
+1. **Gate emits signals** — `pr-00-gate.yml` uploads `gate-summary.md` and attempts an `autofix_gate_failure` dispatch on a failed Gate result with pull request context. In consumers, `agents-81-gate-followups.yml` uses Gate completion to evaluate repairs.
 2. **CI autofix first pass (`autofix.yml`)** — Runs Ruff/formatters/tests where possible and pushes fixes directly to the branch so same-run Gate retries can pass without escalation.
 3. **Repair routing** — In Workflows, `agents-autofix-loop.yml` receives the dispatcher metadata and also listens for Gate completion. It evaluates repair eligibility, dispatches the configured agent, and uses `needs-human` and a PR comment for human follow-up. In consumers, `agents-81-gate-followups.yml` evaluates failures and dispatches repairs for eligible PRs.
 4. **Stale-branch handling** — No dedicated rebase workflow runs from Gate. `reusable-18-autofix.yml` rebases formatter commits onto the remote PR branch when retrying a push. `agents-keepalive-branch-sync.yml` merges the base branch into keepalive-owned PRs on dispatch. Consumer `agents-81-gate-followups.yml` checks `mergeable_state` when evaluating auto-merge eligibility.
