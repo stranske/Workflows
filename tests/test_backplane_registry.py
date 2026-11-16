@@ -272,9 +272,20 @@ def test_deferred_issue_expiration_boundary(expires_at: str, expired: bool) -> N
 
 @pytest.mark.parametrize(
     "expires_at",
-    [None, "invalid", "2026-09-13T00:00:00", "0001-01-01T00:00:00+01:00"],
+    [
+        None,
+        "",
+        False,
+        123,
+        [],
+        {},
+        "invalid",
+        "2026-09-13T00:00:00",
+        "0001-01-01T00:00:00+01:00",
+        "9999-12-31T23:59:59-01:00",
+    ],
 )
-def test_invalid_deferral_expiry_remains_blocking(expires_at: str | None) -> None:
+def test_invalid_deferral_expiry_remains_blocking(expires_at: object) -> None:
     registry = _registry()
     registry["participants"][1]["issue_deferred"]["expires_at"] = expires_at
 
@@ -320,6 +331,61 @@ def test_expired_deferral_is_stale_warning_not_blocking(
     assert "- participants[1].issue_deferred.expires_at: deferred issue expired" in output.out
 
     assert vbr.main(["--enforce-freshness", str(registry_path)]) == 1
+    output = capsys.readouterr()
+    assert "blocking_count=0, stale_count=1" in output.out
+    assert "- participants[1].issue_deferred.expires_at: deferred issue expired" in output.out
+
+    assert vbr.main(["--enforce-freshness", "--json", str(registry_path)]) == 1
+    enforced_report = json.loads(capsys.readouterr().out)
+    assert enforced_report == report
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+@pytest.mark.parametrize("enforce_freshness", [False, True])
+def test_cli_invalid_expiry_blocks_alongside_expired_deferral(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    json_output: bool,
+    enforce_freshness: bool,
+) -> None:
+    registry = _registry()
+    _pension_conformant_entry(registry)["reference_run_evidence"][
+        "generated_at"
+    ] = VALIDATION_TIME.isoformat()
+    registry["participants"][1]["issue_deferred"]["expires_at"] = "2026-09-13T00:00:00Z"
+    registry["participants"][2]["issue_deferred"]["expires_at"] = "invalid"
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    flags = ["--json"] if json_output else []
+    if enforce_freshness:
+        flags.append("--enforce-freshness")
+
+    assert vbr.main([*flags, str(registry_path)]) == 1
+    output = capsys.readouterr()
+    assert (
+        "::warning::participants[1].issue_deferred.expires_at: deferred issue expired" in output.err
+    )
+    invalid_message = (
+        "participants[2].issue_deferred.expires_at: "
+        "deferred issue needs timezone-aware ISO timestamp"
+    )
+    if json_output:
+        report = json.loads(output.out)
+        assert report["blocking_count"] == 1
+        assert report["stale_count"] == 1
+        assert report["finding_count"] == 2
+        assert report["blocking_ok"] is False
+        assert report["ok"] is False
+        assert {
+            "path": "participants[2].issue_deferred.expires_at",
+            "message": "deferred issue needs timezone-aware ISO timestamp",
+            "severity": vbr.ERROR_SEVERITY,
+        } in report["findings"]
+    else:
+        assert "blocking_count=1, stale_count=1" in output.out
+        assert "- participants[1].issue_deferred.expires_at: deferred issue expired" in output.out
+        assert invalid_message in output.err
+        assert "structurally valid" not in output.out
 
 
 @pytest.mark.parametrize(
