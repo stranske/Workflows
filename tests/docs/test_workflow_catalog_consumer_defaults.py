@@ -9,17 +9,11 @@ WORKFLOW_DIRS = (
     REPO_ROOT / "templates" / "consumer-repo" / ".github" / "workflows",
 )
 
-WORKFLOW_PREFIXES = (
-    "agents-",
-    "reusable-",
-    "health-",
-    "maint-",
-    "pr-",
-    "selftest-",
-    "autofix-",
+ACTIVE_YML_PATTERN = re.compile(
+    r"(?P<delimiter>`|\*\*)"
+    r"(?P<name>(?:(?:agents|reusable|health|maint|pr|selftest|autofix)-[\w.-]+|autofix)\.yml)"
+    r"(?P=delimiter)"
 )
-SKIP_YML_NAMES = frozenset({"labels-core.yml", "registry.yml"})
-ACTIVE_YML_PATTERN = re.compile(r"`([^`]+?\.yml)`")
 
 
 def _read(path: str) -> str:
@@ -30,45 +24,29 @@ def _workflow_exists(name: str) -> bool:
     return any((directory / name).is_file() for directory in WORKFLOW_DIRS)
 
 
-def _is_checked_workflow_name(name: str) -> bool:
-    if "*" in name or "/" in name:
-        return False
-    if name in SKIP_YML_NAMES:
-        return False
-    if name == "autofix.yml":
-        return True
-    return name.startswith(WORKFLOW_PREFIXES)
-
-
 def _active_workflow_guide_text() -> str:
     content = WORKFLOW_GUIDE.read_text(encoding="utf-8")
-    marker = "## Archived & Legacy Workflows"
-    assert marker in content, f"Missing {marker!r} in WORKFLOW_GUIDE.md"
-    return content.split(marker, 1)[0]
+    return re.sub(
+        r"^## Archived & Legacy Workflows\n.*?(?=^#{1,2} |\Z)",
+        "",
+        content,
+        flags=re.MULTILINE | re.DOTALL,
+    )
 
 
 def _integration_guide_ci_table_text() -> str:
     content = INTEGRATION_GUIDE.read_text(encoding="utf-8")
-    start = content.index("### CI Workflows")
+    start = content.index("## Reusable Workflows\n")
     end = content.index("## Workflow Outputs", start)
     return content[start:end]
 
 
-def _collect_catalog_workflow_names() -> set[str]:
-    names: set[str] = set()
-    for match in ACTIVE_YML_PATTERN.finditer(_active_workflow_guide_text()):
-        candidate = match.group(1)
-        if _is_checked_workflow_name(candidate):
-            names.add(candidate)
-    for match in ACTIVE_YML_PATTERN.finditer(_integration_guide_ci_table_text()):
-        candidate = match.group(1)
-        if _is_checked_workflow_name(candidate):
-            names.add(candidate)
-    return names
-
-
 def test_active_catalog_workflows_exist() -> None:
-    names = _collect_catalog_workflow_names()
+    names = {
+        match.group("name")
+        for catalog in (_active_workflow_guide_text(), _integration_guide_ci_table_text())
+        for match in ACTIVE_YML_PATTERN.finditer(catalog)
+    }
     assert names, "expected at least one catalog workflow name"
     missing = sorted(name for name in names if not _workflow_exists(name))
     assert not missing, f"missing workflow files: {', '.join(missing)}"
