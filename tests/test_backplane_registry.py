@@ -297,14 +297,22 @@ def test_invalid_deferral_expiry_remains_blocking(expires_at: object) -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "expires_at",
+    [
+        "2026-09-13T00:00:00Z",
+        "2026-09-14T01:00:00+01:00",
+        "2026-09-13T23:00:00-01:00",
+    ],
+)
 def test_expired_deferral_is_stale_warning_not_blocking(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], expires_at: str
 ) -> None:
     registry = _registry()
     _pension_conformant_entry(registry)["reference_run_evidence"][
         "generated_at"
     ] = VALIDATION_TIME.isoformat()
-    registry["participants"][1]["issue_deferred"]["expires_at"] = "2026-09-13T00:00:00Z"
+    registry["participants"][1]["issue_deferred"]["expires_at"] = expires_at
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
 
@@ -315,7 +323,9 @@ def test_expired_deferral_is_stale_warning_not_blocking(
     report = json.loads(output.out)
     assert report["blocking_count"] == 0
     assert report["stale_count"] == 1
+    assert report["finding_count"] == 1
     assert report["blocking_ok"] is True
+    assert report["ok"] is False
     assert {
         "path": "participants[1].issue_deferred.expires_at",
         "message": "deferred issue expired",
