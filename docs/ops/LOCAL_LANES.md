@@ -26,45 +26,57 @@ evaluator → approved-queue lifecycle the opener consumes) and
 
 ## Lanes overview
 
-Two single-purpose lanes operate across the supported fleet:
+Updated 2026-11-16. The full owner-facing design is `Audits/closer-lane-2026-11/design/lane-design.html`
+(+ `.pdf`) in the owner's workspace; `stranske/Orchestrator` `ARCHITECTURE.md` summarises the boundary.
+Three deterministic Python lanes run across the supported fleet, started by one controller pass:
 
-- **Opener** — *discover-and-create*. Reads the human-approved queue and live
-  fleet issues, then materializes the highest-priority unlinked implementation
-  issue as a new issue (when needed) plus a ready-for-review PR. Cap: **at most
-  5 active opener-owned PRs** across the whole fleet at any time. Round
-  outcomes: `new_issue` | `advance` | `no_op`.
-- **Closer** — *cleanup-merge-verify*. Drives existing PRs through
-  merge → verify → close → optional bounded follow-up. Round outcomes:
-  `merge` | `close` | `followup_only` | `no_op`.
+- **Controller pass** — `~/.codex/automations/reviewed-repo-automation-controller/controller.py`. Fired by
+  three seats that share one stamp (`~/.codex/orchestrator/controller-last-pass.json`): the Codex automation,
+  the Claude scheduled task `lane-controller-seat`, and launchd `com.stranske.controller-seat` as a backstop.
+  Each pass starts detached rounds of the lanes, then the one owner notification.
+- **Opener** (`opener-core`) — judges and starts EXISTING actionable issues (it does not create issues).
+  Cap: at most 8 opener-owned PRs not yet in the closer's hands. A cheap judge decides start / park / done
+  (rewriting a body that fails AGENT_ISSUE_FORMAT); the router chooses the agent and the mode, local first
+  while fewer than 3 local agents are busy, otherwise hosted keepalive via the `agent:*` label. In invite-mode
+  repos it opens the bootstrap PR itself. It watches each start (one retry with another agent, then park) and
+  offers a few issues a day to the experiment producer.
+- **Local loop** (`local_loop.py`) — drives a local start's PR (`agents:local-loop`) round by round on CI
+  results, rotates the agent after two unproductive rounds, and hands the PR to hosted keepalive if it stalls.
+- **Closer** (`closer-core`) — drives agent PRs through merge → verify → close, rotates stalled agents with
+  `agent:auto`, files bounded follow-up issues, parks a non-converging chain as a `[backlog]` issue, and keeps
+  the owner's needs-human catalog (each parked item gets a cause and a condition; untouched items close after
+  30 days). Merges go through the exact-head merge rail, which runs a task's own acceptance commands on the
+  exact head when the PR claims a deliberate break (Gate applies the `acceptance-criteria` label).
+- **Sync** (`sync-core`) — classifies generated sync PRs, files one handoff issue per finding, nudges Maint 71
+  when a ready PR waited past its grace and may dispatch a Maint 68 refresh. It never merges: Maint 71 is the
+  only merger of sync PRs and Maint 82 is its timed continuation queue.
 
-Each lane runs as both a Codex CLI automation and a Claude Code scheduled task;
-the two CLIs alternate via a shared baton sentinel (see below). The opener
-applies the matching concrete `agent:*` label (`agent:codex` / `agent:claude`)
-to the PR it opens — never to the source issue — so that the agent with live
-capacity claims the work and natural alternation is preserved.
+Holds: the opener skips `agents:paused`, `needs-human`, `intake:held` and `do-not-merge` (and ops-alert
+issues); the closer skips `agents:paused`, `agent:paused`, `needs-human`, `do-not-merge`, `hold`,
+`agents:auto-pilot-pause`, `goal-drift` and `tracker:durable`. Agent families and their model per tier come from
+`.github/agents/model-table.json` (shared by local and hosted runs); hosted runner receipts record the
+requested and reported model.
+
+**Retired (kept below for history):** the Codex prompt lanes `pd-workloop-resume` / `imi-merge-verify-closer`,
+the Claude tasks `handoff-claude-opener` / `handoff-claude-closer`, and the baton relay
+(`lane-handoff.json`, `handoff-relay.sh`, `handoff-prerun.sh`).
 
 ## State locations
 
-All durable lane state lives under `~/.codex`, outside any repo checkout:
+Current lane state lives under `~/.codex`, outside any repo checkout:
 
 | State | Location | Purpose |
 | --- | --- | --- |
-| Baton sentinel | `~/.codex/handoff/lane-handoff.json` | Single cross-lane JSON: `baton` (round/chain), `active.*` (most-recent productive action — cross-lane, single-slot), `queue` pressures, `batch.last_sweep`, and `stop.scoped_blockers`. |
-| Handoff helper | `~/.codex/bin/handoff.sh` | Subcommands the lanes call: `write-event`, `set-key-pr`/`clear-key-pr`, `scope-blocker`/`clear-scoped-blocker`/`list-scoped-blockers`, `request-pause`/`approve-pause`/`reject-pause`. |
-| Pre/post-run relay | `~/.codex/bin/handoff-prerun.sh`, `~/.codex/bin/handoff-relay.sh`, `~/.codex/bin/handoff-postrun.sh` | Lane mutex, structured resume block, and cross-agent dispatch on terminal events. |
-| Lane prompts (source) | `~/.codex/automations/<id>/automation.toml` | Codex TOML is the source of truth; `~/.codex/bin/render-claude-prompts.sh` re-renders the Claude `.md` variants under `~/.codex/handoff/prompts/`. |
-| Claude scheduled tasks | `~/.claude/scheduled-tasks/handoff-claude-opener/`, `…/handoff-claude-closer/` | The Claude-side scheduled entry points. |
-| Per-automation memory | `~/.codex/automations/<id>/memory.md` | Append-only round history (newest section prepended). See rotation policy below. |
-| Worktrees | `~/.codex/automations/pd-workloop-resume/worktrees/` and `~/.codex/worktrees/` | Persistent lane worktrees. Disposable clones go under `/tmp`. |
-| Per-repo run state | `~/.codex/handoff/workloop/<repo>.md` | Canonical per-repo lane state (repo, issue, branch, PR, blocker, next action), relocated out of repos 2026-06-13. The legacy in-repo `<repo>/workloop-state.md` is deprecated, gitignored, and no longer written — see strategy below. |
+| Controller stamp | `~/.codex/orchestrator/controller-last-pass.json` | Last pass time; seats fire only when it is stale. |
+| Lane rounds | `~/.codex/orchestrator/<core>/rounds.jsonl` (`opener-core`, `closer-core`, `sync-core`) | One line per round; read by the value-chain monitor. |
+| Lane ledgers | `~/.codex/orchestrator/opener-core/targets/`, `~/.codex/orchestrator/closer-core/` | Per-target state (starts, links, parks; closer outcomes). |
+| Lane config | `~/.codex/opener-core/config.json`, `~/.codex/closer-core/`, `~/.codex/sync-core/config.json` | Caps and switches. |
+| Owner catalog | `~/.codex/orchestrator/closer-core/needs-human.md` | The single list of items that need the owner. |
+| Capacity sheds | `~/.codex/handoff/capacity-shed/<agent>` | An agent stood down after a provider limit, until its reset. |
 
-The two lanes (opener `pd-workloop-resume`, closer `imi-merge-verify-closer`)
-share the sentinel and hand off via the relay helper. The sentinel's `active.*`
-block is **cross-lane and single-slot**: it records the most recent productive
-action by either lane, not the full set of in-flight work. Because the opener
-cap is 5, the opener routinely has several PRs in flight that `active.*` cannot
-represent, so **opener discovery never gates on `active.*`** — it is
-informational only.
+Retired state (no longer written): the baton sentinel `~/.codex/handoff/lane-handoff.json` (the controller
+still reads its legacy `stop.scoped_blockers` only), the relay helpers, and the per-automation `memory.md` files
+of the retired prompt lanes.
 
 ## Worktree retention tiers
 
