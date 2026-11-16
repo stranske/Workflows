@@ -84,7 +84,7 @@ jobs:
           )
 
           # Generate statistics
-          echo "${runs}" | jq -s '
+          echo "${runs}" | jq '
             group_by(.name) |
             map({
               name: .[0].name,
@@ -102,10 +102,10 @@ jobs:
           ' > /tmp/workflow_stats.json
 
           # Calculate summary
-          total_runs=$(echo "${runs}" | jq -s 'length')
-          total_success=$(echo "${runs}" | jq -s \
+          total_runs=$(echo "${runs}" | jq 'length')
+          total_success=$(echo "${runs}" | jq \
             '[.[] | select(.conclusion == "success")] | length')
-          total_failure=$(echo "${runs}" | jq -s \
+          total_failure=$(echo "${runs}" | jq \
             '[.[] | select(.conclusion == "failure")] | length')
 
           {
