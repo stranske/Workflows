@@ -51,9 +51,15 @@ def validate_evidence(*, delivered_sha, runner_log, analysis_log, analysis, summ
     """Raise on incomplete, contradictory or mismatched supplied evidence."""
     if not re.fullmatch(r"[0-9a-f]{40}", delivered_sha):
         raise ValueError("A full delivered commit SHA is required")
-    uses = re.compile(rf"Uses: {re.escape(WORKFLOW)}@\S+ \(([0-9a-f]{{40}})\)")
+    uses = (
+        re.compile(rf"Uses: {re.escape(WORKFLOW)}@\S+ \(([0-9a-f]{{40}})\)"),
+        re.compile(rf"Uses: {re.escape(WORKFLOW)}@([0-9a-f]{{40}})"),
+    )
     revisions = [
-        match.group(1) for line in _runtime_lines(runner_log) if (match := uses.fullmatch(line))
+        match.group(1)
+        for line in _runtime_lines(runner_log)
+        for pattern in uses
+        if (match := pattern.fullmatch(line))
     ]
     if revisions != [delivered_sha]:
         raise ValueError("Runner workflow revision does not uniquely match delivered SHA")

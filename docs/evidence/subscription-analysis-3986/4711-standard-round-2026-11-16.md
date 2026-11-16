@@ -575,3 +575,61 @@ BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
 The unchanged-file count does not establish a successful exit. The initial
 multi-file formatter hit a sandbox PermissionError; formatting and checking
 each changed Python file separately succeeded. No commit or push was attempted.
+
+## SHA-only runner revision support — 2026-11-16 UTC
+
+Starting commit: `efc65e0970bb5d744a9f02745e482b4808678a22`.
+Reviewed the recent commits and current PR body before editing. PR #4711 is
+open, unmerged and ready for review. There is no delivered merge SHA, so the
+first unchecked task remains blocked on delivery and an approved workflow
+mutation run. The checked hosted-inspection and reconciliation tasks should
+be reopened: the older hosted round predates the receipt and suppressed
+completed-task output. No outstanding acceptance checkbox is completed here.
+
+The evidence validator rejected a SHA-only `Uses: <workflow>@<sha>` line and
+ignored duplicate or conflicting revisions when the two reference formats
+were mixed. Twelve added cases cover that format, mixed-format ambiguity,
+malformed references and grouped script text. Three failed before the fix.
+Both accepted formats now require a complete SHA and use the existing runtime
+line filter; malformed parenthesis pairs remain invalid. These fixture cases
+do not establish hosted provenance, delivery, authentication or CLI confinement.
+
+```sh
+pytest tests/tools/test_validate_subscription_analysis_evidence.py \
+  -m 'not slow' -k 'sha_only or across_runner_formats or malformed_workflow_reference' \
+  -q --tb=short
+# Before the source fix: 3 failed, 9 passed, 91 deselected; exit 1.
+pytest tests/workflows/test_no_api_keys_in_keepalive.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py -m 'not slow' -q
+# Exact starting commit: 242 passed in 10.98s, exit 0.
+# Final implementation: 254 passed in 10.93s, exit 0.
+black --line-length 100 tools/validate_subscription_analysis_evidence.py
+black --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+black --check --line-length 100 tools/validate_subscription_analysis_evidence.py
+black --check --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+ruff check tools/validate_subscription_analysis_evidence.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py
+git diff --check
+# All file-level checks passed.
+```
+
+All 134 protected workflows remain byte-identical to HEAD. The Codex workflow
+SHA-256 remains `b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+No actual-workflow mutation was performed in this agent-standard run.
+
+Automatic approval review rejected the PR-body checkbox correction,
+`needs-human` label and blocker comment because those actions require approval
+while the run policy is `never`. Git metadata is mounted read-only, preventing
+the requested commit. The source fix, tests and this evidence remain local.
+
+The mandatory repository-wide Black check timed out:
+
+```sh
+BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1021 files would be left unchanged.
+```
+
+The unchanged-file count does not establish a passing formatting gate. No
+commit or push was attempted. Final PR readback reports open, `draft=false`,
+unmerged, with head `efc65e0970bb5d744a9f02745e482b4808678a22`.

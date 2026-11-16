@@ -49,6 +49,48 @@ def test_consistent_evidence(inputs):
     evidence.validate_evidence(**inputs)
 
 
+def test_accepts_sha_only_workflow_revision(inputs):
+    inputs["runner_log"] = f"{STAMP}Uses: {evidence.WORKFLOW}@{SHA}\n"
+    evidence.validate_evidence(**inputs)
+
+
+@pytest.mark.parametrize("revision", [SHA, "b" * 40])
+def test_rejects_duplicate_or_conflicting_revisions_across_runner_formats(inputs, revision):
+    inputs["runner_log"] += f"{STAMP}Uses: {evidence.WORKFLOW}@{revision}\n"
+    with pytest.raises(ValueError, match="revision"):
+        evidence.validate_evidence(**inputs)
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "refs/heads/main",
+        SHA[:7],
+        "b" * 40,
+        SHA + ")",
+        f"refs/heads/main ({SHA}",
+        f"refs/heads/main {SHA})",
+        f"refs/heads/main ({SHA}) extra",
+    ],
+)
+def test_rejects_unresolved_or_malformed_workflow_reference(inputs, reference):
+    inputs["runner_log"] = f"{STAMP}Uses: {evidence.WORKFLOW}@{reference}\n"
+    with pytest.raises(ValueError, match="revision"):
+        evidence.validate_evidence(**inputs)
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_grouped_sha_only_reference_is_not_workflow_revision_evidence(inputs, nested):
+    inputs["runner_log"] = (
+        f"{STAMP}##[group]Run script\n"
+        + (f"{STAMP}##[group]nested script text\n{STAMP}##[endgroup]\n" if nested else "")
+        + f"{STAMP}Uses: {evidence.WORKFLOW}@{SHA}\n"
+        + f"{STAMP}##[endgroup]\n"
+    )
+    with pytest.raises(ValueError, match="revision"):
+        evidence.validate_evidence(**inputs)
+
+
 @pytest.mark.parametrize(
     "output", ["analysis-run", "provider", "model", "confidence", "completed-tasks"]
 )
