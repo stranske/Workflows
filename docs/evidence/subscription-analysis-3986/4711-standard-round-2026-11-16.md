@@ -87,3 +87,34 @@ the new receipt. The connector rejected that update, the blocker comment and
 the `needs-human` label: approval is required but the run policy is `never`.
 Staging the test change failed with `.git/index.lock: Read-only file system`.
 No commit was made, and the repository-wide Black gate has not passed.
+
+## Local keepalive round 4
+
+On November 15, 2026 Central time (November 16 UTC), the previous round's
+changes were already committed on PR #4711 at
+`770db1663fbeb91ebe48c2991cd30b71899bb008`. On that exact head, run the focused
+regression with:
+
+```sh
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 /opt/anaconda3/bin/python3 -m pytest tests/workflows/test_no_api_keys_in_keepalive.py
+```
+
+The baseline passed all 65 cases (exit 0). Inserting
+`OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}` in the real
+`.github/workflows/reusable-codex-run.yml` step `llm_analysis.env` caused
+`tests/workflows/test_no_api_keys_in_keepalive.py::test_runner_analysis_has_no_api_key_or_second_invocation[codex]`
+to fail (exit 1, 64 other cases passed). After exact-byte restoration against
+the commit blob, all 65 cases passed again (exit 0). The original and restored
+SHA-256 was `b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+
+Both slow compatibility jobs on `770db166` failed version freshness because
+main still pinned Ruff 0.17.4 and Coverage 7.17.2. Python Tests propagated the
+compatibility failure. The sole writer's [version update PR #4705](https://github.com/stranske/Workflows/pull/4705)
+was open and carried Ruff 0.17.5 and Coverage 7.17.3. Once that update reaches
+main, sync the branch and check compatibility on the refreshed head.
+[Selftest CI](https://github.com/stranske/Workflows/actions/runs/43809825675)
+
+PR #4711 was open and ready for review at this check. Repeat the actual-workflow
+regression on the delivered merge commit and obtain a hosted keepalive receipt
+on that commit for the registry model, JSON-derived outputs, subscription
+authentication, and both API-key presence booleans.
