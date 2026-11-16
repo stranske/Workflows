@@ -48,6 +48,15 @@ def _extract_stats_jq_invocation(workflow_text: str) -> tuple[bool, str]:
     return slurp, program
 
 
+def _extract_summary_jq_programs(workflow_text: str) -> list[tuple[bool, str]]:
+    pattern = re.compile(
+        r'echo "\$\{runs\}" \| jq(?P<slurp> -s)?(?: \\\n)?\s*\'(?P<program>[^\']+)\''
+    )
+    matches = list(pattern.finditer(workflow_text))
+    assert len(matches) >= 3, "expected three summary jq invocations on ${runs}"
+    return [(m.group("slurp") is not None, m.group("program")) for m in matches[-3:]]
+
+
 def _run_jq(program: str, runs_json: str, *, slurp: bool) -> subprocess.CompletedProcess[str]:
     cmd = ["jq"]
     if slurp:
@@ -65,9 +74,10 @@ def _run_jq(program: str, runs_json: str, *, slurp: bool) -> subprocess.Complete
 def test_stats_jq_program_runs_on_runs_array() -> None:
     workflow_text = WORKFLOW_PATH.read_text(encoding="utf-8")
     slurp, program = _extract_stats_jq_invocation(workflow_text)
+    assert not slurp, "stats jq must not slurp a single JSON array written at :78"
     runs_json = json.dumps(RUNS_FIXTURE)
 
-    completed = _run_jq(program, runs_json, slurp=slurp)
+    completed = _run_jq(program, runs_json, slurp=False)
     assert completed.returncode == 0, completed.stderr
 
     stats = json.loads(completed.stdout)
@@ -89,3 +99,18 @@ def test_stats_jq_program_runs_on_runs_array() -> None:
         "cancelled": 1,
         "other": 0,
     }
+
+
+def test_summary_jq_programs_on_runs_array() -> None:
+    workflow_text = WORKFLOW_PATH.read_text(encoding="utf-8")
+    summary_programs = _extract_summary_jq_programs(workflow_text)
+    runs_json = json.dumps(RUNS_FIXTURE)
+
+    totals: list[str] = []
+    for slurp, program in summary_programs:
+        assert not slurp, f"summary jq must not use -s: {program!r}"
+        completed = _run_jq(program, runs_json, slurp=False)
+        assert completed.returncode == 0, completed.stderr
+        totals.append(completed.stdout.strip())
+
+    assert totals == ["4", "2", "1"]
