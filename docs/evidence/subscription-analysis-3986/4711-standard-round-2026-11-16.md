@@ -772,3 +772,68 @@ BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
 The changed-file Black check passes, but that does not establish the global
 formatting gate. No commit or push was attempted. Final PR readback confirms
 open, `draft=false`, unmerged, at the starting head above.
+
+## Runner/analysis receipt consistency follow-up — 2026-11-16 UTC
+
+Starting commit: `c6f5d3899def7e419f2e17ffd18d6d4b5f6c2ce0`.
+GitHub still reports PR #4711 open, unmerged and ready for review at this head.
+The first unchecked task remains blocked: no delivered merge SHA exists, and
+the actual-workflow mutation requires an explicitly approved
+`agent-high-privilege` run. No pending acceptance checkbox is completed here.
+
+The existing hosted-evidence validator accepted valid-looking receipts in the
+analysis-step log even when the supplied full runner log omitted or contradicted
+them. Sixteen fixture regressions reproduced that false acceptance before the
+fix. The validator now matches all four runtime receipts, including their
+original timestamps, between the two logs. Missing, conflicting, duplicated,
+echoed and other-round receipts are rejected. A CLI regression verifies that
+the failure does not reproduce log contents. Preserve the original analysis-step
+timestamps when preparing inputs for the existing validator command; CRLF
+runner logs remain supported. This is a source-local evidence tool, with no
+consumer template or sync-manifest change.
+
+```sh
+pytest tests/workflows/test_no_api_keys_in_keepalive.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py -m 'not slow' -q
+# Exact starting commit: 296 passed in 7.69s, exit 0.
+pytest tests/tools/test_validate_subscription_analysis_evidence.py \
+  -m 'not slow' -k analysis_receipts_must_appear -q --tb=short
+# First 16 added cases before source fix: 16 failed, 122 deselected, exit 1.
+pytest tests/tools/test_validate_subscription_analysis_evidence.py \
+  tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# Final implementation: 322 passed in 7.76s, exit 0.
+ruff check tools/validate_subscription_analysis_evidence.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py
+git diff --check
+# Lint and whitespace checks pass.
+```
+
+Re-read the complete earlier hosted job `133074122262` in run `43798812323`.
+Its resolved reusable workflow SHA remains
+`3be719f4c750ea1057e40c7287d3f74bbf999508`; no runtime subscription-auth or
+API-key-absence receipts appear. It reports suppression of
+`llm-completed-tasks`. That job cannot satisfy the new hosted acceptance, and
+fixture regressions cannot substitute for an actual qualifying round.
+
+All 134 tracked workflows remain byte-identical to HEAD. The Codex workflow
+SHA-256 remains `b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+The `.git` mount is read-only, independently preventing the requested commit.
+The connector rejected the `needs-human` label, blocker comment and PR-body
+correction reopening the premature hosted/reconciliation checkboxes: approval
+is required while this run's policy is `never`.
+
+Both Python files were formatted separately with Black at line length 100, and
+both single-file `black --check --line-length 100` commands exited 0. A two-file
+formatting invocation stalled and was interrupted (exit 130); the successful
+single-file commands followed it. The mandatory repository-wide gate did not
+pass:
+
+```sh
+BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1021 files would be left unchanged.
+```
+
+No commit or push was attempted because the global gate remains unverified and
+Git metadata is read-only. The source fix, tests and this evidence update remain
+local. Final GitHub readback confirms PR #4711 open with `isDraft=false`.

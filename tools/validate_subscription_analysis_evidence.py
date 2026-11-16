@@ -3,7 +3,9 @@
 This offline check does not authenticate downloaded files or prove delivery. The
 operator must verify the delivered SHA and that all inputs belong to one hosted
 round. Pass the registry from that SHA and the JSON received by summary consumers,
-not reconstructed expected outputs. Never supply authentication files.
+not reconstructed expected outputs. Supply the full runner log and preserve the
+analysis-step log's original timestamps so their runtime receipts can be matched.
+Never supply authentication files.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ RECEIPTS = {
 }
 
 
-def _runtime_lines(log: str) -> list[str]:
+def _runtime_lines(log: str, *, preserve_timestamps: bool = False) -> list[str]:
     """Exclude Actions' echoed script and environment groups from receipts."""
     lines = []
     group_depth = 0
@@ -41,7 +43,7 @@ def _runtime_lines(log: str) -> list[str]:
                 raise ValueError("Actions log contains an unmatched Actions group end")
             group_depth -= 1
         elif group_depth == 0:
-            lines.append(line)
+            lines.append(raw if preserve_timestamps else line)
     if group_depth:
         raise ValueError("Actions log ends inside an Actions group")
     return lines
@@ -91,6 +93,21 @@ def validate_evidence(*, delivered_sha, runner_log, analysis_log, analysis, summ
         observed = [line for line in lines if line.startswith(name + "=")]
         if observed != [f"{name}={value}"]:
             raise ValueError(f"Missing or conflicting runtime receipt: {name}")
+
+    # Bind the step receipts to the supplied full runner log, including their
+    # timestamps. A receipt from another round or an echoed command cannot fill
+    # a gap in this runner's evidence. Provenance still requires operator review.
+    runner_records = _runtime_lines(runner_log, preserve_timestamps=True)
+    analysis_records = _runtime_lines(analysis_log, preserve_timestamps=True)
+    for name in expected:
+        step_receipts = [
+            raw for raw in analysis_records if TIMESTAMP.sub("", raw).startswith(name + "=")
+        ]
+        runner_receipts = [
+            raw for raw in runner_records if TIMESTAMP.sub("", raw).startswith(name + "=")
+        ]
+        if runner_receipts != step_receipts:
+            raise ValueError("Analysis runtime receipts do not match the runner log")
 
     expected_outputs = {
         "llm-analysis-run": "true",

@@ -13,7 +13,7 @@ STAMP = "2026-11-16T06:00:00.1234567Z "
 
 @pytest.fixture
 def inputs():
-    return {
+    values = {
         "delivered_sha": SHA,
         "runner_log": f"{STAMP}Uses: {evidence.WORKFLOW}@refs/heads/main ({SHA})\n",
         "analysis_log": "\n".join(
@@ -43,6 +43,8 @@ def inputs():
             "execution_profiles": {"codex-extract": {"model": "registry-selected-model"}},
         },
     }
+    values["runner_log"] += values["analysis_log"] + "\n"
+    return values
 
 
 def test_consistent_evidence(inputs):
@@ -50,7 +52,43 @@ def test_consistent_evidence(inputs):
 
 
 def test_accepts_sha_only_workflow_revision(inputs):
-    inputs["runner_log"] = f"{STAMP}Uses: {evidence.WORKFLOW}@{SHA}\n"
+    inputs["runner_log"] = (
+        f"{STAMP}Uses: {evidence.WORKFLOW}@{SHA}\n" + inputs["analysis_log"] + "\n"
+    )
+    evidence.validate_evidence(**inputs)
+
+
+@pytest.mark.parametrize("name", [*evidence.RECEIPTS, "completed-tasks-count"])
+@pytest.mark.parametrize(
+    "mutation", ["missing", "conflicting", "other-round", "script-echo", "duplicate", "extra"]
+)
+def test_analysis_receipts_must_appear_in_runner_runtime_log(inputs, name, mutation):
+    lines = inputs["runner_log"].splitlines()
+    receipt = next(line for line in lines if line.startswith(STAMP + name + "="))
+    index = lines.index(receipt)
+    if mutation == "missing":
+        del lines[index]
+    elif mutation == "conflicting":
+        lines[index] = STAMP + name + "=unexpected"
+    elif mutation == "other-round":
+        lines[index] = receipt.replace("T06:00:00", "T07:00:00")
+    elif mutation == "duplicate":
+        lines.append(receipt)
+    elif mutation == "extra":
+        lines.append(STAMP + name + "=unexpected")
+    else:
+        lines[index : index + 1] = [
+            STAMP + "##[group]Run script",
+            receipt,
+            STAMP + "##[endgroup]",
+        ]
+    inputs["runner_log"] = "\n".join(lines)
+    with pytest.raises(ValueError, match="runner log"):
+        evidence.validate_evidence(**inputs)
+
+
+def test_analysis_receipt_binding_accepts_runner_crlf_line_endings(inputs):
+    inputs["runner_log"] = inputs["runner_log"].replace("\n", "\r\n")
     evidence.validate_evidence(**inputs)
 
 
@@ -294,6 +332,7 @@ def test_zero_tasks_and_confidence_are_valid_and_model_is_registry_driven(inputs
     inputs["analysis"].update(confidence=0, completed_tasks=[])
     inputs["summary"].update({"llm-confidence": "0", "llm-completed-tasks": "[]"})
     inputs["analysis_log"] = inputs["analysis_log"].replace("tasks-count=1", "tasks-count=0")
+    inputs["runner_log"] = inputs["runner_log"].replace("tasks-count=1", "tasks-count=0")
     inputs["registry"]["subscription_analysis"]["codex"] = {"model": "registry-selected-model"}
     evidence.validate_evidence(**inputs)
 
@@ -324,6 +363,20 @@ def test_cli_checks_files_and_does_not_echo_failed_inputs(evidence_args, tmp_pat
     captured = capsys.readouterr()
     assert "failed" in captured.out
     assert "do-not-echo-input" not in captured.out + captured.err
+
+
+def test_cli_rejects_receipts_from_other_runner_without_echoing_logs(
+    evidence_args, tmp_path, capsys
+):
+    runner = tmp_path / "runner-log"
+    runner.write_text(
+        runner.read_text().replace("T06:00:00", "T07:00:00") + "\ndo-not-echo-runner-data\n",
+        encoding="utf-8",
+    )
+    assert evidence.main(evidence_args) == 1
+    captured = capsys.readouterr()
+    assert "failed" in captured.out
+    assert "do-not-echo-runner-data" not in captured.out + captured.err
 
 
 @pytest.mark.parametrize(
