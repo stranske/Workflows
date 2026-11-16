@@ -46,6 +46,7 @@ def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
                 lines = [line for line in lines if line != receipt]
         for forbidden in (*PROVIDER_KEYS, "langchain"):
             assert forbidden not in json.dumps(step.get("env", {})), str(file)
+            assert forbidden not in json.dumps(step.get("with", {})), str(file)
             assert all(forbidden not in line for line in lines), str(file)
     # Analysis no longer accepts provider API secrets on the reusable workflow.
     triggers = doc.get("on", doc.get(True, {}))
@@ -167,7 +168,7 @@ def test_progress_review_uses_subscription_without_langchain_install():
 
 
 @pytest.mark.parametrize("agent", (*RUNNERS, "progress-review"))
-@pytest.mark.parametrize("surface", ("workflow-env", "job-env", "env", "run"))
+@pytest.mark.parametrize("surface", ("workflow-env", "job-env", "env", "run", "action-script"))
 @pytest.mark.parametrize("forbidden", (*PROVIDER_KEYS, "langchain"))
 def test_workflow_gate_rejects_reintroduced_api_dependencies(
     monkeypatch, agent, surface, forbidden
@@ -195,6 +196,9 @@ def test_workflow_gate_rejects_reintroduced_api_dependencies(
         job.setdefault("env", {})[forbidden] = "fixture-only"
     elif surface == "env":
         step.setdefault("env", {})[forbidden] = "fixture-only"
+    elif surface == "action-script":
+        action = next(s for s in steps if "script" in s.get("with", {}))
+        action["with"]["script"] += f"\ncore.exportVariable('{forbidden}', 'fixture-only');\n"
     else:
         step["run"] += f"\n{forbidden}=fixture-only\n"
     monkeypatch.setattr(yaml, "safe_load", lambda _: doc)

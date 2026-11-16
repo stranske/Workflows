@@ -719,3 +719,56 @@ raised `PermissionError: Operation not permitted`. Formatting and checking the
 two files individually passed. The repository-wide unchanged-file count does
 not establish an exit-0 formatting check. No commit or push was attempted;
 the source fix, regressions and this evidence remain uncommitted.
+
+## Action-input regression follow-up — 2026-11-16 UTC
+
+Starting commit: `6ede5597e222185cec73773fdd3f659a6c9119a2`.
+GitHub reports PR #4711 open, unmerged and ready for review. There is still no
+delivered merge SHA, so the first unchecked task remains blocked. The actual
+workflow mutation also requires an approved `agent-high-privilege` run.
+
+The named API-key gate scanned step environments and shell scripts but omitted
+action inputs. Added in-memory mutations to existing `with.script` inputs,
+exporting each prohibited variable through `core.exportVariable`. Before the
+fix, 20 cases failed because the five runner gates accepted those mutations;
+four progress-review cases already rejected them. The runner gate now scans
+action inputs too, and all 24 new cases pass. These parsed-YAML mutations do
+not establish actual-workflow mutation/restoration or hosted acceptance.
+
+```sh
+pytest tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# Exact starting commit: 151 passed in 5.40s, exit 0.
+pytest tests/workflows/test_no_api_keys_in_keepalive.py \
+  -m 'not slow' -k action-script -q --tb=short
+# New cases before the gate fix: 20 failed, 4 passed, 151 deselected; exit 1.
+pytest tests/workflows/test_no_api_keys_in_keepalive.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py -m 'not slow' -q
+# After the fix: 296 passed in 6.46s, exit 0.
+black --line-length 100 tests/workflows/test_no_api_keys_in_keepalive.py
+ruff check tests/workflows/test_no_api_keys_in_keepalive.py
+git diff --check
+# File formatting, lint and whitespace checks passed.
+```
+
+All 134 tracked workflows remain unchanged against HEAD. The Codex workflow
+matches the committed bytes with SHA-256
+`b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+No pending task or acceptance checkbox is completed. After delivery, repeat the
+actual-workflow mutation/restoration proof and capture a qualifying hosted round
+at that delivered SHA. The older hosted round cannot supply the new receipt.
+
+The connector rejected both the `needs-human` label and blocker comment because
+approval is required while this run's policy is `never`. The `.git` mount is
+read-only, independently preventing the requested commit.
+
+The required repository-wide Black check also failed to exit successfully:
+
+```sh
+BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1021 files would be left unchanged.
+```
+
+The changed-file Black check passes, but that does not establish the global
+formatting gate. No commit or push was attempted. Final PR readback confirms
+open, `draft=false`, unmerged, at the starting head above.
