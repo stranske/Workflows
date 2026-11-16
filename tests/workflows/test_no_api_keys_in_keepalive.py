@@ -30,7 +30,7 @@ def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
             # Permit the exact presence-only receipt lines, never key values or wiring.
             for key in PROVIDER_KEYS[:2]:
                 receipt = (
-                    f'    print(f"{key}-present={{str(\'{key}\' in os.environ).lower()}}", '
+                    f"    print(f\"{key}-present={{str('{key}' in os.environ).lower()}}\", "
                     "file=sys.stderr)"
                 )
                 lines = [line for line in lines if line != receipt]
