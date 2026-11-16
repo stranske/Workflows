@@ -263,3 +263,44 @@ A preceding unbounded single-worker invocation was interrupted without output
 unverified. No commit was attempted because that gate has not passed and `.git`
 is mounted read-only. The tool, tests and this evidence update remain local and
 uncommitted.
+
+## Local keepalive round 6 — 2026-11-16 Central
+
+On candidate `c69aed020bb455af0d303aae32db2ad12b651226`, the local worktree
+allowed the actual workflow mutation and restoration. Verification commands:
+
+```sh
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 /opt/anaconda3/bin/python3 -m pytest \
+  tests/workflows/test_no_api_keys_in_keepalive.py
+WORKFLOWS_PINNED_CODEX_BIN=/absolute/path/to/codex \
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 /opt/anaconda3/bin/python3 -m pytest \
+  tests/workflows/test_subscription_llm_pinned_cli_canary.py
+```
+
+- The API-key test passed all 136 cases. Adding
+  `OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}` to `llm_analysis.env` in
+  `.github/workflows/reusable-codex-run.yml` produced exit 1 and the named failure
+  `test_runner_analysis_has_no_api_key_or_second_invocation[codex]`, with 135
+  other cases passing. Restored bytes matched the committed blob at SHA-256
+  `b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+  The rerun passed all 136 cases.
+- Codex CLI 0.160.0 passed all 22 real-CLI confinement cases for both transports
+  in 19.58 seconds, with zero skips or expected failures.
+- Both slow compatibility jobs on this candidate failed Ruff and Coverage
+  freshness, and Python Tests propagated those failures. The designated
+  updater's [PR #4705](https://github.com/stranske/Workflows/pull/4705) was
+  still open and contained Ruff 0.17.5 and Coverage 7.17.3. Sync the branch
+  after that update lands and recheck compatibility.
+  [Exact-head Selftest CI](https://github.com/stranske/Workflows/actions/runs/43813481439)
+- The Gate run cited in the round input was cancelled on the previous head
+  `6fcd39fdcc6d89687303a656716a41440c90bb6a` while its Python logs summary
+  was pending. The candidate had a separate Gate run.
+  [Previous Gate](https://github.com/stranske/Workflows/actions/runs/43812480191)
+  [Candidate Gate](https://github.com/stranske/Workflows/actions/runs/43813481485)
+- The earlier hosted job resolved the runner to
+  `3be719f4c750ea1057e40c7287d3f74bbf999508` and logged suppression of the
+  `llm-completed-tasks` output. The downstream default `[]` cannot establish
+  delivery of that output. PR #4711 was open and ready for review with no
+  delivered merge SHA, so the delivered-SHA mutation and hosted acceptance
+  remain pending.
+  [Earlier hosted job](https://github.com/stranske/Workflows/actions/runs/43798812323/job/133074122262)
