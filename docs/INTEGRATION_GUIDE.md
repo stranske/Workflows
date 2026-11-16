@@ -164,7 +164,6 @@ jobs:
 | Workflow | Purpose | Inputs |
 |----------|---------|--------|
 | `reusable-10-ci-python.yml` | Full Python CI pipeline | `python-version`, `coverage-min` |
-| `reusable-99-selftest.yml` | Run self-tests on workflow files | - |
 
 ## Workflow Outputs
 
