@@ -514,3 +514,64 @@ hosted round after delivery with the runtime subscription and API-key presence
 receipts and all four analysis outputs. A1 also requires the actual-workflow
 mutation and restoration sequence on that delivered SHA.
 [Earlier hosted job](https://github.com/stranske/Workflows/actions/runs/43798812323/job/133074122262)
+
+## Runner revision consistency — 2026-11-16 UTC
+
+Starting commit: `07834b2256aa706a16086341e30de02f0b03ea35`.
+Reviewed the recent commits and current PR body before editing. PR #4711 is
+open, unmerged and ready for review; there is no delivered merge SHA. The first
+unchecked task remains blocked on delivery and approval for the actual-workflow
+mutation. The checked hosted-inspection task should be reopened: the older
+hosted round predates the receipt and suppressed completed-task output. No
+remaining acceptance checkbox is completed here.
+
+The offline evidence validator accepted a resolved workflow revision copied
+inside an Actions script-echo group. Grouped script text could also make a real
+runtime revision appear ambiguous. Seven new cases reproduced these failures
+and acceptance of unbalanced runner-log groups. Revision extraction now uses
+the existing runtime-line filter; output-suppression warnings remain checked
+inside groups. The complete older native runner log has balanced groups and
+one ungrouped resolved-workflow line, so that format remains supported. This
+check of log structure does not establish the pending hosted acceptance.
+
+```sh
+pytest tests/workflows/test_no_api_keys_in_keepalive.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py -m 'not slow' -q
+# Starting commit: 235 passed in 8.09s, exit 0.
+# With the fix and seven new cases: 242 passed in 8.10s, exit 0.
+pytest tests/tools/test_validate_subscription_analysis_evidence.py \
+  -m 'not slow' -k 'workflow_revision_evidence or runtime_workflow_revision or runner_log_groups' \
+  -q --tb=short
+# Before the source fix: 7 failed, 1 passed, 83 deselected; exit 1.
+black --line-length 100 tools/validate_subscription_analysis_evidence.py
+black --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+black --check --line-length 100 tools/validate_subscription_analysis_evidence.py
+black --check --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+ruff check tools/validate_subscription_analysis_evidence.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py
+git diff --check
+# All file-level checks passed.
+```
+
+All 134 protected workflows remain byte-identical to HEAD. The Codex workflow
+SHA-256 remains `b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+No actual-workflow mutation was performed in this agent-standard run.
+
+Automatic approval review rejected the PR-body correction, needs-human label
+and blocker comment because these operations require approval and the run's
+policy is never. The repository's Git metadata is mounted read-only,
+independently preventing the requested source commit. The changes remain in
+the working tree for the authorized runner to commit after the required Black
+gate passes.
+
+The mandatory repository-wide formatting gate did not pass:
+
+```sh
+BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1021 files would be left unchanged.
+```
+
+The unchanged-file count does not establish a successful exit. The initial
+multi-file formatter hit a sandbox PermissionError; formatting and checking
+each changed Python file separately succeeded. No commit or push was attempted.

@@ -95,6 +95,44 @@ def test_script_echo_is_not_workflow_revision_evidence(inputs):
         evidence.validate_evidence(**inputs)
 
 
+@pytest.mark.parametrize("nested", [False, True])
+def test_grouped_script_text_is_not_workflow_revision_evidence(inputs, nested):
+    revision = inputs["runner_log"]
+    opening = STAMP + "##[group]Run script\n"
+    closing = STAMP + "##[endgroup]\n"
+    if nested:
+        opening += STAMP + "##[group]nested script text\n" + closing
+    inputs["runner_log"] = opening + revision + closing
+    with pytest.raises(ValueError, match="revision"):
+        evidence.validate_evidence(**inputs)
+
+
+@pytest.mark.parametrize("echoed_sha", [SHA, "b" * 40])
+def test_runtime_workflow_revision_is_not_obscured_by_script_text(inputs, echoed_sha):
+    inputs["runner_log"] += (
+        STAMP
+        + "##[group]Run script\n"
+        + f"{STAMP}Uses: {evidence.WORKFLOW}@refs/heads/main ({echoed_sha})\n"
+        + STAMP
+        + "##[endgroup]\n"
+    )
+    evidence.validate_evidence(**inputs)
+
+
+@pytest.mark.parametrize(
+    "markers",
+    [
+        ["##[group]truncated"],
+        ["##[group]outer", "##[group]inner", "##[endgroup]"],
+        ["##[endgroup]"],
+    ],
+)
+def test_rejects_unbalanced_runner_log_groups(inputs, markers):
+    inputs["runner_log"] += "\n".join(STAMP + marker for marker in markers)
+    with pytest.raises(ValueError, match="group"):
+        evidence.validate_evidence(**inputs)
+
+
 def test_rejects_ambiguous_workflow_revisions(inputs):
     inputs["runner_log"] *= 2
     with pytest.raises(ValueError):

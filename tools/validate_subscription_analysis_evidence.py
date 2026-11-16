@@ -38,12 +38,12 @@ def _runtime_lines(log: str) -> list[str]:
             group_depth += 1
         elif line == "##[endgroup]":
             if group_depth == 0:
-                raise ValueError("Analysis log contains an unmatched Actions group end")
+                raise ValueError("Actions log contains an unmatched Actions group end")
             group_depth -= 1
         elif group_depth == 0:
             lines.append(line)
     if group_depth:
-        raise ValueError("Analysis log ends inside an Actions group")
+        raise ValueError("Actions log ends inside an Actions group")
     return lines
 
 
@@ -53,9 +53,7 @@ def validate_evidence(*, delivered_sha, runner_log, analysis_log, analysis, summ
         raise ValueError("A full delivered commit SHA is required")
     uses = re.compile(rf"Uses: {re.escape(WORKFLOW)}@\S+ \(([0-9a-f]{{40}})\)")
     revisions = [
-        match.group(1)
-        for raw in runner_log.splitlines()
-        if (match := uses.fullmatch(TIMESTAMP.sub("", raw)))
+        match.group(1) for line in _runtime_lines(runner_log) if (match := uses.fullmatch(line))
     ]
     if revisions != [delivered_sha]:
         raise ValueError("Runner workflow revision does not uniquely match delivered SHA")
