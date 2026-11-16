@@ -169,10 +169,10 @@ jobs; a current Gate without a failed job cannot escalate even after earlier
 failures. Consumer Gate Followups uses the same rule.
 
 #### Autofix & Lint Coordination
-1. **Gate emits signals** — `pr-00-gate.yml` attaches artifacts describing the failing job plus `mergeable_state`. When lint/format/typecheck/test jobs fail it dispatches `autofix_gate_failure`. It does not dispatch a separate `autofix_rebase_needed` event today.
+1. **Gate emits signals** — `pr-00-gate.yml` uploads `gate-summary.md` and attempts an `autofix_gate_failure` dispatch on a failed Gate result with pull request context. The autofix loop evaluates whether the failure is eligible for repair.
 2. **CI autofix first pass (`autofix.yml`)** — Runs Ruff/formatters/tests where possible and pushes fixes directly to the branch so same-run Gate retries can pass without escalation.
 3. **Dispatcher + loop** — `agents-autofix-dispatcher.yml` forwards the failing run metadata to `agents-autofix-loop.yml`. The loop also listens for Gate completion, evaluates repair eligibility, dispatches the configured agent, and uses `needs-human` and a PR comment for human follow-up.
-4. **Stale-branch handling** — No dedicated rebase workflow runs from Gate. `reusable-18-autofix.yml` retries formatter pushes with a rebase step; `agents-keepalive-branch-sync.yml` merges the base branch into keepalive-owned PRs on dispatch; consumer `agents-81-gate-followups.yml` surfaces non-clean `mergeable_state` in summaries.
+4. **Stale-branch handling** — No dedicated rebase workflow runs from Gate. `reusable-18-autofix.yml` rebases formatter commits onto the remote PR branch when retrying a push. `agents-keepalive-branch-sync.yml` merges the base branch into keepalive-owned PRs on dispatch. Consumer `agents-81-gate-followups.yml` checks `mergeable_state` when evaluating auto-merge eligibility.
 5. **Inline comment coverage** — Apply `autofix:bot-comments` to request a pass over trusted bot review threads. The Workflows wrapper `agents-bot-comment-handler.yml` and consumer `agents-80-pr-event-hub.yml` both call `reusable-bot-comment-handler.yml` to collect feedback and dispatch the configured agent.
 6. **Conflict + drift cleanup** — For automation-owned branches, the belt worker/conveyor keep them fresh; for consumer sync PRs, `maint-71-merge-sync-prs.yml` and `maint-45-cosmetic-repair.yml` close stale/autofix branches, delete leftover sync branches, and re-run formatters. Together these keep conflict/inline-comment/formatter issues automated so humans only handle edge cases.
 
