@@ -171,3 +171,95 @@ blocker comment because approval is required and this run's policy is `never`.
 read-only, preventing the requested commit. An approved high-privilege run is
 still needed for the delivered-commit workflow mutation, followed by a hosted
 analysis round on the delivered SHA.
+
+## Hosted evidence consistency checker — 2026-11-16 UTC
+
+Starting commit: `6fcd39fdcc6d89687303a656716a41440c90bb6a`.
+Reviewed the recent commits and PR body before continuing. PR #4711 is still
+open, unmerged and ready for review. Its preview merge SHA is not delivery.
+The first unchecked task remains blocked on merge and an approved workflow
+mutation run. No outstanding task or acceptance criterion is completed here.
+The checked hosted-inspection and reconciliation tasks should be reopened.
+
+Re-read the native log for job `133074122262` in hosted run `43798812323`.
+Its `Uses:` line resolves the reusable Codex workflow to
+`3be719f4c750ea1057e40c7287d3f74bbf999508`. It contains no
+`subscription-auth=chatgpt` receipt and warns that `llm-completed-tasks` was
+suppressed as a possible secret. A downstream default of `[]` therefore cannot
+by itself prove that the completed-task output survived delivery.
+
+Added the source-local operator tool
+`tools/validate_subscription_analysis_evidence.py` and its regression tests.
+The tool compares the runner's resolved reusable-workflow SHA, the runtime
+subscription receipt, the delivered registry model, the existing analysis JSON,
+and the values actually received by summary consumers. It rejects missing,
+duplicated or conflicting receipts, command echoes presented as receipts,
+unterminated Actions groups, invalid confidence, and missing or suppressed
+summary outputs. Diagnostics never reproduce input contents. The tool does not
+perform inference, change workflow behavior, or authenticate supplied evidence.
+It is not a distributed consumer file, so no template or manifest changes apply.
+
+Once evidence is available, independently verify delivery and that all inputs
+come from the same hosted round. Save the registry from the delivered commit,
+the complete runner log, the analysis step log, the existing analysis JSON, and
+a JSON object containing the actual received workflow output strings
+(`llm-analysis-run`, `llm-provider`, `llm-model`, `llm-confidence`, and
+`llm-completed-tasks`). Do not reconstruct outputs from expected values or
+substitute fixtures. Run:
+
+```sh
+python tools/validate_subscription_analysis_evidence.py \
+  --delivered-sha "$DELIVERED_SHA" \
+  --runner-log runner.log --analysis-log analysis-step.log \
+  --analysis-json analysis.json --summary-json received-summary-outputs.json \
+  --registry delivered-registry.yml
+```
+
+Exit 0 means the supplied evidence is consistent. It does not establish hosted
+provenance, the absence of every API request, or effective CLI confinement.
+Those remain separate checks. No delivered-SHA or qualifying new hosted input
+is available in this run, so this command has not been run against such inputs.
+
+The connector rejected the PR-body reconciliation, `needs-human` label and
+blocker comment because they require approval and this run's policy is `never`.
+The `.git` mount is read-only, independently preventing the requested commit.
+
+Local verification:
+
+```sh
+pytest tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# Exact starting commit: 136 passed in 7.31s, exit 0.
+pytest tests/tools/test_validate_subscription_analysis_evidence.py \
+  tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# Final implementation: 190 passed in 7.27s, exit 0.
+black --line-length 100 tools/validate_subscription_analysis_evidence.py
+black --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+black --check --line-length 100 tools/validate_subscription_analysis_evidence.py
+black --check --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+# All four single-file commands exit 0.
+ruff check tools/validate_subscription_analysis_evidence.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py
+# All checks passed, exit 0.
+git diff --check
+# Exit 0.
+```
+
+The final test count includes 54 validator fixture cases and 136 named workflow
+regressions. It is not hosted acceptance evidence. All 134 tracked workflow
+files match HEAD byte for byte; the Codex workflow SHA-256 remains
+`b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+The final GitHub readback still reports PR #4711 open with `isDraft=false`.
+
+The mandatory repository-wide formatting command did not pass:
+
+```sh
+BLACK_NUM_WORKERS=1 timeout 90s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1021 files would be left unchanged.
+```
+
+A preceding unbounded single-worker invocation was interrupted without output
+(exit 130). Single-file formatting passed, but the global gate remains
+unverified. No commit was attempted because that gate has not passed and `.git`
+is mounted read-only. The tool, tests and this evidence update remain local and
+uncommitted.
