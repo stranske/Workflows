@@ -52,6 +52,17 @@ def test_active_catalog_workflows_exist() -> None:
     assert not missing, f"missing workflow files: {', '.join(missing)}"
 
 
+def test_retired_selftest_reusable_absent_from_integration_ci_table() -> None:
+    table = _integration_guide_ci_table_text()
+    assert "reusable-99-selftest.yml" not in table
+
+
+def test_retired_autofix_rebase_absent_from_active_workflow_guide() -> None:
+    active = _active_workflow_guide_text()
+    assert "agents-autofix-rebase.yml" not in active
+    assert "agents-bot-comment-autolabel.yml" not in active
+
+
 def test_workflow_guide_marks_pr_meta_v4_as_workflows_local() -> None:
     content = _read("docs/WORKFLOW_GUIDE.md")
 
