@@ -888,3 +888,40 @@ Fetch updated main but could not prune a stale remote ref because the sandbox
 cannot create `packed-refs.lock`. No ref deletion or permission workaround was
 attempted. The PR branch was synchronized with its remote before this edit.
 Validation for this documentation-only change: `git diff --check`.
+
+## Local keepalive round 11 — November 16, 2026 Central
+
+Qualifying hosted rounds on the delivered runner: **0 verified**. The first
+missing step is delivery of PR #4711. GitHub reported it open and ready for
+review with no merge commit.
+
+```sh
+gh pr view 4711 --repo stranske/Workflows --json state,isDraft,headRefOid,mergeCommit
+gh run view 43832172703 --repo stranske/Workflows --job 133180862517 --log
+gh run view 43832172703 --repo stranske/Workflows --job 133182507090 --log
+git show ba5fcc9ce361920ebbc0e372013abec39c513f76:.github/workflows/reusable-codex-run.yml
+```
+
+- [Codex job 133180862517](https://github.com/stranske/Workflows/actions/runs/43832172703/job/133180862517)
+  used `reusable-codex-run.yml` at main SHA
+  `ba5fcc9ce361920ebbc0e372013abec39c513f76` for PR #4708. It logged
+  `Set output` for `llm-analysis-run`, `llm-provider`, `llm-model`,
+  `llm-confidence`, and `llm-completed-tasks`. The workflow at that SHA
+  invokes analysis once and extracts those fields from its JSON. The output
+  names alone leave their values and receipt by the summary unverified. The
+  runner revision predates the subscription and API-key presence receipts.
+- [Finish job 133182507090](https://github.com/stranske/Workflows/actions/runs/43832172703/job/133182507090)
+  did not expose the four resolved summary values in its log. The newer
+  [run 43833241897](https://github.com/stranske/Workflows/actions/runs/43833241897)
+  skipped the Codex job.
+- T6 and A1/A3/A4/A5 remain unchecked pending delivered-state evidence.
+  The pinned CLI confinement proof is separate. The duplicate-registry-key
+  review finding concerns the evidence checker and did not cause a hosted
+  run to fail in this round. It remains outside the T6 change.
+
+Blocking/drainable pair: the delivered runner is missing. Reviewing existing
+hosted jobs and reconciling acceptance evidence can proceed. Recheck after
+PR #4711 merges and a hosted keepalive job uses the delivered runner. Inspect
+its analysis and summary jobs for the resolved registry model, all four
+outputs, `subscription-auth=chatgpt`, and both API-key presence flags set to
+`false`. This check was bounded to two attempts per failed read and 15 minutes.
