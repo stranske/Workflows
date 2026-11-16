@@ -448,6 +448,13 @@ function formatSelectionMarkdown(report) {
     lines.push(`- Error: ${report.error_message || 'Unknown artifact selection error'}`);
   }
 
+  if (report.repo_listing_unavailable) {
+    lines.push(
+      `- Fallback reason: repo_listing_unavailable (HTTP ${report.repo_listing_unavailable.status}, ` +
+      `page ${report.repo_listing_unavailable.page}); using run-scoped priority workflow artifacts.`
+    );
+  }
+
   if (familyNames.length > 0) {
     lines.push('', '| Artifact family | Candidates | Selected |', '|-----------------|------------|----------|');
     for (const family of familyNames) {
@@ -581,16 +588,25 @@ async function collectPriorityWorkflowArtifacts({
   return dedupeArtifacts(artifacts);
 }
 
-async function collectRepoArtifacts({ github, owner, repo, withRetry, options }) {
+async function collectRepoArtifacts({ github, owner, repo, withRetry, options, collectionReport = {} }) {
   const artifacts = [];
   const config = normalizeSelectionOptions(options);
   for (let page = 1; page <= config.max_scan_pages; page += 1) {
-    const response = await withRetry((client) => client.rest.actions.listArtifactsForRepo({
-      owner,
-      repo,
-      per_page: config.per_page,
-      page,
-    }));
+    let response;
+    try {
+      response = await withRetry((client) => client.rest.actions.listArtifactsForRepo({
+        owner,
+        repo,
+        per_page: config.per_page,
+        page,
+      }));
+    } catch (error) {
+      // withRetry rethrows the original HTTP error after exhausting retries.
+      const status = Number(error?.status ?? error?.response?.status);
+      if (!(status >= 500 && status < 600)) throw error;
+      collectionReport.repo_listing_unavailable = { status, page };
+      break;
+    }
     const pageArtifacts = response?.data?.artifacts || [];
     artifacts.push(...pageArtifacts);
     if (pageArtifacts.length < config.per_page) break;
@@ -604,7 +620,10 @@ async function collectRepoArtifacts({ github, owner, repo, withRetry, options })
       break;
     }
   }
-  if (familiesSatisfied(artifacts, PRIORITY_METRICS_FAMILIES, config)) {
+  if (
+    !collectionReport.repo_listing_unavailable &&
+    familiesSatisfied(artifacts, PRIORITY_METRICS_FAMILIES, config)
+  ) {
     return dedupeArtifacts(artifacts);
   }
   const priorityArtifacts = await collectPriorityWorkflowArtifacts({
@@ -657,22 +676,31 @@ function parseArgs(argv = process.argv.slice(2)) {
   return options;
 }
 
-async function main() {
-  const options = parseArgs();
-  const { Octokit } = require('@octokit/rest');
-  const { createTokenAwareRetry } = require('./github-api-with-retry.js');
-  const core = { info: () => {}, warning: console.warn, debug: () => {} };
-  const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-  const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
-  const { withRetry } = await createTokenAwareRetry({
-    github,
-    core,
-    env: process.env,
-    task: 'agents-weekly-metrics-artifacts',
-    capabilities: ['actions:read'],
+async function main({
+  options = parseArgs(),
+  repository = process.env.GITHUB_REPOSITORY,
+  github,
+  withRetry,
+} = {}) {
+  if (!withRetry) {
+    const { Octokit } = require('@octokit/rest');
+    const { createTokenAwareRetry } = require('./github-api-with-retry.js');
+    const core = { info: () => {}, warning: console.warn, debug: () => {} };
+    github = github || new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+    ({ withRetry } = await createTokenAwareRetry({
+      github,
+      core,
+      env: process.env,
+      task: 'agents-weekly-metrics-artifacts',
+      capabilities: ['actions:read'],
+    }));
+  }
+  const [owner, repo] = repository.split('/');
+  const collectionReport = {};
+  const artifacts = await collectRepoArtifacts({
+    github, owner, repo, withRetry, options, collectionReport,
   });
-  const artifacts = await collectRepoArtifacts({ github, owner, repo, withRetry, options });
-  const selection = selectMetricsArtifacts(artifacts, options);
+  const selection = { ...selectMetricsArtifacts(artifacts, options), ...collectionReport };
   fs.writeFileSync(options.output, formatArtifactTsv(selection.selected_artifacts));
   if (selection.selected_artifacts.length > 0) {
     fs.appendFileSync(options.output, '\n');
@@ -682,6 +710,7 @@ async function main() {
     fs.writeFileSync(options.markdown, formatSelectionMarkdown(selection));
   }
   process.stdout.write(`${JSON.stringify(selection, null, 2)}\n`);
+  return selection;
 }
 
 if (require.main === module) {
@@ -729,6 +758,7 @@ module.exports = {
   formatArtifactTsv,
   formatSelectionMarkdown,
   latestCandidateByFamily,
+  main,
   missingPriorityFamilies,
   normalizeSelectionOptions,
   priorityFamilyStatuses,
