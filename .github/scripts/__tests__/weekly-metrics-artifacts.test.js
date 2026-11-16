@@ -877,6 +877,32 @@ test('repo-wide 5xx falls back to run-scoped priority artifacts and reports the 
   );
 });
 
+for (const status of [401, 404]) {
+  test(`repo-wide HTTP ${status} rejects main without writing selection outputs`, async (t) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'weekly-metrics-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const error = { status };
+    const client = repoListingFailureClient(error);
+    const priorityScan = t.mock.method(client.rest.actions, 'listWorkflowRuns');
+    const options = {
+      now_ms: NOW,
+      output: path.join(directory, 'artifacts.tsv'),
+      report: path.join(directory, 'selection.json'),
+      markdown: path.join(directory, 'selection.md'),
+    };
+
+    await assert.rejects(main({
+      github: client,
+      repository: 'owner/repo',
+      options,
+      withRetry: (fn) => fn(client),
+    }), (caught) => caught === error);
+
+    assert.equal(priorityScan.mock.callCount(), 0);
+    assert.deepEqual(fs.readdirSync(directory), []);
+  });
+}
+
 for (const error of [{ response: { status: 502 } }, { status: '503' }, { status: 599 }]) {
   const status = Number(error.status ?? error.response.status);
   test(`repo-wide HTTP ${status} falls back and preserves its status`, async () => {
