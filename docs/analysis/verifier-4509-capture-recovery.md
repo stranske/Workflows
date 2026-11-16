@@ -1,5 +1,88 @@
 # Exact #4509 retained-capture investigation
 
+## Issue #4662 bounded historical search — 2026-11-16 UTC
+
+**Outcome 1: 0 qualifying historical acquisition bindings found; acceptance
+remains unmet.** Checked on 2026-11-15 America/Chicago (2026-11-16 UTC),
+starting from current main `3be719f4c`. PR #4650 is already merged as
+`5a7347b18`; its admission implementation and four recovered truncation gaps
+are not repeated here. This section records the narrowed search requested by
+[#4662](https://github.com/stranske/Workflows/issues/4662), including the
+[prior evidence collection](https://github.com/stranske/Workflows/issues/4662#issuecomment-6811368156).
+
+The acceptance outcome would be exit 0 from the following command against an
+authenticated retained capture, with either zero required capture gaps or an
+authenticated finding naming an exact required unrecoverable historical
+artifact/member while retaining `NON_PASS`:
+
+```sh
+/opt/anaconda3/bin/python3 -m tools.verifier_event_recovery --revalidate-retained
+```
+
+The stop rule, recorded before investigation, was three failed acceptance
+attempts or 60 minutes. The issue imposes an earlier conditional stop: search
+first, and proceed to revalidation only with a qualifying historical binding
+or an authoritative finding of an exact required unrecoverable source. One
+bounded search pass found neither. **The command above was not run in this
+attempt; no exit-0 acceptance result is claimed.** No tests, provider calls,
+new admission, or derived obligation-manifest rebuild were performed.
+
+### Sources checked and what they establish
+
+| Source | Observation and disposition |
+| --- | --- |
+| Original retained ZIP, `verifier-context.md`, `verifier-input-manifest.json`, `verification-event-manifest.json`, and `comparison.json` | Read directly from the checked-in archive. The original context inventory has eight Workflows artifact records and **zero** records for consumer run `42327976097`. Its aggregate artifact failure names the failed run lookup but no consumer archive/member identity or digest. |
+| Checked-in `verifier-4509-capture-identity.json`, `verifier-4509-run-identity.json`, `verifier-4509-origin-trace.json`, this report, and tracked references to the exact consumer run/head | The selected later API observations and prior recovery results establish identities and later availability, not a contemporaneous consumer acquisition by the original capture. No qualifying binding was found. |
+| [Original verifier job `128276983461`](https://github.com/stranske/Workflows/actions/runs/42330898168/job/128276983461), fetched through authenticated job-log access | The contemporaneous log records `GET /repos/stranske/Workflows/actions/runs/42327976097 - 404` at `2026-11-07T02:47:24.8032819Z`, followed by a provenance-unavailable warning. Its printed capture inventory contains no consumer acquisition record. This supports the recorded routing failure, not consumer absence. |
+| [Consumer run metadata](https://api.github.com/repos/stranske/trip-planner/actions/runs/42327976097) | Fresh authenticated GET confirms repository/head-repository ID `993784438`, attempt 1, completed/success, and head `948406465cf7cd65d1ac92206b4514aaad455443`. The referenced reusable workflow revision is `37e230009cdba04743376410c9f72356b85fb64f`. Run success is not capture completeness. |
+| Contemporaneous producer jobs [Python 3.14 `128267720044`](https://github.com/stranske/trip-planner/actions/runs/42327976097/job/128267720044) and [Python 3.13 `128267720178`](https://github.com/stranske/trip-planner/actions/runs/42327976097/job/128267720178), fetched through authenticated job-log access | Both logs identify successful seven-file coverage uploads, archive IDs, lengths and digests below. These are producer upload records; they do not supply the original verifier's acquisition binding or member digests. |
+| [Complete current consumer artifact listing](https://api.github.com/repos/stranske/trip-planner/actions/runs/42327976097/artifacts?per_page=100) | Fresh authenticated response has `total_count=2`: `13555933617` (`product-probe`) and `13555839362` (`langsmith-fleet.ndjson`), both unexpired and bound to the exact consumer run/head. The two coverage archives are absent from this listing. |
+| Authenticated `gh api repos/stranske/trip-planner/actions/artifacts/13556069067` and the same endpoint for `13555934284` | Each exits 1 with HTTP 404. The connector's generic fetch rejects these artifact-metadata URLs before transport, so these observations use the CLI. They establish current API unavailability, not loss of every retained copy or a missing member required by the original capture. |
+| Local candidate-record filename search in temporary storage, the runner cache and measurement directory | No independent acquisition record was identified. The exact-capture temporary directory `/private/tmp/round10-4509.EgXOcy` is empty; source/fixture copies do not add historical authority. This was a bounded search, not a claim about all backups or external archives. |
+
+The producer upload records add exact archive identities:
+
+| Artifact | Producer timestamp (UTC) | ZIP bytes | Uploaded ZIP SHA-256 |
+| --- | --- | ---: | --- |
+| `13556069067`, `gate-coverage-3.14-1` | `2026-11-07T02:14:35.8545903Z` | 216,531 | `aed56b5cf6875112e19b8be8caa69b023061e4b2bc30a52fe1a9bcf5c6d186d6` |
+| `13555934284`, `gate-coverage-3.13-1` | `2026-11-07T02:16:12.6170504Z` | 217,841 | `49cfe12b6d80c0f6ddfde09a842d331bd472b0521a55f3a7b10d8c522c021585` |
+
+The upload logs specify seven-day retention. The prior evidence collection
+recorded expiry on November 14. Their current disappearance is consistent with
+expiry, but the cause of removal and availability of copies elsewhere remain
+unknown. Neither archive is promoted to an authenticated **required,
+unrecoverable** source. Producer creation is not proof of original verifier
+acquisition, and a 404 does not establish permanent loss.
+
+### Disposition of both remaining gap keys
+
+| Gap key | Evidence and disposition |
+| --- | --- |
+| `acceptance_evidence:artifacts:integrity_failure_or_unknown_kind` | The retained aggregate failure includes `provenance`; the contemporaneous verifier log confirms its wrong-repository lookup. Producer upload digests do not supply the missing consumer acquisition/member binding. **Remains open.** |
+| `acceptance_evidence:artifacts:unavailable` | The original aggregate source is unavailable and has no consumer artifact/member inventory. Current loss of the two API entries cannot identify an exact required historical member or prove it unrecoverable. **Remains open.** |
+
+The original archive SHA-256 remains
+`539f5843e83cda38afc9944d7f2a705f1105fc9a53c93380885a9e6a9407de82`.
+All nine members are preserved, including event
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`
+and the original provider rows. Both `gpt-6.1-sol` and `claude-sonnet-5-5`
+still record `used_llm=false`, `files_reviewed=null`, and both
+`scripts/ci_history.py` and `tests/scripts/test_ci_history.py` in
+`files_not_reviewed`: actual provider review coverage is **0/2 files each**.
+The historical verdict remains `UNVERIFIABLE_INPUT`; the existing admission's
+`NON_PASS` disposition is not replaced. The original six-gap receipt and
+#4650's separate two-gap derived view are not conflated.
+
+**Blocking/drainable pair:** retained-capture acceptance is blocked on the
+missing historical evidence; authenticated log/inventory reads and recording
+their disposition remain available and were completed. Keep #4662 parked.
+Resume its existing manifest builder and named revalidation command only when
+a trustworthy source binds the original capture to this consumer run/head and
+exact archive/member digests, or establishes an exact required historical
+artifact/member as unrecoverable. No source or template repair is justified by
+this search. Whether an unsearched independent historical record exists is
+unknown; this report does not assert that the evidence can never be recovered.
+
 ## PR #4650 continuation — 2026-11-11 UTC
 
 Authenticated admission and revalidation succeeded for the original #4509
