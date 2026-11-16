@@ -245,6 +245,20 @@ def test_reverted_ordering_key_selects_id_1_success_over_queued_pending():
         reporter.check_run_is_newer = original
 
 
+def test_check_run_is_newer_timestampless_queued_beats_completed_pass():
+    old_pass = check(ident=1, started="2026-10-01T01:00:00Z")
+    pending = queued_check(ident=2)
+    assert reporter.check_run_is_newer(pending, old_pass)
+    assert not reporter.check_run_is_newer(old_pass, pending)
+
+
+def test_check_run_is_newer_timestampless_pair_orders_by_id():
+    first = queued_check(ident=1)
+    second = queued_check(ident=2)
+    assert reporter.check_run_is_newer(second, first)
+    assert not reporter.check_run_is_newer(first, second)
+
+
 def test_latest_status_replaces_old_failure_regardless_of_page_order():
     statuses = [
         {"context": "gate", "created_at": "2026-10-01T02:00:00Z", "id": 2, "state": "success"},
