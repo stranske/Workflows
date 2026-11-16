@@ -270,7 +270,10 @@ def test_deferred_issue_expiration_boundary(expires_at: str, expired: bool) -> N
     assert expiration_findings == ([expected] if expired else [])
 
 
-@pytest.mark.parametrize("expires_at", [None, "invalid", "2026-09-13T00:00:00"])
+@pytest.mark.parametrize(
+    "expires_at",
+    [None, "invalid", "2026-09-13T00:00:00", "0001-01-01T00:00:00+01:00"],
+)
 def test_invalid_deferral_expiry_remains_blocking(expires_at: str | None) -> None:
     registry = _registry()
     registry["participants"][1]["issue_deferred"]["expires_at"] = expires_at

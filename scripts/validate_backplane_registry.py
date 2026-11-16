@@ -103,7 +103,11 @@ def _validate_deferred_issue(entry: dict[str, Any], prefix: str) -> list[Finding
     reason = deferred.get("reason")
     if not isinstance(reason, str) or not reason.strip():
         findings.append(Finding(f"{prefix}.issue_deferred.reason", "deferred issue needs a reason"))
-    expires_at = _parse_aware_datetime(deferred.get("expires_at"))
+    try:
+        expires_at = _parse_aware_datetime(deferred.get("expires_at"))
+    except OverflowError:
+        # A timezone offset can put the expiry outside the supported UTC range.
+        expires_at = None
     if expires_at is None:
         findings.append(
             Finding(
