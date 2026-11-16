@@ -200,28 +200,27 @@ def queued_check(ident=2, app_id=15368):
     }
 
 
-def test_queued_check_without_timestamp_blocks_older_pass():
-    old_pass = check(ident=1, started="2026-10-01T01:00:00Z")
-    pending = queued_check(ident=2)
-    for checks in ([old_pass, pending], [pending, old_pass]):
-        result = verdict(checks=checks)
-        assert result["verdict"] == "FAIL"
-        assert result["states"]["gate"]["state"] == "queued"
-        assert result["states"]["gate"]["order"][1] == 2
-
-    ext_pass = {
+@pytest.mark.parametrize("reverse", [False, True], ids=["old-first", "queued-first"])
+@pytest.mark.parametrize("app_id", [15368, 99], ids=["github-actions", "required-external"])
+def test_queued_check_without_timestamp_blocks_older_pass(app_id, reverse):
+    old_pass = {
         **check(ident=1, started="2026-10-01T01:00:00Z"),
-        "app": {"id": 99, "slug": "external"},
+        "app": {"id": app_id},
     }
-    ext_pending = queued_check(ident=2, app_id=99)
-    for checks in ([ext_pass, ext_pending], [ext_pending, ext_pass]):
-        result = verdict(
-            checks=checks,
-            required=[{"context": "gate", "app_id": 99}],
-        )
-        assert result["verdict"] == "FAIL"
-        assert result["states"]["gate"]["state"] == "queued"
-        assert result["states"]["gate"]["app_id"] == 99
+    pending = queued_check(ident=2, app_id=app_id)
+    checks = [pending, old_pass] if reverse else [old_pass, pending]
+    result = verdict(
+        checks=checks,
+        required=[{"context": "gate", "app_id": app_id}] if app_id == 99 else [],
+    )
+    selected = result["states"]["gate"]
+    assert result["verdict"] == "FAIL", (
+        f"selected id={selected['order'][1]} state={selected['state']}; "
+        f"verdict={result['verdict']}"
+    )
+    assert selected["state"] == "queued"
+    assert selected["order"][1] == 2
+    assert selected["app_id"] == app_id
 
 
 @pytest.mark.parametrize("attempt_ids", list(permutations((1, 2, 3))))
