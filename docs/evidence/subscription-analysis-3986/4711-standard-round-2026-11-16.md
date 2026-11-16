@@ -304,3 +304,63 @@ WORKFLOWS_PINNED_CODEX_BIN=/absolute/path/to/codex \
   delivered merge SHA, so the delivered-SHA mutation and hosted acceptance
   remain pending.
   [Earlier hosted job](https://github.com/stranske/Workflows/actions/runs/43798812323/job/133074122262)
+
+## Suppressed-output validation follow-up — 2026-11-16 UTC
+
+Starting commit: `aae039e21bd26a3095564bfc17ca0bef0ded5637`.
+GitHub reports PR #4711 open, unmerged and ready for review. There is no delivered
+merge SHA; its preview merge commit is not delivery evidence. The first unchecked
+task therefore remains blocked. This standard-permission run also cannot perform
+the required actual-workflow mutation. After delivery, an approved
+`agent-high-privilege` run must repeat that proof on the delivered commit and
+capture the qualifying hosted analysis at the same commit.
+
+Read back the earlier Codex job's logs and confirmed the runtime warning:
+`Skip output 'llm-completed-tasks' since it may contain secret.` The offline
+validator previously accepted supplied summary outputs despite this warning,
+including a downstream `[]` fallback equal to the analysis's empty task list.
+Twenty new negative cases reproduced that false acceptance before the fix.
+The validator now rejects suppression of any of its five required outputs,
+including warnings inside the runner's output groups. Two additional cases
+preserve acceptance for unrelated output warnings and shell command echoes.
+
+```sh
+pytest tests/tools/test_validate_subscription_analysis_evidence.py \
+  tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# Before changes: 190 passed in 7.15s, exit 0.
+# New suppression cases before fix: 20 failed, 56 passed, exit 1.
+# After fix: 212 passed in 6.96s, exit 0.
+BLACK_NUM_WORKERS=1 black --line-length 100 tools/validate_subscription_analysis_evidence.py
+BLACK_NUM_WORKERS=1 black --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+BLACK_NUM_WORKERS=1 black --check --line-length 100 tools/validate_subscription_analysis_evidence.py
+BLACK_NUM_WORKERS=1 black --check --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+ruff check tools/validate_subscription_analysis_evidence.py tests/tools/test_validate_subscription_analysis_evidence.py
+# All file-level formatting and lint checks passed.
+git diff --check
+# Exit 0.
+```
+
+These fixture regressions do not establish delivered-SHA or hosted acceptance;
+no pending checkbox is completed. The earlier hosted task's checked state should
+be reopened because the qualifying new receipt is still missing. The connector
+rejected that correction, the blocker comment and `needs-human` labeling because
+approval is required and this run's approval policy is `never`.
+
+All 134 tracked workflow files remain byte-identical to HEAD. The Codex workflow
+SHA-256 remains `b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+The filesystem reports `.git` read-only, preventing the requested commit.
+
+The mandatory repository-wide formatting check also remains unverified:
+
+```sh
+BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1021 files would be left unchanged.
+```
+
+The initial multi-file formatting invocation failed with `PermissionError`
+when Black started its worker process; the file-level single-worker commands
+above succeeded. No commit was attempted because the global gate did not pass
+and Git metadata is read-only. The implementation, tests and evidence remain
+uncommitted in the working tree. Final GitHub readback still reports PR #4711
+open with `isDraft=false`.

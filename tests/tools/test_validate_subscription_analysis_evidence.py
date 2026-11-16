@@ -49,6 +49,39 @@ def test_consistent_evidence(inputs):
     evidence.validate_evidence(**inputs)
 
 
+@pytest.mark.parametrize(
+    "output", ["analysis-run", "provider", "model", "confidence", "completed-tasks"]
+)
+@pytest.mark.parametrize("prefix", ["", "##[warning]"])
+@pytest.mark.parametrize("empty_tasks", [False, True])
+def test_rejects_suppressed_outputs_even_when_summary_fallback_matches(
+    inputs, output, prefix, empty_tasks
+):
+    if empty_tasks:
+        inputs["analysis"]["completed_tasks"] = []
+        inputs["summary"]["llm-completed-tasks"] = "[]"
+        inputs["analysis_log"] = inputs["analysis_log"].replace("tasks-count=1", "tasks-count=0")
+    inputs["runner_log"] += (
+        f"{STAMP}##[group]Set outputs\n"
+        f"{STAMP}{prefix}Skip output 'llm-{output}' since it may contain secret.\n"
+        f"{STAMP}##[endgroup]\n"
+    )
+    with pytest.raises(ValueError, match="suppressed"):
+        evidence.validate_evidence(**inputs)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Skip output 'unrelated-output' since it may contain secret.",
+        "echo \"Skip output 'llm-completed-tasks' since it may contain secret.\"",
+    ],
+)
+def test_unrelated_suppression_or_script_echo_does_not_invalidate_outputs(inputs, line):
+    inputs["runner_log"] += STAMP + line + "\n"
+    evidence.validate_evidence(**inputs)
+
+
 @pytest.mark.parametrize("value", ["", "a" * 7, "b" * 40])
 def test_rejects_missing_short_or_different_revision(inputs, value):
     inputs["delivered_sha"] = value

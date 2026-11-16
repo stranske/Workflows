@@ -16,6 +16,10 @@ from pathlib import Path
 import yaml
 
 TIMESTAMP = re.compile(r"^\ufeff?\d{4}-\d\d-\d\dT\S+Z ")
+SUPPRESSED_OUTPUT = re.compile(
+    r"^(?:##\[warning\])?Skip output 'llm-"
+    r"(?:analysis-run|provider|model|confidence|completed-tasks)' since it may contain secret\.$"
+)
 WORKFLOW = "stranske/Workflows/.github/workflows/reusable-codex-run.yml"
 RECEIPTS = {
     "subscription-auth": "chatgpt",
@@ -53,6 +57,10 @@ def validate_evidence(*, delivered_sha, runner_log, analysis_log, analysis, summ
     ]
     if revisions != [delivered_sha]:
         raise ValueError("Runner workflow revision does not uniquely match delivered SHA")
+    # Runner warnings can occur inside output groups. A matching downstream
+    # fallback (especially []) cannot establish receipt of a suppressed output.
+    if any(SUPPRESSED_OUTPUT.fullmatch(TIMESTAMP.sub("", raw)) for raw in runner_log.splitlines()):
+        raise ValueError("Runner suppressed a required analysis output")
 
     profile = registry["subscription_analysis"]["codex"]
     model = (
