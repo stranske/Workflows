@@ -654,3 +654,68 @@ PR #4711 had no merge commit at this check. The earlier hosted job suppressed
 hosted keepalive round running the delivered revision. A1 still requires the
 API-key mutation and restoration sequence on the delivered SHA.
 [Earlier hosted job](https://github.com/stranske/Workflows/actions/runs/43798812323/job/133074122262)
+
+## Ambiguous JSON evidence follow-up — 2026-11-16 UTC
+
+Starting commit: `071cf193fa0553923b346edc26ee8188a44efa89`.
+PR #4711 remains open, unmerged and ready for review (`draft=false`). Its preview
+merge SHA is not a delivered commit. The first unchecked task remains blocked;
+no outstanding task or acceptance criterion is completed by this follow-up.
+
+Re-read native hosted job `133074122262` in run `43798812323`. Its `Uses:` line
+resolves the reusable Codex workflow to
+`3be719f4c750ea1057e40c7287d3f74bbf999508`, it has no
+`subscription-auth=chatgpt` receipt, and it warns that `llm-completed-tasks`
+was suppressed. It cannot establish the pending hosted acceptance. The candidate
+registry resolves `subscription_analysis.codex.execution_profile=codex-extract`
+to `gpt-6-luna`; this local lookup is not an observation of a hosted model.
+
+The offline evidence checker silently retained the last duplicate JSON field.
+Conflicting provider, model, confidence, task or analysis-run values could
+therefore disappear before validation. Eighteen CLI-level regressions reproduced
+false acceptance for duplicate fields in the analysis and received-summary JSON.
+The checker now rejects both identical and conflicting duplicates without
+printing input contents. These fixture tests do not establish hosted provenance,
+subscription authentication, delivery or CLI confinement.
+
+```sh
+pytest tests/tools/test_validate_subscription_analysis_evidence.py \
+  tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# Exact starting commit: 254 passed in 7.93s, exit 0.
+pytest tests/tools/test_validate_subscription_analysis_evidence.py \
+  -m 'not slow' -k duplicate_json_fields -q --tb=short
+# Added cases before source fix: 18 failed, 103 deselected, exit 1.
+pytest tests/tools/test_validate_subscription_analysis_evidence.py \
+  tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# After fix: 272 passed in 7.87s, exit 0.
+black --line-length 100 tools/validate_subscription_analysis_evidence.py
+black --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+ruff check tools/validate_subscription_analysis_evidence.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py
+git diff --check
+# All single-file formatting, lint and whitespace checks passed.
+```
+
+All 134 tracked workflows remain byte-identical to HEAD. The Codex workflow
+SHA-256 remains `b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+The delivered-SHA actual-workflow mutation still requires an approved
+`agent-high-privilege` run after merge, followed by a qualifying hosted round
+at that revision. No workflow mutation was attempted under standard permissions.
+
+The connector rejected the `needs-human` label and blocker comment because they
+require approval while this run's approval policy is `never`. Git metadata is
+mounted read-only, preventing the requested commit.
+
+The mandatory repository-wide formatting gate did not pass:
+
+```sh
+BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1021 files would be left unchanged.
+```
+
+An initial two-file Black invocation failed because process-worker startup
+raised `PermissionError: Operation not permitted`. Formatting and checking the
+two files individually passed. The repository-wide unchanged-file count does
+not establish an exit-0 formatting check. No commit or push was attempted;
+the source fix, regressions and this evidence remain uncommitted.

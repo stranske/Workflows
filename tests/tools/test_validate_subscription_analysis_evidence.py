@@ -298,7 +298,8 @@ def test_zero_tasks_and_confidence_are_valid_and_model_is_registry_driven(inputs
     evidence.validate_evidence(**inputs)
 
 
-def test_cli_checks_files_and_does_not_echo_failed_inputs(inputs, tmp_path, capsys):
+@pytest.fixture
+def evidence_args(inputs, tmp_path):
     args = ["--delivered-sha", SHA]
     for option, key in (
         ("runner-log", "runner_log"),
@@ -311,6 +312,11 @@ def test_cli_checks_files_and_does_not_echo_failed_inputs(inputs, tmp_path, caps
         value = inputs[key]
         path.write_text(value if isinstance(value, str) else json.dumps(value), encoding="utf-8")
         args += ["--" + option, str(path)]
+    return args
+
+
+def test_cli_checks_files_and_does_not_echo_failed_inputs(evidence_args, tmp_path, capsys):
+    args = evidence_args
     assert evidence.main(args) == 0
     assert "independently verify hosted provenance and delivery" in capsys.readouterr().out
     (tmp_path / "analysis-json").write_text("do-not-echo-input", encoding="utf-8")
@@ -318,3 +324,26 @@ def test_cli_checks_files_and_does_not_echo_failed_inputs(inputs, tmp_path, caps
     captured = capsys.readouterr()
     assert "failed" in captured.out
     assert "do-not-echo-input" not in captured.out + captured.err
+
+
+@pytest.mark.parametrize(
+    "option,key",
+    [("analysis-json", key) for key in ("provider", "model", "confidence", "completed_tasks")]
+    + [
+        ("summary-json", "llm-" + key)
+        for key in ("analysis-run", "provider", "model", "confidence", "completed-tasks")
+    ],
+)
+@pytest.mark.parametrize("conflicting", [False, True])
+def test_cli_rejects_duplicate_json_fields(
+    evidence_args, tmp_path, capsys, option, key, conflicting
+):
+    path = tmp_path / option
+    original = path.read_text(encoding="utf-8")
+    value = "do-not-echo-duplicate" if conflicting else json.loads(original)[key]
+    path.write_text("{" + json.dumps(key) + ":" + json.dumps(value) + "," + original[1:])
+
+    assert evidence.main(evidence_args) == 1
+    captured = capsys.readouterr()
+    assert "failed" in captured.out
+    assert "do-not-echo-duplicate" not in captured.out + captured.err

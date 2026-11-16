@@ -108,6 +108,16 @@ def validate_evidence(*, delivered_sha, runner_log, analysis_log, analysis, summ
         raise ValueError("Summary completed tasks do not match the analysis JSON")
 
 
+def _unique_json_object(pairs):
+    """Reject ambiguous evidence rather than silently retaining the last value."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Evidence JSON contains duplicate fields")
+        result[key] = value
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--delivered-sha", required=True)
@@ -119,8 +129,13 @@ def main(argv=None):
             delivered_sha=args.delivered_sha,
             runner_log=args.runner_log.read_text(encoding="utf-8"),
             analysis_log=args.analysis_log.read_text(encoding="utf-8"),
-            analysis=json.loads(args.analysis_json.read_text(encoding="utf-8")),
-            summary=json.loads(args.summary_json.read_text(encoding="utf-8")),
+            analysis=json.loads(
+                args.analysis_json.read_text(encoding="utf-8"),
+                object_pairs_hook=_unique_json_object,
+            ),
+            summary=json.loads(
+                args.summary_json.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_object
+            ),
             registry=yaml.safe_load(args.registry.read_text(encoding="utf-8")),
         )
     except (OSError, ValueError, KeyError, TypeError, AttributeError, yaml.YAMLError):
