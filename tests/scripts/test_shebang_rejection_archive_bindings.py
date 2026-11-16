@@ -197,14 +197,6 @@ def test_validate_rejects_isolated_current_binding_and_note_corruption(tmp_path,
         relatives.update(summary["input_sha256"])
     validation = runpy.run_path(str(EVIDENCE / "capture_validation_run.py"))
     relatives.update(validation["HISTORICAL_PATHS"])
-    relatives.update((validation["TEMPLATE_SCRIPT"], ".github/sync-manifest.yml"))
-    relatives.update(
-        str(path.relative_to(ROOT)) for path in (ROOT / ".github/workflows").glob("*.yml")
-    )
-    relatives.update(
-        str(path.relative_to(ROOT))
-        for path in (ROOT / "templates/consumer-repo/.github/workflows").glob("*.yml")
-    )
     for relative in sorted(relatives):
         source, target = ROOT / relative, tmp_path / relative
         if source.is_file() and not target.exists():

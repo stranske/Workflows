@@ -3787,7 +3787,7 @@
   },
   "archive": {
     "path": "proof.tar.gz",
-    "sha256": "e8d07353d03584cb1f8a2cf76887bc0b5d66f86f71610f35f6db6b1cca0bb7a8",
+    "sha256": "d89d34db637b7cf8ab0f76a124b2fdeafd2270ac392eabeab7da0e2fdcdd07a4",
     "bytes": 43302,
     "verified_manifest_members": 19,
     "manifest_sha256": "be90f93724e6a262bd825fb5e8f8f7ccd6e085ec20f0f9eac7bde920c316083f"
