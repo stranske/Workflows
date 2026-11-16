@@ -389,3 +389,54 @@ open with `isDraft=false`.
   receipt are pending. The earlier hosted job suppressed the completed-task
   output, leaving receipt of that output unverified.
   [Earlier hosted job](https://github.com/stranske/Workflows/actions/runs/43798812323/job/133074122262)
+
+## Reusable-interface regression follow-up — 2026-11-16 UTC
+
+Starting commit: `091c403a39f278570b038f227ef75ce60cc61704`.
+GitHub still reports PR #4711 open, unmerged and ready for review. Its preview
+merge SHA is not a delivered commit. The first unchecked task remains blocked
+on delivery and an approved actual-workflow mutation run. The next hosted task
+also requires that delivered SHA. No acceptance checkbox is completed here.
+
+Added 15 in-memory mutation cases to the named API-key regression. Each of the
+five reusable runner interfaces is tested with each of the three prohibited
+provider-key declarations, without wiring the declaration into a step. These
+exercise the existing workflow-call interface assertion independently of the
+step and inherited environment assertions. They do not constitute the required
+actual-workflow mutation/restoration proof or establish hosted authentication.
+
+```sh
+pytest tests/workflows/test_no_api_keys_in_keepalive.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py -m 'not slow' -q
+# Starting commit: 212 passed in 8.44s, exit 0.
+pytest tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# Updated regression: 151 passed in 9.30s, exit 0.
+black --line-length 100 tests/workflows/test_no_api_keys_in_keepalive.py
+black --check --line-length 100 tests/workflows/test_no_api_keys_in_keepalive.py
+ruff check tests/workflows/test_no_api_keys_in_keepalive.py
+git diff --check
+# All file-level checks passed.
+```
+
+Tracked workflows remain unchanged against HEAD; the Codex workflow SHA-256 is
+`b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+The GitHub connector refused the blocker comment and `needs-human` label because
+both require approval and this run's approval policy is `never`. The `.git`
+mount is read-only, preventing the requested commit. After delivery, an approved
+`agent-high-privilege` run must repeat the baseline/mutation/restoration sequence
+and capture a qualifying hosted analysis round at the delivered SHA. The checked
+hosted-inspection and reconciliation tasks still need reopening because the
+recorded hosted run predates the new receipt and suppressed completed-task output.
+
+
+The mandatory repository-wide Black check did not pass:
+
+```sh
+BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1021 files would be left unchanged.
+```
+
+The timeout does not establish formatting success. No commit or push was
+attempted because this gate remains unverified and Git metadata is read-only.
+The test changes and this evidence update remain uncommitted.

@@ -207,6 +207,21 @@ def test_workflow_gate_rejects_reintroduced_api_dependencies(
     assert filename in str(failure.value)
 
 
+@pytest.mark.parametrize("agent", RUNNERS)
+@pytest.mark.parametrize("forbidden", PROVIDER_KEYS)
+def test_workflow_gate_rejects_reintroduced_provider_key_interface(monkeypatch, agent, forbidden):
+    """Reject provider-key declarations before callers wire them into analysis."""
+    filename = f"reusable-{agent}-run.yml"
+    doc = yaml.safe_load((ROOT / ".github/workflows" / filename).read_text())
+    triggers = doc.get("on", doc.get(True, {}))
+    triggers["workflow_call"].setdefault("secrets", {})[forbidden] = {"required": False}
+    monkeypatch.setattr(yaml, "safe_load", lambda _: doc)
+
+    with pytest.raises(AssertionError) as failure:
+        test_runner_analysis_has_no_api_key_or_second_invocation(agent)
+    assert filename in str(failure.value)
+
+
 @pytest.fixture
 def account(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
