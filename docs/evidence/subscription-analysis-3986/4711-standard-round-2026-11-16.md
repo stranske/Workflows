@@ -837,3 +837,54 @@ BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
 No commit or push was attempted because the global gate remains unverified and
 Git metadata is read-only. The source fix, tests and this evidence update remain
 local. Final GitHub readback confirms PR #4711 open with `isDraft=false`.
+
+## Local keepalive round 10 — November 16, 2026 Central
+
+Outcome T6: **not satisfied**. Checked candidate
+`fb0c529e772811fad47247d1b8637220ad52b7f4` on `orch/issue-4432`.
+PR #4711 is open, unmerged and ready for review; there is no delivered merge SHA.
+The precheck's completed A3/A4 claims and the checked hosted-inspection task are
+not supported by the recorded hosted evidence.
+
+The single acceptance outcome remains a hosted round at the delivered runner
+SHA showing `llm-analysis-run=true`, `provider=codex`, the resolved registry
+cheap-tier model, all four JSON-derived summary outputs, subscription auth and
+both API-key-presence booleans false. This inspection was bounded to two evidence
+checks or 20 minutes. It stopped after two checks; no code was changed and no
+provider inference or hosted dispatch was started.
+
+Runnable read-only inspection commands (each below two minutes in this check):
+
+```sh
+gh pr view 4711 --repo stranske/Workflows --json state,isDraft,headRefOid,mergeCommit
+gh run list --repo stranske/Workflows --workflow agents-keepalive-loop.yml --limit 5 --json databaseId,headSha,status,conclusion,url,createdAt
+gh run view 43827694560 --repo stranske/Workflows --json jobs,headSha,url
+gh run view 43798812323 --repo stranske/Workflows --job 133074122262 --log > /tmp/4711-old-runner.log
+git diff origin/main HEAD -- .github/workflows/reusable-codex-run.yml
+```
+
+- [Latest successful keepalive run 43827694560](https://github.com/stranske/Workflows/actions/runs/43827694560)
+  used head `1aa2f778cd322f56877abb87659d9f0186e9ee42`. Its Codex job
+  `133165463385` was skipped. Overall run success is not analysis acceptance.
+- Re-read the full [earlier Codex job 133074122262](https://github.com/stranske/Workflows/actions/runs/43798812323/job/133074122262).
+  Its `Uses:` resolves the reusable runner to
+  `3be719f4c750ea1057e40c7287d3f74bbf999508`. It reports
+  `Skip output 'llm-completed-tasks' since it may contain secret.` It has no
+  runtime subscription or key-presence receipts. No credential values were
+  printed into this record.
+- Fetched main is `c223e1022aa7be1c408be0b60b7a1b6a74740b40`.
+  Comparing its runner with this candidate confirms the subscription and
+  key-presence receipt is still a PR change. Neither a preview merge nor
+  a branch dispatch can establish the required post-merge result.
+
+Blocking/drainable pair: delivered runner and hosted receipt are missing;
+read-only inspection and truthful evidence reconciliation remain drainable.
+No new hold, lock or permit was introduced. Local confinement evidence remains
+separate and was not rerun or upgraded to hosted authentication acceptance.
+T6 remains unchecked, as do delivered-SHA A1 and hosted A3–A5. Completion requires
+observed delivered-state evidence; this round does not claim it.
+
+Fetch updated main but could not prune a stale remote ref because the sandbox
+cannot create `packed-refs.lock`. No ref deletion or permission workaround was
+attempted. The PR branch was synchronized with its remote before this edit.
+Validation for this documentation-only change: `git diff --check`.
