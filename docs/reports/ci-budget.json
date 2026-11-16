@@ -3,6 +3,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 2.466666666666667,
       "name": "Python CI / python 3.13",
@@ -23,6 +24,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 0.9,
       "name": "python ci / python 3.14",
@@ -43,6 +45,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 1.5166666666666666,
       "name": "python ci / python 3.14",
@@ -63,6 +66,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 3.5833333333333335,
       "name": "Python CI / python 3.13",
@@ -83,6 +87,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 2.05,
       "name": "Python CI / python 3.14",
@@ -103,6 +108,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 4.15,
       "name": "Python CI / python 3.14",
@@ -123,6 +129,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 0.8666666666666667,
       "name": "python ci / python 3.14",
@@ -143,6 +150,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 4.266666666666667,
       "name": "python ci shard 3/6 / python 3.14",
@@ -163,6 +171,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 3.35,
       "name": "Python CI / typecheck-mypy",
@@ -183,6 +192,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 4.183333333333334,
       "name": "Python CI / python 3.14",
@@ -203,6 +213,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 9.433333333333334,
       "name": "Python CI / python 3.14",
@@ -223,6 +234,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 0.8833333333333333,
       "name": "python ci / python 3.13",
@@ -243,6 +255,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 3.6333333333333333,
       "name": "Python CI / python 3.13",
@@ -263,6 +276,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 5.2,
       "name": "Python CI / python 3.14",
@@ -293,6 +307,7 @@
     },
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 19.083333333333332,
       "name": "summary",
@@ -313,6 +328,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 5.433333333333334,
       "name": "Python CI / python 3.14",
@@ -333,6 +349,7 @@
     "daily_observations": {},
     "distance": 0,
     "drainable_in": 6,
+    "issue_numbers": [],
     "longest_job": {
       "minutes": 5.816666666666666,
       "name": "Python CI / python 3.13",
