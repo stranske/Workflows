@@ -55,7 +55,7 @@ def test_progress_review_uses_subscription_without_langchain_install():
     text = json.dumps(job)
     # The existing entrypoint's directory name is not a LangChain dependency.
     dependency_text = text.replace("scripts/langchain/progress_reviewer.py", "")
-    for forbidden in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "langchain"):
+    for forbidden in (*PROVIDER_KEYS, "langchain"):
         assert forbidden not in dependency_text, str(file)
     step = next(s for s in job["steps"] if s.get("id") == "review")
     assert step["env"]["WORKFLOWS_ANALYSIS_CLI"] == "codex"
@@ -77,7 +77,7 @@ def test_progress_review_uses_subscription_without_langchain_install():
 
 @pytest.mark.parametrize("agent", (*RUNNERS, "progress-review"))
 @pytest.mark.parametrize("surface", ("env", "run"))
-@pytest.mark.parametrize("forbidden", ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "langchain"))
+@pytest.mark.parametrize("forbidden", (*PROVIDER_KEYS, "langchain"))
 def test_workflow_gate_rejects_reintroduced_api_dependencies(
     monkeypatch, agent, surface, forbidden
 ):
