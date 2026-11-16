@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import sys
+from itertools import permutations
 from pathlib import Path
 
 import pytest
@@ -223,26 +224,53 @@ def test_queued_check_without_timestamp_blocks_older_pass():
         assert result["states"]["gate"]["app_id"] == 99
 
 
-def _stamp_only_check_run_is_newer(candidate, incumbent):
-    """Pre-fix ordering key: lexicographic (timestamp, check-run id) only."""
-    c_ts = candidate.get("started_at") or candidate.get("created_at") or ""
-    i_ts = incumbent.get("started_at") or incumbent.get("created_at") or ""
-    return (c_ts, candidate.get("id", 0)) > (i_ts, incumbent.get("id", 0))
+@pytest.mark.parametrize("attempt_ids", list(permutations((1, 2, 3))))
+def test_three_check_attempts_select_queued_run_in_every_order(attempt_ids):
+    attempts = {
+        1: check(ident=1, started="2026-10-01T02:00:00Z"),
+        2: queued_check(ident=2),
+        3: check(conclusion="failure", ident=3, started="2026-10-01T01:00:00Z"),
+    }
+    result = verdict(checks=[attempts[ident] for ident in attempt_ids])
+    assert result["verdict"] == "FAIL"
+    assert result["states"]["gate"]["state"] == "queued"
+    assert result["states"]["gate"]["order"][1] == 2
 
 
-def test_reverted_ordering_key_selects_id_1_success_over_queued_pending():
-    """Deliberate-break guard: reverting check_run_is_newer selects id=1 success (PASS)."""
-    old_pass = check(ident=1, started="2026-10-01T01:00:00Z")
+def test_newer_success_supersedes_older_queued_check_without_timestamp():
     pending = queued_check(ident=2)
-    original = reporter.check_run_is_newer
-    reporter.check_run_is_newer = _stamp_only_check_run_is_newer
-    try:
-        result = verdict(checks=[old_pass, pending])
+    success = check(ident=3, started="2026-10-01T02:00:00Z")
+    for checks in ([pending, success], [success, pending]):
+        result = verdict(checks=checks)
         assert result["verdict"] == "PASS"
         assert result["states"]["gate"]["state"] == "success"
-        assert result["states"]["gate"]["order"][1] == 1
-    finally:
-        reporter.check_run_is_newer = original
+        assert result["states"]["gate"]["order"][1] == 3
+
+
+def test_timestampless_checks_select_highest_id_regardless_of_status():
+    pending = queued_check(ident=2)
+    success = check(ident=3, started=None)
+    for checks in ([pending, success], [success, pending]):
+        result = verdict(checks=checks)
+        assert result["verdict"] == "PASS"
+        assert result["states"]["gate"]["order"][1] == 3
+
+
+def test_reverted_ordering_key_selects_id_1_success_over_queued_pending(monkeypatch):
+    """Deliberate-break guard: dropping the final ID comparison revives PASS."""
+    old_pass = check(ident=1, started="2026-10-01T02:00:00Z")
+    pending = queued_check(ident=2)
+    failed = check(conclusion="failure", ident=3, started="2026-10-01T01:00:00Z")
+    monkeypatch.setattr(
+        reporter,
+        "check_run_is_newer",
+        lambda candidate, incumbent: reporter.check_run_order(candidate)
+        > reporter.check_run_order(incumbent),
+    )
+    result = verdict(checks=[old_pass, pending, failed])
+    assert result["verdict"] == "PASS"
+    assert result["states"]["gate"]["state"] == "success"
+    assert result["states"]["gate"]["order"][1] == 1
 
 
 def test_check_run_is_newer_timestampless_queued_beats_completed_pass():

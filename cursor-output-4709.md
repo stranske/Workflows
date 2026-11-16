@@ -47,3 +47,45 @@ Gate marker for PR body (if not already present):
 ```html
 <!-- deliberate-break: test=tests/test_check_checks_reported.py::test_queued_check_without_timestamp_blocks_older_pass test-file=tests/test_check_checks_reported.py break-file=scripts/check_checks_reported.py -->
 ```
+
+## November 16 continuation
+
+Commands used `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` with `/opt/anaconda3/bin/python3` because the
+environment's auto-loaded pytest-asyncio plugin stopped pytest during configuration.
+
+With the previous pairwise fold, the new three-attempt regression printed:
+
+```text
+$ /opt/anaconda3/bin/python3 -m pytest tests/test_check_checks_reported.py::test_three_check_attempts_select_queued_run_in_every_order -q
+F.FF.F                                                                   [100%]
+4 failed, 2 passed in 0.32s
+```
+
+Orders `(1, 2, 3)` and `(2, 1, 3)` selected failed ID 3, raising
+`AssertionError: assert 'failure' == 'queued'`. Orders `(2, 3, 1)` and `(3, 2, 1)`
+selected successful ID 1, raising `AssertionError: assert 'PASS' == 'FAIL'`.
+
+With deterministic selection, all six permutations returned `FAIL` and selected queued ID 2.
+The updated guard also passed by substituting timestamp-only comparison at the final
+queued-versus-timestamped selection and observing the false `PASS`.
+
+```text
+$ /opt/anaconda3/bin/python3 -m pytest tests/test_check_checks_reported.py::test_three_check_attempts_select_queued_run_in_every_order tests/test_check_checks_reported.py::test_reverted_ordering_key_selects_id_1_success_over_queued_pending -q
+.......                                                                  [100%]
+7 passed in 0.24s
+$ /opt/anaconda3/bin/python3 -m pytest tests/test_check_checks_reported.py -q
+311 passed in 5.18s
+```
+
+Temporarily replacing the final comparison with timestamp-only ordering in production source
+also broke the original named regression. Restoring the source byte for byte made it pass:
+
+```text
+$ /opt/anaconda3/bin/python3 -m pytest tests/test_check_checks_reported.py::test_queued_check_without_timestamp_blocks_older_pass -q
+E           AssertionError: assert 'PASS' == 'FAIL'
+1 failed in 0.19s
+Restored production source byte for byte
+$ /opt/anaconda3/bin/python3 -m pytest tests/test_check_checks_reported.py::test_queued_check_without_timestamp_blocks_older_pass -q
+.                                                                        [100%]
+1 passed in 0.16s
+```

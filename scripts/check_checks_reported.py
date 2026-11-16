@@ -1281,6 +1281,10 @@ def gate_status_provenance(
     return {status["id"]: matches[0]} if len(matches) == 1 else {}
 
 
+def check_run_order(item: dict[str, Any]) -> tuple[str, int]:
+    return (item.get("started_at") or item.get("created_at") or "", item.get("id", 0))
+
+
 def check_run_is_newer(candidate: dict[str, Any], incumbent: dict[str, Any]) -> bool:
     """True when candidate should replace incumbent for the same check name.
 
@@ -1288,10 +1292,8 @@ def check_run_is_newer(candidate: dict[str, Any], incumbent: dict[str, Any]) -> 
     A newer timestampless non-completed check blocks an older completed success.
     A newer completed success still supersedes an older timestampless attempt.
     """
-    c_ts = candidate.get("started_at") or candidate.get("created_at")
-    i_ts = incumbent.get("started_at") or incumbent.get("created_at")
-    c_id = candidate.get("id", 0)
-    i_id = incumbent.get("id", 0)
+    c_ts, c_id = check_run_order(candidate)
+    i_ts, i_id = check_run_order(incumbent)
     if c_ts and i_ts:
         return (c_ts, c_id) > (i_ts, i_id)
     if not c_ts and not i_ts:
@@ -1311,18 +1313,27 @@ def latest_checks(
     status_provenance: dict[int, dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     latest: dict[str, dict[str, Any]] = {}
-    incumbents: dict[str, dict[str, Any]] = {}
+    attempts_by_name: dict[str, list[dict[str, Any]]] = {}
     for item in checks:
-        key = item["name"]
-        if key not in incumbents or check_run_is_newer(item, incumbents[key]):
-            incumbents[key] = item
-    for key, item in incumbents.items():
-        stamp = (
-            item.get("started_at") or item.get("created_at") or "",
-            item.get("id", 0),
-        )
+        attempts_by_name.setdefault(item["name"], []).append(item)
+    for key, attempts in attempts_by_name.items():
+        # The timestamp winner must be fixed before comparing IDs across attempts
+        # with and without timestamps. The mixed comparison is not transitive.
+        item = max(attempts, key=check_run_order)
+        if check_run_order(item)[0]:
+            pending = max(
+                (
+                    attempt
+                    for attempt in attempts
+                    if not check_run_order(attempt)[0] and attempt.get("status") != "completed"
+                ),
+                key=check_run_order,
+                default=None,
+            )
+            if pending is not None and check_run_is_newer(pending, item):
+                item = pending
         latest[key] = {
-            "order": stamp,
+            "order": check_run_order(item),
             "state": (
                 item.get("conclusion") if item.get("status") == "completed" else item.get("status")
             ),
