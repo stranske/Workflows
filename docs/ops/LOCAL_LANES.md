@@ -42,7 +42,10 @@ Three deterministic Python lanes run across the supported fleet, started by one 
   offers a few issues a day to the experiment producer.
 - **Local loop** (`local_loop.py`) — drives a local start's PR (`agents:local-loop`) round by round on CI
   results, rotates the agent after two unproductive rounds, and hands the PR to hosted keepalive if it stalls.
-- **Closer** (`closer-core`) — drives agent PRs through merge → verify → close, rotates stalled agents with
+- **Closer** (`closer-core`) — drives agent PRs through merge → verify → close (and, since 2026-11-16, PRs a
+  Claude Code session made that name no issue: a `claude.ai/code/session_` link in the body is adopted after 30
+  minutes without a push, the Claude Code footer or `workflow-source:local_request` after 7 days; each is
+  judged once per head and merged through merge_guard), rotates stalled agents with
   `agent:auto`, files bounded follow-up issues, parks a non-converging chain as a `[backlog]` issue, and keeps
   the owner's needs-human catalog (each parked item gets a cause and a condition; untouched items close after
   30 days). Merges go through the exact-head merge rail, which runs a task's own acceptance commands on the
