@@ -364,3 +364,28 @@ above succeeded. No commit was attempted because the global gate did not pass
 and Git metadata is read-only. The implementation, tests and evidence remain
 uncommitted in the working tree. Final GitHub readback still reports PR #4711
 open with `isDraft=false`.
+
+## Local keepalive round 7 — 2026-11-16 Central
+
+- On `e7a534217b2bc4acfd3cd0a81fb8e44037908e73`, slow compatibility on
+  Python 3.13 and 3.14 failed on Ruff 0.17.4 and Coverage 7.17.2. The Python
+  Tests rollup reported the compatibility failure. Main still carried those
+  pins at `3be719f4c750ea1057e40c7287d3f74bbf999508`. The designated
+  updater's [PR #4705](https://github.com/stranske/Workflows/pull/4705) was
+  open with Ruff 0.17.5 and Coverage 7.17.3. Compatibility can be rechecked
+  after the updater lands on main and this branch incorporates it.
+  [Exact-head Selftest CI](https://github.com/stranske/Workflows/actions/runs/43815280385)
+- The cited Gate run was cancelled on `aae039e21bd26a3095564bfc17ca0bef0ded5637`.
+  The run on `e7a534217b2bc4acfd3cd0a81fb8e44037908e73` was still in
+  progress at readback.
+  [Cancelled Gate](https://github.com/stranske/Workflows/actions/runs/43814263372)
+  [Exact-head Gate](https://github.com/stranske/Workflows/actions/runs/43815280355)
+- The pinned Codex CLI 0.160.0 job on `e7a534217b2bc4acfd3cd0a81fb8e44037908e73`
+  passed all 22 tests with zero skips, covering the source and consumer
+  transports. The runnable commands are in the round 6 section.
+  [Exact-head CLI canary](https://github.com/stranske/Workflows/actions/runs/43815280268/job/133125815115)
+- PR #4711 is open and ready for review. The delivered merge SHA, the
+  API-key mutation proof at that SHA, and the qualifying hosted analysis
+  receipt are pending. The earlier hosted job suppressed the completed-task
+  output, leaving receipt of that output unverified.
+  [Earlier hosted job](https://github.com/stranske/Workflows/actions/runs/43798812323/job/133074122262)
