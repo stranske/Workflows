@@ -223,6 +223,28 @@ def test_queued_check_without_timestamp_blocks_older_pass():
         assert result["states"]["gate"]["app_id"] == 99
 
 
+def _stamp_only_check_run_is_newer(candidate, incumbent):
+    """Pre-fix ordering key: lexicographic (timestamp, check-run id) only."""
+    c_ts = candidate.get("started_at") or candidate.get("created_at") or ""
+    i_ts = incumbent.get("started_at") or incumbent.get("created_at") or ""
+    return (c_ts, candidate.get("id", 0)) > (i_ts, incumbent.get("id", 0))
+
+
+def test_reverted_ordering_key_selects_id_1_success_over_queued_pending():
+    """Deliberate-break guard: reverting check_run_is_newer selects id=1 success (PASS)."""
+    old_pass = check(ident=1, started="2026-10-01T01:00:00Z")
+    pending = queued_check(ident=2)
+    original = reporter.check_run_is_newer
+    reporter.check_run_is_newer = _stamp_only_check_run_is_newer
+    try:
+        result = verdict(checks=[old_pass, pending])
+        assert result["verdict"] == "PASS"
+        assert result["states"]["gate"]["state"] == "success"
+        assert result["states"]["gate"]["order"][1] == 1
+    finally:
+        reporter.check_run_is_newer = original
+
+
 def test_latest_status_replaces_old_failure_regardless_of_page_order():
     statuses = [
         {"context": "gate", "created_at": "2026-10-01T02:00:00Z", "id": 2, "state": "success"},

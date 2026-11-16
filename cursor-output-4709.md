@@ -1,29 +1,31 @@
-# Issue #4701 / PR deliberate-break verification
+## Deliberate break → revert (acceptance criterion 2)
 
-## `test_queued_check_without_timestamp_blocks_older_pass`
+Reverted the ordering key in `check_run_is_newer` at `scripts/check_checks_reported.py` (~1292) to stamp-only comparison `(timestamp or "", id)` with no timestampless queued handling—the pre-fix behavior.
 
-### With fix (check_run_is_newer + stamp id tiebreaker)
+### Broken head (`check_run_is_newer` reverted)
 
+```text
+$ python3 -m pytest tests/test_check_checks_reported.py::test_queued_check_without_timestamp_blocks_older_pass -q
+FAILED ... AssertionError: assert 'PASS' == 'FAIL'
+  - FAIL
+  + PASS
+1 failed
 ```
-python3 -m pytest tests/test_check_checks_reported.py::test_queued_check_without_timestamp_blocks_older_pass -q
+
+Observed: id=1 completed success selected, overall verdict `PASS` (regression).
+
+### Restored fix
+
+```text
+$ python3 -m pytest tests/test_check_checks_reported.py::test_queued_check_without_timestamp_blocks_older_pass -q
 .                                                                        [100%]
-1 passed in 1.06s
+1 passed
 ```
 
-### Deliberate break (revert ordering: stamp-only without id / check_run_is_newer)
+In-repo guard: `tests/test_check_checks_reported.py::test_reverted_ordering_key_selects_id_1_success_over_queued_pending` encodes the broken ordering without mutating production source.
 
-Restored pre-fix behavior: `("", 0)` ordering lets older `id=1` success beat newer queued `id=2`.
+Gate marker for PR body (if not already present):
 
-```
-python3 -m pytest tests/test_check_checks_reported.py::test_queued_check_without_timestamp_blocks_older_pass -q
-F
-AssertionError: assert 'PASS' == 'FAIL'  (verdict PASS returned incorrectly)
-1 failed in 0.29s
-```
-
-### Full file with fix
-
-```
-python3 -m pytest tests/test_check_checks_reported.py -q
-300 passed in 7.93s
+```html
+<!-- deliberate-break: test=tests/test_check_checks_reported.py::test_queued_check_without_timestamp_blocks_older_pass test-file=tests/test_check_checks_reported.py break-file=scripts/check_checks_reported.py -->
 ```
