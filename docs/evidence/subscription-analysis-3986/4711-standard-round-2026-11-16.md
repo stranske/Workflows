@@ -118,3 +118,56 @@ PR #4711 was open and ready for review at this check. Repeat the actual-workflow
 regression on the delivered merge commit and obtain a hosted keepalive receipt
 on that commit for the registry model, JSON-derived outputs, subscription
 authentication, and both API-key presence booleans.
+
+## Inherited-environment regression follow-up — 2026-11-16 UTC
+
+Starting commit: `d60c391b4a7fcc2608507b03ad4a203c8de8419d`.
+
+Reviewed the five preceding commits and the current PR body before editing.
+PR #4711 remains open, unmerged and ready for review. No delivered merge SHA
+exists yet, so the first unchecked task remains blocked. The task beginning
+"Inspect hosted keepalive Actions logs" should also be reopened: the recorded
+hosted run predates the new receipt. Candidate CLI confinement and mutation
+proof remain separate from delivered-commit and hosted acceptance. No pending
+acceptance checkbox is completed by this follow-up.
+
+The named API-key regression checked step environments but missed inherited
+workflow and runner-job environments. Extended the existing in-memory mutation
+matrix to both scopes, then added the missing assertions for all five runners
+and progress review. The new cases initially reported 44 failures and four
+passes; progress-review job environments were already covered by its whole-job
+assertion. These cases use parsed YAML only, without editing workflow files.
+
+```sh
+pytest tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# Starting commit: 88 passed in 3.85s, exit 0.
+pytest tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' \
+  -k 'workflow_gate_rejects and (workflow-env or job-env)' -q --tb=no
+# Added mutation cases before the fix: 44 failed, 4 passed, 88 deselected; exit 1.
+pytest tests/workflows/test_no_api_keys_in_keepalive.py -m 'not slow' -q
+# After the fix: 136 passed in 5.80s, exit 0.
+black --line-length 100 tests/workflows/test_no_api_keys_in_keepalive.py
+# 1 file left unchanged, exit 0.
+ruff check tests/workflows/test_no_api_keys_in_keepalive.py
+# All checks passed, exit 0.
+git diff --check
+# Exit 0.
+BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1019 files would be left unchanged.
+```
+
+The repository-wide Black command did not exit successfully, so its mandatory
+pre-commit gate remains unverified. No commit or push was attempted.
+
+All 134 tracked workflow files still match HEAD byte for byte. The Codex
+workflow SHA-256 remains
+`b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+This is preservation evidence, not the required actual-workflow mutation proof.
+
+The connector rejected the PR-body reconciliation, `needs-human` label and
+blocker comment because approval is required and this run's policy is `never`.
+`findmnt -T .git -n -o TARGET,OPTIONS` confirms the repository's `.git` mount is
+read-only, preventing the requested commit. An approved high-privilege run is
+still needed for the delivered-commit workflow mutation, followed by a hosted
+analysis round on the delivered SHA.

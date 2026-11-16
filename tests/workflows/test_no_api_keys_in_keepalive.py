@@ -18,11 +18,20 @@ RUNNERS = ("codex", "claude", "cursor", "gemini", "muse")
 PROVIDER_KEYS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CLAUDE_API_STRANSKE")
 
 
+def _assert_no_api_dependencies_in_env(file, *scopes):
+    for scope in scopes:
+        environment = json.dumps(scope.get("env", {}))
+        for forbidden in (*PROVIDER_KEYS, "langchain"):
+            assert forbidden not in environment, str(file)
+
+
 @pytest.mark.parametrize("agent", RUNNERS)
 def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
     file = ROOT / f".github/workflows/reusable-{agent}-run.yml"
     doc = yaml.safe_load(file.read_text())
     jobs = doc["jobs"]
+    # Workflow and job environments are inherited by the analysis step.
+    _assert_no_api_dependencies_in_env(file, doc, *jobs.values())
     steps = [step for job in jobs.values() for step in job.get("steps", [])]
     analysis = next(s for s in steps if s.get("id") == "llm_analysis")
     for step in steps:
@@ -131,7 +140,9 @@ def test_codex_analysis_outputs_reach_reusable_workflow_callers(public_output, s
 
 def test_progress_review_uses_subscription_without_langchain_install():
     file = ROOT / ".github/workflows/agents-keepalive-loop.yml"
-    job = yaml.safe_load(file.read_text())["jobs"]["progress-review"]
+    doc = yaml.safe_load(file.read_text())
+    job = doc["jobs"]["progress-review"]
+    _assert_no_api_dependencies_in_env(file, doc, job)
     text = json.dumps(job)
     # The existing entrypoint's directory name is not a LangChain dependency.
     dependency_text = text.replace("scripts/langchain/progress_reviewer.py", "")
@@ -156,7 +167,7 @@ def test_progress_review_uses_subscription_without_langchain_install():
 
 
 @pytest.mark.parametrize("agent", (*RUNNERS, "progress-review"))
-@pytest.mark.parametrize("surface", ("env", "run"))
+@pytest.mark.parametrize("surface", ("workflow-env", "job-env", "env", "run"))
 @pytest.mark.parametrize("forbidden", (*PROVIDER_KEYS, "langchain"))
 def test_workflow_gate_rejects_reintroduced_api_dependencies(
     monkeypatch, agent, surface, forbidden
@@ -167,13 +178,22 @@ def test_workflow_gate_rejects_reintroduced_api_dependencies(
     )
     doc = yaml.safe_load((ROOT / ".github/workflows" / filename).read_text())
     if agent == "progress-review":
-        steps = doc["jobs"]["progress-review"]["steps"]
+        job = doc["jobs"]["progress-review"]
         step_id = "review"
     else:
-        steps = [step for job in doc["jobs"].values() for step in job.get("steps", [])]
+        job = next(
+            job
+            for job in doc["jobs"].values()
+            if any(step.get("id") == "llm_analysis" for step in job.get("steps", []))
+        )
         step_id = "llm_analysis"
+    steps = job["steps"]
     step = next(step for step in steps if step.get("id") == step_id)
-    if surface == "env":
+    if surface == "workflow-env":
+        doc.setdefault("env", {})[forbidden] = "fixture-only"
+    elif surface == "job-env":
+        job.setdefault("env", {})[forbidden] = "fixture-only"
+    elif surface == "env":
         step.setdefault("env", {})[forbidden] = "fixture-only"
     else:
         step["run"] += f"\n{forbidden}=fixture-only\n"
