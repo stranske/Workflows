@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import sys
+from itertools import permutations
 from pathlib import Path
 
 import pytest
@@ -187,6 +188,102 @@ def test_required_check_skip_is_not_success():
 
 def test_required_app_mismatch_is_unknown():
     assert verdict(required=[{"context": "gate", "app_id": 99}])["verdict"] == "UNKNOWN"
+
+
+def queued_check(ident=2, app_id=15368):
+    return {
+        "name": "gate",
+        "id": ident,
+        "head_sha": HEAD,
+        "status": "queued",
+        "app": {"id": app_id},
+    }
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["old-first", "queued-first"])
+@pytest.mark.parametrize("app_id", [15368, 99], ids=["github-actions", "required-external"])
+def test_queued_check_without_timestamp_blocks_older_pass(app_id, reverse):
+    old_pass = {
+        **check(ident=1, started="2026-10-01T01:00:00Z"),
+        "app": {"id": app_id},
+    }
+    pending = queued_check(ident=2, app_id=app_id)
+    checks = [pending, old_pass] if reverse else [old_pass, pending]
+    result = verdict(
+        checks=checks,
+        required=[{"context": "gate", "app_id": app_id}] if app_id == 99 else [],
+    )
+    selected = result["states"]["gate"]
+    assert result["verdict"] == "FAIL", (
+        f"selected id={selected['order'][1]} state={selected['state']}; "
+        f"verdict={result['verdict']}"
+    )
+    assert selected["state"] == "queued"
+    assert selected["order"][1] == 2
+    assert selected["app_id"] == app_id
+
+
+@pytest.mark.parametrize("attempt_ids", list(permutations((1, 2, 3))))
+def test_three_check_attempts_select_queued_run_in_every_order(attempt_ids):
+    attempts = {
+        1: check(ident=1, started="2026-10-01T02:00:00Z"),
+        2: queued_check(ident=2),
+        3: check(conclusion="failure", ident=3, started="2026-10-01T01:00:00Z"),
+    }
+    result = verdict(checks=[attempts[ident] for ident in attempt_ids])
+    assert result["verdict"] == "FAIL"
+    assert result["states"]["gate"]["state"] == "queued"
+    assert result["states"]["gate"]["order"][1] == 2
+
+
+def test_newer_success_supersedes_older_queued_check_without_timestamp():
+    pending = queued_check(ident=2)
+    success = check(ident=3, started="2026-10-01T02:00:00Z")
+    for checks in ([pending, success], [success, pending]):
+        result = verdict(checks=checks)
+        assert result["verdict"] == "PASS"
+        assert result["states"]["gate"]["state"] == "success"
+        assert result["states"]["gate"]["order"][1] == 3
+
+
+def test_timestampless_checks_select_highest_id_regardless_of_status():
+    pending = queued_check(ident=2)
+    success = check(ident=3, started=None)
+    for checks in ([pending, success], [success, pending]):
+        result = verdict(checks=checks)
+        assert result["verdict"] == "PASS"
+        assert result["states"]["gate"]["order"][1] == 3
+
+
+def test_reverted_ordering_key_selects_id_1_success_over_queued_pending(monkeypatch):
+    """Deliberate-break guard: dropping the final ID comparison revives PASS."""
+    old_pass = check(ident=1, started="2026-10-01T02:00:00Z")
+    pending = queued_check(ident=2)
+    failed = check(conclusion="failure", ident=3, started="2026-10-01T01:00:00Z")
+    monkeypatch.setattr(
+        reporter,
+        "check_run_is_newer",
+        lambda candidate, incumbent: reporter.check_run_order(candidate)
+        > reporter.check_run_order(incumbent),
+    )
+    result = verdict(checks=[old_pass, pending, failed])
+    assert result["verdict"] == "PASS"
+    assert result["states"]["gate"]["state"] == "success"
+    assert result["states"]["gate"]["order"][1] == 1
+
+
+def test_check_run_is_newer_timestampless_queued_beats_completed_pass():
+    old_pass = check(ident=1, started="2026-10-01T01:00:00Z")
+    pending = queued_check(ident=2)
+    assert reporter.check_run_is_newer(pending, old_pass)
+    assert not reporter.check_run_is_newer(old_pass, pending)
+
+
+def test_check_run_is_newer_timestampless_pair_orders_by_id():
+    first = queued_check(ident=1)
+    second = queued_check(ident=2)
+    assert reporter.check_run_is_newer(second, first)
+    assert not reporter.check_run_is_newer(first, second)
 
 
 def test_latest_status_replaces_old_failure_regardless_of_page_order():
