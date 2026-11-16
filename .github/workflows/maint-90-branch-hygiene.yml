@@ -1,0 +1,27 @@
+name: Maint 90 Branch Hygiene
+
+# Daily prune of this repository's stale branches (see reusable-branch-hygiene.yml for the rules).
+# delete_branch_on_merge covers merged PRs; this covers closed-unmerged PRs and branches no PR ever had.
+on:
+  schedule:
+    - cron: '41 6 * * *'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Delete and archive (false = dry run)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: branch-hygiene
+  cancel-in-progress: false
+
+jobs:
+  hygiene:
+    uses: ./.github/workflows/reusable-branch-hygiene.yml
+    with:
+      apply: ${{ github.event_name == 'schedule' || inputs.apply }}

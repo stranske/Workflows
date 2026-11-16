@@ -1,0 +1,53 @@
+name: Reusable Branch Hygiene
+
+# Prunes the CALLER's stale branches with scripts/branch_hygiene.py: branches of merged or closed PRs that
+# have not moved since, branches already contained in the default branch, and branches with commits no PR
+# carries once untouched for archive_after_days (archived under refs/archive/branches/<name> first, so
+# nothing is lost). Open-PR, protected, default, release, export and recently touched branches are kept.
+# Report-only output (step summary); it never opens issues or blocks anything.
+on:
+  workflow_call:
+    inputs:
+      apply:
+        description: 'Delete and archive (false = dry run)'
+        type: boolean
+        default: true
+      min_age_days:
+        description: 'Keep any branch whose head commit is younger than this (in-flight work)'
+        type: string
+        default: '3'
+      archive_after_days:
+        description: 'Archive then delete a branch with commits no PR carries once untouched this long'
+        type: string
+        default: '7'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  prune:
+    name: prune stale branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout the hygiene script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stranske/Workflows
+          ref: main
+          path: .workflows-lib
+          sparse-checkout: scripts/branch_hygiene.py
+          persist-credentials: false
+      - name: Prune
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+          APPLY: ${{ inputs.apply }}
+          MIN_AGE: ${{ inputs.min_age_days }}
+          ARCHIVE_AFTER: ${{ inputs.archive_after_days }}
+        run: |
+          set -euo pipefail
+          args=("$TARGET_REPO" --min-age-days "$MIN_AGE" --archive-after-days "$ARCHIVE_AFTER" --json branch-hygiene.json)
+          if [ "$APPLY" = "true" ]; then args+=(--apply); fi
+          python3 .workflows-lib/scripts/branch_hygiene.py "${args[@]}"
