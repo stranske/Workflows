@@ -4,6 +4,8 @@ import json
 import runpy
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs/evidence/issue-3743/shebang-rejection"
 CAPTURE = EVIDENCE / "capture_validation_run.py"
@@ -87,3 +89,58 @@ def test_retained_validation_receipts_record_exits_and_file_counts():
     assert str(counts["black_files"]) in readme
     stored = json.loads((RUN / "summary.json").read_text(encoding="utf-8"))
     assert stored["measured_file_counts"] == counts
+
+
+@pytest.mark.parametrize("validator", ["capture", "archives"])
+@pytest.mark.parametrize(
+    "field",
+    [
+        "black_files",
+        "ruff_files",
+        "workflows_directory_yml",
+        "template_directory_yml",
+        "manifest_workflow_targets",
+        "strict_validation_inputs",
+    ],
+)
+@pytest.mark.parametrize("invalid", [0, -1, True, 1.5, "1", None])
+def test_retained_counts_must_be_positive_integers(monkeypatch, validator, field, invalid):
+    _assert_invalid_count(monkeypatch, validator, field, invalid, "positive integer required")
+
+
+@pytest.mark.parametrize("validator", ["capture", "archives"])
+@pytest.mark.parametrize(
+    "field, message",
+    [
+        ("black_files", "black file count"),
+        ("ruff_files", "ruff file count"),
+        ("workflows_directory_yml", "strict validation input count"),
+        ("template_directory_yml", "strict validation input count"),
+        ("strict_validation_inputs", "strict validation input count"),
+    ],
+)
+def test_retained_counts_must_match_receipt_records(monkeypatch, validator, field, message):
+    summary = json.loads((RUN / "summary.json").read_text())
+    invalid = summary["measured_file_counts"][field] + 1
+    _assert_invalid_count(monkeypatch, validator, field, invalid, message)
+
+
+def _assert_invalid_count(monkeypatch, validator, field, invalid, message):
+    module = (
+        load_capture()
+        if validator == "capture"
+        else runpy.run_path(str(EVIDENCE / "verify_archives.py"))
+    )
+    read_json = module["read_json"]
+
+    def damaged_summary(path):
+        payload = read_json(path)
+        if path == RUN / "summary.json":
+            payload["measured_file_counts"][field] = invalid
+        return payload
+
+    validate = module["validate_retained"] if validator == "capture" else module["validate"]
+    monkeypatch.setitem(validate.__globals__, "read_json", damaged_summary)
+    error = AssertionError if validator == "capture" else ValueError
+    with pytest.raises(error, match=message):
+        validate(ROOT)

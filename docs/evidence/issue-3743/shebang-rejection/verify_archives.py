@@ -171,21 +171,14 @@ def _current_bindings(root: Path, problems: list[str]) -> None:
         validation["historical_digests"](root) == validation_summary["historical_sha256"],
         "validation-run historical bindings drifted",
     )
-    measured = validation_summary["measured_file_counts"]
-    recounted = validation["template_file_counts"](root)
-    for key in (
-        "workflows_directory_yml",
-        "template_directory_yml",
-        "manifest_workflow_targets",
-        "strict_validation_inputs",
-    ):
-        _problem(problems, recounted[key] == measured[key], f"measured count drifted: {key}")
-    _problem(problems, measured["black_files"] > 0, "black file count was not recorded")
-    _problem(
-        problems,
-        measured["ruff_files"] == len(validation["FOCUSED_RUFF"]),
-        "ruff file count drifted",
-    )
+    try:
+        validation["validate_measured_file_counts"](
+            validation_summary,
+            read_json(root / EVIDENCE / "validation-run/black.json"),
+            read_json(root / EVIDENCE / "validation-run/ruff.json"),
+        )
+    except AssertionError as exc:
+        problems.append(f"validation-run measured counts: {exc}")
     for summary in CURRENT[1:]:
         for relative, spec in read_json(root / summary)["input_sha256"].items():
             data = (root / relative).read_bytes()
