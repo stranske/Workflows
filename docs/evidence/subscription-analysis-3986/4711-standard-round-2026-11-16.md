@@ -925,3 +925,52 @@ PR #4711 merges and a hosted keepalive job uses the delivered runner. Inspect
 its analysis and summary jobs for the resolved registry model, all four
 outputs, `subscription-auth=chatgpt`, and both API-key presence flags set to
 `false`. This check was bounded to two attempts per failed read and 15 minutes.
+
+## Local keepalive round 12 — November 16, 2026 Central
+
+Outcome T6: **0 qualifying delivered-runner rounds verified**. Starting head
+was `6bb2c399ce5a28bbe3f3ff49a9c82cbc988d4840`. GitHub still reports PR
+#4711 open, unmerged and ready for review. A preview merge SHA is not delivery.
+The first missing step is delivery of this runner; T6 remains unchecked.
+
+Acceptance outcome: one hosted round on the delivered runner showing
+`llm-analysis-run=true`, `provider=codex`, the resolved registry cheap-tier
+model, all four JSON-derived summary outputs, `subscription-auth=chatgpt`,
+and both API-key presence flags false. Read-only checks below run in under
+two minutes; they do not substitute for the hosted outcome. Stop rule recorded
+before changes: two retrieval attempts per missing source or 20 minutes.
+
+```sh
+gh pr view 4711 --repo stranske/Workflows --json state,isDraft,headRefOid,mergeCommit
+gh run list --repo stranske/Workflows --workflow agents-keepalive-loop.yml --limit 5 --json databaseId,headSha,status,conclusion,url,createdAt
+gh run view 43834993113 --repo stranske/Workflows --json jobs,headSha,url
+gh run view 43833957625 --repo stranske/Workflows --json jobs,headSha,url
+gh run view 43832172703 --repo stranske/Workflows --job 133180862517 --log
+git diff origin/main HEAD -- .github/workflows/reusable-codex-run.yml
+```
+
+- Latest successful [run 43834993113](https://github.com/stranske/Workflows/actions/runs/43834993113)
+  at `51f9943bf3030134f20fe91a400ca2684d9cab5d` skipped Codex
+  job `133189485377`. No analysis acceptance follows from its overall success.
+- [Run 43833957625](https://github.com/stranske/Workflows/actions/runs/43833957625)
+  skipped Codex job `133186238142`; its Cursor analysis step was also skipped.
+  Its unrelated checkout failure is outside this T6 evidence task.
+- Re-read the complete older Codex job `133180862517`. Its `Uses:` resolves
+  the runner to `ba5fcc9ce361920ebbc0e372013abec39c513f76`. It sets output
+  names, but contains none of the three required authentication/key-presence
+  receipts. Missing receipts do not establish key presence or absence.
+- Fetched main `51f9943bf3030134f20fe91a400ca2684d9cab5d` still lacks
+  the receipt added by this PR. Its runner invokes analysis once and extracts
+  summary fields from that JSON. The branch registry selects `gpt-6-luna`
+  for Codex cheap tier; configuration is not an observed hosted model value.
+
+The live PR body incorrectly checked the hosted-inspection task despite its
+pending-evidence narrative. Reopen that checkbox. A1 and A3–A5 remain pending
+delivered-state evidence; keep the previously recorded CLI confinement result
+separate. No runtime code, pins, credentials or workflow dispatches changed.
+Validation for this evidence-only change: `git diff --check`.
+
+Blocking/drainable pair: delivery and its qualifying hosted receipt are missing;
+read-only verification and checkbox reconciliation remain drainable. Recheck
+after merge and a hosted keepalive using the delivered runner. This is the
+resumption condition, not a new lock or permission requirement.
