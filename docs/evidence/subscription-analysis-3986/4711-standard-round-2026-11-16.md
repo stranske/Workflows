@@ -494,3 +494,23 @@ The default multi-file formatter first failed with a sandbox `PermissionError`;
 the single-file formatters succeeded. The global timeout does not establish a
 passing gate. No commit or push was attempted. The source fix, tests and this
 evidence update remain uncommitted.
+
+## Local keepalive round 8 — 2026-11-16 Central
+
+On `3c8ae57a44a056da0605a0577def2c0b8a85172b`, the Python 3.13 and
+3.14 slow compatibility jobs both rejected Ruff 0.17.4 and Coverage 7.17.2.
+Python Tests propagated that failure. `main` still carried those versions at
+`3be719f4c750ea1057e40c7287d3f74bbf999508`. The designated updater's
+[PR #4705](https://github.com/stranske/Workflows/pull/4705) was open at
+`2011b8629271ade204acb7cb1c34c9508f98991c`, with Ruff 0.17.5 and Coverage
+7.17.3 and passing slow compatibility on both Python versions. Once those pins
+reach `main`, sync this branch and check the three jobs on the refreshed head.
+[Failing Selftest run](https://github.com/stranske/Workflows/actions/runs/43818584224)
+
+The earlier hosted job used the runner at `3be719f4c750ea1057e40c7287d3f74bbf999508`
+and explicitly reported that `llm-completed-tasks` was suppressed as a possible
+secret. The summary fallback `[]` cannot establish receipt. T6 requires a
+hosted round after delivery with the runtime subscription and API-key presence
+receipts and all four analysis outputs. A1 also requires the actual-workflow
+mutation and restoration sequence on that delivered SHA.
+[Earlier hosted job](https://github.com/stranske/Workflows/actions/runs/43798812323/job/133074122262)
