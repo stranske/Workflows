@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from scripts import update_versions_from_pypi
-from scripts.dev_tool_update_policy import ROUTINE_WINDOW_WEEKDAY, should_propose_update
+from scripts.dev_tool_update_policy import ROUTINE_WINDOW_WEEKDAY
 from scripts.update_versions_from_pypi import (
     PACKAGE_MAPPING,
     VersionInfo,
@@ -58,9 +58,17 @@ def _skip_if_pypi_unreachable() -> None:
 # Monday UTC window (`scripts/dev_tool_update_policy.py`), so a pin that lags a release
 # published AFTER the most recent window started could not have been bumped yet and must
 # not fail every pull request until Monday. A pin that lags a release the updater could
-# already have proposed (published before that window started), or any lag inside the
-# window itself, is still a failure.
+# already have proposed (published before that window started) is still a failure.
+#
+# The drain is not the 03:00 run alone: the run OPENS a PR, and the pins change only when
+# that PR merges. Until 2026-11-16 the gate bound from the run's start (and on Monday any
+# lag bound from 00:00), so every unrelated PR here was red from Monday until the update PR
+# merged -- five batch PRs on 2026-11-16 (#4704, #4707-#4710) while #4705 waited. The gate
+# therefore measures against the window whose drain has had DRAIN_GRACE to land. ONE
+# constant, used only by `_binding_window_start`, so the measuring and draining windows
+# cannot drift apart. Measured update-PR merge lag: 3h to 35h (#1422, #1591, #2784, #2849).
 ROUTINE_WINDOW_HOUR_UTC = 3  # the updater's cron: `0 3 * * 1`
+DRAIN_GRACE = timedelta(hours=48)
 
 
 def _last_routine_window_start(now: datetime) -> datetime:
@@ -71,6 +79,14 @@ def _last_routine_window_start(now: datetime) -> datetime:
         hour=ROUTINE_WINDOW_HOUR_UTC, minute=0, second=0, microsecond=0
     )
     if start > now:
+        start -= timedelta(days=7)
+    return start
+
+
+def _binding_window_start(now: datetime) -> datetime:
+    """The newest routine window whose update PR has had ``DRAIN_GRACE`` to merge by ``now``."""
+    start = _last_routine_window_start(now)
+    if now.astimezone(UTC) < start + DRAIN_GRACE:
         start -= timedelta(days=7)
     return start
 
@@ -104,16 +120,13 @@ def _stale_pin_is_binding(
 ) -> bool:
     """Whether a pin lagging ``latest`` is a failure at ``now`` (see the note above).
 
-    Inside the Monday window any lag is binding. Outside it, the pin must have reached the
-    newest stable release the updater could already have proposed: the newest one published
-    at or before the most recent window start. A later midweek release never hides a pin that
-    missed an earlier eligible update (Workflows#4454 review).
+    The pin must have reached the newest stable release published at or before the newest
+    routine window whose update PR has had ``DRAIN_GRACE`` to merge. A later release never
+    hides a pin that missed an earlier eligible update (Workflows#4454 review).
     """
     if pinned == latest:
         return False
-    if should_propose_update(now, security_override=False):
-        return True
-    eligible = _eligible_at_window(releases, _last_routine_window_start(now))
+    eligible = _eligible_at_window(releases, _binding_window_start(now))
     if eligible is None:
         return releases is None or any(at is None for _, at in releases)
     return _is_outdated(pinned, eligible)
@@ -517,10 +530,11 @@ class TestConsumerRepoSampling:
         """Workflows#4454: the gate measures the same window its drain runs in.
 
         (a) Wednesday, pin 7.17.1, 7.17.2 released Tuesday (after Monday's window) -> not binding;
-        (b) Monday (the window), same pins -> binding;
-        (c) any day, the pin lags a release published before the last window started -> binding,
-            even when a newer midweek release also exists (review: a later release must not hide
-            an overdue update).
+        (b) the next Monday, same pins: the update PR is in flight, so not binding until it has
+            had DRAIN_GRACE to merge; binding from Wednesday 03:00;
+        (c) after the drain grace, the pin lags a release published before that window started
+            -> binding, even when a newer midweek release also exists (review: a later release
+            must not hide an overdue update).
         """
         monday = datetime(2026, 11, 2, 3, 0, tzinfo=UTC)
         friday = datetime(2026, 10, 30, 12, 0, tzinfo=UTC)
@@ -535,8 +549,20 @@ class TestConsumerRepoSampling:
         history = [("7.17.0", friday - timedelta(days=30)), ("7.17.1", friday), ("7.17.2", tuesday)]
         # (a) pin is the newest release the window could have proposed
         assert _stale_pin_is_binding("7.17.1", "7.17.2", history, wednesday) is False
-        # (b) inside the window any lag binds
-        assert _stale_pin_is_binding("7.17.1", "7.17.2", history, next_monday) is True
+        # (b) Monday-to-Wednesday the update PR is draining: no unrelated PR goes red (2026-11-16)
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", history, next_monday) is False
+        drain_due = datetime(2026, 11, 11, 3, 0, tzinfo=UTC)  # Monday 2026-11-09 03:00 + 48h
+        assert _binding_window_start(drain_due - timedelta(seconds=1)) == monday
+        assert _binding_window_start(drain_due) == datetime(2026, 11, 9, 3, 0, tzinfo=UTC)
+        assert (
+            _stale_pin_is_binding("7.17.1", "7.17.2", history, drain_due - timedelta(seconds=1))
+            is False
+        )
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", history, drain_due) is True
+        # the release before Monday's window binds only once that window's drain grace is over
+        assert (
+            _stale_pin_is_binding("7.17.0", "7.17.2", history, monday + timedelta(hours=9)) is False
+        )
         # (c) the pin missed 7.17.1 (eligible at Monday's window); the Tuesday release hides nothing
         assert _stale_pin_is_binding("7.17.0", "7.17.2", history, wednesday) is True
         # unknown history or an unknown upload time keeps the strict reading
