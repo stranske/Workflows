@@ -63,6 +63,14 @@ validate consumer integration, and preserve real production and security checks.
 - Read `docs/guides/ADD_NEW_AGENT.md` before adding or changing agent support.
 - The current consumer default entry points are `agents-issue-intake.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-verifier.yml`, `autofix.yml`, `ci.yml`, and `pr-00-gate.yml`.
 
+## Lane Design
+
+The local automation lanes that drive this fleet (controller seats, opener-core, closer-core, sync-core, the
+local loop, holds, and the model families in `.github/agents/model-table.json`) are described in the owner's lane
+design document, `Audits/closer-lane-2026-11/design/lane-design.html` (+ `.pdf`) in the owner's workspace, and
+summarised in `stranske/Orchestrator` `ARCHITECTURE.md` (external-boundary section). This repo is their system of
+record on GitHub: keepalive, Gate, runner receipts, and Maint 68/71/82 for sync.
+
 ## Optional GitNexus Context
 
 - GitNexus is an optional local MCP/indexing layer for cross-repo search and impact checks. Read `docs/ops/GITNEXUS.md` before changing its setup.
