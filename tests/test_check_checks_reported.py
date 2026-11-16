@@ -189,6 +189,40 @@ def test_required_app_mismatch_is_unknown():
     assert verdict(required=[{"context": "gate", "app_id": 99}])["verdict"] == "UNKNOWN"
 
 
+def queued_check(ident=2, app_id=15368):
+    return {
+        "name": "gate",
+        "id": ident,
+        "head_sha": HEAD,
+        "status": "queued",
+        "app": {"id": app_id},
+    }
+
+
+def test_queued_check_without_timestamp_blocks_older_pass():
+    old_pass = check(ident=1, started="2026-10-01T01:00:00Z")
+    pending = queued_check(ident=2)
+    for checks in ([old_pass, pending], [pending, old_pass]):
+        result = verdict(checks=checks)
+        assert result["verdict"] == "FAIL"
+        assert result["states"]["gate"]["state"] == "queued"
+        assert result["states"]["gate"]["order"][1] == 2
+
+    ext_pass = {
+        **check(ident=1, started="2026-10-01T01:00:00Z"),
+        "app": {"id": 99, "slug": "external"},
+    }
+    ext_pending = queued_check(ident=2, app_id=99)
+    for checks in ([ext_pass, ext_pending], [ext_pending, ext_pass]):
+        result = verdict(
+            checks=checks,
+            required=[{"context": "gate", "app_id": 99}],
+        )
+        assert result["verdict"] == "FAIL"
+        assert result["states"]["gate"]["state"] == "queued"
+        assert result["states"]["gate"]["app_id"] == 99
+
+
 def test_latest_status_replaces_old_failure_regardless_of_page_order():
     statuses = [
         {"context": "gate", "created_at": "2026-10-01T02:00:00Z", "id": 2, "state": "success"},

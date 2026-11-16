@@ -1281,26 +1281,54 @@ def gate_status_provenance(
     return {status["id"]: matches[0]} if len(matches) == 1 else {}
 
 
+def check_run_is_newer(candidate: dict[str, Any], incumbent: dict[str, Any]) -> bool:
+    """True when candidate should replace incumbent for the same check name.
+
+    With both timestamps, order by time then id. With neither, order by monotonic id.
+    A newer timestampless non-completed check blocks an older completed success.
+    A newer completed success still supersedes an older timestampless attempt.
+    """
+    c_ts = candidate.get("started_at") or candidate.get("created_at")
+    i_ts = incumbent.get("started_at") or incumbent.get("created_at")
+    c_id = candidate.get("id", 0)
+    i_id = incumbent.get("id", 0)
+    if c_ts and i_ts:
+        return (c_ts, c_id) > (i_ts, i_id)
+    if not c_ts and not i_ts:
+        return c_id > i_id
+    if c_ts and not i_ts:
+        if incumbent.get("status") != "completed":
+            return c_id > i_id
+        return True
+    if candidate.get("status") != "completed":
+        return c_id > i_id
+    return False
+
+
 def latest_checks(
     checks: list[dict[str, Any]],
     statuses: list[dict[str, Any]],
     status_provenance: dict[int, dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     latest: dict[str, dict[str, Any]] = {}
+    incumbents: dict[str, dict[str, Any]] = {}
     for item in checks:
         key = item["name"]
-        stamp = (item.get("started_at") or item.get("created_at") or "", item.get("id", 0))
-        if key not in latest or stamp > latest[key]["order"]:
-            latest[key] = {
-                "order": stamp,
-                "state": (
-                    item.get("conclusion")
-                    if item.get("status") == "completed"
-                    else item.get("status")
-                ),
-                "url": item.get("html_url"),
-                "app_id": (item.get("app") or {}).get("id"),
-            }
+        if key not in incumbents or check_run_is_newer(item, incumbents[key]):
+            incumbents[key] = item
+    for key, item in incumbents.items():
+        stamp = (
+            item.get("started_at") or item.get("created_at") or "",
+            item.get("id", 0),
+        )
+        latest[key] = {
+            "order": stamp,
+            "state": (
+                item.get("conclusion") if item.get("status") == "completed" else item.get("status")
+            ),
+            "url": item.get("html_url"),
+            "app_id": (item.get("app") or {}).get("id"),
+        }
     latest_statuses: dict[str, dict[str, Any]] = {}
     for item in statuses:
         key = item["context"]
