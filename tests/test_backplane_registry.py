@@ -305,8 +305,9 @@ def test_invalid_deferral_expiry_remains_blocking(expires_at: object) -> None:
         "2026-09-13T23:00:00-01:00",
     ],
 )
+@pytest.mark.parametrize("strict", [False, True])
 def test_expired_deferral_is_stale_warning_not_blocking(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str], expires_at: str
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], expires_at: str, strict: bool
 ) -> None:
     registry = _registry()
     _pension_conformant_entry(registry)["reference_run_evidence"][
@@ -316,8 +317,17 @@ def test_expired_deferral_is_stale_warning_not_blocking(
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
 
-    assert vbr.blocking_findings(vbr.validate_registry(registry)) == []
-    assert vbr.main(["--json", str(registry_path)]) == 0
+    findings = vbr.validate_registry(registry)
+    assert vbr.blocking_findings(findings) == []
+    assert findings == [
+        vbr.Finding(
+            "participants[1].issue_deferred.expires_at",
+            "deferred issue expired",
+            severity=vbr.STALE_SEVERITY,
+        )
+    ]
+    flags = ["--strict"] if strict else []
+    assert vbr.main([*flags, "--json", str(registry_path)]) == 0
 
     output = capsys.readouterr()
     report = json.loads(output.out)
@@ -335,17 +345,17 @@ def test_expired_deferral_is_stale_warning_not_blocking(
         "::warning::participants[1].issue_deferred.expires_at: deferred issue expired" in output.err
     )
 
-    assert vbr.main(["--strict", str(registry_path)]) == 0
+    assert vbr.main([*flags, str(registry_path)]) == 0
     output = capsys.readouterr()
     assert "blocking_count=0, stale_count=1" in output.out
     assert "- participants[1].issue_deferred.expires_at: deferred issue expired" in output.out
 
-    assert vbr.main(["--enforce-freshness", str(registry_path)]) == 1
+    assert vbr.main([*flags, "--enforce-freshness", str(registry_path)]) == 1
     output = capsys.readouterr()
     assert "blocking_count=0, stale_count=1" in output.out
     assert "- participants[1].issue_deferred.expires_at: deferred issue expired" in output.out
 
-    assert vbr.main(["--enforce-freshness", "--json", str(registry_path)]) == 1
+    assert vbr.main([*flags, "--enforce-freshness", "--json", str(registry_path)]) == 1
     enforced_report = json.loads(capsys.readouterr().out)
     assert enforced_report == report
 
