@@ -440,3 +440,57 @@ BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
 The timeout does not establish formatting success. No commit or push was
 attempted because this gate remains unverified and Git metadata is read-only.
 The test changes and this evidence update remain uncommitted.
+
+## Analysis log group validation — 2026-11-16 UTC
+
+Starting commit: `47480511b2f916b8c5929604548a0e5e0afac9c1`.
+GitHub reports PR #4711 open, unmerged and ready for review. No delivered merge
+SHA exists yet; the preview merge SHA cannot satisfy delivery. The first
+unchecked task also requires an approved `agent-high-privilege` run for the
+actual-workflow mutation. No acceptance checkbox is completed here.
+
+The offline hosted-evidence validator used a boolean for Actions log groups.
+Closing an inner group let script text inside the outer group count as runtime
+authentication or API-key presence receipts. It also accepted an unclosed outer
+group and unmatched end markers. Eight new regression cases failed before the
+fix. Tracking group depth now excludes all grouped text, rejects unbalanced
+markers and preserves runtime receipts following balanced nested groups.
+
+```sh
+pytest tests/workflows/test_no_api_keys_in_keepalive.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py -m 'not slow' -q
+# Exact starting commit: 227 passed in 7.96s, exit 0.
+# With the fix and eight new cases: 235 passed in 8.10s, exit 0.
+black --line-length 100 tools/validate_subscription_analysis_evidence.py
+black --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+black --check --line-length 100 tools/validate_subscription_analysis_evidence.py
+black --check --line-length 100 tests/tools/test_validate_subscription_analysis_evidence.py
+ruff check tools/validate_subscription_analysis_evidence.py \
+  tests/tools/test_validate_subscription_analysis_evidence.py
+git diff --check
+# All file-level checks passed.
+```
+
+These fixture tests do not establish hosted provenance, subscription
+authentication or actual-workflow mutation/restoration. All 134 tracked workflow
+files remain byte-identical to HEAD. The Codex workflow SHA-256 remains
+`b1c5e9de2a8331cc52d60f0edb3a222ab5b3004a93b8b7c9034deb688e24d7de`.
+
+The connector rejected the `needs-human` label and blocker comment because
+approval is required while this run's policy is `never`. Git metadata is mounted
+read-only, independently preventing the requested commit. The checked hosted
+inspection and reconciliation tasks still need reopening; the old hosted run
+predates the new receipt and suppressed completed-task output.
+
+The mandatory repository-wide Black gate did not exit successfully:
+
+```sh
+BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
+  --exclude '(\.workflows-lib|node_modules)' .
+# Exit 124: "Aborted!"; 1021 files would be left unchanged.
+```
+
+The default multi-file formatter first failed with a sandbox `PermissionError`;
+the single-file formatters succeeded. The global timeout does not establish a
+passing gate. No commit or push was attempted. The source fix, tests and this
+evidence update remain uncommitted.

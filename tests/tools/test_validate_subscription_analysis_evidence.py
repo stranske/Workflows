@@ -108,10 +108,45 @@ def test_rejects_present_api_key_flags(inputs, name):
         evidence.validate_evidence(**inputs)
 
 
-def test_rejects_truncated_actions_group(inputs):
-    inputs["analysis_log"] += "\n" + STAMP + "##[group]truncated"
+@pytest.mark.parametrize(
+    "group_lines",
+    [
+        ["##[group]truncated"],
+        ["##[group]outer", "##[group]inner", "##[endgroup]"],
+    ],
+)
+def test_rejects_truncated_actions_group(inputs, group_lines):
+    inputs["analysis_log"] += "\n" + "\n".join(STAMP + line for line in group_lines)
     with pytest.raises(ValueError, match="ends inside"):
         evidence.validate_evidence(**inputs)
+
+
+@pytest.mark.parametrize("position", ["before", "after"])
+def test_rejects_unmatched_actions_group_end(inputs, position):
+    terminator = STAMP + "##[endgroup]"
+    parts = [terminator, inputs["analysis_log"]]
+    inputs["analysis_log"] = "\n".join(parts if position == "before" else reversed(parts))
+    with pytest.raises(ValueError, match="unmatched"):
+        evidence.validate_evidence(**inputs)
+
+
+def test_balanced_nested_groups_do_not_hide_subsequent_runtime_receipts(inputs):
+    inputs["analysis_log"] = (
+        "\n".join(
+            STAMP + line
+            for line in (
+                "##[group]Run script",
+                "##[group]nested script text",
+                "subscription-auth=not-runtime",
+                "##[endgroup]",
+                "OPENAI_API_KEY-present=not-runtime",
+                "##[endgroup]",
+            )
+        )
+        + "\n"
+        + inputs["analysis_log"]
+    )
+    evidence.validate_evidence(**inputs)
 
 
 @pytest.mark.parametrize("key", ["provider", "model"])
@@ -122,7 +157,9 @@ def test_rejects_wrong_provider_or_registry_model(inputs, key):
 
 
 @pytest.mark.parametrize("name", [*evidence.RECEIPTS, "completed-tasks-count"])
-@pytest.mark.parametrize("mutation", ["missing", "contradictory", "duplicate", "script-echo"])
+@pytest.mark.parametrize(
+    "mutation", ["missing", "contradictory", "duplicate", "script-echo", "nested-script-echo"]
+)
 def test_rejects_missing_conflicting_or_echoed_receipts(inputs, name, mutation):
     lines = inputs["analysis_log"].splitlines()
     receipt = next(line for line in lines if line.startswith(STAMP + name + "="))
@@ -133,6 +170,14 @@ def test_rejects_missing_conflicting_or_echoed_receipts(inputs, name, mutation):
         lines += [receipt, receipt]
     elif mutation == "script-echo":
         lines += [STAMP + "##[group]Run script", receipt, STAMP + "##[endgroup]"]
+    elif mutation == "nested-script-echo":
+        lines += [
+            STAMP + "##[group]Run script",
+            STAMP + "##[group]nested script text",
+            STAMP + "##[endgroup]",
+            receipt,
+            STAMP + "##[endgroup]",
+        ]
     inputs["analysis_log"] = "\n".join(lines)
     with pytest.raises(ValueError, match=name):
         evidence.validate_evidence(**inputs)

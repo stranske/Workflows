@@ -31,16 +31,18 @@ RECEIPTS = {
 def _runtime_lines(log: str) -> list[str]:
     """Exclude Actions' echoed script and environment groups from receipts."""
     lines = []
-    grouped = False
+    group_depth = 0
     for raw in log.splitlines():
         line = TIMESTAMP.sub("", raw)
         if line.startswith("##[group]"):
-            grouped = True
+            group_depth += 1
         elif line == "##[endgroup]":
-            grouped = False
-        elif not grouped:
+            if group_depth == 0:
+                raise ValueError("Analysis log contains an unmatched Actions group end")
+            group_depth -= 1
+        elif group_depth == 0:
             lines.append(line)
-    if grouped:
+    if group_depth:
         raise ValueError("Analysis log ends inside an Actions group")
     return lines
 
