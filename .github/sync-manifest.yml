@@ -471,7 +471,7 @@ scripts:
     description: "Machine-readable weekly coverage monitor checkpoint"
 
   - source: .github/scripts/weekly_metrics_artifacts.js
-    description: "Bounded weekly metrics artifact selection contract"
+    description: "Bounded weekly metrics artifact selection contract; repo-listing 5xx fallback to priority workflow artifacts with reported HTTP status"
 
   - source: .github/scripts/weekly_metrics_download_manifest.js
     description: "Weekly metrics artifact download and extraction manifest contract"

@@ -633,3 +633,24 @@ BLACK_NUM_WORKERS=1 timeout 120s black --check --line-length 100 \
 The unchanged-file count does not establish a passing formatting gate. No
 commit or push was attempted. Final PR readback reports open, `draft=false`,
 unmerged, with head `efc65e0970bb5d744a9f02745e482b4808678a22`.
+
+## Local keepalive round 9 — 2026-11-16 Central
+
+GitHub reported no named failure on candidate
+`1537f8d6f64315f526dfb2fb2854635f35d528eb`. Selftest CI reported success for
+Python Tests and slow compatibility on Python 3.13 and 3.14. This branch
+incorporates `main` at `d3e915ae8365a017ff922dcf467927a036af62ee`, including
+the designated updater's merged PR #4705.
+[Candidate Selftest CI](https://github.com/stranske/Workflows/actions/runs/43822144429)
+
+The pinned Codex CLI 0.160.0 canary on the starting candidate passed all 22
+cases across the source and consumer transports. Use the canary command in
+round 6. See the PR body for the API-key mutation and restoration receipt on
+the updated candidate.
+[Candidate CLI canary](https://github.com/stranske/Workflows/actions/runs/43822144248/job/133147447029)
+
+PR #4711 had no merge commit at this check. The earlier hosted job suppressed
+`llm-completed-tasks` as a possible secret. T6 and A3–A5 still require a
+hosted keepalive round running the delivered revision. A1 still requires the
+API-key mutation and restoration sequence on the delivered SHA.
+[Earlier hosted job](https://github.com/stranske/Workflows/actions/runs/43798812323/job/133074122262)
