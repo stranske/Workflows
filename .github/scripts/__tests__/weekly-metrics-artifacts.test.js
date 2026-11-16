@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const {
   SELECTION_SCHEMA,
@@ -13,6 +16,7 @@ const {
   formatArtifactTsv,
   formatSelectionMarkdown,
   latestCandidateByFamily,
+  main,
   missingPriorityFamilies,
   normalizeSelectionOptions,
   PRIORITY_METRICS_FAMILIES,
@@ -816,4 +820,140 @@ test('skips priority workflow scan when repo artifacts already satisfy priority 
 
   assert.deepEqual(calls, [['repo-artifacts', 1]]);
   assert.equal(artifacts.length, PRIORITY_METRICS_FAMILIES.length);
+});
+
+function repoListingFailureClient(error) {
+  return {
+    rest: {
+      actions: {
+        listArtifactsForRepo: async () => { throw error; },
+        listWorkflowRuns: async ({ workflow_id }) => ({
+          data: {
+            workflow_runs: workflow_id === 'health-76-codex-cli-freshness.yml'
+              ? [{ id: 9001, created_at: '2026-04-25T09:00:00Z' }]
+              : [],
+          },
+        }),
+        listWorkflowRunArtifacts: async () => ({
+          data: {
+            artifacts: [artifact(9001, 'codex-cli-freshness-9001', '2026-04-25T09:00:00Z')],
+          },
+        }),
+      },
+    },
+  };
+}
+
+test('repo-wide 5xx falls back to run-scoped priority artifacts and reports the reason', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'weekly-metrics-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const options = {
+    now_ms: NOW,
+    output: path.join(directory, 'artifacts.tsv'),
+    report: path.join(directory, 'selection.json'),
+    markdown: path.join(directory, 'selection.md'),
+  };
+  const client = repoListingFailureClient({ status: 500 });
+  let stdout = '';
+  t.mock.method(process.stdout, 'write', (text) => { stdout += text; return true; });
+
+  const selection = await main({
+    github: client,
+    repository: 'owner/repo',
+    options,
+    withRetry: (fn) => fn(client),
+  });
+
+  assert.equal(selection.status, 'pass');
+  assert.equal(selection.schema, SELECTION_SCHEMA);
+  assert.deepEqual(selection.selected_artifacts.map(({ id }) => id), [9001]);
+  assert.deepEqual(selection.repo_listing_unavailable, { status: 500, page: 1 });
+  assert.deepEqual(JSON.parse(fs.readFileSync(options.report, 'utf8')), selection);
+  assert.deepEqual(JSON.parse(stdout), selection);
+  assert.equal(fs.readFileSync(options.output, 'utf8'), '9001\tcodex-cli-freshness-9001\n');
+  assert.match(
+    fs.readFileSync(options.markdown, 'utf8'),
+    /Fallback reason: repo_listing_unavailable \(HTTP 500, page 1\); using run-scoped priority workflow artifacts/
+  );
+});
+
+for (const error of [{ response: { status: 502 } }, { status: '503' }, { status: 599 }]) {
+  const status = Number(error.status ?? error.response.status);
+  test(`repo-wide HTTP ${status} falls back and preserves its status`, async () => {
+    const client = repoListingFailureClient(error);
+    const collectionReport = {};
+    const artifacts = await collectRepoArtifacts({
+      github: client, owner: 'owner', repo: 'repo',
+      withRetry: (fn) => fn(client), options: { now_ms: NOW }, collectionReport,
+    });
+
+    assert.deepEqual(artifacts.map(({ id }) => id), [9001]);
+    assert.deepEqual(collectionReport.repo_listing_unavailable, { status, page: 1 });
+  });
+}
+
+test('repo-wide exhausted server-error retries still reach the priority scan', async (t) => {
+  const { withRetry } = require('../github-api-with-retry.js');
+  const client = repoListingFailureClient({ status: 503, request: { method: 'GET' } });
+  const listing = t.mock.method(client.rest.actions, 'listArtifactsForRepo');
+  t.mock.method(console, 'error', () => {});
+  const collectionReport = {};
+  const artifacts = await collectRepoArtifacts({
+    github: client, owner: 'owner', repo: 'repo', options: { now_ms: NOW }, collectionReport,
+    withRetry: (fn) => withRetry(fn, {
+      github: client, maxRetries: 2, initialDelay: 0, maxDelay: 0,
+    }),
+  });
+
+  assert.equal(listing.mock.callCount(), 3);
+  assert.deepEqual(artifacts.map(({ id }) => id), [9001]);
+  assert.deepEqual(collectionReport.repo_listing_unavailable, { status: 503, page: 1 });
+});
+
+test('repo-wide fallback retains earlier pages and stops repo pagination', async () => {
+  const client = repoListingFailureClient({ status: 500 });
+  const pages = [];
+  client.rest.actions.listArtifactsForRepo = async ({ page }) => {
+    pages.push(page);
+    if (page > 1) throw { status: 500 };
+    return { data: { artifacts: [artifact(1, 'keepalive-metrics', '2026-04-25T11:00:00Z')] } };
+  };
+  const collectionReport = {};
+  const artifacts = await collectRepoArtifacts({
+    github: client, owner: 'owner', repo: 'repo', withRetry: (fn) => fn(client),
+    options: { now_ms: NOW, per_page: 1 }, collectionReport,
+  });
+
+  assert.deepEqual(pages, [1, 2]);
+  assert.deepEqual(artifacts.map(({ id }) => id), [1, 9001]);
+  assert.deepEqual(collectionReport.repo_listing_unavailable, { status: 500, page: 2 });
+});
+
+for (const error of [
+  { status: 400 }, { status: 401 }, { status: 403 }, { status: 404 },
+  { response: { status: 404 } }, { status: 429 }, new Error('Unexpected failure'),
+]) {
+  test(`repo-wide non-server error ${error.status ?? error.response?.status ?? error.message} still rejects`, async (t) => {
+    const client = repoListingFailureClient(error);
+    const priorityScan = t.mock.method(client.rest.actions, 'listWorkflowRuns');
+    const collectionReport = {};
+
+    await assert.rejects(collectRepoArtifacts({
+      github: client, owner: 'owner', repo: 'repo',
+      withRetry: (fn) => fn(client), options: { now_ms: NOW }, collectionReport,
+    }), (caught) => caught === error);
+    assert.equal(priorityScan.mock.callCount(), 0);
+    assert.deepEqual(collectionReport, {});
+  });
+}
+
+test('repo-wide fallback does not swallow errors from priority workflow discovery', async () => {
+  const client = repoListingFailureClient({ status: 500 });
+  const error = { status: 503 };
+  client.rest.actions.listWorkflowRuns = async () => { throw error; };
+
+  await assert.rejects(collectRepoArtifacts({
+    github: client, owner: 'owner', repo: 'repo',
+    withRetry: (fn) => fn(client), options: { now_ms: NOW },
+  }), (caught) => caught === error);
 });
