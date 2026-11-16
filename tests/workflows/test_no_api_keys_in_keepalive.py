@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -47,6 +48,85 @@ def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
     assert analysis["run"].count("python3 .workflows-lib/scripts/analyze_codex_session.py") == 1
     assert 'print(f"provider=' in analysis["run"]
     assert 'print(f"confidence=' in analysis["run"]
+
+
+@pytest.fixture(scope="module")
+def codex_analysis_receipt_code():
+    """Read the actual JSON-to-output code without editing the protected workflow."""
+    doc = yaml.safe_load((ROOT / ".github/workflows/reusable-codex-run.yml").read_text())
+    analysis = next(s for s in doc["jobs"]["codex"]["steps"] if s.get("id") == "llm_analysis")
+    assert analysis["run"].count("<<'PY'\n") == 1
+    code, delimiter, _ = analysis["run"].split("<<'PY'\n", 1)[1].partition("\nPY\n")
+    assert delimiter, "analysis output extractor must have a closing heredoc delimiter"
+    return code
+
+
+@pytest.mark.parametrize("provider", ["codex", "regex-fallback"])
+@pytest.mark.parametrize("openai_value", [None, "", "noncredential-presence-marker"])
+@pytest.mark.parametrize("anthropic_value", [None, "", "noncredential-presence-marker"])
+def test_analysis_receipt_reports_presence_without_values_and_preserves_json_outputs(
+    codex_analysis_receipt_code, tmp_path, provider, openai_value, anthropic_value
+):
+    """Local receipt regression; fixture data does not establish hosted authentication."""
+    data = {
+        "provider": provider,
+        "model": cli.analysis_model("codex") if provider == "codex" else "none",
+        "confidence": 0.91,
+        "completed_tasks": ["Preserve JSON outputs = verified", 'Handle "quoted" tasks'],
+    }
+    analysis_file = tmp_path / "analysis.json"
+    analysis_file.write_text(json.dumps(data), encoding="utf-8")
+    environment = {
+        key: value
+        for key, value in zip(PROVIDER_KEYS[:2], (openai_value, anthropic_value), strict=True)
+        if value is not None
+    }
+    result = subprocess.run(
+        [sys.executable, "-I", "-", str(analysis_file)],
+        input=codex_analysis_receipt_code,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
+    )
+    outputs = dict(line.split("=", 1) for line in result.stdout.splitlines())
+    assert outputs["provider"] == data["provider"]
+    assert outputs["model"] == data["model"]
+    assert float(outputs["confidence"]) == data["confidence"]
+    assert json.loads(outputs["completed-tasks"]) == data["completed_tasks"]
+    assert "subscription-auth" not in outputs  # Receipt belongs in logs, not step outputs.
+    if provider == "codex":
+        assert result.stderr.splitlines() == [
+            "subscription-auth=chatgpt",
+            f"OPENAI_API_KEY-present={str(openai_value is not None).lower()}",
+            f"ANTHROPIC_API_KEY-present={str(anthropic_value is not None).lower()}",
+            "completed-tasks-count=2",
+        ]
+    else:
+        assert result.stderr == ""  # A fallback cannot claim subscription authentication.
+    assert "noncredential-presence-marker" not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    ("public_output", "step_output"),
+    [
+        ("llm-analysis-run", "llm-analysis-run"),
+        ("llm-provider", "provider"),
+        ("llm-model", "model"),
+        ("llm-confidence", "confidence"),
+        ("llm-completed-tasks", "completed-tasks"),
+    ],
+)
+def test_codex_analysis_outputs_reach_reusable_workflow_callers(public_output, step_output):
+    doc = yaml.safe_load((ROOT / ".github/workflows/reusable-codex-run.yml").read_text())
+    assert doc["jobs"]["codex"]["outputs"][public_output] == (
+        "${{ steps.llm_analysis.outputs." + step_output + " }}"
+    )
+    triggers = doc.get("on", doc.get(True, {}))
+    assert triggers["workflow_call"]["outputs"][public_output]["value"] == (
+        "${{ jobs.codex.outputs." + public_output + " }}"
+    )
 
 
 def test_progress_review_uses_subscription_without_langchain_install():
