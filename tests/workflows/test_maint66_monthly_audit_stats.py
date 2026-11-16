@@ -48,9 +48,7 @@ def _extract_stats_jq_invocation(workflow_text: str) -> tuple[bool, str]:
     return slurp, program
 
 
-def _run_jq(
-    program: str, runs_json: str, *, slurp: bool
-) -> subprocess.CompletedProcess[str]:
+def _run_jq(program: str, runs_json: str, *, slurp: bool) -> subprocess.CompletedProcess[str]:
     cmd = ["jq"]
     if slurp:
         cmd.append("-s")
