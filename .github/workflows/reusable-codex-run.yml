@@ -1673,6 +1673,7 @@ jobs:
           if [ -f "$ANALYSIS_FILE" ]; then
             python3 - "$ANALYSIS_FILE" >> "$GITHUB_OUTPUT" <<'PY'
           import json
+          import os
           import sys
 
           analysis_path = sys.argv[1]
@@ -1681,6 +1682,13 @@ jobs:
 
           completed_tasks = json.dumps(data.get('completed_tasks', []))
           quality_warnings = json.dumps(data.get('quality_warnings', []))
+
+          if data.get('provider') == 'codex':
+              # This provider is returned only after the forced ChatGPT subscription call succeeds.
+              print('subscription-auth=chatgpt', file=sys.stderr)
+              print(f"OPENAI_API_KEY-present={str('OPENAI_API_KEY' in os.environ).lower()}", file=sys.stderr)
+              print(f"ANTHROPIC_API_KEY-present={str('ANTHROPIC_API_KEY' in os.environ).lower()}", file=sys.stderr)
+              print(f"completed-tasks-count={len(data.get('completed_tasks', []))}", file=sys.stderr)
 
           print(f"completed-tasks={completed_tasks}")
           print(f"provider={data.get('provider', 'unknown')}")

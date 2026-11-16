@@ -10,7 +10,7 @@ Base: af60a4aee (current main at implementation start).
 
 These are local fixture and wiring checks. No provider CLI was invoked by the tests; process fixtures verify command shape, registry selection, credential filtering, final-message extraction and failure isolation. They do not establish provider identity, live subscription billing or deployment.
 
-Post-merge acceptance still requires one hosted keepalive round showing analysis-run=true, codex provider and registry cheap model, plus the 48-hour OpenAI/Anthropic usage-console observation. Keep the source issue open through those boundaries.
+Operational acceptance is tracked in [Workflows #4432](https://github.com/stranske/Workflows/issues/4432). The November 6, 2026 owner clarification requires a hosted Codex keepalive analysis with subscription authentication and both API-key presence flags false.
 
 The Codex command follows the [official noninteractive contract](https://developers.openai.com/codex/noninteractive) and [saved account authentication](https://developers.openai.com/codex/auth). No API-key fallback is selected in the opt-in analysis path.
 

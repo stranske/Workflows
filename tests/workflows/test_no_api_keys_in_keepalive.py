@@ -14,6 +14,7 @@ from tools.llm_provider import get_llm_provider
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNNERS = ("codex", "claude", "cursor", "gemini", "muse")
+PROVIDER_KEYS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CLAUDE_API_STRANSKE")
 
 
 @pytest.mark.parametrize("agent", RUNNERS)
@@ -24,15 +25,24 @@ def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
     steps = [step for job in jobs.values() for step in job.get("steps", [])]
     analysis = next(s for s in steps if s.get("id") == "llm_analysis")
     for step in steps:
-        for forbidden in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "langchain"):
+        lines = step.get("run", "").splitlines()
+        if agent == "codex" and step is analysis:
+            # Permit the exact presence-only receipt lines, never key values or wiring.
+            for key in PROVIDER_KEYS[:2]:
+                receipt = (
+                    f'    print(f"{key}-present={{str(\'{key}\' in os.environ).lower()}}", '
+                    "file=sys.stderr)"
+                )
+                lines = [line for line in lines if line != receipt]
+        for forbidden in (*PROVIDER_KEYS, "langchain"):
             assert forbidden not in json.dumps(step.get("env", {})), str(file)
-            assert forbidden not in step.get("run", ""), str(file)
+            assert all(forbidden not in line for line in lines), str(file)
     # Analysis no longer accepts provider API secrets on the reusable workflow.
     triggers = doc.get("on", doc.get(True, {}))
     assert "workflow_call" in triggers, str(file)
     workflow_secrets = json.dumps(triggers["workflow_call"].get("secrets", {}))
-    assert "OPENAI_API_KEY" not in workflow_secrets, str(file)
-    assert "CLAUDE_API_STRANSKE" not in workflow_secrets, str(file)
+    for key in PROVIDER_KEYS:
+        assert key not in workflow_secrets, str(file)
     assert analysis["env"]["WORKFLOWS_ANALYSIS_CLI"] == ("claude" if agent == "claude" else "codex")
     assert analysis["run"].count("python3 .workflows-lib/scripts/analyze_codex_session.py") == 1
     assert 'print(f"provider=' in analysis["run"]
@@ -162,6 +172,7 @@ def test_cli_final_message_only_and_no_api_or_job_secrets(monkeypatch, account):
     assert [command[i + 1] for i, part in enumerate(command) if part == "--disable"] == [
         "shell_tool",
         "view_image",
+        "image_generation",
         "multi_agent",
         "multi_agent_v2",
         "plugins",
