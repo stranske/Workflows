@@ -9,6 +9,9 @@ starting from current main `3be719f4c`. PR #4650 is already merged as
 are not repeated here. This section records the narrowed search requested by
 [#4662](https://github.com/stranske/Workflows/issues/4662), including the
 [prior evidence collection](https://github.com/stranske/Workflows/issues/4662#issuecomment-6811368156).
+Live issue/event readback also confirms that the owner closed #4662 as
+`not_planned` at `2026-11-12T01:51:49Z`, before this run. This report does not
+reopen it or supersede that disposition.
 
 The acceptance outcome would be exit 0 from the following command against an
 authenticated retained capture, with either zero required capture gaps or an
@@ -75,7 +78,8 @@ The historical verdict remains `UNVERIFIABLE_INPUT`; the existing admission's
 
 **Blocking/drainable pair:** retained-capture acceptance is blocked on the
 missing historical evidence; authenticated log/inventory reads and recording
-their disposition remain available and were completed. Keep #4662 parked.
+their disposition remain available and were completed. Keep the historical
+evidence work parked; #4662 remains closed as `not_planned`.
 Resume its existing manifest builder and named revalidation command only when
 a trustworthy source binds the original capture to this consumer run/head and
 exact archive/member digests, or establishes an exact required historical
