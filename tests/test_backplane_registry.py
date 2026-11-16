@@ -287,9 +287,9 @@ def test_expired_deferral_is_stale_warning_not_blocking(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     registry = _registry()
-    _pension_conformant_entry(registry)["reference_run_evidence"]["generated_at"] = (
-        VALIDATION_TIME.isoformat()
-    )
+    _pension_conformant_entry(registry)["reference_run_evidence"][
+        "generated_at"
+    ] = VALIDATION_TIME.isoformat()
     registry["participants"][1]["issue_deferred"]["expires_at"] = "2026-09-13T00:00:00Z"
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
@@ -341,9 +341,9 @@ def test_cli_renewed_deferral_recovers_from_expiration(
     check_time = datetime.fromisoformat(registry["updated_at"])
     clock.now.return_value = check_time
     monkeypatch.setattr(vbr, "datetime", clock)
-    _pension_conformant_entry(registry)["reference_run_evidence"]["generated_at"] = (
-        check_time.isoformat()
-    )
+    _pension_conformant_entry(registry)["reference_run_evidence"][
+        "generated_at"
+    ] = check_time.isoformat()
     index, entry = next(
         (index, entry)
         for index, entry in enumerate(registry["participants"])
