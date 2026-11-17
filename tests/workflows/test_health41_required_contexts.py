@@ -224,7 +224,16 @@ def test_health41_reads_required_contexts_json_not_hardcoded(
     assert any("match the expected configuration" in line for line in outcome["summaryRaw"])
 
 
-def test_health41_ruleset_only_summary_passes_without_classic_protection() -> None:
+@pytest.mark.parametrize(
+    "protection_error",
+    [
+        {"status": 404, "message": "Branch not protected"},
+        {"status": 403, "message": "Resource not accessible by integration"},
+    ],
+)
+def test_health41_ruleset_only_summary_passes_without_classic_protection(
+    protection_error: dict[str, Any],
+) -> None:
     outcome = _run_protection_script(
         branch_rules=[
             {
@@ -234,9 +243,92 @@ def test_health41_ruleset_only_summary_passes_without_classic_protection() -> No
                 },
             }
         ],
-        protection_error={"status": 404, "message": "Branch not protected"},
+        protection_error=protection_error,
+        branch_payload={
+            "protected": True,
+            "protection": {
+                "enabled": False,
+                "required_status_checks": {"contexts": [], "checks": [], "enforcement_level": "off"},
+            },
+        },
     )
     assert outcome["failures"] == [], outcome
+
+
+def test_health41_recovers_classic_contexts_from_branch_metadata_after_403() -> None:
+    outcome = _run_protection_script(
+        protection_error={"status": 403, "message": "Resource not accessible by integration"},
+        branch_payload={
+            "protected": True,
+            "protection": {"enabled": True, "required_status_checks": {"contexts": ["summary"]}},
+        },
+    )
+    assert outcome["failures"] == [], outcome
+    assert any("match the expected configuration" in line for line in outcome["summaryRaw"])
+
+
+@pytest.mark.parametrize(
+    ("unread_source", "status"),
+    [("branch rules", 500), ("branch protection", 403), ("branch protection", 404)],
+)
+def test_health41_rejects_an_exact_match_from_only_one_source(unread_source: str, status: int) -> None:
+    if unread_source == "branch rules":
+        outcome = _run_protection_script(
+            branch_rules_error={"status": status, "message": "Internal Server Error"},
+            protection_payload={"required_status_checks": {"contexts": ["summary"]}},
+        )
+    else:
+        outcome = _run_protection_script(
+            branch_rules=[
+                {
+                    "type": "required_status_checks",
+                    "parameters": {"required_status_checks": [{"context": "summary"}]},
+                }
+            ],
+            protection_error={"status": status, "message": "Resource not found or inaccessible"},
+            branch_payload={"protected": True, "protection": {"enabled": True}},
+        )
+
+    assert outcome["threw"] is None, outcome
+    assert len(outcome["failures"]) == 1, outcome
+    assert "Unable to read branch protection configuration" in outcome["failures"][0]
+    assert f"{unread_source}:" in outcome["failures"][0]
+    verdict = " ".join(outcome["summaryRaw"] + outcome["infos"] + outcome["failures"])
+    assert "match" not in verdict
+    assert "drift" not in verdict
+
+
+@pytest.mark.parametrize(
+    "payload", [{}, {"required_contexts": "summary"}, {"contexts": [False, " "]}]
+)
+def test_health41_rejects_malformed_config_with_no_observed_checks(
+    tmp_path: Path, payload: dict[str, Any]
+) -> None:
+    config_dir = tmp_path / ".github/config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "required-contexts.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    outcome = _run_protection_script(cwd=tmp_path)
+
+    assert outcome["threw"] is None, outcome
+    assert len(outcome["failures"]) == 1, outcome
+    assert "Unable to load required contexts" in outcome["failures"][0]
+    assert outcome["summaryRaw"] == []
+
+
+def test_health41_loads_valid_legacy_contexts_when_primary_key_is_malformed(tmp_path: Path) -> None:
+    config_dir = tmp_path / ".github/config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "required-contexts.json").write_text(
+        json.dumps({"required_contexts": "invalid", "contexts": ["summary"]}), encoding="utf-8"
+    )
+
+    outcome = _run_protection_script(
+        cwd=tmp_path, protection_payload={"required_status_checks": {"contexts": ["summary"]}}
+    )
+
+    assert outcome["failures"] == [], outcome
+    assert any("match the expected configuration" in line for line in outcome["summaryRaw"])
 
 
 def test_health41_missing_configured_context_fails_generically() -> None:
@@ -246,8 +338,8 @@ def test_health41_missing_configured_context_fails_generically() -> None:
         required_contexts=["summary"],
     )
     joined = " ".join(outcome["failures"])
-    assert joined, outcome
-    assert "summary" in joined
+    assert "Branch protection drift detected" in joined, outcome
+    assert "missing contexts: summary" in joined
     assert "Gate / gate" not in joined
 
 
@@ -301,8 +393,9 @@ def test_health41_branch_rules_api_error_is_not_reported_as_missing_context() ->
         required_contexts=["summary"],
     )
     joined = " ".join(outcome["failures"])
-    assert "Unable to verify required contexts" in joined or "Unable to read" in joined
+    assert "Unable to read branch protection configuration" in joined
     assert "missing contexts: summary" not in joined
+    assert all("drift" not in raw for raw in outcome["summaryRaw"])
 
 
 def test_health41_protection_script_does_not_hardcode_expected_list(
