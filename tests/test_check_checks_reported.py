@@ -563,10 +563,11 @@ def test_complete_static_topology_receipt_is_bound_to_full_head():
     assert result["merge_authorization"] is False
 
 
-def test_unique_expected_job_requires_requested_event_run():
+@pytest.mark.parametrize("run_event", ["push", "pull_request_target", "pull_request"])
+def test_unique_expected_job_requires_requested_event_run(run_event):
     original = fixture_transport()
 
-    def push_only(endpoint):
+    def suite_run(endpoint):
         if "/contents/.github/workflows/gate.yml?" in endpoint:
             workflow = "on: [push, pull_request]\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps: []\n"
             return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
@@ -584,24 +585,30 @@ def test_unique_expected_job_requires_requested_event_run():
             return [{"total_count": 0, "workflow_runs": []}]
         if "/actions/runs?check_suite_id=901&" in endpoint:
             run = original(f"repos/o/r/actions/runs?head_sha={HEAD}")[0]["workflow_runs"][0]
-            run.update(event="push", check_suite_id=901)
+            run.update(event=run_event, check_suite_id=901)
             return [{"total_count": 1, "workflow_runs": [run]}]
         return original(endpoint)
 
     result = reporter.collect(
-        reporter.Evidence(push_only), "o/r", 1, HEAD, "pull_request", "opened"
+        reporter.Evidence(suite_run), "o/r", 1, HEAD, "pull_request", "opened"
     )
-    assert result["verdict"] != "PASS", result
-    assert result["workflow_run_inventory"] == []
-    assert result["workflow_run_inventory_recovery"][0]["event"] == "push"
+    assert result["workflow_run_inventory_recovery"][0]["event"] == run_event
+    assert result["workflow_run_inventory_recovery"][0]["included"] is (run_event == "pull_request")
     assert result["passing_names"] == ["gate"]
-    assert any(
-        "missing" in reason
-        and "pull_request" in reason
-        and "run" in reason
-        and "gate.yml" in reason
-        for reason in result["unknown"]
-    )
+    if run_event == "pull_request":
+        # Changing only the recovered run's event supplies the missing witness.
+        assert result["verdict"] == "PASS", result
+        assert result["unknown"] == []
+        assert result["workflow_run_inventory"][0]["event"] == "pull_request"
+        return
+
+    assert result["verdict"] == "UNKNOWN", result
+    assert result["workflow_run_inventory"] == []
+    assert result["duplicate_identity_evidence"] == []
+    assert result["unknown"] == [
+        "expected check identity 'gate': missing or ambiguous 'pull_request' run for "
+        f"o/r/.github/workflows/gate.yml@{BASE}"
+    ]
 
 
 @pytest.mark.parametrize(
