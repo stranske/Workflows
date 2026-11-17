@@ -13,6 +13,23 @@ def _bot_author_tokens(bot_authors: str) -> set[str]:
     return {item.strip() for item in bot_authors.split(",") if item.strip()}
 
 
+def test_reusable_concurrency_group_is_scoped_to_target_pr() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
+    concurrency = workflow["concurrency"]
+    assert concurrency["group"] == (
+        "bot-comments-reusable-${{ github.repository }}-pr-${{ inputs.pr_number }}"
+    )
+    assert concurrency["cancel-in-progress"] is False
+
+    canonical = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
+    consumer_hub = _load_yaml(
+        ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml"
+    )
+    # The canonical caller's numeric run ID and the hub's prefix keep both keys disjoint.
+    assert canonical["concurrency"]["group"].casefold() == "bot-comments-${{ github.run_id }}"
+    assert consumer_hub["concurrency"]["group"].casefold().startswith("pr-event-hub-")
+
+
 def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
     triggers = workflow.get("on") or workflow.get(True) or {}
