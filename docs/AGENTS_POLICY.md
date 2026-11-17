@@ -55,12 +55,12 @@ declares four triggers under `on:`, but `jobs.eligibility`
 [`.github/workflows/reusable-70-orchestrator-init.yml`](../.github/workflows/reusable-70-orchestrator-init.yml))
 enforce the following four-event behavior:
 
-| Event | Declared in `on:`? | `jobs.eligibility` (`expected-actions: workflow_dispatch,schedule`) | Reaches `jobs.init` / `jobs.main`? | `jobs.init` `dry_run` behavior |
-| --- | --- | --- | --- | --- |
-| `schedule` (`*/30 * * * *`) | Yes | **Admitted** (`should_run == 'true'`) | Yes | **Forced dry-run shadow** (`'true'` via `(github.event_name == 'schedule' \|\| github.event_name == 'workflow_run') && 'true'`) |
-| `workflow_dispatch` | Yes | **Admitted** (`should_run == 'true'`) | Yes | **Input-controlled** (`github.event.inputs.dry_run`, default `'false'`; manual runs can execute live writes when `dry_run=false`) |
-| `workflow_run` (`Gate` `completed`) | Yes | **Denied before `init`** (`should_run != 'true'`) | No | Not reached (`init.with.dry_run` still mentions `workflow_run`, but `eligibility` blocks the event before `init`) |
-| `repository_dispatch` (`agents-orchestrator-ping`) | Yes | **Denied before `init`** (`should_run != 'true'`) | No | Not reached (`init.with` still contains `repository_dispatch` payload expressions, but `eligibility` blocks the event before `init`) |
+| Event | Declared in `on:`? | `jobs.eligibility` (`expected-actions: workflow_dispatch,schedule`) | Can reach `jobs.init`? | `jobs.main.if` execution gate | `jobs.init` `dry_run` behavior |
+| --- | --- | --- | --- | --- | --- |
+| `schedule` (`*/30 * * * *`) | Yes | **Admitted** (`should_run == 'true'`) | Yes | Only if `needs.init.outputs.has_work == 'true'` | **Forced dry-run shadow** (`'true'` via `(github.event_name == 'schedule' \|\| github.event_name == 'workflow_run') && 'true'`) |
+| `workflow_dispatch` | Yes | **Admitted** (`should_run == 'true'`) | Yes | Only if `needs.init.outputs.has_work == 'true'` | **Input-controlled** (`github.event.inputs.dry_run`, default `'false'`; manual runs can execute live writes when `dry_run=false`) |
+| `workflow_run` (`Gate` `completed`) | Yes | **Denied before `init`** (`should_run != 'true'`) | No | Skipped | Not reached (`init.with.dry_run` still mentions `workflow_run`, but `eligibility` blocks the event before `init`) |
+| `repository_dispatch` (`agents-orchestrator-ping`) | Yes | **Denied before `init`** (`should_run != 'true'`) | No | Skipped | Not reached (`init.with` still contains `repository_dispatch` payload expressions, but `eligibility` blocks the event before `init`) |
 
 ### Shadow rationale and undecided retirement decision
 
@@ -69,8 +69,9 @@ enforce the following four-event behavior:
   `dry_run=true` clause as the A1 orchestrator-retirement shadow (historically
   attributed to commit `0ecdff0f3` / PR `#2351`; this attribution is qualified to
   authored git/workflow history until runtime shadow coverage is independently
-  verified). The shadow forces scheduled orchestrator runs to execute without
-  writes while evaluating whether replacement workflows cover Agents 70's roles.
+  verified). The scheduled path forces `dry_run=true` in `jobs.init`. Observe
+  production runs to establish runtime side effects and determine whether the
+  replacement workflows cover Agents 70's roles.
 - **Authored replacement sources vs. observed coverage.** In workflow source,
   Gate-completion keepalive evaluations and manual retries are authored in
   [`.github/workflows/agents-keepalive-loop.yml`](../.github/workflows/agents-keepalive-loop.yml)
@@ -107,16 +108,14 @@ enforce the following four-event behavior:
    `.github/CODEOWNERS`. Pull requests cannot merge changes to them without Code
    Owner approval. In the default branch protection rule, enable **Require review
    from Code Owners** so GitHub enforces the restriction automatically.
-2. **Repository ruleset** – create (or update) a ruleset that targets the
-   default branch (`Tests Pass to Merge`, ruleset ID `7880490`) and blocks
-   deletions or renames of the covered workflows (`restrict_file_updates` with
-   **Block deletions** and **Block renames** enabled). Use the protected file
-   patterns listed above and set the bypass mode to *Maintainers only* so
-   emergencies still require a deliberate maintainer action. Administrators can
-   provision the ruleset through the repository settings (**Settings → Code
-   security and analysis → Rulesets → New ruleset → Branch**). Capture
-   screenshots or API verification output in the incident log so auditors can
-   confirm the guardrail is in place.
+2. **Repository ruleset** – the configuration target is active enforcement on
+   the default branch that blocks deletion and rename of the three covered
+   workflow paths, with bypass restricted to maintainers for emergencies. Open
+   the [repository's rulesets](https://github.com/stranske/Workflows/rules) or
+   read back the applicable ruleset through the GitHub API (`GET
+   /repos/stranske/Workflows/rulesets/{ruleset_id}`). Verify the branch target,
+   enforcement status, file restrictions, and bypass actors. Record the
+   readback and any missing protection in the incident log.
 3. **CI guardrail** – the `Health 45 Agents Guard` check (see
    `.github/workflows/agents-guard.yml`) fails any pull request that modifies,
    deletes, or renames a protected file without the required label and
@@ -251,9 +250,8 @@ When one of these scenarios applies:
 - The default branch protection lists **Require review from Code Owners** and
    includes the files above. The `Health 45 Agents Guard` status check is marked as
    required.
-- The repository ruleset shows the three workflows in its “Protected file
-  patterns section (`agents-63-issue-intake.yml`,
-  `agents-70-orchestrator.yml`, and `agents-guard.yml`) with
-  **Block deletion** and **Block rename** enabled.
+- Verify that the active default-branch ruleset blocks deletion and rename of
+  `agents-63-issue-intake.yml`, `agents-70-orchestrator.yml`, and
+  `agents-guard.yml` and limits bypass to maintainers.
 - A maintainer can describe the override procedure without referencing this
   document (spot check during ops reviews).

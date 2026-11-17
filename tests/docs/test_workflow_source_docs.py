@@ -119,6 +119,11 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
     )
     assert "github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run" in dry_run_expr
 
+    main_job = agents70["jobs"]["main"]
+    assert set(main_job["needs"]) == {"eligibility", "init"}
+    has_work_condition = "needs.init.outputs.has_work == 'true'"
+    assert " ".join(main_job["if"].split()) == f"{init_job['if']} && {has_work_condition}"
+
     keepalive_loop = yaml.safe_load(
         (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
     )
@@ -140,6 +145,12 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
 
     # Authoritative policy + resolving pointer without divergent active-entrypoint claims.
     assert "(`docs/AGENTS_POLICY.md`) is the single" in policy
+    for event_name in sorted(expected_actions):
+        event_row = next(row for row in policy.splitlines() if row.startswith(f"| `{event_name}`"))
+        assert f"| Yes | Only if `{has_work_condition}` |" in event_row, (
+            f"Policy must document the main-job gate for `{event_name}` after init admission"
+        )
+    assert "Can reach `jobs.init`? | `jobs.main.if` execution gate" in policy
     assert "](../AGENTS_POLICY.md)" in ci_policy
     assert (
         CI_AGENTS_POLICY_DOC.parent / "../AGENTS_POLICY.md"
