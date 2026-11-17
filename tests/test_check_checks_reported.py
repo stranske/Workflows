@@ -487,6 +487,7 @@ def fixture_transport(changed_head=False, forged=False):
             return [[{"filename": "src/a.py"}]]
         if "/check-runs?" in endpoint:
             item = check()
+            item["url"] = "https://api.github.com/repos/o/r/check-runs/1"
             if forged:
                 item["app"] = {"id": 99, "slug": "other-app"}
             return [{"total_count": 1, "check_runs": [item]}]
@@ -501,7 +502,37 @@ def fixture_transport(changed_head=False, forged=False):
         if "/contents/.github/workflows/gate.yml?" in endpoint:
             return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
         if "/actions/runs?" in endpoint:
-            return [{"total_count": 0, "workflow_runs": []}]
+            return [
+                {
+                    "total_count": 1,
+                    "workflow_runs": [
+                        {
+                            "id": 101,
+                            "workflow_id": 1,
+                            "head_sha": HEAD,
+                            "event": "pull_request",
+                            "path": ".github/workflows/gate.yml",
+                            "run_number": 1,
+                            "run_attempt": 1,
+                            "conclusion": "success",
+                        }
+                    ],
+                }
+            ]
+        if "/actions/runs/101/jobs?" in endpoint:
+            return [
+                {
+                    "total_count": 1,
+                    "jobs": [
+                        {
+                            "id": 201,
+                            "name": "gate",
+                            "conclusion": "success",
+                            "check_run_url": "https://api.github.com/repos/o/r/check-runs/1",
+                        }
+                    ],
+                }
+            ]
         raise AssertionError(endpoint)
 
     return transport
@@ -515,13 +546,141 @@ def test_complete_static_topology_receipt_is_bound_to_full_head():
     assert result["head"] == HEAD and result["base"] == BASE
     assert result["expected_names"] == ["gate"]
     assert result["workflow_sources"][0]["document"]["jobs"]
+    assert result["duplicate_identity_evidence"] == [
+        {
+            "name": "gate",
+            "independent_claims": [
+                {
+                    "source": f"o/r/.github/workflows/gate.yml@{BASE}",
+                    "run_id": 101,
+                    "job_id": 201,
+                    "check_run_url": "https://api.github.com/repos/o/r/check-runs/1",
+                    "conclusion": "success",
+                }
+            ],
+        }
+    ]
     assert result["merge_authorization"] is False
+
+
+def test_unique_expected_job_requires_requested_event_run():
+    original = fixture_transport()
+
+    def push_only(endpoint):
+        if "/contents/.github/workflows/gate.yml?" in endpoint:
+            workflow = "on: [push, pull_request]\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps: []\n"
+            return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
+        if "/check-suites?" in endpoint:
+            return [
+                {
+                    "total_count": 1,
+                    "check_suites": [
+                        {"id": 901, "head_sha": HEAD, "app": {"slug": "github-actions"}}
+                    ],
+                }
+            ]
+        if "/actions/runs?head_sha=" in endpoint:
+            assert "event=pull_request&" in endpoint
+            return [{"total_count": 0, "workflow_runs": []}]
+        if "/actions/runs?check_suite_id=901&" in endpoint:
+            run = original(f"repos/o/r/actions/runs?head_sha={HEAD}")[0]["workflow_runs"][0]
+            run.update(event="push", check_suite_id=901)
+            return [{"total_count": 1, "workflow_runs": [run]}]
+        return original(endpoint)
+
+    result = reporter.collect(
+        reporter.Evidence(push_only), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+    assert result["verdict"] != "PASS", result
+    assert result["workflow_run_inventory"] == []
+    assert result["workflow_run_inventory_recovery"][0]["event"] == "push"
+    assert result["passing_names"] == ["gate"]
+    assert any(
+        "missing" in reason
+        and "pull_request" in reason
+        and "run" in reason
+        and "gate.yml" in reason
+        for reason in result["unknown"]
+    )
+
+
+@pytest.mark.parametrize(
+    "gap,diagnostic",
+    [
+        ("source", "missing or ambiguous 'pull_request' run"),
+        ("job", "ambiguous/missing job"),
+        ("duplicate_job", "ambiguous/missing job"),
+        ("url", "check_run_url binding"),
+        ("missing_urls", "check_run_url binding"),
+        ("check_name", "check_run_url binding"),
+    ],
+)
+def test_unique_expected_job_requires_source_job_and_check_binding(gap, diagnostic):
+    original = fixture_transport()
+
+    def unbound(endpoint):
+        pages = original(endpoint)
+        if "/actions/runs?" in endpoint and gap == "source":
+            pages[0]["workflow_runs"][0]["path"] = ".github/workflows/other.yml"
+        if "/jobs?" in endpoint:
+            job = pages[0]["jobs"][0]
+            if gap == "job":
+                job["name"] = "other"
+            elif gap == "duplicate_job":
+                pages[0]["jobs"].append({**job, "id": 202})
+                pages[0]["total_count"] = 2
+            elif gap == "url":
+                job["check_run_url"] += "-unbound"
+            elif gap == "missing_urls":
+                job.pop("check_run_url")
+        if "/check-runs?" in endpoint:
+            if gap == "missing_urls":
+                pages[0]["check_runs"][0].pop("url")
+            elif gap == "check_name":
+                # A same-name green check at a different URL cannot bind this job.
+                pages[0]["check_runs"][0]["name"] = "other"
+                pages[0]["check_runs"].append({**check(), "id": 2, "url": "check/2"})
+                pages[0]["total_count"] = 2
+        return pages
+
+    result = reporter.collect(reporter.Evidence(unbound), "o/r", 1, HEAD, "pull_request", "opened")
+    assert result["verdict"] == "UNKNOWN"
+    assert result["passing_names"] == sorted(["gate", "other"] if gap == "check_name" else ["gate"])
+    assert any(diagnostic in reason for reason in result["unknown"])
+
+
+@pytest.mark.parametrize("latest_field", ["run_number", "run_attempt"])
+def test_unique_expected_job_cannot_reuse_older_run_or_attempt(latest_field):
+    original = fixture_transport()
+
+    def newer_unbound(endpoint):
+        if "/actions/runs?" in endpoint:
+            pages = original(endpoint)
+            run = pages[0]["workflow_runs"][0]
+            pages[0]["workflow_runs"].append({**run, "id": 102, latest_field: 2})
+            pages[0]["total_count"] = 2
+            return pages
+        if "/actions/runs/102/jobs?" in endpoint:
+            pages = original(endpoint.replace("/102/", "/101/"))
+            pages[0]["jobs"][0]["check_run_url"] += "-new-attempt"
+            return pages
+        return original(endpoint)
+
+    result = reporter.collect(
+        reporter.Evidence(newer_unbound), "o/r", 1, HEAD, "pull_request", "opened"
+    )
+    assert result["verdict"] == "UNKNOWN"
+    assert result["passing_names"] == ["gate"]
+    assert [run["id"] for run in result["workflow_runs"]] == [102]
+    assert any("check_run_url binding" in reason for reason in result["unknown"])
 
 
 def suite_recovery_transport(mode="valid"):
     original = fixture_transport()
 
     def wrapped(endpoint):
+        if "/actions/runs?head_sha=" in endpoint:
+            return [{"total_count": 0, "workflow_runs": []}]
         if "/check-suites?" in endpoint:
             return [
                 {
@@ -563,9 +722,7 @@ def suite_recovery_transport(mode="valid"):
                 {"total_count": 2 if mode == "truncated" else len(values), "workflow_runs": values}
             ]
         if "/actions/runs/101/jobs?" in endpoint:
-            jobs = (
-                [] if mode == "startup" else [{"id": 201, "name": "gate", "conclusion": "success"}]
-            )
+            jobs = [] if mode == "startup" else original(endpoint)[0]["jobs"]
             return [{"total_count": len(jobs), "jobs": jobs}]
         return original(endpoint)
 
@@ -930,6 +1087,9 @@ def incident_transport(scenario, reverse_pages=False):
             check(conclusion="cancelled"),
             check(ident=2, started="2026-10-01T02:00:00Z"),
         ]
+    for item in checks:
+        item["url"] = f"https://api.github.com/repos/o/r/check-runs/{item['id']}"
+    gate_check_url = checks[-1 if scenario == "cancelled_retry" else 0]["url"]
     startup_run = {**gate_run, "id": 102, "workflow_id": 43, "check_suite_id": 91}
     if scenario == "startup_failure":
         workflows["bootstrap"] = workflows["gate"].replace("  gate:", "  bootstrap:")
@@ -964,7 +1124,17 @@ def incident_transport(scenario, reverse_pages=False):
             return [{"total_count": 1, "workflow_runs": [gate_run]}]
         if "/actions/runs/101/jobs?" in endpoint:
             return [
-                {"total_count": 1, "jobs": [{"id": 201, "name": "gate", "conclusion": "success"}]}
+                {
+                    "total_count": 1,
+                    "jobs": [
+                        {
+                            "id": 201,
+                            "name": "gate",
+                            "conclusion": "success",
+                            "check_run_url": gate_check_url,
+                        }
+                    ],
+                }
             ]
         if "/actions/runs/102/jobs?" in endpoint:
             return [{"total_count": 0, "jobs": []}]
@@ -1009,7 +1179,12 @@ def test_incident_cli_receipt(
     code, receipt = invoke_main(monkeypatch, incumbent, tmp_path / "evidence/receipt.json", action)
 
     assert (code, receipt["verdict"]) == (exit_code, expected_verdict)
-    assert receipt["evidence_complete"] is True and receipt["unknown"] == []
+    if scenario == "startup_failure":
+        assert receipt["evidence_complete"] is False
+        assert len(receipt["unknown"]) == 1
+        assert "'bootstrap': ambiguous/missing job" in receipt["unknown"][0]
+    else:
+        assert receipt["evidence_complete"] is True and receipt["unknown"] == []
     assert receipt["head"] == HEAD and receipt["base"] == BASE
     assert receipt["repository"] == "o/r" and receipt["pr"] == 1
     assert receipt["event"] == "pull_request" and receipt["action"] == action
@@ -2224,6 +2399,7 @@ def actions_status_packet():
         ],
     }
     gate = check("gate-summary", ident=112533083718)
+    gate["url"] = run["jobs"][0]["check_run_url"]
     gate["check_suite"] = {"id": suite["id"]}
     return {
         "repo": repo,
@@ -2255,6 +2431,8 @@ def status_collection_transport(packet):
     fallback = fixture_transport()
 
     def transport(endpoint):
+        if "/contents/.github/workflows?" in endpoint:
+            return [[{"path": ".github/workflows/pr-00-gate.yml", "sha": "d" * 40}]]
         if "/check-runs?" in endpoint:
             return [{"total_count": len(packet["checks"]), "check_runs": packet["checks"]}]
         if "/check-suites?" in endpoint:
@@ -2285,7 +2463,7 @@ def status_collection_transport(packet):
             return [
                 {"total_count": len(packet["runs"][0]["jobs"]), "jobs": packet["runs"][0]["jobs"]}
             ]
-        if "/contents/.github/workflows/gate.yml?" in endpoint:
+        if "/contents/.github/workflows/pr-00-gate.yml?" in endpoint:
             workflow = "on: pull_request\njobs:\n  gate-summary:\n    runs-on: ubuntu-latest\n    steps: []\n"
             return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
         return fallback(endpoint)

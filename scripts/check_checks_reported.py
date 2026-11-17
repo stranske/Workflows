@@ -1649,28 +1649,31 @@ def collect(
             unknown.append(f"{path}: {exc}")
     identity_evidence = []
     for job_name, origins in job_provenance.items():
-        if len(origins) <= 1:
-            continue
+        identity = (
+            "duplicate expected check identity" if len(origins) > 1 else "expected check identity"
+        )
         claims = []
         for origin in sorted(origins):
             source_path = origin.split("/", 2)[2].rsplit("@", 1)[0]
             matched_runs = [run for run in latest_runs.values() if run.get("path") == source_path]
             if len(matched_runs) != 1:
                 unknown.append(
-                    f"duplicate expected check identity {job_name!r}: missing run for {origin}"
+                    f"{identity} {job_name!r}: missing or ambiguous {event!r} run for {origin}"
                 )
                 continue
             jobs = [job for job in matched_runs[0]["jobs"] if job.get("name") == job_name]
             if len(jobs) != 1:
                 unknown.append(
-                    f"duplicate expected check identity {job_name!r}: ambiguous/missing job for {origin}"
+                    f"{identity} {job_name!r}: ambiguous/missing job for {origin} ({event!r})"
                 )
                 continue
             job = jobs[0]
             check_matches = [
                 check
                 for check in checks
-                if check.get("url") == job.get("check_run_url")
+                if isinstance(job.get("check_run_url"), str)
+                and job["check_run_url"]
+                and check.get("url") == job["check_run_url"]
                 and check.get("name") == job_name
                 and check.get("head_sha") == head
                 and (check.get("app") or {}).get("slug") == "github-actions"
@@ -1681,7 +1684,8 @@ def collect(
                 "neutral",
             }:
                 unknown.append(
-                    f"duplicate expected check identity {job_name!r}: independent success unproven for {origin}"
+                    f"{identity} {job_name!r}: independent success unproven for {origin} "
+                    f"({event!r}); check_run_url binding missing or unsuccessful"
                 )
                 continue
             claims.append(
