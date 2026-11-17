@@ -153,10 +153,15 @@ Skipped callers retain their check URL and source as a concrete absence receipt.
 Child expectations still come from the bound authored workflow, never from the
 set of successful child jobs.
 
-Duplicate display names require independent source-workflow/run/job/check URL
-bindings, matching head and GitHub Actions app, and a successful or skipped
-conclusion for every origin. One successful check cannot mask another origin's
-missing or failing check. The receipt retains each independent claim.
+Every expected workflow job, including a unique display name, requires an exact
+source-workflow binding to the requested event's latest run/attempt, one matching
+job, and a nonempty check-run URL bound to a check with the same name, full head
+and GitHub Actions app. Successful, skipped and neutral conclusions are accepted
+by this identity check; required contexts must still succeed. Missing event runs,
+ambiguous jobs and unbound URLs record explicit UNKNOWN gaps. A green push check
+cannot prove a missing pull-request run. Duplicate names require this evidence
+independently for every origin. The receipt retains all claims in the existing
+`duplicate_identity_evidence` field, including claims for unique names.
 
 The Python reusable workflow has one supported output-derived matrix contract.
 Its immutable `select-scope` job calls the versioned pure
