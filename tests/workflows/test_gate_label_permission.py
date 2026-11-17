@@ -1,4 +1,4 @@
-"""Gate labels a deliberate-break PR from a job that can write PR labels and runs no PR-head code.
+"""Gate labels a deliberate-break PR from a blocking job that can write PR labels and runs no PR-head code.
 
 stranske/Orchestrator#1354 (2026-11-12) and #1382 (2026-11-15): with only `issues: write` effective
 (the job log printed Issues: write, PullRequests: read), "Apply runtime acceptance-criteria label"
@@ -37,8 +37,18 @@ def test_the_label_job_can_write_pull_requests_and_runs_no_pr_code(path):
     assert not any("checkout" in str(step.get("uses", "")) for step in job["steps"])
     assert "test-quality" in job["needs"]
     assert "deliberate_break_marker" in job["if"]
-    # A labelling failure must never fail Gate.
-    assert "acceptance-criteria-label" not in jobs["summary"]["needs"]
+    # Blocking (review on stranske/Orchestrator#1415): the runtime-AC merge guard keys on this label, so a
+    # failed write must fail Gate, reported as a test-quality failure as it was inside test-quality.
+    step = next(s for s in job["steps"] if s.get("name") == LABEL_STEP)
+    assert not step.get("continue-on-error")
+    assert "catch" not in step["with"]["script"]
+    summary = jobs["summary"]
+    assert "acceptance-criteria-label" in summary["needs"]
+    summarize = next(s for s in summary["steps"] if s.get("id") == "summarize")
+    assert (
+        "needs.acceptance-criteria-label.result == 'failure'"
+        in summarize["env"]["TEST_QUALITY_RESULT"]
+    )
 
 
 @pytest.mark.parametrize("path", FILES)
