@@ -280,9 +280,13 @@ def test_codex_requested_model_falls_back_to_the_configured_model() -> None:
     import yaml
 
     workflow = yaml.safe_load(
-        (Path(__file__).resolve().parents[2] / ".github/workflows/reusable-codex-run.yml").read_text()
+        (
+            Path(__file__).resolve().parents[2] / ".github/workflows/reusable-codex-run.yml"
+        ).read_text()
     )
     output = workflow["jobs"]["codex"]["outputs"]["requested-model"]
-    assert output.startswith("${{ steps.run_codex.outputs.requested-model ||")
-    assert "inputs.codex_model" in output
-
+    # The CLI-level request wins; then the resolved profile model; then the configured input.
+    assert output == (
+        "${{ steps.run_codex.outputs.requested-model || steps.codex_model.outputs.model"
+        " || inputs.codex_model }}"
+    )
