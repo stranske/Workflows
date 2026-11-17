@@ -13,9 +13,13 @@ WORKFLOWS_DOC = Path("docs/ci/WORKFLOWS.md")
 WORKFLOWS_DIR = Path(".github/workflows")
 AGENT_REGISTRY = Path(".github/agents/registry.yml")
 MULTI_AGENT_ROUTING_DOC = Path("docs/keepalive/MULTI_AGENT_ROUTING.md")
+AGENTS_POLICY_DOC = Path("docs/AGENTS_POLICY.md")
+CI_AGENTS_POLICY_DOC = Path("docs/ci/AGENTS_POLICY.md")
+WORKFLOW_SYSTEM_DOC = Path("docs/ci/WORKFLOW_SYSTEM.md")
+WORKFLOW_GUIDE_DOC = Path("docs/WORKFLOW_GUIDE.md")
 ACTIVE_VERIFIER_DOCS = (
     Path("README.md"),
-    Path("docs/WORKFLOW_GUIDE.md"),
+    WORKFLOW_GUIDE_DOC,
     Path("docs/ci/WORKFLOWS.md"),
     Path("docs/LABELS.md"),
 )
@@ -70,6 +74,155 @@ def test_readme_compare_profile_semantics() -> None:
     assert "If an actual verifier report identifies bounded-input truncation" in guide
     assert "inspect both provider results before" in guide
     assert "Standard remains the default" in guide
+
+
+def test_agents70_docs_match_eligibility_and_dry_run() -> None:
+    agents70 = yaml.safe_load(
+        (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
+    )
+    agents70_events = agents70.get("on") or agents70.get(True) or {}
+    declared_events = set(agents70_events)
+    assert declared_events == {
+        "schedule",
+        "workflow_dispatch",
+        "workflow_run",
+        "repository_dispatch",
+    }
+    assert agents70_events["schedule"] == [{"cron": "*/30 * * * *"}]
+    assert (
+        str(agents70_events["workflow_dispatch"]["inputs"]["dry_run"]["default"]).lower()
+        == "false"
+    )
+    assert agents70_events["workflow_run"]["workflows"] == ["Gate"]
+    assert agents70_events["workflow_run"]["types"] == ["completed"]
+    assert agents70_events["repository_dispatch"]["types"] == ["agents-orchestrator-ping"]
+
+    eligibility_steps = agents70["jobs"]["eligibility"]["steps"]
+    eligibility_step = next(step for step in eligibility_steps if step.get("id") == "eligibility")
+    expected_actions = {
+        item.strip()
+        for item in eligibility_step["with"]["expected-actions"].split(",")
+        if item.strip()
+    }
+    custom_predicate = eligibility_step["with"]["custom-predicate"]
+    assert expected_actions == {"workflow_dispatch", "schedule"}
+    assert "event_name == 'workflow_dispatch' || event_name == 'schedule'" in custom_predicate
+    denied_events = declared_events - expected_actions
+    assert denied_events == {"workflow_run", "repository_dispatch"}
+
+    init_job = agents70["jobs"]["init"]
+    assert init_job["needs"] == "eligibility"
+    assert init_job["if"] == "needs.eligibility.outputs.should_run == 'true'"
+    dry_run_expr = init_job["with"]["dry_run"]
+    assert (
+        "(github.event_name == 'schedule' || github.event_name == 'workflow_run') && 'true'"
+        in dry_run_expr
+    )
+    assert (
+        "github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run" in dry_run_expr
+    )
+
+    keepalive_loop = yaml.safe_load(
+        (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
+    )
+    keepalive_loop_events = keepalive_loop.get("on") or keepalive_loop.get(True) or {}
+    assert keepalive_loop_events["workflow_run"]["workflows"] == ["Gate"]
+    assert keepalive_loop_events["workflow_run"]["types"] == ["completed"]
+
+    keepalive_sweep = yaml.safe_load(
+        (WORKFLOWS_DIR / "agents-keepalive-sweep.yml").read_text(encoding="utf-8")
+    )
+    keepalive_sweep_events = keepalive_sweep.get("on") or keepalive_sweep.get(True) or {}
+    assert {"schedule", "workflow_dispatch"} <= set(keepalive_sweep_events)
+
+    policy = AGENTS_POLICY_DOC.read_text(encoding="utf-8")
+    ci_policy = CI_AGENTS_POLICY_DOC.read_text(encoding="utf-8")
+    workflows_doc = WORKFLOWS_DOC.read_text(encoding="utf-8")
+    workflow_system_doc = WORKFLOW_SYSTEM_DOC.read_text(encoding="utf-8")
+    workflow_guide_doc = WORKFLOW_GUIDE_DOC.read_text(encoding="utf-8")
+
+    # Authoritative policy + resolving pointer without divergent active-entrypoint claims.
+    assert "(`docs/AGENTS_POLICY.md`) is the single" in policy
+    assert "](../AGENTS_POLICY.md)" in ci_policy
+    assert (
+        CI_AGENTS_POLICY_DOC.parent / "../AGENTS_POLICY.md"
+    ).resolve() == AGENTS_POLICY_DOC.resolve()
+    for stale_claim in (
+        "single dispatch surface for all consumer",
+        "as always-on automation",
+        "Agents 63 – ChatGPT issue sync",
+        "The first two workflows are the only active Agents entry points",
+    ):
+        assert stale_claim not in policy
+        assert stale_claim not in ci_policy
+
+    # Retained protection/override requirements and delete-vs-restore evidence in AGENTS_POLICY.md.
+    for required_policy_phrase in (
+        "## Required checks and status contexts",
+        "## How to verify required checks",
+        "## Allowlisted change reasons and label process",
+        "## Emergency override procedure",
+        "agents:allow-change",
+        "uses: owner/action@ref",
+        "delete-versus-restore decision",
+    ):
+        assert required_policy_phrase in policy
+
+    # Catalog diagram and control-plane description in docs/ci/WORKFLOWS.md must not claim
+    # Gate dispatches Agents 70.
+    assert (
+        'gate["Gate\\n.pr-00-gate.yml"] --> agents70["Agents 70 Orchestrator' not in workflows_doc
+    )
+    assert not re.search(r"gate\s*-->\s*agents70\b", workflows_doc)
+    assert "Successful Gate runs dispatch the [Agents 70 Orchestrator]" not in workflows_doc
+    assert "Successful Gate runs dispatch the Agents 70 Orchestrator" not in workflows_doc
+    assert (
+        'gate["Gate\\n.pr-00-gate.yml"] --> keepaliveLoop["Agents Keepalive Loop' in workflows_doc
+    )
+    assert (
+        'keepaliveSweep["Agents Keepalive Sweep\\n.agents-keepalive-sweep.yml"] --> keepaliveLoop'
+        in workflows_doc
+    )
+
+    # All four docs (AGENTS_POLICY, WORKFLOWS, WORKFLOW_SYSTEM, WORKFLOW_GUIDE) must align on
+    # the four declared events, eligibility denial before init, forced scheduled dry_run shadow,
+    # input-controlled workflow_dispatch, qualified 0ecdff0f3 attribution, keepalive loop/sweep
+    # citations, authored-vs-observed separation, and the undecided retirement question.
+    for doc_name, content in (
+        ("docs/AGENTS_POLICY.md", policy),
+        ("docs/ci/WORKFLOWS.md", workflows_doc),
+        ("docs/ci/WORKFLOW_SYSTEM.md", workflow_system_doc),
+        ("docs/WORKFLOW_GUIDE.md", workflow_guide_doc),
+    ):
+        normalized = re.sub(r"\s+", " ", content)
+        for event_name in declared_events:
+            assert f"`{event_name}`" in content, f"{doc_name} missing `{event_name}`"
+        assert (
+            "expected-actions: workflow_dispatch,schedule" in normalized
+        ), f"{doc_name} must cite eligibility expected-actions"
+        assert (
+            "before `jobs.init`" in normalized or "before `init`" in normalized
+        ), f"{doc_name} must state denied events stop before init"
+        assert (
+            "dry_run=true" in normalized or "Forced dry-run shadow" in normalized
+        ), f"{doc_name} must document scheduled dry-run shadow behavior"
+        assert (
+            "inputs.dry_run" in normalized or "github.event.inputs.dry_run" in normalized
+        ), f"{doc_name} must document input-controlled workflow_dispatch dry_run"
+        assert "0ecdff0f3" in normalized, f"{doc_name} must cite 0ecdff0f3"
+        assert "qualified" in normalized, f"{doc_name} must qualify 0ecdff0f3 attribution"
+        assert (
+            "agents-keepalive-loop.yml" in normalized
+        ), f"{doc_name} must cite agents-keepalive-loop.yml"
+        assert (
+            "agents-keepalive-sweep.yml" in normalized
+        ), f"{doc_name} must cite agents-keepalive-sweep.yml"
+        assert (
+            "production liveness" in normalized
+        ), f"{doc_name} must separate authored source from production liveness"
+        assert (
+            "undecided" in normalized
+        ), f"{doc_name} must retain the undecided retirement question"
 
 
 def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
