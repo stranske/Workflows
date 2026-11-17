@@ -90,8 +90,7 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
     }
     assert agents70_events["schedule"] == [{"cron": "*/30 * * * *"}]
     assert (
-        str(agents70_events["workflow_dispatch"]["inputs"]["dry_run"]["default"]).lower()
-        == "false"
+        str(agents70_events["workflow_dispatch"]["inputs"]["dry_run"]["default"]).lower() == "false"
     )
     assert agents70_events["workflow_run"]["workflows"] == ["Gate"]
     assert agents70_events["workflow_run"]["types"] == ["completed"]
@@ -118,9 +117,7 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
         "(github.event_name == 'schedule' || github.event_name == 'workflow_run') && 'true'"
         in dry_run_expr
     )
-    assert (
-        "github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run" in dry_run_expr
-    )
+    assert "github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run" in dry_run_expr
 
     keepalive_loop = yaml.safe_load(
         (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
