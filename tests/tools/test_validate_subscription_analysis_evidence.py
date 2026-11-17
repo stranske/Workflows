@@ -423,10 +423,14 @@ def test_cli_rejects_duplicate_json_fields(
 @pytest.mark.parametrize(
     "registry",
     [
-        "subscription_analysis: {}\nsubscription_analysis:\n  codex:\n"
-        "    model: registry-selected-model\n",
-        "subscription_analysis:\n  codex: {}\n  codex:\n"
-        "    model: registry-selected-model\n",
+        (
+            "subscription_analysis: {}\nsubscription_analysis:\n  codex:\n"
+            "    model: registry-selected-model\n"
+        ),
+        (
+            "subscription_analysis:\n  codex: {}\n  codex:\n"
+            "    model: registry-selected-model\n"
+        ),
         "subscription_analysis:\n  codex:\n    model: do-not-echo-duplicate\n"
         "    model: registry-selected-model\n",
         "subscription_analysis:\n  codex:\n    execution_profile: codex-extract\n"
