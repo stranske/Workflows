@@ -30,6 +30,19 @@ RECEIPTS = {
 }
 
 
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    """Reject duplicate registry keys in every mapping, including nested ones."""
+
+    def construct_mapping(self, node, deep=False):
+        keys = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if key in keys:
+                raise ValueError("Registry contains duplicate mapping keys")
+            keys.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
 def _runtime_lines(log: str, *, preserve_timestamps: bool = False) -> list[str]:
     """Exclude Actions' echoed script and environment groups from receipts."""
     lines = []
@@ -106,6 +119,8 @@ def validate_evidence(*, delivered_sha, runner_log, analysis_log, analysis, summ
         runner_receipts = [
             raw for raw in runner_records if TIMESTAMP.sub("", raw).startswith(name + "=")
         ]
+        if any(not TIMESTAMP.match(raw) for raw in step_receipts + runner_receipts):
+            raise ValueError("Required runtime receipt is missing a timestamp")
         if runner_receipts != step_receipts:
             raise ValueError("Analysis runtime receipts do not match the runner log")
 
@@ -153,7 +168,9 @@ def main(argv=None):
             summary=json.loads(
                 args.summary_json.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_object
             ),
-            registry=yaml.safe_load(args.registry.read_text(encoding="utf-8")),
+            registry=yaml.load(
+                args.registry.read_text(encoding="utf-8"), Loader=_UniqueKeySafeLoader
+            ),
         )
     except (OSError, ValueError, KeyError, TypeError, AttributeError, yaml.YAMLError):
         # Do not echo untrusted JSON, task text, log lines, paths or values.

@@ -51,6 +51,24 @@ def test_consistent_evidence(inputs):
     evidence.validate_evidence(**inputs)
 
 
+@pytest.mark.parametrize("name", [*evidence.RECEIPTS, "completed-tasks-count"])
+@pytest.mark.parametrize(
+    "logs", [("analysis_log",), ("runner_log",), ("analysis_log", "runner_log")]
+)
+def test_required_receipts_need_timestamps_in_each_log(inputs, name, logs):
+    for log in logs:
+        inputs[log] = inputs[log].replace(STAMP + name + "=", name + "=")
+    with pytest.raises(ValueError, match="timestamp"):
+        evidence.validate_evidence(**inputs)
+
+
+def test_rejects_timestamps_removed_from_both_logs(inputs):
+    for log in ("analysis_log", "runner_log"):
+        inputs[log] = inputs[log].replace(STAMP, "")
+    with pytest.raises(ValueError, match="timestamp"):
+        evidence.validate_evidence(**inputs)
+
+
 def test_accepts_sha_only_workflow_revision(inputs):
     inputs["runner_log"] = (
         f"{STAMP}Uses: {evidence.WORKFLOW}@{SHA}\n" + inputs["analysis_log"] + "\n"
@@ -400,3 +418,25 @@ def test_cli_rejects_duplicate_json_fields(
     captured = capsys.readouterr()
     assert "failed" in captured.out
     assert "do-not-echo-duplicate" not in captured.out + captured.err
+
+
+@pytest.mark.parametrize(
+    "registry",
+    [
+        "subscription_analysis: {}\nsubscription_analysis:\n  codex:\n"
+        "    model: registry-selected-model\n",
+        "subscription_analysis:\n  codex: {}\n  codex:\n"
+        "    model: registry-selected-model\n",
+        "subscription_analysis:\n  codex:\n    model: do-not-echo-duplicate\n"
+        "    model: registry-selected-model\n",
+        "subscription_analysis:\n  codex:\n    execution_profile: codex-extract\n"
+        "execution_profiles:\n  codex-extract:\n    model: do-not-echo-duplicate\n"
+        "    model: registry-selected-model\n",
+    ],
+)
+def test_cli_rejects_duplicate_registry_keys(evidence_args, tmp_path, capsys, registry):
+    (tmp_path / "registry").write_text(registry, encoding="utf-8")
+    assert evidence.main(evidence_args) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "Evidence consistency check failed: incomplete or mismatched inputs\n"
+    assert captured.err == ""
