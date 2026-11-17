@@ -594,6 +594,11 @@ def test_unique_expected_job_requires_requested_event_run(run_event):
     result = reporter.collect(
         reporter.Evidence(suite_run), "o/r", 1, HEAD, "pull_request", "opened"
     )
+    assert result["expected_names"] == ["gate"]
+    # Every case has the same successful exact-head check. Only the event witness varies.
+    assert result["check_runs"] == [
+        {**check(), "url": "https://api.github.com/repos/o/r/check-runs/1"}
+    ]
     if run_event is None:
         # No suite witness is available to recover the missing event run.
         assert result["workflow_run_inventory_recovery"] == []
@@ -608,6 +613,20 @@ def test_unique_expected_job_requires_requested_event_run(run_event):
         assert result["verdict"] == "PASS", result
         assert result["unknown"] == []
         assert result["workflow_run_inventory"][0]["event"] == "pull_request"
+        assert result["duplicate_identity_evidence"] == [
+            {
+                "name": "gate",
+                "independent_claims": [
+                    {
+                        "source": f"o/r/.github/workflows/gate.yml@{BASE}",
+                        "run_id": 101,
+                        "job_id": 201,
+                        "check_run_url": result["check_runs"][0]["url"],
+                        "conclusion": "success",
+                    }
+                ],
+            }
+        ]
         return
 
     assert result["verdict"] == "UNKNOWN", result

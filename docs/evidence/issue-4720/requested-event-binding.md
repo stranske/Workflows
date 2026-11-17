@@ -128,3 +128,47 @@ Operation not permitted` when Python's forkserver tried to bind its listener.
 A `BLACK_NUM_WORKERS=1` retry produced no result and was interrupted. The mandatory
 repository-wide formatting gate therefore remains unverified, so no commit or
 push is permitted under this run's pre-commit instructions.
+
+## Follow-up: verify the successful run's identity claim
+
+The named regression now asserts that all four cases retain the same successful
+exact-head check and expected job. The recovered `pull_request` control must also
+record the complete source/run/job/check-URL identity claim. A green verdict alone
+does not establish that the collector performed the binding.
+
+Repeated the same deliberate break by temporarily inserting
+`if len(origins) <= 1: continue` at the start of the identity loop, then ran:
+
+```bash
+python3 -m pytest tests/test_check_checks_reported.py::test_unique_expected_job_requires_requested_event_run -q -m "not slow"
+```
+
+Exit **1**, **4 failed in 1.14s**. The `None`, `push`, and `pull_request_target`
+cases returned `PASS` and failed `assert 'PASS' == 'UNKNOWN'`. In particular,
+the dual-trigger push-only case reproduced the required false positive. The
+recovered `pull_request` control also failed because its identity claim was
+empty, demonstrating the additional assertion's sensitivity to the bypass.
+
+Restored the collector byte-for-byte in `finally`, with SHA-256
+`b4b8d31e5b89e79911ea0797d5b7abbed9413d004eef3fa99b954b6a87496f23`.
+The collector has no working-tree diff. Repeating the named command exited **0**,
+with **4 passed in 0.85s**.
+
+```bash
+python3 -m pytest tests/test_check_checks_reported.py -q -m "not slow"
+```
+
+Exit **0**, **326 passed in 8.76s**. No existing tests were deleted. The changed
+test file's Black formatting/check, Ruff, and `git diff --check` passed.
+
+Publishing this proof to PR #4729 via `github_add_comment_to_issue` was refused:
+`MCP tool call requires approval, but approval policy is never`. Consequently
+the proof has not been posted and the PR acceptance checkboxes remain unchanged.
+The connector confirmed that PR #4729 is open and `draft=false`.
+
+The repository-wide Black command again failed with `PermissionError: [Errno 1]
+Operation not permitted` when its forkserver bound a socket. The supported
+`BLACK_NUM_WORKERS=1` retry produced no result and was interrupted (exit 130).
+That mandatory formatting gate remains unverified. Staging the two changed files
+also failed with `.git/index.lock: Read-only file system` (exit 128), so no commit
+or push was made. These environment blockers require follow-up by the runner.
