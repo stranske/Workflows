@@ -45,6 +45,24 @@ def test_reusable_concurrency_group_is_scoped_to_target_pr() -> None:
     assert canonical["concurrency"]["group"].casefold() == "bot-comments-${{ github.run_id }}"
     assert consumer_hub["concurrency"]["group"].casefold().startswith("pr-event-hub-")
 
+    for caller, expected_pr_input in (
+        (canonical, "${{ needs.resolve.outputs.pr_number }}"),
+        (consumer_hub, "${{ fromJSON(needs.resolve.outputs.pr_number) }}"),
+    ):
+        reusable_jobs = [
+            job
+            for job in caller["jobs"].values()
+            if job.get("uses")
+            == "stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main"
+        ]
+        assert reusable_jobs, "Caller must invoke the reusable bot comment handler"
+        for job in reusable_jobs:
+            # The key must use the resolved target PR for every caller event type.
+            assert job["with"]["pr_number"] == expected_pr_input
+            # Job-level caller groups must also stay out of the reusable namespace.
+            job_group = job.get("concurrency", {}).get("group", "")
+            assert not job_group.casefold().startswith("bot-comments-reusable-")
+
 
 def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
