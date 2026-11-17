@@ -355,13 +355,13 @@ jobs:
         with:
           script: |
             const {
-              resolveGateTrackingContext, updateFailureTracker,
+              resolveGateTrackingContext, updateFailureTracker, trackedGateContext,
               resolveFailureIssuesForRecoveredPR, autoHealFailureIssues, snapshotFailureIssues,
             } = require('./.github/scripts/maint-post-ci.js');
             const tracking = await resolveGateTrackingContext({ github, context, core });
             if (!tracking) return;
             core.setOutput('tracked', 'true');
-            const trackedContext = { ...context, payload: { ...context.payload, workflow_run: tracking.run } };
+            const trackedContext = trackedGateContext(context, tracking.run);
             process.env.PR_NUMBER = String(tracking.prNumber);
             process.env.RUN_URL = tracking.run.html_url;
             try {
