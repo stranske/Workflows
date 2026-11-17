@@ -72,8 +72,7 @@ def _run_protection_script(
         "branchPayload": branch_payload,
     }
 
-    harness = textwrap.dedent(
-        r"""
+    harness = textwrap.dedent(r"""
         const fs = require('fs');
         const vm = require('vm');
         const fixture = JSON.parse(process.env.FIXTURE);
@@ -172,8 +171,7 @@ def _run_protection_script(
           console.error(String(error.message || error));
           process.exit(1);
         });
-        """
-    ).strip()
+        """).strip()
 
     script_body = _extract_protection_script()
 
