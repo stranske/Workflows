@@ -117,8 +117,8 @@ permissions:
   issues: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: bot-comments-reusable-${{ github.repository }}-pr-${{ inputs.pr_number }}
+  cancel-in-progress: false
 
 jobs:
   # Collect unresolved bot comments
