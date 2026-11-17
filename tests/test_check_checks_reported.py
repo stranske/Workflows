@@ -665,6 +665,8 @@ def test_unique_expected_job_requires_requested_event_run(run_event):
         ("url", "check_run_url binding"),
         ("missing_urls", "check_run_url binding"),
         ("check_name", "check_run_url binding"),
+        ("pending_bound_check", "check_run_url binding"),
+        ("failed_bound_check", "check_run_url binding"),
     ],
 )
 def test_unique_expected_job_requires_source_job_and_check_binding(gap, diagnostic):
@@ -692,6 +694,15 @@ def test_unique_expected_job_requires_source_job_and_check_binding(gap, diagnost
                 # A same-name green check at a different URL cannot bind this job.
                 pages[0]["check_runs"][0]["name"] = "other"
                 pages[0]["check_runs"].append({**check(), "id": 2, "url": "check/2"})
+                pages[0]["total_count"] = 2
+            elif gap in {"pending_bound_check", "failed_bound_check"}:
+                # A newer same-name success cannot replace this run's bound check.
+                bound_check = pages[0]["check_runs"][0]
+                bound_check["conclusion"] = None if gap == "pending_bound_check" else "failure"
+                bound_check["status"] = "queued" if gap == "pending_bound_check" else "completed"
+                pages[0]["check_runs"].append(
+                    {**check(ident=2, started="2026-10-01T02:00:00Z"), "url": "check/2"}
+                )
                 pages[0]["total_count"] = 2
         return pages
 

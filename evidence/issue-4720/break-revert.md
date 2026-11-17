@@ -98,3 +98,55 @@ black.main([
 ```
 
 Exit status: **0**, **1,021 files would be left unchanged**.
+
+## Current run verification (2026-11-17)
+
+Reviewed commits `08772106` through `c3d45159`: the source bypass is removed,
+the shared fixture supplies a bound pull-request run/job/check URL, and existing
+tests remain present. Added two cases to
+`test_unique_expected_job_requires_source_job_and_check_binding`: the bound
+check is queued or failed while a newer same-name check at another URL succeeds.
+Both cases require `UNKNOWN` and a check-URL binding diagnostic despite
+`passing_names == ["gate"]`.
+
+Temporarily restored the two-line bypass in the collector's identity loop and ran:
+
+```bash
+python3 -m pytest tests/test_check_checks_reported.py::test_unique_expected_job_requires_requested_event_run -q -m "not slow" --tb=short
+```
+
+Exit **1**, **4 failed in 1.14s**. The push-only case failed with:
+
+```text
+_________ test_unique_expected_job_requires_requested_event_run[push] __________
+tests/test_check_checks_reported.py:650: in test_unique_expected_job_requires_requested_event_run
+    assert result["verdict"] == "UNKNOWN", result
+E   assert 'PASS' == 'UNKNOWN'
+```
+
+The missing-run and `pull_request_target` cases likewise returned `PASS`.
+The pull-request control failed because the bypass removed its identity claim.
+Restored the original collector bytes in `finally` and verified no source diff.
+
+After restoring:
+
+```bash
+python3 -m pytest tests/test_check_checks_reported.py::test_unique_expected_job_requires_requested_event_run -q -m "not slow"
+# 4 passed in 0.84s; exit 0
+python3 -m pytest tests/test_check_checks_reported.py -q -m "not slow"
+# 328 passed in 8.75s; exit 0
+```
+
+The changed-file Black check, Ruff, and `git diff --check` pass. The required
+repository-wide command
+`black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+exited **1**: Python's multiprocessing forkserver could not bind its listener
+(`PermissionError: [Errno 1] Operation not permitted`). The mandatory formatting
+gate therefore blocks committing. Independently, `findmnt -T .git` confirms
+that `.git` is mounted read-only. No commit or push was made.
+
+GitHub reports PR #4729 as **merged**, closed at `2026-11-17T06:22:29Z`, with
+`draft=false`. Its named-test and break/revert acceptance boxes remain unchecked.
+The attempt to reconcile the verified named-test checkbox was rejected with
+`MCP tool call requires approval, but approval policy is never`; the PR body
+was unchanged. These results are local evidence for the runner to publish.
