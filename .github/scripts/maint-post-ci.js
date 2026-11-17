@@ -1141,7 +1141,19 @@ async function ensureAutofixComment({ github: rawGithub, context, core }) {
   core.info(`Posted autofix comment for PR #${prNumber} (${shortSha}).`);
 }
 
+// The tracker runs on a Gate workflow_run that it re-resolved, so it needs the context with that run as
+// payload.workflow_run. github-script's `context` exposes `repo` and `issue` as getters on its class
+// prototype, and an object spread copies own properties only: `{ ...context }` had no `repo`, and every
+// helper below that destructures `context.repo` threw "Cannot destructure property 'owner' of 'context.repo'
+// as it is undefined" (Maint 46 Post CI failed 30 of 40 runs on main, 2026-11-16..17). Keep the prototype.
+function trackedGateContext(context, run) {
+  const tracked = Object.assign(Object.create(Object.getPrototypeOf(context)), context);
+  tracked.payload = { ...context.payload, workflow_run: run };
+  return tracked;
+}
+
 module.exports = {
+  trackedGateContext,
   discoverWorkflowRuns,
   propagateGateCommitStatus,
   resolveAutofixContext,
