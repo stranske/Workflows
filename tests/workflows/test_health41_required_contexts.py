@@ -248,7 +248,11 @@ def test_health41_ruleset_only_summary_passes_without_classic_protection(
             "protected": True,
             "protection": {
                 "enabled": False,
-                "required_status_checks": {"contexts": [], "checks": [], "enforcement_level": "off"},
+                "required_status_checks": {
+                    "contexts": [],
+                    "checks": [],
+                    "enforcement_level": "off",
+                },
             },
         },
     )
@@ -271,7 +275,9 @@ def test_health41_recovers_classic_contexts_from_branch_metadata_after_403() -> 
     ("unread_source", "status"),
     [("branch rules", 500), ("branch protection", 403), ("branch protection", 404)],
 )
-def test_health41_rejects_an_exact_match_from_only_one_source(unread_source: str, status: int) -> None:
+def test_health41_rejects_an_exact_match_from_only_one_source(
+    unread_source: str, status: int
+) -> None:
     if unread_source == "branch rules":
         outcome = _run_protection_script(
             branch_rules_error={"status": status, "message": "Internal Server Error"},
