@@ -87,6 +87,15 @@ If yes:
 2. Update the sync manifest if a consumer-facing file changed
 3. Sync or manually align this repo afterward
 
+## Lanes On This Repository
+
+Local automation lanes in the owner's workspace work this repository's issues and PRs. opener-core starts agents on
+existing issues (it creates none). closer-core merges green agent PRs, and PRs a Claude Code session made, through
+its exact-head merge guard, then verifies each issue and closes it or files a bounded follow-up. sync-core classifies
+generated sync PRs; Maint 71 in `stranske/Workflows` is their only merger. `needs-human`, `do-not-merge` and
+`agents:paused` hold both lanes. Design and full hold lists: `stranske/Workflows` `docs/ops/LOCAL_LANES.md`, and the
+owner's lane design document (`Audits/closer-lane-2026-11/design/lane-design.html`).
+
 ## Optional GitNexus Context
 
 - GitNexus may be available as a local MCP/indexing layer for cross-repo search and impact checks.
