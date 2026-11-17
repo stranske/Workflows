@@ -169,22 +169,21 @@ explain why a particular status appears in the Checks tab.
 
 | Workflow | Primary triggers | Merge impact | Status context / where to look | Quick rerun path |
 | --- | --- | --- | --- | --- |
-| **Gate** (`pr-00-gate.yml`) | Every pull request (`pull_request`), manual dispatch (`workflow_dispatch`) | ✅ Required status | **Gate / gate** in PR **Checks → Required** | Checks tab → **Gate** → **Re-run jobs** (failed or all) |
-| **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after the Gate jobs finish | ❌ Informational follow-up | Timeline comment anchored with `<!-- gate-summary:` plus coverage/status artifacts | Re-run the Gate workflow (the summary job runs automatically) |
+| **Gate** (`pr-00-gate.yml`) | Every pull request (`pull_request`), manual dispatch (`workflow_dispatch`) | ✅ Required status | Ruleset requires **`summary`** per `.github/config/required-contexts.json`; **`Gate / gate`** is the duplicate commit status the summary job still posts | Checks tab → **Gate** → **Re-run jobs** (failed or all) |
+| **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after the Gate jobs finish | ✅ Required status | **`summary`** in PR checks, plus a timeline comment and coverage/status artifacts | Re-run the Gate workflow (the summary job runs automatically) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
 | **Health 40 Sweep** (`health-40-sweep.yml`) | Monday 05:05 UTC schedule, workflow-file pull requests, manual dispatch | ❌ Informational hygiene | Combined Actionlint + branch-protection jobs under **Actions → Health 40 Sweep** | Actions tab → workflow → **Run workflow** |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`) | Manual dispatch (or via `workflow_call` from the sweep) | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
 | **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | Cron every 30 minutes (`schedule` forced `dry_run=true` shadow), manual dispatch (`workflow_dispatch`, input-controlled `dry_run`; declared `workflow_run` and `repository_dispatch` denied by `eligibility` before `init`) | ⚪ Shadow/manual automation surface (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** (no Checks tab status) | Actions tab → workflow → **Run workflow** (tune `dry_run` / `params_json`) |
 | **Health 45 Agents Guard** (`agents-guard.yml`) | Every pull request (`pull_request`); label changes via `pull_request_target` (labels starting with `agent:`) | ✅ Required status (fails only when protected workflow policies are violated) | **Health 45 Agents Guard / Enforce agents workflow protections** in PR **Checks → Required** | Checks tab → **Health 45 Agents Guard** → **Re-run** after updating labels/reviews |
 > ℹ️ **Merge-gating recap.**
-> - **Gate / gate** blocks every pull request by default—expect it under
->   **Checks → Required** for all PRs.
+> - Gate's **`summary`** job blocks every pull request by default. Gate also
+>   publishes the duplicate **`Gate / gate`** commit status.
 > - **Health 45 Agents Guard / Enforce agents workflow protections** now runs on every
   pull request and only turns the status red when protected agents files change
   without the required guardrails.
-> - Gate summary job, Repo Health, Actionlint, and Agents 70 Orchestrator stay
->   informational follow-ups: expect Gate summary job as a timeline summary comment
->   after merge, and the remaining workflows under the Actions tab.
+> - The Gate summary comment appears in the PR timeline. Repo Health, Actionlint,
+>   and Agents 70 Orchestrator report under the Actions tab.
 > - Cross-reference the [Agents Workflow Protection
 >   Policy](../AGENTS_POLICY.md#required-checks-and-status-contexts) for the
 >   enforcement rationale behind the required checks.
@@ -194,9 +193,9 @@ explain why a particular status appears in the Checks tab.
 - **When it runs.** Every pull request, plus manual dispatch for rehearsals.
 - **What it enforces.** Detects docs-only diffs, orchestrates Python 3.13/3.14
   CI and the Docker smoke test, publishes coverage bundles, and produces the
-  single required status context (**Gate / gate**).
+  required **`summary`** check.
 - **Merge impact.** Required on every PR; branch protection blocks merges until
-  the `gate` job is green (docs-only fast-pass still reports success).
+  the `summary` job is green (docs-only fast-pass still reports success).
 
 #### Gate summary job (`pr-00-gate.yml`, job `summary`)
 
@@ -209,19 +208,21 @@ explain why a particular status appears in the Checks tab.
   blocking run so triage has a single thread. When rerun after a fixed Gate, the
   summary job republishes the comment and refreshes the attached coverage bundle
   so reviewers always have the latest snapshot in one place.
-- **Merge impact.** Informational; never required as a status check, but it
-  publishes the single comment and commit status contributors rely on to track
-  Gate health.
+- **Merge impact.** The ruleset requires the `summary` job. The job also
+  publishes the duplicate `Gate / gate` commit status and the CI summary comment.
 
 #### Health 41 Repo Health (`health-41-repo-health.yml`)
 
 - **When it runs.** Monday 07:15 UTC on a schedule, or via manual dispatch.
 - **What it does.** Audits stale branches, unassigned issues, and default-branch
   protection drift, publishing the weekly hygiene dashboard in the run summary.
-  When `Gate / gate` drops from branch protection the workflow fails with
-  branch-specific guidance that points responders back to the default branch.
-- **Merge impact.** Informational background signal; does not gate pull
-  requests, but a failure indicates branch protection needs repair.
+  It compares `.github/config/required-contexts.json` (currently **`summary`**)
+  with the union of effective branch rules and classic protection. A complete
+  read with missing or unexpected contexts produces a drift failure and lists
+  the differences. A read failure identifies the unreadable source. Restore
+  access to that source and rerun Health 41 to determine whether protection
+  needs repair.
+- **Merge impact.** Informational background signal; does not gate pull requests.
 
 #### Health 40 Sweep (`health-40-sweep.yml`)
 
