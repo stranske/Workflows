@@ -57,7 +57,7 @@ Three deterministic Python lanes run across the supported fleet, started by one 
   a failure starts a repair round on the stub's branch with the reopen's failing output attached; an unrunnable
   check falls back to the ordinary path. An issue GitHub marks reopened (by a person or another lane) with a stub
   PR takes the same route, but a pass is not closed again; the judge reads why it was reopened. The runtime-AC check builds its venv the way CI does
-  (`requirements.lock` plus the `app`/`dev` extras), so it fails only where CI would (Orchestrator#1439).
+  (`requirements.lock` plus the `app`/`dev` extras), so its dependency setup matches CI's (Orchestrator#1439); results can still differ where CI has services this machine lacks.
 - **Sync** (`sync-core`) — classifies generated sync PRs, files one handoff issue per finding, nudges Maint 71
   when a ready PR waited past its grace and may dispatch a Maint 68 refresh. It never merges: Maint 71 is the
   only merger of sync PRs and Maint 82 is its timed continuation queue.
