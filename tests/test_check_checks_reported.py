@@ -563,7 +563,7 @@ def test_complete_static_topology_receipt_is_bound_to_full_head():
     assert result["merge_authorization"] is False
 
 
-@pytest.mark.parametrize("run_event", ["push", "pull_request_target", "pull_request"])
+@pytest.mark.parametrize("run_event", [None, "push", "pull_request_target", "pull_request"])
 def test_unique_expected_job_requires_requested_event_run(run_event):
     original = fixture_transport()
 
@@ -572,6 +572,8 @@ def test_unique_expected_job_requires_requested_event_run(run_event):
             workflow = "on: [push, pull_request]\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps: []\n"
             return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
         if "/check-suites?" in endpoint:
+            if run_event is None:
+                return [{"total_count": 0, "check_suites": []}]
             return [
                 {
                     "total_count": 1,
@@ -592,8 +594,14 @@ def test_unique_expected_job_requires_requested_event_run(run_event):
     result = reporter.collect(
         reporter.Evidence(suite_run), "o/r", 1, HEAD, "pull_request", "opened"
     )
-    assert result["workflow_run_inventory_recovery"][0]["event"] == run_event
-    assert result["workflow_run_inventory_recovery"][0]["included"] is (run_event == "pull_request")
+    if run_event is None:
+        # No suite witness is available to recover the missing event run.
+        assert result["workflow_run_inventory_recovery"] == []
+    else:
+        assert result["workflow_run_inventory_recovery"][0]["event"] == run_event
+        assert result["workflow_run_inventory_recovery"][0]["included"] is (
+            run_event == "pull_request"
+        )
     assert result["passing_names"] == ["gate"]
     if run_event == "pull_request":
         # Changing only the recovered run's event supplies the missing witness.
