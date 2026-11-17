@@ -269,3 +269,20 @@ def test_detect_model_cli_reads_files_and_skips_missing(tmp_path, monkeypatch, c
 
     assert json.loads(capsys.readouterr().out) == {"reported-model": "gpt-5.6-terra"}
     assert output.read_text(encoding="utf-8") == "reported-model=gpt-5.6-terra\n"
+
+
+def test_codex_requested_model_falls_back_to_the_configured_model() -> None:
+    """2026-11-16: 13 hosted codex rounds stopped at "Setup Codex auth" (expired CODEX_AUTH_JSON) before the
+    CLI step, so run_codex never set requested-model and every receipt read requested_model="" (half of the
+    Workflows#4693 pass-number sample). The configured model is known before the run starts."""
+    from pathlib import Path
+
+    import yaml
+
+    workflow = yaml.safe_load(
+        (Path(__file__).resolve().parents[2] / ".github/workflows/reusable-codex-run.yml").read_text()
+    )
+    output = workflow["jobs"]["codex"]["outputs"]["requested-model"]
+    assert output.startswith("${{ steps.run_codex.outputs.requested-model ||")
+    assert "inputs.codex_model" in output
+
