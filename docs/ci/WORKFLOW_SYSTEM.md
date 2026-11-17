@@ -169,7 +169,7 @@ explain why a particular status appears in the Checks tab.
 
 | Workflow | Primary triggers | Merge impact | Status context / where to look | Quick rerun path |
 | --- | --- | --- | --- | --- |
-| **Gate** (`pr-00-gate.yml`) | Every pull request (`pull_request`), manual dispatch (`workflow_dispatch`) | ✅ Required status | **Gate / gate** in PR **Checks → Required** | Checks tab → **Gate** → **Re-run jobs** (failed or all) |
+| **Gate** (`pr-00-gate.yml`) | Every pull request (`pull_request`), manual dispatch (`workflow_dispatch`) | ✅ Required status | Ruleset requires **`summary`** per `.github/config/required-contexts.json`; **`Gate / gate`** is the duplicate commit status the summary job still posts | Checks tab → **Gate** → **Re-run jobs** (failed or all) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after the Gate jobs finish | ❌ Informational follow-up | Timeline comment anchored with `<!-- gate-summary:` plus coverage/status artifacts | Re-run the Gate workflow (the summary job runs automatically) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
 | **Health 40 Sweep** (`health-40-sweep.yml`) | Monday 05:05 UTC schedule, workflow-file pull requests, manual dispatch | ❌ Informational hygiene | Combined Actionlint + branch-protection jobs under **Actions → Health 40 Sweep** | Actions tab → workflow → **Run workflow** |
@@ -218,8 +218,10 @@ explain why a particular status appears in the Checks tab.
 - **When it runs.** Monday 07:15 UTC on a schedule, or via manual dispatch.
 - **What it does.** Audits stale branches, unassigned issues, and default-branch
   protection drift, publishing the weekly hygiene dashboard in the run summary.
-  When `Gate / gate` drops from branch protection the workflow fails with
-  branch-specific guidance that points responders back to the default branch.
+  When configured required contexts (from `.github/config/required-contexts.json`,
+  currently **`summary`**) drop from the union of branch rules and classic
+  protection, the workflow fails with drift guidance that points responders back
+  to the default branch.
 - **Merge impact.** Informational background signal; does not gate pull
   requests, but a failure indicates branch protection needs repair.
 
