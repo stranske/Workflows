@@ -332,9 +332,7 @@ def test_health41_protection_403_uses_branch_metadata_fallback() -> None:
         required_contexts=["summary"],
     )
     assert outcome["failures"] == [], outcome
-    assert any(
-        "Falling back to branch metadata" in warning for warning in outcome["warnings"]
-    )
+    assert any("Falling back to branch metadata" in warning for warning in outcome["warnings"])
 
 
 def test_health41_protection_403_without_metadata_reports_unable_to_verify() -> None:
