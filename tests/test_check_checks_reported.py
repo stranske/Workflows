@@ -566,8 +566,16 @@ def test_complete_static_topology_receipt_is_bound_to_full_head():
 @pytest.mark.parametrize("run_event", [None, "push", "pull_request_target", "pull_request"])
 def test_unique_expected_job_requires_requested_event_run(run_event):
     original = fixture_transport()
+    requests = []
+    green_check = {**check(), "url": "https://api.github.com/repos/o/r/check-runs/1"}
+    if run_event is not None:
+        # Tie the green check to the recovered run's suite, including push-only runs.
+        green_check["check_suite"] = {"id": 901}
 
     def suite_run(endpoint):
+        requests.append(endpoint)
+        if "/check-runs?" in endpoint:
+            return [{"total_count": 1, "check_runs": [green_check]}]
         if "/contents/.github/workflows/gate.yml?" in endpoint:
             workflow = "on: [push, pull_request]\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps: []\n"
             return [{"encoding": "base64", "content": base64.b64encode(workflow.encode()).decode()}]
@@ -596,17 +604,27 @@ def test_unique_expected_job_requires_requested_event_run(run_event):
     )
     assert result["expected_names"] == ["gate"]
     # Every case has the same successful exact-head check. Only the event witness varies.
-    assert result["check_runs"] == [
-        {**check(), "url": "https://api.github.com/repos/o/r/check-runs/1"}
-    ]
+    assert result["check_runs"] == [green_check]
+    assert result["missing_names"] == []
+    assert result["failing_checks"] == []
+    assert result["startup_failures"] == []
+    # An ignored event must not supply jobs to the requested event's binding.
+    assert any("/actions/runs/101/jobs?" in endpoint for endpoint in requests) is (
+        run_event == "pull_request"
+    )
     if run_event is None:
         # No suite witness is available to recover the missing event run.
         assert result["workflow_run_inventory_recovery"] == []
     else:
-        assert result["workflow_run_inventory_recovery"][0]["event"] == run_event
-        assert result["workflow_run_inventory_recovery"][0]["included"] is (
-            run_event == "pull_request"
-        )
+        assert result["workflow_run_inventory_recovery"] == [
+            {
+                "suite_id": 901,
+                "run_id": 101,
+                "event": run_event,
+                "included": run_event == "pull_request",
+                "source": "complete exact-head suite inventory and paginated suite lookup",
+            }
+        ]
     assert result["passing_names"] == ["gate"]
     if run_event == "pull_request":
         # Changing only the recovered run's event supplies the missing witness.
