@@ -21,6 +21,22 @@ def test_reusable_concurrency_group_is_scoped_to_target_pr() -> None:
     )
     assert concurrency["cancel-in-progress"] is False
 
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    for trigger in ("workflow_call", "workflow_dispatch"):
+        pr_input = triggers[trigger]["inputs"]["pr_number"]
+        assert pr_input["required"] is True
+
+    # Requests on the same branch must retain separate keys across PRs and repositories.
+    groups = {
+        concurrency["group"]
+        .replace("${{ github.repository }}", repository)
+        .replace("${{ inputs.pr_number }}", str(pr_number))
+        .casefold()
+        for repository in ("owner/first", "owner/second")
+        for pr_number in (101, 102)
+    }
+    assert len(groups) == 4
+
     canonical = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
     consumer_hub = _load_yaml(
         ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml"
