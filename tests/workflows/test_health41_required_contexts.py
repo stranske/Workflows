@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import subprocess
 import tempfile
 import textwrap
@@ -17,6 +18,8 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github/workflows/health-41-repo-health.yml"
+GATE_FORK_STATUS_TEST = REPO_ROOT / "tests/workflows/test_gate_fork_status_publication.py"
+GATE_CONSOLIDATION_TEST = REPO_ROOT / "tests/workflows/test_workflow_agents_consolidation.py"
 STEP_NAME = "Verify default branch protection"
 DEFAULT_BRANCH = "main"
 
@@ -309,3 +312,66 @@ def test_health41_protection_script_does_not_hardcode_expected_list(
     assert "required-contexts.json" in protection_script
     assert re.search(r"expectedContexts\s*=\s*\[\s*'Gate / gate'\s*\]", protection_script) is None
     assert "required_contexts" in protection_script or "contextsValue" in protection_script
+
+
+def test_health41_deliberate_break_hardcoded_gate_fails_then_restore(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Acceptance deliberate-break: hardcoded Gate / gate must fail, then production passes."""
+    original_script = _extract_protection_script()
+    assert "Gate / gate" not in original_script
+
+    broken_script = original_script.replace(
+        """expectedContexts = contextsValue
+      .map((value) => `${value}`.trim())
+      .filter(Boolean);""",
+        "expectedContexts = ['Gate / gate'];",
+        1,
+    )
+    assert broken_script != original_script
+    assert "expectedContexts = ['Gate / gate']" in broken_script
+
+    with pytest.raises(AssertionError, match="Gate / gate"):
+        assert "Gate / gate" not in broken_script
+
+    rules_only_summary = [
+        {
+            "type": "required_status_checks",
+            "parameters": {
+                "required_status_checks": [{"context": "summary"}],
+            },
+        }
+    ]
+
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "_extract_protection_script",
+        lambda workflow=WORKFLOW: broken_script,
+    )
+    broken_outcome = _run_protection_script(
+        branch_rules=rules_only_summary,
+        protection_error={"status": 404, "message": "Branch not protected"},
+    )
+    joined = " ".join(broken_outcome["failures"])
+    assert "Gate / gate" in joined
+    assert "missing contexts" in joined
+
+    monkeypatch.undo()
+
+    test_health41_reads_required_contexts_json_not_hardcoded(original_script)
+    restored_outcome = _run_protection_script(
+        branch_rules=rules_only_summary,
+        protection_error={"status": 404, "message": "Branch not protected"},
+    )
+    assert restored_outcome["failures"] == [], restored_outcome
+    test_health41_nonexistent_expected_context_fails()
+
+
+def test_health41_gate_status_publication_tests_retain_duplicate_gate_context() -> None:
+    """Health 41 loads summary from config; Gate duplicate-status tests stay intentional."""
+    fork_source = GATE_FORK_STATUS_TEST.read_text(encoding="utf-8")
+    assert '"context": "Gate / gate"' in fork_source
+    assert 'outcome["writes"][0]["context"] == "Gate / gate"' in fork_source
+
+    consolidation_source = GATE_CONSOLIDATION_TEST.read_text(encoding="utf-8")
+    assert "publish the Gate / gate commit status" in consolidation_source
