@@ -39,6 +39,7 @@ def _run_protection_script(
     branch_rules_error: dict[str, Any] | None = None,
     protection_error: dict[str, Any] | None = None,
     protection_payload: dict[str, Any] | None = None,
+    branch_error: dict[str, Any] | None = None,
     branch_payload: dict[str, Any] | None = None,
     required_contexts: list[str] | None = None,
     cwd: Path | None = None,
@@ -72,6 +73,7 @@ def _run_protection_script(
         "branchRulesError": branch_rules_error,
         "protectionError": protection_error,
         "protectionPayload": protection_payload,
+        "branchError": branch_error,
         "branchPayload": branch_payload,
     }
 
@@ -109,7 +111,15 @@ def _run_protection_script(
                 }
                 return { data: fixture.protectionPayload || {} };
               },
-              getBranch: async () => ({ data: fixture.branchPayload || {} }),
+              getBranch: async () => {
+                if (fixture.branchError) {
+                  throw makeError(
+                    fixture.branchError.status,
+                    fixture.branchError.message,
+                  );
+                }
+                return { data: fixture.branchPayload || {} };
+              },
             },
           },
           paginate: async (method, _params) => {
@@ -303,6 +313,40 @@ def test_health41_branch_rules_api_error_is_not_reported_as_missing_context() ->
     joined = " ".join(outcome["failures"])
     assert "Unable to verify required contexts" in joined or "Unable to read" in joined
     assert "missing contexts: summary" not in joined
+
+
+def test_health41_protection_403_uses_branch_metadata_fallback() -> None:
+    outcome = _run_protection_script(
+        branch_rules=[],
+        protection_error={
+            "status": 403,
+            "message": "Resource not accessible by integration",
+        },
+        branch_payload={
+            "protection": {
+                "required_status_checks": {
+                    "contexts": ["summary"],
+                },
+            },
+        },
+        required_contexts=["summary"],
+    )
+    assert outcome["failures"] == [], outcome
+    assert any(
+        "Falling back to branch metadata" in warning for warning in outcome["warnings"]
+    )
+
+
+def test_health41_protection_403_without_metadata_reports_unable_to_verify() -> None:
+    outcome = _run_protection_script(
+        branch_rules=[],
+        protection_error={"status": 403, "message": "Resource not accessible by integration"},
+        branch_error={"status": 403, "message": "Resource not accessible by integration"},
+        required_contexts=["summary"],
+    )
+    joined = " ".join(outcome["failures"])
+    assert "Unable to verify required contexts" in joined
+    assert "Branch protection drift detected" not in joined
 
 
 def test_health41_protection_script_does_not_hardcode_expected_list(

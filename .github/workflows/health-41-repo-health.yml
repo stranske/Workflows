@@ -532,19 +532,34 @@ jobs:
               appendClassicChecks(protection.data?.required_status_checks);
             } catch (error) {
               const status = error?.status || error?.response?.status;
-              if (status === 404) {
-                classicProtectionRead = true;
-                core.warning(
-                  `Classic branch protection is not configured for ${defaultBranch}: ${error.message}`,
-                );
+              const useMetadataFallback = status === 404 || status === 403;
+              if (useMetadataFallback) {
+                if (status === 404) {
+                  classicProtectionRead = true;
+                  core.warning(
+                    `Classic branch protection is not configured for ${defaultBranch}: ${error.message}`,
+                  );
+                } else {
+                  core.warning(
+                    `Falling back to branch metadata for protection details: ${error.message}`,
+                  );
+                }
                 try {
                   const branch = await withRetry(() => github.rest.repos.getBranch({
                     ...context.repo,
                     branch: defaultBranch,
                   }));
                   appendClassicChecks(branch.data?.protection?.required_status_checks);
+                  if (status === 403) {
+                    classicProtectionRead = true;
+                  }
                 } catch (fallbackError) {
                   const fallbackStatus = fallbackError?.status || fallbackError?.response?.status;
+                  if (status === 403) {
+                    readErrors.push(
+                      `branch protection: ${error.message}${status ? ` (HTTP ${status})` : ''}`,
+                    );
+                  }
                   if (fallbackStatus !== 404) {
                     readErrors.push(
                       `branch metadata: ${fallbackError.message}${
@@ -649,6 +664,23 @@ jobs:
                     [
                       `Unable to verify required contexts for ${defaultBranch} because branch rules could not be read.`,
                       rulesError,
+                      `Expected configured contexts: ${expectedListForPointer}.`,
+                      `Observed from readable sources: ${actualListForPointer}.`,
+                    ].join(' '),
+                  );
+                  return;
+                }
+              }
+
+              if (missing.length > 0 && !classicProtectionRead) {
+                const protectionError = readErrors.find((entry) =>
+                  entry.startsWith('branch protection:'),
+                );
+                if (protectionError) {
+                  core.setFailed(
+                    [
+                      `Unable to verify required contexts for ${defaultBranch} because branch protection could not be read.`,
+                      protectionError,
                       `Expected configured contexts: ${expectedListForPointer}.`,
                       `Observed from readable sources: ${actualListForPointer}.`,
                     ].join(' '),
