@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.0](https://github.com/stranske/Workflows/compare/v1.51.1...v1.52.0) (2026-11-18)
+
+
+### Features
+
+* **keepalive:** run the repo's own checks before every push; keep deliveries to code and tests ([#4736](https://github.com/stranske/Workflows/issues/4736)) ([7bba51c](https://github.com/stranske/Workflows/commit/7bba51c1a8a9b91458005c08b790a3c056a91349))
+* **model-table:** Gemini 4 Hydrogen replaces 3.8 Flash for cheap/mid ([#4694](https://github.com/stranske/Workflows/issues/4694)) ([60fb12d](https://github.com/stranske/Workflows/commit/60fb12df206c08bba83043ac08813ad7f92cfaed))
+* **runner:** record requested and reported model in completion receipts ([#4693](https://github.com/stranske/Workflows/issues/4693)) ([04851b7](https://github.com/stranske/Workflows/commit/04851b77c089cdfcbbad84a7e190edd8cb70ebdb))
+
+
+### Bug Fixes
+
+* **codex-run:** name the configured model on a receipt when the run stops before the CLI ([#4722](https://github.com/stranske/Workflows/issues/4722)) ([4d8e7a6](https://github.com/stranske/Workflows/commit/4d8e7a69e3ef3648524b17f9eb71b378c1f9aae0))
+* **gate:** a failed runtime-AC label write fails Gate (root and consumer template) ([#4724](https://github.com/stranske/Workflows/issues/4724)) ([f0d2647](https://github.com/stranske/Workflows/commit/f0d264772cacf405cfddff47442cae9028902734))
+* **gate:** label deliberate-break PRs from a dedicated job that can write PR labels ([#4688](https://github.com/stranske/Workflows/issues/4688)) ([9604756](https://github.com/stranske/Workflows/commit/9604756e09a3559a86bea79ebaffe9ea728e804b))
+* **health-41:** verify branch rules against required-contexts.json ([#4727](https://github.com/stranske/Workflows/issues/4727)) ([9878ef1](https://github.com/stranske/Workflows/commit/9878ef15f7270458104348128ca820aec2b01ae8))
+* **keepalive:** preserve current gate citations on status refresh ([#4692](https://github.com/stranske/Workflows/issues/4692)) ([d465c48](https://github.com/stranske/Workflows/commit/d465c4833b0820d64693e03351c1df763fb531ed))
+* **maint-46:** keep context.repo when the tracker swaps in the Gate run ([#4725](https://github.com/stranske/Workflows/issues/4725)) ([fb9e59b](https://github.com/stranske/Workflows/commit/fb9e59b2ac9127b758869c71633d38c1ea03f9b2))
+* **maint-66:** drop jq -s on single runs array for monthly audit stats ([#4708](https://github.com/stranske/Workflows/issues/4708)) ([47c71e7](https://github.com/stranske/Workflows/commit/47c71e7ec9548ffd1a463bdbebe00d2d9be05553))
+* **tests:** format test_maint76_claude_review_dispatch for Gate lint-format ([#4740](https://github.com/stranske/Workflows/issues/4740)) ([68dfcca](https://github.com/stranske/Workflows/commit/68dfccae06410a7ccc0cc428756a5d890770e1a9))
+
 ## [1.51.1](https://github.com/stranske/Workflows/compare/v1.51.0...v1.51.1) (2026-11-12)
 
 
