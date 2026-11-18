@@ -1,11 +1,11 @@
 {
   "docs/evidence/issue-3743/shebang-rejection/verify_archives.py": {
-    "sha256": "d0037af6dd8ac64a2c33c89d1192722f5271b0122e5acc8cc565f927bccaff63",
-    "bytes": 14065
+    "sha256": "452cbbecd5b13ee5e834ae6853757813306e510be74105c745d316cd3cd4d016",
+    "bytes": 13804
   },
   "tests/scripts/test_shebang_rejection_archive_bindings.py": {
-    "sha256": "a22dc459621ce36f195a327f805ead52acaa9d5abd3509f0e38542d12e6e96d7",
-    "bytes": 8554
+    "sha256": "87774ac48bb34b9d796dd0ff4bf1460518596fb65b5e7e017ba2d2bf6cc58859",
+    "bytes": 8201
   },
   "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
     "sha256": "840ba69d31ef5d86ec0ecc98dbf075e9dbc3093a9f30985a54e5fd78c6a7f968",
@@ -80,7 +80,7 @@
     "bytes": 6406
   },
   "docs/evidence/issue-3743/shebang-rejection/matched-comparison/summary.json": {
-    "sha256": "e9133fb74248c02478b334851e454315a3d87cbe168d52109ad5198399d43459",
+    "sha256": "ae4b7e7ffb9f5dd5784fecbb9cf80a20052952b76450d965b63f38c228ed1ffd",
     "bytes": 136015
   },
   "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline.xml": {
@@ -108,8 +108,8 @@
     "bytes": 20037
   },
   "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py": {
-    "sha256": "7dbbf7ed89b2e33298ef5e9bc619f0bb0ad4c28387e61d028c0232cac80cff76",
-    "bytes": 20310
+    "sha256": "588c32142ce6a663ebaace72db94fd7cca023459f73d764d6e6d5fd6502732e7",
+    "bytes": 20930
   },
   "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py": {
     "sha256": "55d99e9bf551115eb5768222eb6e0056b34eb3122039737a230a0a6d18c0abbc",
@@ -126,5 +126,13 @@
   "tests/scripts/test_shebang_rejection_matched_comparison.py": {
     "sha256": "fda4a767ca7f3134914633564929026d118f06d5b064da0fda804360e03ae154",
     "bytes": 16089
+  },
+  "tests/scripts/test_shebang_rejection_validation_run.py": {
+    "sha256": "d786b12d42328bbe9b0258ac63261ce1d2dfcb300ac63d2df9ccb5cabe293c6c",
+    "bytes": 5633
+  },
+  "tests/scripts/test_shebang_rejection_ignores_new_workflows.py": {
+    "sha256": "4bc5beaf3b8c24d0c6aeab0e5f31faf53ec45491ce6455d78e559f26bebb565f",
+    "bytes": 1010
   }
 }

@@ -124,6 +124,14 @@ reusable workflow from Workflows at run time. It is **not** synced to participan
 role-architecture placeholder that the gate treats as a no-op; `none`/absent means
 the contract does not apply.
 
+The registry validator classifies expired issue deferrals and stale reference runs
+as `stale` findings. Its JSON and Markdown-compatible text reports include both
+`blocking_count` and `stale_count`; freshness findings exit successfully by default
+and fail with `--enforce-freshness`. Missing, malformed, timezone-naive, or
+out-of-range deferral expiry timestamps remain blocking structural errors in every
+mode. The generated status snapshot records registry data without clock-dependent
+validation findings.
+
 Excluded repos carry a `reason` so a future reviewer cannot mistake "absent" for
 "forgotten" (the empty-signal anti-pattern). The four charter exclusions are
 trip-planner, Travel-Plan-Permission, learning-management-system (as a producer),

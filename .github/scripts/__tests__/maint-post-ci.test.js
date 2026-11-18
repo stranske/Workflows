@@ -17,6 +17,7 @@ const {
   snapshotFailureIssues,
   applyCiFailureLabel,
   removeCiFailureLabel,
+  trackedGateContext,
 } = require('../maint-post-ci');
 
 function createCore() {
@@ -750,3 +751,30 @@ for (const state of ['closed', 'open', 'unavailable']) {
     });
   });
 }
+
+test('trackedGateContext keeps the prototype getters github-script puts repo on', () => {
+  // Shaped like @actions/github's Context: repo is a prototype getter, runId/sha/payload own properties.
+  class GithubScriptContext {
+    constructor() {
+      this.payload = { workflow_run: { id: 1 }, repository: { name: 'Workflows' } };
+      this.runId = 42;
+      this.sha = 'abc';
+    }
+    get repo() {
+      return { owner: 'stranske', repo: 'Workflows' };
+    }
+  }
+  const context = new GithubScriptContext();
+  const run = { id: 7, html_url: 'https://example.invalid/run/7' };
+
+  // The old construction lost the getter: this is the TypeError Maint 46 hit on main.
+  assert.equal({ ...context }.repo, undefined);
+
+  const tracked = trackedGateContext(context, run);
+  assert.deepEqual(tracked.repo, { owner: 'stranske', repo: 'Workflows' });
+  assert.equal(tracked.payload.workflow_run, run);
+  assert.deepEqual(tracked.payload.repository, { name: 'Workflows' });
+  assert.equal(tracked.runId, 42);
+  assert.equal(tracked.sha, 'abc');
+  assert.deepEqual(context.payload.workflow_run, { id: 1 }); // the caller's context is not mutated
+});

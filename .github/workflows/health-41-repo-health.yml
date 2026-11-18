@@ -438,42 +438,169 @@ jobs:
               return;
             }
 
-            const expectedContexts = ['Gate / gate'];
-            const branchProtectionResult = {
-              contexts: [],
-              strict: null,
-              source: 'branches',
+            const requiredContextsPath = './.github/config/required-contexts.json';
+            let expectedContexts = [];
+            try {
+              const rawConfig = fs.readFileSync(requiredContextsPath, 'utf8');
+              const payload = JSON.parse(rawConfig);
+              const contextsValue = [payload?.required_contexts, payload?.contexts].find(
+                (value) => Array.isArray(value) &&
+                  value.every((name) => typeof name === 'string' && name.trim()),
+              );
+              if (contextsValue) {
+                expectedContexts = contextsValue
+                  .map((value) => `${value}`.trim())
+                  .filter(Boolean);
+              } else {
+                throw new Error('required_contexts or contexts must be an array of non-empty strings');
+              }
+            } catch (error) {
+              core.setFailed(
+                `Unable to load required contexts from ${requiredContextsPath}: ${error.message}`,
+              );
+              return;
+            }
+
+            const observedBySource = {
+              branchRules: [],
+              classicProtection: [],
             };
+            let strict = null;
+            let branchRulesRead = false;
+            let classicProtectionRead = false;
+            const readErrors = [];
+
+            const appendClassicChecks = (requiredStatusChecks) => {
+              if (!requiredStatusChecks) {
+                return;
+              }
+              const contexts = requiredStatusChecks.contexts;
+              if (Array.isArray(contexts)) {
+                for (const value of contexts) {
+                  const normalized = `${value}`.trim();
+                  if (normalized) {
+                    observedBySource.classicProtection.push(normalized);
+                  }
+                }
+              }
+              for (const check of requiredStatusChecks.checks || []) {
+                const normalized = `${check?.context || ''}`.trim();
+                if (normalized) {
+                  observedBySource.classicProtection.push(normalized);
+                }
+              }
+              if (typeof requiredStatusChecks.strict === 'boolean') {
+                strict = requiredStatusChecks.strict;
+              }
+            };
+
+            try {
+              const rules = await withRetry(() => github.paginate(
+                github.rest.repos.getBranchRules,
+                {
+                  ...context.repo,
+                  branch: defaultBranch,
+                  per_page: 100,
+                },
+              ));
+              if (Array.isArray(rules)) {
+                for (const rule of rules) {
+                  if (rule?.type !== 'required_status_checks') {
+                    continue;
+                  }
+                  const parameters = rule?.parameters || {};
+                  for (const check of parameters.required_status_checks || []) {
+                    const normalized = `${check?.context || ''}`.trim();
+                    if (normalized) {
+                      observedBySource.branchRules.push(normalized);
+                    }
+                  }
+                  if (typeof parameters.strict_required_status_checks_policy === 'boolean') {
+                    strict = parameters.strict_required_status_checks_policy;
+                  }
+                }
+                branchRulesRead = true;
+              } else {
+                throw new Error('Expected an array of branch rules');
+              }
+            } catch (error) {
+              const status = error?.status || error?.response?.status;
+              readErrors.push(
+                `branch rules: ${error.message}${status ? ` (HTTP ${status})` : ''}`,
+              );
+            }
 
             try {
               const protection = await withRetry(() => github.rest.repos.getBranchProtection({
                 ...context.repo,
                 branch: defaultBranch,
               }));
-
-              const contexts = protection.data?.required_status_checks?.contexts;
-              if (Array.isArray(contexts)) {
-                branchProtectionResult.contexts = contexts.map(value => `${value}`);
-              }
-              if (typeof protection.data?.required_status_checks?.strict === 'boolean') {
-                branchProtectionResult.strict = protection.data.required_status_checks.strict;
-              }
-              branchProtectionResult.source = 'branchProtection';
+              appendClassicChecks(protection.data?.required_status_checks);
+              classicProtectionRead = true;
             } catch (error) {
-                const warningPrefix = 'Falling back to branch metadata for protection details:';
-                core.warning(`${warningPrefix} ${error.message}`);
-              const branch = await withRetry(() => github.rest.repos.getBranch({
-                ...context.repo,
-                branch: defaultBranch,
-              }));
-              const contexts = branch.data?.protection?.required_status_checks?.contexts;
-              if (Array.isArray(contexts)) {
-                branchProtectionResult.contexts = contexts.map(value => `${value}`);
+              const status = error?.status || error?.response?.status;
+              const message = error?.response?.data?.message || error.message;
+              const classicAbsent = status === 404 && /^Branch not protected\b/i.test(message);
+              if (!classicAbsent) {
+                core.warning(`Falling back to branch metadata for protection details: ${error.message}`);
+              }
+              let metadataError;
+              try {
+                const branch = await withRetry(() => github.rest.repos.getBranch({
+                  ...context.repo,
+                  branch: defaultBranch,
+                }));
+                const protection = branch.data?.protection;
+                const checks = protection?.required_status_checks;
+                if (Array.isArray(checks?.contexts) || Array.isArray(checks?.checks)) {
+                  appendClassicChecks(checks);
+                  classicProtectionRead = true;
+                } else if (protection?.enabled === false || branch.data?.protected === false) {
+                  classicProtectionRead = true;
+                } else {
+                  metadataError = 'branch metadata: no usable classic protection details';
+                }
+              } catch (fallbackError) {
+                const fallbackStatus = fallbackError?.status || fallbackError?.response?.status;
+                metadataError = `branch metadata: ${fallbackError.message}${
+                  fallbackStatus ? ` (HTTP ${fallbackStatus})` : ''
+                }`;
+              }
+              classicProtectionRead ||= classicAbsent;
+              if (!classicProtectionRead) {
+                readErrors.push(
+                  `branch protection: ${error.message}${status ? ` (HTTP ${status})` : ''}`,
+                  metadataError,
+                );
               }
             }
 
+            if (!branchRulesRead || !classicProtectionRead) {
+              const failure = `Unable to read branch protection configuration for ${defaultBranch}: ${
+                readErrors.join('; ')
+              }`;
+              core.setFailed(failure);
+              core.summary.addHeading('Default branch protection', 2).addRaw(failure, true);
+              await core.summary.write();
+              return;
+            }
+
+            const sourceLabels = [];
+            if (observedBySource.branchRules.length > 0) {
+              sourceLabels.push('branchRules');
+            }
+            if (observedBySource.classicProtection.length > 0) {
+              sourceLabels.push('classicProtection');
+            }
+            const protectionSource =
+              sourceLabels.length > 0 ? sourceLabels.join(' + ') : 'none';
+
             const uniqueContexts = Array.from(
-              new Set(branchProtectionResult.contexts.filter(Boolean)),
+              new Set(
+                [...observedBySource.branchRules, ...observedBySource.classicProtection].filter(
+                  Boolean,
+                ),
+              ),
             ).sort((a, b) => a.localeCompare(b));
             const expectedSorted = [...expectedContexts].sort((a, b) => a.localeCompare(b));
             const missing = expectedSorted.filter(
@@ -497,16 +624,16 @@ jobs:
             const requiredContextsText =
               uniqueContexts.length > 0 ? uniqueContexts.join(', ') : '–';
             const upToDateText =
-              branchProtectionResult.strict === null
+              strict === null
                 ? 'unknown'
-                : String(branchProtectionResult.strict);
+                : String(strict);
             summary.addTable([
               [
                 { data: 'Property', header: true },
                 { data: 'Value', header: true },
               ],
               ['Branch', defaultBranch],
-              ['Source', branchProtectionResult.source],
+              ['Source', protectionSource],
               ['Expected contexts', expectedContextsText],
               ['Required contexts', requiredContextsText],
               ['Required “up to date”', upToDateText],
@@ -531,34 +658,16 @@ jobs:
 
               await summary.write();
 
-              const protectionUrl = [
-                'https://github.com',
-                context.repo.owner,
-                context.repo.repo,
-                'settings/branch_protection_rules',
-              ].join('/');
-              if (missing.includes('Gate / gate')) {
-                const gateFailure = [
-                    `Default branch ("${defaultBranch}") no longer requires`,
-                    'the "Gate / gate" status check.',
-                  `Expected: ${expectedListForPointer}.`,
-                  `Actual: ${actualListForPointer}.`,
-                  'Update branch protection to restore Gate.',
-                  `Update URL: ${protectionUrl}`,
-                ].join(' ');
-                core.setFailed(gateFailure);
-              } else {
-                const driftFailure = [
-                  `${failurePrefix}.`,
-                  `Expected: ${expectedListForPointer}.`,
-                  `Actual: ${actualListForPointer}.`,
-                  `(${problems.join('; ')}).`,
-                  'Update branch protection (Settings → Branches →',
-                  `${defaultBranch}) so required status checks are exactly:`,
-                  `${expectedListForPointer}.`,
-                ].join(' ');
-                core.setFailed(driftFailure);
-              }
+              const driftFailure = [
+                `${failurePrefix}.`,
+                `Expected: ${expectedListForPointer}.`,
+                `Actual: ${actualListForPointer}.`,
+                `(${problems.join('; ')}).`,
+                'Update branch protection (Settings → Branches →',
+                `${defaultBranch}) so required status checks are exactly:`,
+                `${expectedListForPointer}.`,
+              ].join(' ');
+              core.setFailed(driftFailure);
               return;
             }
 

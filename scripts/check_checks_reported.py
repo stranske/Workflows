@@ -1281,26 +1281,65 @@ def gate_status_provenance(
     return {status["id"]: matches[0]} if len(matches) == 1 else {}
 
 
+def check_run_order(item: dict[str, Any]) -> tuple[str, int]:
+    return (item.get("started_at") or item.get("created_at") or "", item.get("id", 0))
+
+
+def check_run_is_newer(candidate: dict[str, Any], incumbent: dict[str, Any]) -> bool:
+    """True when candidate should replace incumbent for the same check name.
+
+    With both timestamps, order by time then id. With neither, order by monotonic id.
+    A newer timestampless non-completed check blocks an older completed success.
+    A newer completed success still supersedes an older timestampless attempt.
+    """
+    c_ts, c_id = check_run_order(candidate)
+    i_ts, i_id = check_run_order(incumbent)
+    if c_ts and i_ts:
+        return (c_ts, c_id) > (i_ts, i_id)
+    if not c_ts and not i_ts:
+        return c_id > i_id
+    if c_ts and not i_ts:
+        if incumbent.get("status") != "completed":
+            return c_id > i_id
+        return True
+    if candidate.get("status") != "completed":
+        return c_id > i_id
+    return False
+
+
 def latest_checks(
     checks: list[dict[str, Any]],
     statuses: list[dict[str, Any]],
     status_provenance: dict[int, dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     latest: dict[str, dict[str, Any]] = {}
+    attempts_by_name: dict[str, list[dict[str, Any]]] = {}
     for item in checks:
-        key = item["name"]
-        stamp = (item.get("started_at") or item.get("created_at") or "", item.get("id", 0))
-        if key not in latest or stamp > latest[key]["order"]:
-            latest[key] = {
-                "order": stamp,
-                "state": (
-                    item.get("conclusion")
-                    if item.get("status") == "completed"
-                    else item.get("status")
+        attempts_by_name.setdefault(item["name"], []).append(item)
+    for key, attempts in attempts_by_name.items():
+        # The timestamp winner must be fixed before comparing IDs across attempts
+        # with and without timestamps. The mixed comparison is not transitive.
+        item = max(attempts, key=check_run_order)
+        if check_run_order(item)[0]:
+            pending = max(
+                (
+                    attempt
+                    for attempt in attempts
+                    if not check_run_order(attempt)[0] and attempt.get("status") != "completed"
                 ),
-                "url": item.get("html_url"),
-                "app_id": (item.get("app") or {}).get("id"),
-            }
+                key=check_run_order,
+                default=None,
+            )
+            if pending is not None and check_run_is_newer(pending, item):
+                item = pending
+        latest[key] = {
+            "order": check_run_order(item),
+            "state": (
+                item.get("conclusion") if item.get("status") == "completed" else item.get("status")
+            ),
+            "url": item.get("html_url"),
+            "app_id": (item.get("app") or {}).get("id"),
+        }
     latest_statuses: dict[str, dict[str, Any]] = {}
     for item in statuses:
         key = item["context"]
@@ -1610,28 +1649,31 @@ def collect(
             unknown.append(f"{path}: {exc}")
     identity_evidence = []
     for job_name, origins in job_provenance.items():
-        if len(origins) <= 1:
-            continue
+        identity = (
+            "duplicate expected check identity" if len(origins) > 1 else "expected check identity"
+        )
         claims = []
         for origin in sorted(origins):
             source_path = origin.split("/", 2)[2].rsplit("@", 1)[0]
             matched_runs = [run for run in latest_runs.values() if run.get("path") == source_path]
             if len(matched_runs) != 1:
                 unknown.append(
-                    f"duplicate expected check identity {job_name!r}: missing run for {origin}"
+                    f"{identity} {job_name!r}: missing or ambiguous {event!r} run for {origin}"
                 )
                 continue
             jobs = [job for job in matched_runs[0]["jobs"] if job.get("name") == job_name]
             if len(jobs) != 1:
                 unknown.append(
-                    f"duplicate expected check identity {job_name!r}: ambiguous/missing job for {origin}"
+                    f"{identity} {job_name!r}: ambiguous/missing job for {origin} ({event!r})"
                 )
                 continue
             job = jobs[0]
             check_matches = [
                 check
                 for check in checks
-                if check.get("url") == job.get("check_run_url")
+                if isinstance(job.get("check_run_url"), str)
+                and job["check_run_url"]
+                and check.get("url") == job["check_run_url"]
                 and check.get("name") == job_name
                 and check.get("head_sha") == head
                 and (check.get("app") or {}).get("slug") == "github-actions"
@@ -1642,7 +1684,8 @@ def collect(
                 "neutral",
             }:
                 unknown.append(
-                    f"duplicate expected check identity {job_name!r}: independent success unproven for {origin}"
+                    f"{identity} {job_name!r}: independent success unproven for {origin} "
+                    f"({event!r}); check_run_url binding missing or unsuccessful"
                 )
                 continue
             claims.append(

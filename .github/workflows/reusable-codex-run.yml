@@ -301,7 +301,9 @@ jobs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
       final-message-summary: ${{ steps.run_codex.outputs.final-message-summary }}
       exit-code: ${{ steps.run_codex.outputs.exit-code }}
-      requested-model: ${{ steps.run_codex.outputs.requested-model }}
+      # A run that stops before the CLI step (an expired CODEX_AUTH_JSON at "Setup Codex auth") never sets
+      # run_codex's output; the receipt still names the model the round was configured to request.
+      requested-model: ${{ steps.run_codex.outputs.requested-model || steps.codex_model.outputs.model || inputs.codex_model }}
       reported-model: ${{ steps.reported_model.outputs.reported-model }}
       changes-made: ${{ steps.commit.outputs.changes-made }}
       commit-sha: ${{ steps.commit.outputs.commit-sha }}

@@ -16,11 +16,11 @@
     "bytes": 94
   },
   "docs/evidence/issue-3743/shebang-rejection/verify_archives.py": {
-    "sha256": "d0037af6dd8ac64a2c33c89d1192722f5271b0122e5acc8cc565f927bccaff63",
-    "bytes": 14065
+    "sha256": "452cbbecd5b13ee5e834ae6853757813306e510be74105c745d316cd3cd4d016",
+    "bytes": 13804
   },
   "docs/evidence/issue-3743/shebang-rejection/matched-comparison/summary.json": {
-    "sha256": "e9133fb74248c02478b334851e454315a3d87cbe168d52109ad5198399d43459",
+    "sha256": "ae4b7e7ffb9f5dd5784fecbb9cf80a20052952b76450d965b63f38c228ed1ffd",
     "bytes": 136015
   },
   "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline-command.json": {

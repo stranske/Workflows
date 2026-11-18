@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -714,3 +715,80 @@ def test_validate_blocks_unsafe_workflow(tmp_path):
 
     assert result["ok"] is False
     assert "Unsafe pull_request_target usage detected" in result["message"]
+
+
+def _heading_slugs(markdown: str) -> set[str]:
+    slugs: set[str] = set()
+    for line in markdown.splitlines():
+        match = re.match(r"^#{1,6}\s+(.+?)\s*$", line)
+        if not match:
+            continue
+        heading = re.sub(r"`([^`]*)`", r"\1", match.group(1).strip().lower())
+        slug = re.sub(r"[^a-z0-9\s-]", "", heading)
+        slug = re.sub(r"\s+", "-", slug).strip("-")
+        slugs.add(slug)
+    return slugs
+
+
+def test_agents_policy_pointer_and_links_resolve():
+    authoritative_policy = REPO_ROOT / "docs" / "AGENTS_POLICY.md"
+    pointer_policy = REPO_ROOT / "docs" / "ci" / "AGENTS_POLICY.md"
+    workflow_system = REPO_ROOT / "docs" / "ci" / "WORKFLOW_SYSTEM.md"
+
+    policy_text = authoritative_policy.read_text(encoding="utf-8")
+    pointer_text = pointer_policy.read_text(encoding="utf-8")
+    workflow_system_text = workflow_system.read_text(encoding="utf-8")
+
+    # Authoritative policy retains protection, override, and required-check sections.
+    for expected in (
+        "agents-63-issue-intake.yml",
+        "agents-70-orchestrator.yml",
+        "agents-guard.yml",
+        "agents:allow-change",
+        "uses: owner/action@ref",
+        "Dependabot",
+        "Renovate",
+        "## Protection layers",
+        "## Required checks and status contexts",
+        "## How to verify required checks",
+        "## Allowlisted change reasons and label process",
+        "## Emergency override procedure",
+        "## Verification checklist",
+    ):
+        assert expected in policy_text
+
+    # Pointer file resolves to authoritative policy and drops divergent text.
+    assert "[`docs/AGENTS_POLICY.md`](../AGENTS_POLICY.md)" in pointer_text
+    assert "single dispatch surface for all consumer" not in pointer_text
+    assert "Agents 63 – ChatGPT issue sync" not in pointer_text
+
+    link_re = re.compile(r"\]\(([^)]+)\)")
+    for source_doc, source_text in (
+        (pointer_policy, pointer_text),
+        (authoritative_policy, policy_text),
+    ):
+        for target in link_re.findall(source_text):
+            if target.startswith(("http://", "https://", "mailto:")):
+                continue
+            path_part, _, fragment = target.partition("#")
+            target_path = (
+                (source_doc.parent / path_part).resolve() if path_part else source_doc.resolve()
+            )
+            assert target_path.is_file(), f"{source_doc}: unresolved link target {target}"
+            if fragment and target_path.suffix == ".md":
+                slugs = _heading_slugs(target_path.read_text(encoding="utf-8"))
+                assert (
+                    fragment in slugs
+                ), f"{source_doc}: unresolved heading #{fragment} in {target_path}"
+
+    # Verify all AGENTS_POLICY links in docs/ci/WORKFLOW_SYSTEM.md resolve (file + fragment).
+    policy_links = [
+        target for target in link_re.findall(workflow_system_text) if "AGENTS_POLICY.md" in target
+    ]
+    assert policy_links
+    for target in policy_links:
+        path_part, _, fragment = target.partition("#")
+        target_path = (workflow_system.parent / path_part).resolve()
+        assert target_path == authoritative_policy.resolve()
+        if fragment:
+            assert fragment in _heading_slugs(policy_text)

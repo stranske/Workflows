@@ -26,7 +26,7 @@ evaluator → approved-queue lifecycle the opener consumes) and
 
 ## Lanes overview
 
-Updated 2026-11-16. The full owner-facing design is `Audits/closer-lane-2026-11/design/lane-design.html`
+Updated 2026-11-17. The full owner-facing design is `Audits/closer-lane-2026-11/design/lane-design.html`
 (+ `.pdf`) in the owner's workspace; `stranske/Orchestrator` `ARCHITECTURE.md` summarises the boundary.
 Three deterministic Python lanes run across the supported fleet, started by one controller pass:
 
@@ -42,11 +42,22 @@ Three deterministic Python lanes run across the supported fleet, started by one 
   offers a few issues a day to the experiment producer.
 - **Local loop** (`local_loop.py`) — drives a local start's PR (`agents:local-loop`) round by round on CI
   results, rotates the agent after two unproductive rounds, and hands the PR to hosted keepalive if it stalls.
-- **Closer** (`closer-core`) — drives agent PRs through merge → verify → close, rotates stalled agents with
+- **Closer** (`closer-core`) — drives agent PRs through merge → verify → close (and, since 2026-11-16, PRs a
+  Claude Code session made that name no issue: a `claude.ai/code/session_` link in the body is adopted after 30
+  minutes without a push, the Claude Code footer or `workflow-source:local_request` after 7 days; each is
+  judged once per head and merged through merge_guard), rotates stalled agents with
   `agent:auto`, files bounded follow-up issues, parks a non-converging chain as a `[backlog]` issue, and keeps
   the owner's needs-human catalog (each parked item gets a cause and a condition; untouched items close after
   30 days). Merges go through the exact-head merge rail, which runs a task's own acceptance commands on the
   exact head when the PR claims a deliberate break (Gate applies the `acceptance-criteria` label).
+  **Reopened issues (since 2026-11-17):** when the post-merge runtime-AC check reopens an issue
+  (`runtime-ac:reopened`) and its linked open PR is only a bootstrap stub (green or behind, keepalive reporting
+  tasks complete), the closer runs the issue's acceptance commands on the default branch head instead of judging
+  the stub: a pass with a named test closes the issue as met and closes the stub (the reopen was environmental);
+  a failure starts a repair round on the stub's branch with the reopen's failing output attached; an unrunnable
+  check falls back to the ordinary path. An issue GitHub marks reopened (by a person or another lane) with a stub
+  PR takes the same route, but a pass is not closed again; the judge reads why it was reopened. The runtime-AC check builds its venv the way CI does
+  (`requirements.lock` plus the `app`/`dev` extras), so its dependency setup matches CI's (Orchestrator#1439); results can still differ where CI has services this machine lacks.
 - **Sync** (`sync-core`) — classifies generated sync PRs, files one handoff issue per finding, nudges Maint 71
   when a ready PR waited past its grace and may dispatch a Maint 68 refresh. It never merges: Maint 71 is the
   only merger of sync PRs and Maint 82 is its timed continuation queue.

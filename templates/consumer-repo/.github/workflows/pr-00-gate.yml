@@ -612,7 +612,9 @@ jobs:
     # Applies the label that arms the runtime-AC merge gate for a PR claiming a deliberate break. It
     # runs no PR-head code, so it alone holds pull-requests write (labelling a PR needs it: Issues
     # write alone returned 'Resource not accessible by integration' on stranske/Orchestrator#1382,
-    # 2026-11-15). Not in summary's needs: a labelling failure never fails Gate.
+    # 2026-11-15). In summary's needs, and a failure here fails Gate as a test-quality failure: the runtime-AC
+    # merge guard keys on this label, so a PR claiming a deliberate break must not pass Gate without it
+    # (review on stranske/Orchestrator#1415; inside test-quality the same failed write failed Gate).
     name: acceptance-criteria label
     needs:
       - resolve-pr
@@ -636,35 +638,27 @@ jobs:
             event.number = event.pull_request.number;
             fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - name: Apply runtime acceptance-criteria label
-        continue-on-error: true
         env:
           PR_NUMBER: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).number }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const issue_number = Number(process.env.PR_NUMBER);
-            try {
-              const { data: issue } = await github.rest.issues.get({
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+            });
+            const labels = issue.labels.map((label) =>
+              typeof label === 'string' ? label : label.name
+            );
+            if (!labels.includes('acceptance-criteria')) {
+              await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number,
+                labels: ['acceptance-criteria'],
               });
-              const labels = issue.labels.map((label) =>
-                typeof label === 'string' ? label : label.name
-              );
-              if (!labels.includes('acceptance-criteria')) {
-                await github.rest.issues.addLabels({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number,
-                  labels: ['acceptance-criteria'],
-                });
-              }
-            } catch (error) {
-              // # best-effort: label metadata is optional once deliberate-break passed; rate-limit or duplicate-label failures must not block Gate.
-              core.warning(
-                `Skipping acceptance-criteria label (non-blocking): ${error.message}`
-              );
             }
 
   docker-smoke:
@@ -749,6 +743,7 @@ jobs:
       - github-scripts-tests
       - issue-consistency
       - test-quality
+      - acceptance-criteria-label
       - ledger-validation
       - generated-delivery-seal
     if: ${{ always() }}
@@ -987,7 +982,10 @@ jobs:
           DOCS_GUARD_RESULT: ${{ needs.docs-guard.result || 'success' }}
           PYTHON_REQUIRED: ${{ needs.detect.outputs.is_python_code || 'true' }}
           DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
-          TEST_QUALITY_RESULT: ${{ needs.test-quality.result || 'skipped' }}
+          # A failed runtime-AC label write counts as a test-quality failure (it ran inside test-quality before).
+          TEST_QUALITY_RESULT: >-
+            ${{ (needs.acceptance-criteria-label.result == 'failure' && 'failure') ||
+                needs.test-quality.result || 'skipped' }}
           DELIVERY_SEAL_RESULT: ${{ needs.generated-delivery-seal.result || 'success' }}
           DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
           COVERAGE_ENABLED: ${{ needs.detect.outputs.coverage || 'true' }}

@@ -28,8 +28,8 @@ MAX_STALE_AFTER_HOURS = 24 * 365
 
 
 # Findings default to "error" severity (structural defects that must block
-# everywhere). "stale" severity marks an OPERATIONAL freshness lapse (a reference
-# run aged past the freshness window) — real signal, surfaced by the dedicated
+# everywhere). "stale" severity marks an operational freshness lapse, such as an
+# expired deferral or a stale reference run, surfaced by the dedicated
 # backplane lane (health-78) and the CLI, but it must not fail the general
 # structural validity suite, or the required `summary` check would go red for every
 # unrelated PR the moment the window lapses.
@@ -103,7 +103,11 @@ def _validate_deferred_issue(entry: dict[str, Any], prefix: str) -> list[Finding
     reason = deferred.get("reason")
     if not isinstance(reason, str) or not reason.strip():
         findings.append(Finding(f"{prefix}.issue_deferred.reason", "deferred issue needs a reason"))
-    expires_at = _parse_aware_datetime(deferred.get("expires_at"))
+    try:
+        expires_at = _parse_aware_datetime(deferred.get("expires_at"))
+    except OverflowError:
+        # A timezone offset can put the expiry outside the supported UTC range.
+        expires_at = None
     if expires_at is None:
         findings.append(
             Finding(
@@ -112,7 +116,13 @@ def _validate_deferred_issue(entry: dict[str, Any], prefix: str) -> list[Finding
             )
         )
     elif expires_at <= datetime.now(UTC):
-        findings.append(Finding(f"{prefix}.issue_deferred.expires_at", "deferred issue expired"))
+        findings.append(
+            Finding(
+                f"{prefix}.issue_deferred.expires_at",
+                "deferred issue expired",
+                severity=STALE_SEVERITY,
+            )
+        )
     return findings
 
 
@@ -461,11 +471,8 @@ def main(argv: list[str] | None = None) -> int:
         "--enforce-freshness",
         action="store_true",
         help=(
-            "Also fail on reference-run staleness. Default is warning-only: staleness "
-            "is an operational freshness signal (a human-reviewed reference baseline "
-            "aging past the window), surfaced but non-blocking, so an expired window "
-            "does not wedge unrelated CI. Set this for a deliberate freshness gate "
-            "(mirrors the langsmith contract's opt-in enforce_block)."
+            "Also fail on expired deferrals and stale reference runs. "
+            "Freshness findings are warnings by default."
         ),
     )
     status_mode = parser.add_mutually_exclusive_group()
@@ -532,6 +539,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
+        print(f"blocking_count={report['blocking_count']}, stale_count={report['stale_count']}")
         if blocking:
             print("Backplane registry validation failed:", file=sys.stderr)
             for finding in blocking:
@@ -539,7 +547,11 @@ def main(argv: list[str] | None = None) -> int:
         if not findings:
             print("Backplane registry validation passed.")
         elif not blocking and not args.enforce_freshness:
-            print("Backplane registry structurally valid (reference-run freshness warnings only).")
+            print("Backplane registry structurally valid (freshness warnings only).")
+        if stale:
+            print()
+            for finding in stale:
+                print(f"- {finding.path}: {finding.message}")
 
     return 1 if fail else 0
 

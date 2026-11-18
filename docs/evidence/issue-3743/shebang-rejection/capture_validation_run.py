@@ -346,6 +346,29 @@ def command_view(record: dict) -> dict:
     }
 
 
+def validate_measured_file_counts(summary: dict, black: dict, ruff: dict) -> None:
+    """Check the captured inventory against its receipts, independent of later files."""
+    counts = summary["measured_file_counts"]
+    keys = {
+        "workflows_directory_yml",
+        "template_directory_yml",
+        "manifest_workflow_targets",
+        "strict_validation_inputs",
+        "black_files",
+        "ruff_files",
+    }
+    _require(counts.keys() == keys, "measured file count keys")
+    for key in keys:
+        _require(type(counts[key]) is int and counts[key] > 0, f"{key}: positive integer required")
+    _require(
+        counts["strict_validation_inputs"]
+        == counts["workflows_directory_yml"] + counts["template_directory_yml"] + 1,
+        "strict validation input count",
+    )
+    _require(counts["black_files"] == black_file_count(command_report(black)), "black file count")
+    _require(counts["ruff_files"] == len(ruff["argv"][2:]), "ruff file count")
+
+
 def validate_retained(root: Path) -> dict:
     """Check the retained validation receipts against the command contract."""
     run_dir = root / RUN
@@ -377,13 +400,7 @@ def validate_retained(root: Path) -> dict:
             f"{name} stderr",
         )
         _require(summary["commands"][name] == command_view(record), f"{name} summary")
-    file_count = black_file_count(command_report(black))
-    _require(file_count is not None and file_count > 0, "black file count")
-    counts = template_file_counts(root)
-    counts["black_files"] = file_count
-    counts["ruff_files"] = len(FOCUSED_RUFF)
-    _require(summary["measured_file_counts"] == counts, "measured file counts")
-    _require(len(ruff["argv"][2:]) == len(FOCUSED_RUFF), "ruff file count")
+    validate_measured_file_counts(summary, black, ruff)
     _require(
         "All consumer workflows are properly templated and manifested" in template["stdout"],
         "template success",

@@ -13,6 +13,57 @@ def _bot_author_tokens(bot_authors: str) -> set[str]:
     return {item.strip() for item in bot_authors.split(",") if item.strip()}
 
 
+def test_reusable_concurrency_group_is_scoped_to_target_pr() -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
+    concurrency = workflow["concurrency"]
+    assert concurrency["group"] == (
+        "bot-comments-reusable-${{ github.repository }}-pr-${{ inputs.pr_number }}"
+    )
+    assert concurrency["cancel-in-progress"] is False
+
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    for trigger in ("workflow_call", "workflow_dispatch"):
+        pr_input = triggers[trigger]["inputs"]["pr_number"]
+        assert pr_input["required"] is True
+
+    # Requests on the same branch must retain separate keys across PRs and repositories.
+    groups = {
+        concurrency["group"]
+        .replace("${{ github.repository }}", repository)
+        .replace("${{ inputs.pr_number }}", str(pr_number))
+        .casefold()
+        for repository in ("owner/first", "owner/second")
+        for pr_number in (101, 102)
+    }
+    assert len(groups) == 4
+
+    canonical = _load_yaml(ROOT / ".github/workflows/agents-bot-comment-handler.yml")
+    consumer_hub = _load_yaml(
+        ROOT / "templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml"
+    )
+    # The canonical caller's numeric run ID and the hub's prefix keep both keys disjoint.
+    assert canonical["concurrency"]["group"].casefold() == "bot-comments-${{ github.run_id }}"
+    assert consumer_hub["concurrency"]["group"].casefold().startswith("pr-event-hub-")
+
+    for caller, expected_pr_input in (
+        (canonical, "${{ needs.resolve.outputs.pr_number }}"),
+        (consumer_hub, "${{ fromJSON(needs.resolve.outputs.pr_number) }}"),
+    ):
+        reusable_jobs = [
+            job
+            for job in caller["jobs"].values()
+            if job.get("uses")
+            == "stranske/Workflows/.github/workflows/reusable-bot-comment-handler.yml@main"
+        ]
+        assert reusable_jobs, "Caller must invoke the reusable bot comment handler"
+        for job in reusable_jobs:
+            # The key must use the resolved target PR for every caller event type.
+            assert job["with"]["pr_number"] == expected_pr_input
+            # Job-level caller groups must also stay out of the reusable namespace.
+            job_group = job.get("concurrency", {}).get("group", "")
+            assert not job_group.casefold().startswith("bot-comments-reusable-")
+
+
 def test_reusable_bot_comment_handler_ignores_agents_paths() -> None:
     workflow = _load_yaml(ROOT / ".github/workflows/reusable-bot-comment-handler.yml")
     triggers = workflow.get("on") or workflow.get(True) or {}
