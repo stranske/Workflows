@@ -23,6 +23,20 @@ Before you commit or push any Python (`.py`) changes, you MUST:
    `black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
 3. If the check fails, do NOT commit/push; format again until it passes.
 
+## Before Every Push: Run This Repo's Own Checks
+
+1. Run the lint, format and type checks this repository's CI runs (read `.github/workflows/` or the
+   Makefile for the exact commands, for example ruff, black or mypy) on the files you changed, and run
+   the Acceptance Criteria's named test(s).
+2. Fix what fails before you push. Do not push a commit you know is red. If a failure is outside your
+   change, say so in the PR body instead of working around it.
+
+## Keep The Delivery To Code And Tests
+
+- Do NOT add verification, evidence or acceptance documents (`docs/evidence/`, `docs/verification/`,
+  `docs/acceptance/`) or tests that assert on a source file's bytes, unless a Task names that file.
+- Record the test commands you ran and the deliberate-break result in the PR body or a PR comment.
+
 **COVERAGE TASKS - SPECIAL RULES:**
 If a task mentions "coverage" or a percentage target (e.g., "≥95%", "to 95%"), you MUST:
 1. After adding tests, run TARGETED coverage verification to avoid timeouts:
