@@ -7,9 +7,7 @@ remains the required merge check, `agents-keepalive-loop.yml` and `agents-keepal
 summary of buckets, required checks, and automation roles, begin with
 [docs/ci/WORKFLOW_SYSTEM.md](ci/WORKFLOW_SYSTEM.md) before diving into the topology details below.
 
-If you need the quick roster of which workflows stay active, which ones retired, and the policy guardrails that bind them,
-start with the high-level [Workflow System Overview](ci/WORKFLOW_SYSTEM.md). This guide then dives into naming, routing, and
-operational detail for the kept set.
+Look up active workflow files in the [workflow catalog](ci/WORKFLOWS.md) and retired files in the [archive](archive/ARCHIVE_WORKFLOWS.md). This guide covers naming, routing and operator procedures.
 
 The reusable backplane conformance gate validates against the Workflows-owned
 registry and schemas. Its opt-in `manifest-evidence-closure/v1` policy validates
@@ -44,7 +42,7 @@ artifact count can continue rising until the shorter retention periods elapse.
 | `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-46-post-ci.yml`, `maint-47-disable-legacy-workflows.yml`, `maint-50-tool-version-check.yml`, `maint-52-validate-workflows.yml`, `maint-60-release.yml`, `maint-61-release-please.yml`, `maint-coverage-guard.yml` |
 | `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
 | `agents-` | Agent orchestration entry points | `agents-63-issue-intake.yml`, `agents-64-verify-agent-assignment.yml`, `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-model-profile-trial.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-guard.yml`, `agents-pr-meta-v4.yml`, `agents-moderate-connector.yml`, `agents-keepalive-*.yml`, `agents-debug-issue-event.yml` |
-| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-13-cross-repo-smoke.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-model-profile-trial.yml`, `reusable-agents-issue-bridge.yml` |
+| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-model-profile-trial.yml`, `reusable-agents-issue-bridge.yml` |
 | `selftest-` | Manual self-tests & experiments | `selftest-reusable-ci.yml` |
 | `autofix.yml` | CI autofix loop | `autofix.yml` |
 
@@ -55,11 +53,11 @@ artifact count can continue rising until the shorter retention periods elapse.
 4. Update this guide, `docs/ci/WORKFLOWS.md`, and the overview in `docs/ci/WORKFLOW_SYSTEM.md` whenever workflows are added,
    renamed, or removed.
 
-Tests under `tests/workflows/test_workflow_naming.py` enforce the naming policy and inventory parity.
+Tests under `tests/workflows/test_workflow_naming.py` check workflow names and catalog coverage.
 
 ## Final Workflow Set
 
-The active roster below mirrors the **Keep** list in the [Workflow System Overview](ci/WORKFLOW_SYSTEM.md). Each entry links back to the filenames under `.github/workflows/` and should be reflected in `docs/ci/WORKFLOWS.md` and the unit tests whenever the inventory changes.
+Use the sections below to choose the workflow or operator procedure for a task. Maintain the full roster in the [workflow catalog](ci/WORKFLOWS.md).
 
 ### PR Checks
 - **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.13/3.14 in parallel), reusable-workflow docs guard, and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only, while the cheap docs guard still checks Workflows reusable input/output documentation.
@@ -182,7 +180,7 @@ failures. Consumer Gate Followups uses the same rule.
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and downstream repositories.
 - **`reusable-11-ci-node.yml`** — Node lint/type/test reusable that powers JavaScript/TypeScript consumers (ESLint, Prettier, tsc, Jest/Vitest). Runs entirely within the repo using the default workflow token, so callers don’t burn extra API calls just to fetch sources.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers. Builds the repo’s container image, runs a local health probe, and now relies solely on the default workflow token (no extra GitHub App mint) because it only needs repo read access.
-- **`reusable-13-cross-repo-smoke.yml`** — Cross-repo smoke reusable that checks out the host repository plus a pinned dependency repository and runs caller-provided install/smoke shell commands. Consumer repos opt in through synced `cross-repo-smoke.yml` wired to `CROSS_REPO_SMOKE_*` repository variables and the `CROSS_REPO_TOKEN` secret.
+- To enable a smoke check across two repositories, follow the [consumer setup for Reusable Cross-Repo Smoke](ci/WORKFLOWS.md#reusable-cross-repo-smoke).
 - **`reusable-16-agents.yml`** — Agents toolkit composite that powers orchestrator/agents-70 by fanning out optional stages: readiness probes, per-agent preflight checks, bootstrap diagnostics, watchdogs, keepalive sweeps, and issue verification. Handles token fallbacks (SERVICE_BOT_PAT, ACTIONS_BOT_PAT, GitHub App) and exposes `options_json` so callers can toggle dry-runs or extra automation without rewriting YAML. When designing new workflows, assume at least **two** active agents (Codex + Claude) and rely on `.github/agents/registry.yml` + `agent_registry.js` so stage-specific logic can iterate over every configured agent rather than hard-coding Codex-only paths. Use the `preflight_overrides_json` input when you need to temporarily override an agent’s assignable login or command phrase. See [plans/multi-agent-toolkit.md](plans/multi-agent-toolkit.md) for the checklist we follow when extending Toolkit stages to future agents.
 - **`reusable-18-autofix.yml`** — Autofix harness used by the Gate summary job: determines auth path (App token → Service bot PAT → default token), applies formatter fixes directly for same-repo branches, uploads patches when pushes aren’t allowed, and records mode/delivery metadata so callers know whether changes landed or a patch artifact was produced.
 - **`reusable-19-dependency-repair-contract.yml`** — Trusted provenance check for dependency-bot PRs and agent-owned dependency repair promotions. It reads PR metadata and git objects without executing pull-request code.

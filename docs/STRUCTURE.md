@@ -26,7 +26,7 @@ Start at the issue and linked PR. Read the opener's start comment, PR labels, cu
 
 | Area | What it owns |
 |---|---|
-| [Workflows](../.github/workflows), [actions](../.github/actions), [GitHub helpers](../.github/scripts) | GitHub event entry points, reusable jobs, composite actions and the scripts they run. The [catalog](WORKFLOW_GUIDE.md) records triggers and purpose. |
+| [Workflows](../.github/workflows), [actions](../.github/actions), [GitHub helpers](../.github/scripts) | GitHub event entry points, reusable jobs, composite actions and the scripts they run. The [catalog](ci/WORKFLOWS.md) lists active workflow files. |
 | [Agent registry](../.github/agents), [agent instructions and prompts](../.github/codex), [configuration](../config) | Agent selection, model and delivery policies, evaluation inputs, and workflow configuration. |
 | [Consumer](../templates/consumer-repo) and [integration templates](../templates/integration-repo), [Renovate presets](../renovate-presets) | Material distributed to other repositories and the integration project that exercises shared CI. |
 | [Scripts](../scripts), [tools](../tools), [packages](../packages) | Workflow and operator programs, diagnostics, and libraries consumers install from a repository subdirectory. |

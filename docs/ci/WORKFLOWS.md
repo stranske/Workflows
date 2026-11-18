@@ -2,8 +2,7 @@
 
 This page captures the target layout for the automation that protects pull requests, heals small issues, and keeps the repository health checks aligned. Each section links directly to the workflow definitions so future changes can trace how the pieces fit together.
 
-> ℹ️ **Scope.** This catalog lists active workflows only. Historical entries and
-> verification notes live in [ARCHIVE_WORKFLOWS.md](../archive/ARCHIVE_WORKFLOWS.md).
+This is the authoritative inventory of active Workflows entry points. When adding or renaming a workflow, update its entry here. The [system overview](WORKFLOW_SYSTEM.md) explains how the workflows interact. The [archive](../archive/ARCHIVE_WORKFLOWS.md) records retirements and their verification.
 
 ## Target layout
 
@@ -138,9 +137,14 @@ the Gate template is create-only, so normal sync does not overwrite custom Gates
     * The editable `-e .[app,dev]` install is gated on the repo actually declaring a distribution — `[project]`, `[build-system]` or `[tool.poetry]` in `pyproject.toml`, or a `setup.cfg` / `setup.py`. A `pyproject.toml` that carries only tool configuration (e.g. `[tool.coverage]`) is therefore not mistaken for an installable package, so a consumer can hold tool config without CI trying to install it.
 * [`Reusable CI (Node)`](../../.github/workflows/reusable-11-ci-node.yml) (`reusable-11-ci-node.yml`) runs lint/format/typecheck/test legs for Node projects with optional multi-version matrices.
 * [`Reusable CI (Docker)`](../../.github/workflows/reusable-12-ci-docker.yml) executes the container smoke test whenever Docker-related files change.
-* [`Reusable Cross-Repo Smoke`](../../.github/workflows/reusable-13-cross-repo-smoke.yml) (`reusable-13-cross-repo-smoke.yml`) checks out a pinned dependency repository alongside the host repo and runs a caller-provided smoke command (used by opt-in consumer `cross-repo-smoke.yml` callers).
 
 The gate uses the shared `.github/scripts/detect-changes.js` helper to decide when documentation-only changes can skip heavy jobs and when Docker smoke tests must run.
+
+### Reusable Cross-Repo Smoke
+
+[`reusable-13-cross-repo-smoke.yml`](../../.github/workflows/reusable-13-cross-repo-smoke.yml) runs on `workflow_call`. It checks out the host repository and a dependency at the requested ref (default `main`), logs the resolved dependency SHA, runs any caller-supplied install commands, then runs the smoke command from the host workspace.
+
+To opt in with the [synced consumer caller](../../templates/consumer-repo/.github/workflows/cross-repo-smoke.yml), set `CROSS_REPO_SMOKE_ENABLED=true`, `CROSS_REPO_SMOKE_DEPENDENCY_REPO` and `CROSS_REPO_SMOKE_RUN_COMMAND`. Supply the `CROSS_REPO_TOKEN` secret with read access to the dependency. Use `CROSS_REPO_SMOKE_DEPENDENCY_REF` to select a branch, tag or SHA. The caller skips pull requests from forks.
 
 ## Coverage Guardrails & Follow-ups
 
