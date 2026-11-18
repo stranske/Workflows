@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,6 +15,14 @@ from tools.llm_provider import get_llm_provider
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNNERS = ("codex", "claude", "cursor", "gemini", "muse")
+PROVIDER_KEYS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CLAUDE_API_STRANSKE")
+
+
+def _assert_no_api_dependencies_in_env(file, *scopes):
+    for scope in scopes:
+        environment = json.dumps(scope.get("env", {}))
+        for forbidden in (*PROVIDER_KEYS, "langchain"):
+            assert forbidden not in environment, str(file)
 
 
 @pytest.mark.parametrize("agent", RUNNERS)
@@ -21,31 +30,124 @@ def test_runner_analysis_has_no_api_key_or_second_invocation(agent):
     file = ROOT / f".github/workflows/reusable-{agent}-run.yml"
     doc = yaml.safe_load(file.read_text())
     jobs = doc["jobs"]
+    # Workflow and job environments are inherited by the analysis step.
+    _assert_no_api_dependencies_in_env(file, doc, *jobs.values())
     steps = [step for job in jobs.values() for step in job.get("steps", [])]
     analysis = next(s for s in steps if s.get("id") == "llm_analysis")
     for step in steps:
-        for forbidden in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "langchain"):
+        lines = step.get("run", "").splitlines()
+        if agent == "codex" and step is analysis:
+            # Permit the exact presence-only receipt lines, never key values or wiring.
+            for key in PROVIDER_KEYS[:2]:
+                receipt = (
+                    f"    print(f\"{key}-present={{str('{key}' in os.environ).lower()}}\", "
+                    "file=sys.stderr)"
+                )
+                lines = [line for line in lines if line != receipt]
+        for forbidden in (*PROVIDER_KEYS, "langchain"):
             assert forbidden not in json.dumps(step.get("env", {})), str(file)
-            assert forbidden not in step.get("run", ""), str(file)
+            assert forbidden not in json.dumps(step.get("with", {})), str(file)
+            assert all(forbidden not in line for line in lines), str(file)
     # Analysis no longer accepts provider API secrets on the reusable workflow.
     triggers = doc.get("on", doc.get(True, {}))
     assert "workflow_call" in triggers, str(file)
     workflow_secrets = json.dumps(triggers["workflow_call"].get("secrets", {}))
-    assert "OPENAI_API_KEY" not in workflow_secrets, str(file)
-    assert "CLAUDE_API_STRANSKE" not in workflow_secrets, str(file)
+    for key in PROVIDER_KEYS:
+        assert key not in workflow_secrets, str(file)
     assert analysis["env"]["WORKFLOWS_ANALYSIS_CLI"] == ("claude" if agent == "claude" else "codex")
     assert analysis["run"].count("python3 .workflows-lib/scripts/analyze_codex_session.py") == 1
     assert 'print(f"provider=' in analysis["run"]
     assert 'print(f"confidence=' in analysis["run"]
 
 
+@pytest.fixture(scope="module")
+def codex_analysis_receipt_code():
+    """Read the actual JSON-to-output code without editing the protected workflow."""
+    doc = yaml.safe_load((ROOT / ".github/workflows/reusable-codex-run.yml").read_text())
+    analysis = next(s for s in doc["jobs"]["codex"]["steps"] if s.get("id") == "llm_analysis")
+    assert analysis["run"].count("<<'PY'\n") == 1
+    code, delimiter, _ = analysis["run"].split("<<'PY'\n", 1)[1].partition("\nPY\n")
+    assert delimiter, "analysis output extractor must have a closing heredoc delimiter"
+    return code
+
+
+@pytest.mark.parametrize("provider", ["codex", "regex-fallback"])
+@pytest.mark.parametrize("openai_value", [None, "", "noncredential-presence-marker"])
+@pytest.mark.parametrize("anthropic_value", [None, "", "noncredential-presence-marker"])
+def test_analysis_receipt_reports_presence_without_values_and_preserves_json_outputs(
+    codex_analysis_receipt_code, tmp_path, provider, openai_value, anthropic_value
+):
+    """Local receipt regression; fixture data does not establish hosted authentication."""
+    data = {
+        "provider": provider,
+        "model": cli.analysis_model("codex") if provider == "codex" else "none",
+        "confidence": 0.91,
+        "completed_tasks": ["Preserve JSON outputs = verified", 'Handle "quoted" tasks'],
+    }
+    analysis_file = tmp_path / "analysis.json"
+    analysis_file.write_text(json.dumps(data), encoding="utf-8")
+    environment = {
+        key: value
+        for key, value in zip(PROVIDER_KEYS[:2], (openai_value, anthropic_value), strict=True)
+        if value is not None
+    }
+    result = subprocess.run(
+        [sys.executable, "-I", "-", str(analysis_file)],
+        input=codex_analysis_receipt_code,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
+    )
+    outputs = dict(line.split("=", 1) for line in result.stdout.splitlines())
+    assert outputs["provider"] == data["provider"]
+    assert outputs["model"] == data["model"]
+    assert float(outputs["confidence"]) == data["confidence"]
+    assert json.loads(outputs["completed-tasks"]) == data["completed_tasks"]
+    assert "subscription-auth" not in outputs  # Receipt belongs in logs, not step outputs.
+    if provider == "codex":
+        assert result.stderr.splitlines() == [
+            "subscription-auth=chatgpt",
+            f"OPENAI_API_KEY-present={str(openai_value is not None).lower()}",
+            f"ANTHROPIC_API_KEY-present={str(anthropic_value is not None).lower()}",
+            "completed-tasks-count=2",
+        ]
+    else:
+        assert result.stderr == ""  # A fallback cannot claim subscription authentication.
+    assert "noncredential-presence-marker" not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    ("public_output", "step_output"),
+    [
+        ("llm-analysis-run", "llm-analysis-run"),
+        ("llm-provider", "provider"),
+        ("llm-model", "model"),
+        ("llm-confidence", "confidence"),
+        ("llm-completed-tasks", "completed-tasks"),
+    ],
+)
+def test_codex_analysis_outputs_reach_reusable_workflow_callers(public_output, step_output):
+    doc = yaml.safe_load((ROOT / ".github/workflows/reusable-codex-run.yml").read_text())
+    assert doc["jobs"]["codex"]["outputs"][public_output] == (
+        "${{ steps.llm_analysis.outputs." + step_output + " }}"
+    )
+    triggers = doc.get("on", doc.get(True, {}))
+    assert triggers["workflow_call"]["outputs"][public_output]["value"] == (
+        "${{ jobs.codex.outputs." + public_output + " }}"
+    )
+
+
 def test_progress_review_uses_subscription_without_langchain_install():
     file = ROOT / ".github/workflows/agents-keepalive-loop.yml"
-    job = yaml.safe_load(file.read_text())["jobs"]["progress-review"]
+    doc = yaml.safe_load(file.read_text())
+    job = doc["jobs"]["progress-review"]
+    _assert_no_api_dependencies_in_env(file, doc, job)
     text = json.dumps(job)
     # The existing entrypoint's directory name is not a LangChain dependency.
     dependency_text = text.replace("scripts/langchain/progress_reviewer.py", "")
-    for forbidden in ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "langchain"):
+    for forbidden in (*PROVIDER_KEYS, "langchain"):
         assert forbidden not in dependency_text, str(file)
     step = next(s for s in job["steps"] if s.get("id") == "review")
     assert step["env"]["WORKFLOWS_ANALYSIS_CLI"] == "codex"
@@ -66,8 +168,8 @@ def test_progress_review_uses_subscription_without_langchain_install():
 
 
 @pytest.mark.parametrize("agent", (*RUNNERS, "progress-review"))
-@pytest.mark.parametrize("surface", ("env", "run"))
-@pytest.mark.parametrize("forbidden", ("OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "langchain"))
+@pytest.mark.parametrize("surface", ("workflow-env", "job-env", "env", "run", "action-script"))
+@pytest.mark.parametrize("forbidden", (*PROVIDER_KEYS, "langchain"))
 def test_workflow_gate_rejects_reintroduced_api_dependencies(
     monkeypatch, agent, surface, forbidden
 ):
@@ -77,14 +179,26 @@ def test_workflow_gate_rejects_reintroduced_api_dependencies(
     )
     doc = yaml.safe_load((ROOT / ".github/workflows" / filename).read_text())
     if agent == "progress-review":
-        steps = doc["jobs"]["progress-review"]["steps"]
+        job = doc["jobs"]["progress-review"]
         step_id = "review"
     else:
-        steps = [step for job in doc["jobs"].values() for step in job.get("steps", [])]
+        job = next(
+            job
+            for job in doc["jobs"].values()
+            if any(step.get("id") == "llm_analysis" for step in job.get("steps", []))
+        )
         step_id = "llm_analysis"
+    steps = job["steps"]
     step = next(step for step in steps if step.get("id") == step_id)
-    if surface == "env":
+    if surface == "workflow-env":
+        doc.setdefault("env", {})[forbidden] = "fixture-only"
+    elif surface == "job-env":
+        job.setdefault("env", {})[forbidden] = "fixture-only"
+    elif surface == "env":
         step.setdefault("env", {})[forbidden] = "fixture-only"
+    elif surface == "action-script":
+        action = next(s for s in steps if "script" in s.get("with", {}))
+        action["with"]["script"] += f"\ncore.exportVariable('{forbidden}', 'fixture-only');\n"
     else:
         step["run"] += f"\n{forbidden}=fixture-only\n"
     monkeypatch.setattr(yaml, "safe_load", lambda _: doc)
@@ -94,6 +208,21 @@ def test_workflow_gate_rejects_reintroduced_api_dependencies(
             test_progress_review_uses_subscription_without_langchain_install()
         else:
             test_runner_analysis_has_no_api_key_or_second_invocation(agent)
+    assert filename in str(failure.value)
+
+
+@pytest.mark.parametrize("agent", RUNNERS)
+@pytest.mark.parametrize("forbidden", PROVIDER_KEYS)
+def test_workflow_gate_rejects_reintroduced_provider_key_interface(monkeypatch, agent, forbidden):
+    """Reject provider-key declarations before callers wire them into analysis."""
+    filename = f"reusable-{agent}-run.yml"
+    doc = yaml.safe_load((ROOT / ".github/workflows" / filename).read_text())
+    triggers = doc.get("on", doc.get(True, {}))
+    triggers["workflow_call"].setdefault("secrets", {})[forbidden] = {"required": False}
+    monkeypatch.setattr(yaml, "safe_load", lambda _: doc)
+
+    with pytest.raises(AssertionError) as failure:
+        test_runner_analysis_has_no_api_key_or_second_invocation(agent)
     assert filename in str(failure.value)
 
 
@@ -162,6 +291,7 @@ def test_cli_final_message_only_and_no_api_or_job_secrets(monkeypatch, account):
     assert [command[i + 1] for i, part in enumerate(command) if part == "--disable"] == [
         "shell_tool",
         "view_image",
+        "image_generation",
         "multi_agent",
         "multi_agent_v2",
         "plugins",

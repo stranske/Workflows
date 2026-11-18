@@ -27,6 +27,7 @@ REGISTRY = Path(__file__).resolve().parents[1] / ".github/agents/registry.yml"
 _CODEX_DISABLED_FEATURES = (
     "shell_tool",
     "view_image",
+    "image_generation",
     "multi_agent",
     "multi_agent_v2",
     "plugins",
