@@ -2,18 +2,19 @@
   "stranske/Counter_Risk": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 2.466666666666667,
       "name": "Python CI / python 3.13",
       "url": "https://github.com/stranske/Counter_Risk/actions/runs/43791262806/job/133050183106"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
+    "measured_at": "2026-11-18T11:38:21+00:00",
     "p50": 2.1166666666666667,
     "p50_series": {
       "2026-11-16": 2.1166666666666667,
-      "2026-11-17": 2.1166666666666667
+      "2026-11-17": 2.1166666666666667,
+      "2026-11-18": 2.1166666666666667
     },
     "p90": 2.3333333333333335,
     "sample_count": 43,
@@ -24,18 +25,19 @@
   "stranske/Deliverable-Render": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 1.05,
       "name": "python ci / python 3.14",
       "url": "https://github.com/stranske/Deliverable-Render/actions/runs/43995271156/job/133745948888"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 0.75,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 0.7083333333333333,
     "p50_series": {
       "2026-11-16": 0.75,
-      "2026-11-17": 0.75
+      "2026-11-17": 0.75,
+      "2026-11-18": 0.7083333333333333
     },
     "p90": 0.8700000000000001,
     "sample_count": 20,
@@ -46,18 +48,19 @@
   "stranske/Doc-Lineage": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 1.5166666666666666,
       "name": "python ci / python 3.14",
       "url": "https://github.com/stranske/Doc-Lineage/actions/runs/43820568604/job/133145741040"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
+    "measured_at": "2026-11-18T11:38:21+00:00",
     "p50": 1.2166666666666666,
     "p50_series": {
       "2026-11-16": 1.25,
-      "2026-11-17": 1.2166666666666666
+      "2026-11-17": 1.2166666666666666,
+      "2026-11-18": 1.2166666666666666
     },
     "p90": 1.4333333333333331,
     "sample_count": 16,
@@ -68,21 +71,22 @@
   "stranske/Fine-Art-Archive": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 3.5833333333333335,
       "name": "Python CI / python 3.13",
       "url": "https://github.com/stranske/Fine-Art-Archive/actions/runs/43800138922/job/133078459474"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
+    "measured_at": "2026-11-18T11:38:21+00:00",
     "p50": 2.9333333333333336,
     "p50_series": {
       "2026-11-16": 2.925,
-      "2026-11-17": 2.9333333333333336
+      "2026-11-17": 2.9333333333333336,
+      "2026-11-18": 2.9333333333333336
     },
-    "p90": 3.435,
-    "sample_count": 34,
+    "p90": 3.325,
+    "sample_count": 26,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -90,21 +94,22 @@
   "stranske/Inv-Man-Intake": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 2.7,
       "name": "Python CI / python 3.13",
       "url": "https://github.com/stranske/Inv-Man-Intake/actions/runs/44061054963/job/133963112875"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 1.5833333333333333,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 1.5666666666666667,
     "p50_series": {
       "2026-11-16": 1.6416666666666666,
-      "2026-11-17": 1.5833333333333333
+      "2026-11-17": 1.5833333333333333,
+      "2026-11-18": 1.5666666666666667
     },
-    "p90": 2.0,
-    "sample_count": 31,
+    "p90": 1.9933333333333334,
+    "sample_count": 33,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -112,21 +117,22 @@
   "stranske/Manager-Database": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 4.15,
       "name": "Python CI / python 3.14",
       "url": "https://github.com/stranske/Manager-Database/actions/runs/43798770706/job/133074012474"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
+    "measured_at": "2026-11-18T11:38:21+00:00",
     "p50": 3.45,
     "p50_series": {
       "2026-11-16": 3.45,
-      "2026-11-17": 3.45
+      "2026-11-17": 3.45,
+      "2026-11-18": 3.45
     },
-    "p90": 3.726666666666667,
-    "sample_count": 58,
+    "p90": 3.716666666666667,
+    "sample_count": 55,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -134,18 +140,19 @@
   "stranske/Manager-Mosaic": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 0.8666666666666667,
       "name": "python ci / python 3.14",
       "url": "https://github.com/stranske/Manager-Mosaic/actions/runs/43796190836/job/133065819443"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
+    "measured_at": "2026-11-18T11:38:21+00:00",
     "p50": 0.5833333333333334,
     "p50_series": {
       "2026-11-16": 0.5833333333333334,
-      "2026-11-17": 0.5833333333333334
+      "2026-11-17": 0.5833333333333334,
+      "2026-11-18": 0.5833333333333334
     },
     "p90": 0.8250000000000001,
     "sample_count": 14,
@@ -155,44 +162,43 @@
   },
   "stranske/Orchestrator": {
     "daily_observations": {},
-    "distance": 0,
-    "drainable_in": 5,
+    "distance": null,
+    "drainable_in": 7,
+    "error": "GitHub API error 502: {'message': 'Server Error'}",
     "issue_numbers": [],
-    "longest_job": {
-      "minutes": 4.266666666666667,
-      "name": "python ci shard 3/6 / python 3.14",
-      "url": "https://github.com/stranske/Orchestrator/actions/runs/42854149728/job/129962880367"
-    },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 1.9666666666666666,
+    "longest_job": null,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": null,
     "p50_series": {
       "2026-11-16": 1.95,
-      "2026-11-17": 1.9666666666666666
+      "2026-11-17": 1.9666666666666666,
+      "2026-11-18": null
     },
-    "p90": 2.183333333333333,
-    "sample_count": 485,
-    "share": 0.0,
-    "status": "measured",
+    "p90": null,
+    "sample_count": 0,
+    "share": null,
+    "status": "unknown",
     "target": 10.0
   },
   "stranske/Pension-Data": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 4.416666666666667,
       "name": "Python CI / python 3.13",
       "url": "https://github.com/stranske/Pension-Data/actions/runs/43882014869/job/133350377244"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 1.5583333333333333,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 1.5833333333333333,
     "p50_series": {
       "2026-11-16": 1.4833333333333334,
-      "2026-11-17": 1.5583333333333333
+      "2026-11-17": 1.5583333333333333,
+      "2026-11-18": 1.5833333333333333
     },
-    "p90": 1.8083333333333333,
-    "sample_count": 56,
+    "p90": 1.8966666666666672,
+    "sample_count": 75,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -200,21 +206,22 @@
   "stranske/Portable-Alpha-Extension-Model": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 4.183333333333334,
       "name": "Python CI / python 3.14",
       "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/actions/runs/43090898632/job/130768670488"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 3.433333333333333,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 3.408333333333333,
     "p50_series": {
       "2026-11-16": 3.433333333333333,
-      "2026-11-17": 3.433333333333333
+      "2026-11-17": 3.433333333333333,
+      "2026-11-18": 3.408333333333333
     },
-    "p90": 3.7916666666666665,
-    "sample_count": 96,
+    "p90": 3.7666666666666666,
+    "sample_count": 64,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -222,21 +229,22 @@
   "stranske/Ready": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 11.433333333333334,
       "name": "Python CI / python 3.14",
       "url": "https://github.com/stranske/Ready/actions/runs/43944061621/job/133569293208"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 7.316666666666666,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 7.825,
     "p50_series": {
       "2026-11-16": 7.316666666666666,
-      "2026-11-17": 7.316666666666666
+      "2026-11-17": 7.316666666666666,
+      "2026-11-18": 7.825
     },
-    "p90": 10.530000000000001,
-    "sample_count": 39,
+    "p90": 10.771666666666667,
+    "sample_count": 34,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -244,18 +252,19 @@
   "stranske/Template": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 0.8833333333333333,
       "name": "python ci / python 3.13",
       "url": "https://github.com/stranske/Template/actions/runs/43133075424/job/130907061438"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 0.75,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 0.7166666666666667,
     "p50_series": {
       "2026-11-16": 0.7416666666666667,
-      "2026-11-17": 0.75
+      "2026-11-17": 0.75,
+      "2026-11-18": 0.7166666666666667
     },
     "p90": 0.8533333333333334,
     "sample_count": 7,
@@ -266,20 +275,21 @@
   "stranske/Travel-Plan-Permission": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 3.6333333333333333,
       "name": "Python CI / python 3.13",
       "url": "https://github.com/stranske/Travel-Plan-Permission/actions/runs/43161738256/job/130994517577"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
+    "measured_at": "2026-11-18T11:38:21+00:00",
     "p50": 2.7333333333333334,
     "p50_series": {
       "2026-11-16": 2.9,
-      "2026-11-17": 2.7333333333333334
+      "2026-11-17": 2.7333333333333334,
+      "2026-11-18": 2.7333333333333334
     },
-    "p90": 3.433333333333333,
+    "p90": 3.4,
     "sample_count": 41,
     "share": 0.0,
     "status": "measured",
@@ -288,18 +298,19 @@
   "stranske/Trend_Model_Project": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 5.383333333333334,
       "name": "Python CI / python 3.14",
       "url": "https://github.com/stranske/Trend_Model_Project/actions/runs/44005907071/job/133781856787"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 4.216666666666667,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 4.166666666666667,
     "p50_series": {
       "2026-11-16": 4.55,
-      "2026-11-17": 4.216666666666667
+      "2026-11-17": 4.216666666666667,
+      "2026-11-18": 4.166666666666667
     },
     "p90": 5.033333333333333,
     "sample_count": 24,
@@ -326,24 +337,34 @@
         "run_id": 44075817454,
         "source_run_url": "https://github.com/stranske/Workflows/actions/runs/44075817454",
         "window_start": "2026-11-10T11:38:36+00:00"
+      },
+      "2026-11-18": {
+        "date": "2026-11-18",
+        "measured_at": "2026-11-18T11:38:21+00:00",
+        "p50_minutes": 6.816666666666666,
+        "run_attempt": 1,
+        "run_id": 44296475975,
+        "source_run_url": "https://github.com/stranske/Workflows/actions/runs/44296475975",
+        "window_start": "2026-11-11T11:38:21+00:00"
       }
     },
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 19.083333333333332,
       "name": "summary",
       "url": "https://github.com/stranske/Workflows/actions/runs/43092856801/job/130781795259"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 7.15,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 6.816666666666666,
     "p50_series": {
       "2026-11-16": 7.166666666666667,
-      "2026-11-17": 7.15
+      "2026-11-17": 7.15,
+      "2026-11-18": 6.816666666666666
     },
-    "p90": 8.3,
-    "sample_count": 281,
+    "p90": 8.225,
+    "sample_count": 206,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
@@ -351,18 +372,19 @@
   "stranske/learning-management-system": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 5.583333333333333,
       "name": "Python CI / python 3.14",
       "url": "https://github.com/stranske/learning-management-system/actions/runs/44054175229/job/133939478078"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 4.783333333333333,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 4.766666666666667,
     "p50_series": {
       "2026-11-16": 4.933333333333334,
-      "2026-11-17": 4.783333333333333
+      "2026-11-17": 4.783333333333333,
+      "2026-11-18": 4.766666666666667
     },
     "p90": 5.266666666666667,
     "sample_count": 59,
@@ -373,21 +395,22 @@
   "stranske/trip-planner": {
     "daily_observations": {},
     "distance": 0,
-    "drainable_in": 5,
+    "drainable_in": 4,
     "issue_numbers": [],
     "longest_job": {
       "minutes": 7.383333333333334,
       "name": "Python CI / python 3.13",
       "url": "https://github.com/stranske/trip-planner/actions/runs/44039383456/job/133890615411"
     },
-    "measured_at": "2026-11-17T11:38:36+00:00",
-    "p50": 4.4,
+    "measured_at": "2026-11-18T11:38:21+00:00",
+    "p50": 4.466666666666667,
     "p50_series": {
       "2026-11-16": 4.233333333333333,
-      "2026-11-17": 4.4
+      "2026-11-17": 4.4,
+      "2026-11-18": 4.466666666666667
     },
-    "p90": 5.168333333333334,
-    "sample_count": 180,
+    "p90": 5.186666666666667,
+    "sample_count": 140,
     "share": 0.0,
     "status": "measured",
     "target": 10.0
