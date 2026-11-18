@@ -73,7 +73,7 @@ jobs:
             let reason = "not_opted_in";
 
             if (eventName === "workflow_dispatch") {
-              const raw = `${core.getInput("pr_number") || ""}`.trim();
+              const raw = `${(context.payload.inputs || {}).pr_number || ""}`.trim();
               if (!/^\d+$/.test(raw)) {
                 reason = "invalid_pr_number";
               } else {
