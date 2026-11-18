@@ -2068,7 +2068,8 @@ test('planMaint71Continuations re-plans a checks_failed handoff whose checks rec
 
   // An acknowledged run for that key suppresses a repeat.
   assert.deepEqual(planMaint71Continuations(state, { now, acknowledgments: [
-    { lane: 'delivery', key: planned[0].continuation_key, run_id: 42 }] }), []);
+    { lane: 'delivery', key: planned[0].continuation_key, run_id: 42,
+      completed_at: '2026-11-11T02:31:00.000Z' }] }), []);
 
   // Head changed, or checks still failing: nothing is re-planned.
   const moved = await reconcile([failed], { ...greenPr, head: { sha: 'c'.repeat(40), ref: failed.branch } });
@@ -2141,7 +2142,8 @@ test('planMaint71Continuations wakes the campaign commit once a plan\'s candidat
     .filter((row) => row.reason === 'candidate_commit_ready'), []);
   // Acknowledged: not repeated while the candidates' heads are unchanged.
   assert.deepEqual(planMaint71Continuations([...candidates, ...merged], { now, acknowledgments: [
-    { lane: 'campaign', key: planned[0].continuation_key, run_id: 7 }] }), []);
+    { lane: 'campaign', key: planned[0].continuation_key, run_id: 7,
+      completed_at: '2026-11-11T05:54:00.000Z' }] }), []);
   // A new candidate head is a new commit attempt.
   const moved = planMaint71Continuations([candidates[0], candidates[1],
     { ...candidates[2], head_sha: 'f'.repeat(40) }, ...merged], { now });
@@ -2152,4 +2154,37 @@ test('planMaint71Continuations wakes the campaign commit once a plan\'s candidat
     completed_at: '2026-11-11T13:25:00Z' };
   assert.deepEqual(mergeContinuationAcknowledgments([receipt], [],
     queuedMaint71Intents([...candidates, ...merged])), [receipt]);
+});
+
+test('planMaint71Continuations requeues a campaign intent when its acknowledgment predates the latest candidate observation', () => {
+  // Replay of 2026-11-18: Maint 71 run 44243878235 completed before Maint 82
+  // re-observed the same candidate heads as campaign_prepared.
+  const observedAt = '2026-11-18T05:53:07.361Z';
+  const base = {
+    schema: 'workflows-generated-delivery-handoff/v1', delivery_generation: 'live-replay',
+    lane: 'sync', plan_id: 'sha256:live-plan', plan_scope: 'full', scope_base_sha: '',
+    source_commit: 'a'.repeat(40), review_state: 'clear', check_state: 'ready', observed_at: observedAt,
+  };
+  const candidate = (repository, pr, head) => ({ ...base, repository, pr, branch: 'sync/workflows-candidate',
+    head_sha: head, disposition: 'current', blocker_owner: 'maint-71', next_command: 'merge-current-delivery',
+    continuation: { class: 'terminal', lane: 'candidate', reason: 'campaign_prepared', resume_after: '', key: `k${pr}` } });
+  const candidates = [
+    candidate('stranske/Portable-Alpha-Extension-Model', 2522, 'b'.repeat(40)),
+    candidate('stranske/Travel-Plan-Permission', 1770, 'c'.repeat(40)),
+    candidate('stranske/trip-planner', 2050, 'd'.repeat(40)),
+  ];
+  const now = '2026-11-18T06:00:00.000Z';
+  const planned = planMaint71Continuations(candidates, { now });
+  assert.equal(planned.length, 1);
+  assert.equal(planned[0].lane, 'campaign');
+
+  const staleAcknowledgment = { lane: 'campaign', key: planned[0].continuation_key,
+    run_id: 44243878235, completed_at: '2026-11-18T05:25:19Z' };
+  assert.deepEqual(planMaint71Continuations(candidates, { now, acknowledgments: [staleAcknowledgment] })
+    .map(({ lane, continuation_key, resume_after }) => ({ lane, continuation_key, resume_after })), [{
+    lane: 'campaign', continuation_key: planned[0].continuation_key, resume_after: observedAt,
+  }]);
+
+  const freshAcknowledgment = { ...staleAcknowledgment, completed_at: '2026-11-18T05:54:00Z' };
+  assert.deepEqual(planMaint71Continuations(candidates, { now, acknowledgments: [freshAcknowledgment] }), []);
 });
