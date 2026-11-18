@@ -18,7 +18,8 @@ PROMPTS = [
 @pytest.mark.parametrize("prompt", PROMPTS, ids=lambda p: str(p))
 def test_keepalive_prompt_requires_repo_checks_before_push_and_lean_delivery(prompt):
     text = prompt.read_text(encoding="utf-8")
-    assert "## Before Every Push: Run This Repo's Own Checks" in text
-    assert "Do not push a commit you know is red" in text
-    assert "## Keep The Delivery To Code And Tests" in text
-    assert "`docs/evidence/`" in text and "deliberate-break result in the PR body" in text
+    assert text.count("## Before Every Push: Run This Repo's Own Checks") == 1
+    assert text.count("Do not push a commit you know is red") == 1
+    assert text.count("## Keep The Delivery To Code And Tests") == 1
+    assert text.count("`docs/evidence/`") == 1
+    assert text.count("deliberate-break result in the PR body") == 1
