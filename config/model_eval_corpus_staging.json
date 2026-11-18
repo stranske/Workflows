@@ -82,6 +82,141 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-11-11"
+    },
+    {
+      "case_id": "stranske/workflows#4052@d47403264c34e0433d47550e68e6e5202649165f:39059692844:1",
+      "repo": "stranske/Workflows",
+      "pr": 4052,
+      "head_sha": "d47403264c34e0433d47550e68e6e5202649165f",
+      "merge_sha": "801aa46851f98cbf2fe23063097206485dc703d5",
+      "verifier_decision": {
+        "ci_failed": false,
+        "evaluated_sha": "801aa46851f98cbf2fe23063097206485dc703d5",
+        "head_sha": "d47403264c34e0433d47550e68e6e5202649165f",
+        "pr": "4052",
+        "provider_verdicts": [
+          "PASS",
+          "PASS"
+        ],
+        "repo": "stranske/Workflows",
+        "run_attempt": "1",
+        "run_id": "39059692844",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "source_url": "https://github.com/stranske/Workflows/pull/4052#issuecomment-6239003362"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-16"
+    },
+    {
+      "case_id": "stranske/workflows#4034@51f74de75c518d7a1b8a813b3dfb2df338d249de:39038105224:1",
+      "repo": "stranske/Workflows",
+      "pr": 4034,
+      "head_sha": "51f74de75c518d7a1b8a813b3dfb2df338d249de",
+      "merge_sha": "13c6fc44146842798a0f3fc5e50139812cffe4ed",
+      "verifier_decision": {
+        "ci_failed": false,
+        "evaluated_sha": "13c6fc44146842798a0f3fc5e50139812cffe4ed",
+        "head_sha": "51f74de75c518d7a1b8a813b3dfb2df338d249de",
+        "pr": "4034",
+        "provider_verdicts": [
+          "PASS",
+          "PASS"
+        ],
+        "repo": "stranske/Workflows",
+        "run_attempt": "1",
+        "run_id": "39038105224",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "source_url": "https://github.com/stranske/Workflows/pull/4034#issuecomment-6234734236"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-16"
+    },
+    {
+      "case_id": "stranske/inv-man-intake#1034@bf65a0413b581bcb6b0c448ddf1af735addc16d1:39073878415:1",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 1034,
+      "head_sha": "bf65a0413b581bcb6b0c448ddf1af735addc16d1",
+      "merge_sha": "904b6cf3773f56e87d02c2f0b510a874f50e819d",
+      "verifier_decision": {
+        "ci_failed": false,
+        "evaluated_sha": "904b6cf3773f56e87d02c2f0b510a874f50e819d",
+        "head_sha": "bf65a0413b581bcb6b0c448ddf1af735addc16d1",
+        "pr": "1034",
+        "provider_verdicts": [
+          "PASS",
+          "PASS"
+        ],
+        "repo": "stranske/Inv-Man-Intake",
+        "run_attempt": "1",
+        "run_id": "39073878415",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "source_url": "https://github.com/stranske/Inv-Man-Intake/pull/1034#issuecomment-6242055606"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-16"
+    },
+    {
+      "case_id": "stranske/inv-man-intake#1032@4c5cb41aac4e89df6d3c9ea26387e6a2a0e9ba05:39063609809:1",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 1032,
+      "head_sha": "4c5cb41aac4e89df6d3c9ea26387e6a2a0e9ba05",
+      "merge_sha": "f432121d6ec6b64b9eb9d46d1a8a9c85ac85f5f6",
+      "verifier_decision": {
+        "ci_failed": false,
+        "evaluated_sha": "f432121d6ec6b64b9eb9d46d1a8a9c85ac85f5f6",
+        "head_sha": "4c5cb41aac4e89df6d3c9ea26387e6a2a0e9ba05",
+        "pr": "1032",
+        "provider_verdicts": [
+          "PASS",
+          "PASS"
+        ],
+        "repo": "stranske/Inv-Man-Intake",
+        "run_attempt": "1",
+        "run_id": "39063609809",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "source_url": "https://github.com/stranske/Inv-Man-Intake/pull/1032#issuecomment-6239895672"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-16"
+    },
+    {
+      "case_id": "stranske/inv-man-intake#1025@e3fb94589be70375e751bc5817687b12fbae11ab:39051876609:1",
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 1025,
+      "head_sha": "e3fb94589be70375e751bc5817687b12fbae11ab",
+      "merge_sha": "f6e8797498cb2a31ad1b30c98e71c99304be9fee",
+      "verifier_decision": {
+        "ci_failed": false,
+        "evaluated_sha": "f6e8797498cb2a31ad1b30c98e71c99304be9fee",
+        "head_sha": "e3fb94589be70375e751bc5817687b12fbae11ab",
+        "pr": "1025",
+        "provider_verdicts": [
+          "PASS",
+          "PASS"
+        ],
+        "repo": "stranske/Inv-Man-Intake",
+        "run_attempt": "1",
+        "run_id": "39051876609",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "source_url": "https://github.com/stranske/Inv-Man-Intake/pull/1025#issuecomment-6237284091"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-16"
     }
   ]
 }
