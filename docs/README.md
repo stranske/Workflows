@@ -76,4 +76,5 @@ Examples in `examples/` should:
 
 - Main README: [../README.md](../README.md)
 - Templates and checklists: [templates/](templates/)
-- Latest workflow audit: [WORKFLOW_AUDIT_2025-12-25.md](WORKFLOW_AUDIT_2025-12-25.md)
+- Monthly workflow audit: [ci/WORKFLOW_AUDIT_PROCEDURE.md](ci/WORKFLOW_AUDIT_PROCEDURE.md)
+- Archived plans and audit snapshots: [archive/ARCHIVE_PLANS.md](archive/ARCHIVE_PLANS.md)
