@@ -29,7 +29,7 @@ The CI stack now routes every pull request through a single Gate workflow that o
 | Gate orchestrator | `pr-00-gate.yml` job `gate` | Coordinates Python (3.13 + 3.14 in parallel) and Docker smoke runs, fails fast if any leg fails | Required (`Gate / gate`) | Remains the authoritative CI gate |
 | Reusable CI | `reusable-10-ci-python.yml` via `pr-00-gate.yml` | Standard Python toolchain (Black, Ruff, mypy, pytest, coverage upload) used by Gate | Called by Gate | Continue to be the single CI entry point |
 | Reusable Docker smoke | `reusable-12-ci-docker.yml` via `pr-00-gate.yml` | Deterministic Docker build and smoke probe | Called by Gate | Continue to be the single Docker entry point |
-| Gate summary | `pr-00-gate.yml` post-CI jobs | Integrated reporting that posts Gate summaries, commits small hygiene fixes (success runs), and retries trivial CI failures | Not required | Remains optional |
+| Gate summary | `pr-00-gate.yml`, job `summary` | Reports CI results and can request follow-up for a failed PR | Required | See the [Gate job map](../../docs/ci/WORKFLOWS.md#gate-job-map) |
 
 `ci-python-versions.env` records the allowed first-party matrix in `CI_PYTHON_VERSIONS` and the primary runtime in `CI_PYTHON_VERSION`; the runtime-literal guard checks workflows, actions, starter workflows and consumer mirrors against that list.
 
@@ -55,7 +55,7 @@ Flow:
 |-------|---------|--------|
 | `agent:codex` / `agent:copilot` | Marks automation-owned issues and PRs | Agent labeler |
 | `from:codex` / `from:copilot` | Origin marker for automation PRs | Agent labeler |
-| `autofix:clean` | Opt-in label gating Gate summary jobs. Automation also applies `autofix:applied`, `autofix:debt`, `autofix:patch`, and `autofix:clean-only` to describe the outcome. | Gate summary |
+| `autofix:clean` | Requests a formatting pass. The caller reports the result and applies outcome labels. | [Autofix routes](../../docs/ci/WORKFLOWS.md#autofix-routes) |
 | `ci-failure` | Pins the rolling CI dashboard issue | Gate summary |
 | Area labels | Scope classification for review routing | Path labeler |
 
@@ -94,7 +94,7 @@ workflow files.
 | `reusable-16-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs. |
 | `reusable-10-ci-python.yml` | workflow_call | Unified CI executor for the Python stack. |
 | `reusable-12-ci-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-00-gate.yml`. |
-| `reusable-18-autofix.yml` | workflow_call | Autofix composite consumed by Gate summary jobs. |
+| `reusable-18-autofix.yml` | workflow_call | Executes fixes for opted-in [Autofix callers](../../docs/ci/WORKFLOWS.md#autofix-routes). |
 
 ---
 ## 5. Adopt Reusable Workflows
@@ -216,7 +216,7 @@ Guardrails: `tests/workflows/test_workflow_naming.py` asserts the workflow remai
 
 ### 7.1 Autofix Loop Guard (Issue #1347)
 Loop prevention layers:
-1. The consolidated workflow only reacts to completed CI runs (no direct `push` trigger).
+1. CI Autofix Loop evaluates completed CI runs and PR labeling events. See the [Autofix routes](../../docs/ci/WORKFLOWS.md#autofix-routes) for its caller and artifacts.
 2. Guard logic only fires when the workflow actor is `github-actions` (or `github-actions[bot]`) **and** the latest commit subject begins with the standardized prefix `chore(autofix):`.
 3. Scheduled cleanup (`maint-31-autofix-residual-cleanup.yml`) and reusable autofix consumers adopt the same prefix + actor guard, so automation commits short-circuit immediately instead of chaining runs.
 4. The CI style job runs independently and does not trigger autofix.
