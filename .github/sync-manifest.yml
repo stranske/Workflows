@@ -769,6 +769,7 @@ scripts:
   - source: scripts/langchain/checklist_utils.py
     description: "Shared checklist parsing helpers for issue and follow-up generation"
     delivery: copy
+    template_sync: exact
 
   - source: scripts/langchain/issue_formatter.py
     description: "Issue formatter - converts raw text to AGENT_ISSUE_TEMPLATE format"
