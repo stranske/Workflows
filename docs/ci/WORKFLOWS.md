@@ -363,6 +363,19 @@ These are job execution durations, excluding queue time and inter-job overhead,
 not total PR-to-merge or workflow wall-clock latency. Dense run windows are
 subdivided before the Actions API's 1,000-result filtered-query ceiling.
 
+The Workflows row also reports advisory `gate_wall_clock` minutes from original
+workflow-run creation to completion of the top-level `summary` job in the latest
+attempt. This includes setup and gaps between jobs; for reruns it includes the
+wait from initial creation, with `matched_rerun_count` shown separately. It is
+not a measurement of queue time alone or of time to merge. It uses the same
+runs and cached jobs as the existing budget. Of the `eligible_count` runs with
+a longest-job sample, `sample_count` have a unique, executed summary with valid
+timing in the window; cancelled runs do not enter this denominator. The report
+shows p50/p90 and the count and fraction strictly over ten minutes among matched
+runs. If no run matches, the percentiles and fraction are null. This field does
+not affect the resource share, recovery history, issue automation, Closer, or
+merge eligibility, and it is not populated for consumer repositories.
+
 `target=10` minutes, `distance=max(0, p50/target - 1)`. At or below target,
 `share=0`. Above target, `share=min(0.5, BASE_SHARE *
 2**(distance/DOUBLING_DISTANCE - 1))`, where `BASE_SHARE=0.05` and
