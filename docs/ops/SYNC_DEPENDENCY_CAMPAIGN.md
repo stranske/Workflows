@@ -5,6 +5,7 @@ work is the campaign issue, not an individual generated pull request. A pull
 request is a leased delivery attempt and must carry the
 `sync-pr-delivery-record:v1` marker (schema `sync-pr-delivery-record/v1`) with its durable issue, plan, generation,
 repository, desired tree hash, source commit, expiry, and lineage.
+For a pending sync, start with the [consumer sync entry points](#consumer-sync-entry-points).
 
 Maint 71 is the sole merge/close reconciler. It applies the same contract to
 both `sync/workflows-*` consumer-sync branches and
@@ -151,6 +152,15 @@ persisted premerge artifact contains every configured canary on one green,
 review-clear plan. Upload success without complete evidence cannot authorize a
 candidate merge; normal lifecycle transitions may still advance for the next
 pass.
+
+## Consumer sync entry points
+
+To preview or stage a delivery, use [Maint 68 Consumer Sync](../../.github/workflows/maint-68-sync-consumer-repos.yml).
+[Maint 71 Merge Sync PRs](../../.github/workflows/maint-71-merge-sync-prs.yml) checks the plan and reconciles its PRs.
+If a delivery is waiting, inspect the campaign issue and [Maint 82 Sync/Dependency Campaign](../../.github/workflows/maint-82-sync-dependency-campaign.yml) for its recorded reason and next action.
+
+The [original `manage_sync_prs.sh`](https://github.com/stranske/Workflows/blob/7634796c870bd01ba51f5e80fc0d1e5afa42af69/manage_sync_prs.sh) is preserved in Git.
+Its blob ID is `2ab68d7f249590f02c94ccb29478df145561a982` and its SHA-256 is `49340c315bc597736a9ab5f2f88c0533255a7727e552b88a181c13966d0dfc12`.
 
 ## Remote delivery handoff schema (`workflows-generated-delivery-handoff/v1`)
 
