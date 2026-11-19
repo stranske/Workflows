@@ -2585,6 +2585,7 @@ jobs:
           xml_path = base_dir / "coverage.xml"
           json_path = base_dir / "coverage.json"
           coverage_value: float | None = None
+          coverage_source = xml_path.name
 
           def normalize(value: str | None) -> str:
               return (value or "skipped").lower()
@@ -2626,11 +2627,12 @@ jobs:
                       percent = totals.get("percent_covered")
                       if isinstance(percent, (int, float)):
                           coverage_value = float(percent)
+                          coverage_source = json_path.name
 
           if coverage_value is not None:
               summary["coverage"] = {
                   "percent": round(float(coverage_value), 2),
-                  "source": "coverage.json" if json_path.exists() else "coverage.xml",
+                  "source": coverage_source,
               }
 
           collection_path = Path("pytest-collection.json")
