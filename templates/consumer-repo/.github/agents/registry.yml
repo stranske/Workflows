@@ -40,7 +40,7 @@ subscription_analysis:
 execution_profiles:
   codex-default:
     agent: codex
-    model: gpt-6.1-sol
+    model: gpt-6.2-sol
     fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
@@ -58,7 +58,7 @@ execution_profiles:
     reasoning_effort: medium
   codex-implement:
     agent: codex
-    model: gpt-6.1-sol
+    model: gpt-6.2-sol
     fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
@@ -67,7 +67,7 @@ execution_profiles:
     reasoning_effort: high
   codex-coordinate:
     agent: codex
-    model: gpt-6.1-sol
+    model: gpt-6.2-sol
     fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
@@ -94,7 +94,7 @@ execution_profiles:
     reasoning_effort: low
   codex-hard:
     agent: codex
-    model: gpt-6-astra
+    model: gpt-6.2-astra
     fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
@@ -103,7 +103,7 @@ execution_profiles:
     reasoning_effort: medium
   codex-hardest:
     agent: codex
-    model: gpt-6-astra
+    model: gpt-6.2-astra
     fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
