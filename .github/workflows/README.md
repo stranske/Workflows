@@ -7,9 +7,8 @@ and naming rules in the [routing guide](../../docs/WORKFLOW_GUIDE.md).
 ---
 ## 1. Architecture Snapshot
 Core layers:
-- Gate orchestrator (`pr-00-gate.yml`): single required check that fans out to parallel Python 3.13/3.14 CI and the Docker smoke test using the reusable workflows, then enforces that every leg succeeds.
-- Minimal invariant CI (`pr-11-ci-smoke.yml`): lean push/PR workflow that loads Python from `ci-python-versions.env` (currently 3.14), validates workflow YAML syntax, and checks script syntax.
-- Gate summary (`pr-00-gate.yml` post-CI jobs): integrated post-CI reporting that batches small hygiene fixes, posts Gate summaries, and manages trivial failure remediation using the composite autofix action.
+- [Gate and its summary job](../../docs/ci/WORKFLOWS.md#gate-job-map) own PR testing and the required `summary` check.
+- [Minimal invariant CI](../../docs/ci/WORKFLOWS.md#minimal-invariant-ci) owns the supplemental syntax check and PR source-context report.
 - Agents orchestration (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): single entry point for Codex readiness, bootstrap, diagnostics, and watchdog sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the issue bridge listens for `agent:codex` and hands issues to the orchestrator. Legacy consumer shims remain removed following Issue #2650.
 - Model-profile trial (`agents-model-profile-trial.yml` + `reusable-model-profile-trial.yml`): Workflows-only manual transport for one immutable, read-only Sol/Terra/Luna instrumentation arm. A separately pinned helper requires the target to equal current remote `main` before auth and uploads v2 quarantine telemetry with source-manifest and GitHub provenance. It has no commit, push, comment, auth-refresh, evaluator, provider-resolution, or ordinary Keepalive path.
 - PR metadata management (`agents-pr-meta.yml`): serializes Codex activation commands and PR body decoration through dedicated jobs that share a concurrency group keyed by PR number. This prevents marker thrash while keeping activation dispatch responsive.
@@ -77,8 +76,8 @@ workflow files.
 
 | Workflow | Trigger(s) | Notes |
 |----------|-----------|-------|
-| `pr-00-gate.yml` | pull_request, workflow_dispatch | Orchestrates reusable parallel Python 3.13/3.14 CI and Docker smoke tests, then enforces all-success before reporting `gate`.
-| `pr-11-ci-smoke.yml` | push (`main`), pull_request (`main`), workflow_dispatch | Minimal invariant sweep that installs the project with dev extras, caches pip dependencies, runs the package import sanity check, and executes `pytest tests/test_invariants.py -q`.
+| [Gate](../../docs/ci/WORKFLOWS.md#pull-request-gate) | Pull request, manual dispatch | Consult the Gate job map for each check and its artifacts. |
+| [Minimal invariant CI](../../docs/ci/WORKFLOWS.md#minimal-invariant-ci) | Push and PR to `main`, manual dispatch | Open the syntax check for the failing path. |
 | `health-41-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
 | `maint-47-disable-legacy-workflows.yml` | workflow_run (`Gate`) | Disables legacy workflows as documented for Maint 47.
 | `maint-coverage-guard.yml` | schedule (daily), workflow_dispatch | Soft coverage guard that monitors the latest Gate coverage artifacts and updates the `[coverage] baseline breach` issue.
