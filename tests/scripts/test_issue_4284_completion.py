@@ -8,7 +8,6 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
-
 from scripts import issue_4284_completion
 from scripts.issue_4284_completion import main, reconcile_completion
 
