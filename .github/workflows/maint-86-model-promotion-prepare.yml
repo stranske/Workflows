@@ -48,12 +48,12 @@ jobs:
           BENCHMARK_PATH: ${{ inputs.benchmark_path }}
           MODE: ${{ inputs.mode }}
         run: |
-          set +e
+          rc=0
           python -m tools.prepare_model_promotion \
             --benchmark "$BENCHMARK_PATH" \
             --mode "$MODE" \
-            --write config/model_registry.json | tee prepare.log
-          rc=$?
+            --write config/model_registry.json > prepare.log || rc=$?
+          cat prepare.log
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
           {
             echo '## Model promotion prepare'
@@ -61,11 +61,10 @@ jobs:
             cat prepare.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$rc" = "2" ]; then
-            echo "::error::prepare_model_promotion input error."
-            exit 2
-          fi
-          exit 0
+          case "$rc" in
+            0|10) exit 0 ;;
+            *) echo "::error::prepare_model_promotion exited with status $rc."; exit "$rc" ;;
+          esac
       - name: Open promotion PR (human merges to approve)
         if: steps.prep.outputs.rc == '10'
         uses: peter-evans/create-pull-request@v8
