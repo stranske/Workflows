@@ -154,6 +154,7 @@ def test_complete_artifact_is_uploaded_before_render_and_issue_write():
         step for step in steps if step.get("with", {}).get("name") == "monthly-audit-details"
     )
     assert artifact["with"]["retention-days"] == 90
+    assert artifact["with"]["overwrite"] is True
     assert artifact["with"]["if-no-files-found"] == "error"
     assert steps.index(artifact) < next(
         i for i, step in enumerate(steps) if step.get("id") == "checklist"
