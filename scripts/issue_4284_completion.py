@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reconcile issue #4284 completion only after both live-verification gates pass.
+"""Reconcile completion for Workflows #4284 after both live-verification gates pass.
 
 The check consumes ``gh issue view 4284 --json state,body,comments`` together
 with the retained Gate-run evidence and ``docs/reports/ci-budget.json``.

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
+from scripts import issue_4284_completion
 from scripts.issue_4284_completion import main, reconcile_completion
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -181,8 +184,47 @@ def test_main_rejects_a_non_object_issue_view(tmp_path: Path) -> None:
     assert not output.exists()
 
 
+@pytest.mark.parametrize(
+    ("issue_view", "budget", "expected"),
+    [
+        (GATE.with_name("issue-view-4284.json"), ROOT / "docs/reports/ci-budget.json", "true"),
+        (ISSUE_VIEW, BUDGET, "false"),
+    ],
+)
+def test_main_defaults_to_current_utc_date_and_prints_lowercase_result(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    issue_view: Path,
+    budget: Path,
+    expected: str,
+) -> None:
+    class FixedClock:
+        @staticmethod
+        def now(tz: object) -> datetime:
+            assert tz is UTC
+            return datetime(2026, 11, 20, 0, 1, tzinfo=UTC)
+
+    monkeypatch.setattr(issue_4284_completion, "datetime", FixedClock)
+    output = tmp_path / "completion-reconciliation.json"
+    code = main(
+        [
+            "--issue-view",
+            str(issue_view),
+            "--gate-evidence",
+            str(GATE),
+            "--budget",
+            str(budget),
+            "--output",
+            str(output),
+        ]
+    )
+    assert code == 0
+    assert _load(output)["checked_on"] == "2026-11-20"
+    assert f"completion_reconciled={expected}" in capsys.readouterr().out.split()
+
+
 def test_issue_4284_completion_helper_and_validation_branches(tmp_path: Path) -> None:
-    import pytest
     from scripts.issue_4284_completion import (
         _computed_series_failures,
         _flag,

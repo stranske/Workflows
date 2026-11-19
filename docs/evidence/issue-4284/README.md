@@ -10,9 +10,10 @@ gh run view 40551187519 --repo stranske/Workflows --json jobs,status,conclusion
 Retain that payload with:
 
 ```bash
+evidence_dir=docs/evidence/issue-4284
 python -m scripts.gate_run_view_evidence \
   --input run-40551187519.json \
-  --output docs/evidence/issue-4284/gate-run-40551187519.json
+  --output "$evidence_dir/gate-run-40551187519.json"
 ```
 
 `gate-run-40551187519.json` keeps the CLI status, conclusion, and the
@@ -32,11 +33,12 @@ run failed after the Orchestrator measurement returned HTTP 502.
 Completion is reconciled only after both gates have supporting evidence:
 
 ```bash
+evidence_dir=docs/evidence/issue-4284
 python -m scripts.issue_4284_completion \
-  --issue-view docs/evidence/issue-4284/issue-view-4284.json \
-  --gate-evidence docs/evidence/issue-4284/gate-run-40551187519.json \
+  --issue-view "$evidence_dir/issue-view-4284.json" \
+  --gate-evidence "$evidence_dir/gate-run-40551187519.json" \
   --budget docs/reports/ci-budget.json \
-  --output docs/evidence/issue-4284/completion-reconciliation.json
+  --output "$evidence_dir/completion-reconciliation.json"
 ```
 
 `issue-view-4284.json` is `gh issue view 4284 --repo stranske/Workflows --json
