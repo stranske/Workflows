@@ -200,11 +200,24 @@ jobs:
           LOOKBACK: ${{ inputs.lookback_days || 30 }}
           API_GUARD: ${{ steps.api_guard.outputs.report }}
         run: |
+          set -euo pipefail
+
+          AUDIT_MONTH=$(LC_ALL=C date -u '+%B %Y')
+          GENERATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          total_runs="${TOTAL_RUNS:-0}"
+          total_success="${TOTAL_SUCCESS:-0}"
+          if [ "$total_runs" -gt 0 ]; then
+            SUCCESS_RATE=$(( total_success * 100 / total_runs ))
+          else
+            SUCCESS_RATE=0
+          fi
+          export AUDIT_MONTH GENERATED_AT SUCCESS_RATE
+
           cat > /tmp/audit_body.md << 'AUDIT_EOF'
-          ## Monthly Workflow Audit - $(date +%B\ %Y)
+          ## Monthly Workflow Audit - ${AUDIT_MONTH}
 
           **Audit Period:** Last ${LOOKBACK} days
-          **Generated:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          **Generated:** ${GENERATED_AT}
 
           ### Summary Statistics
 
@@ -213,7 +226,7 @@ jobs:
           | Total Runs | ${TOTAL_RUNS} |
           | Successful | ${TOTAL_SUCCESS} |
           | Failed | ${TOTAL_FAILURE} |
-          | Success Rate | $(( TOTAL_RUNS > 0 ? (TOTAL_SUCCESS * 100 / TOTAL_RUNS) : 0 ))% |
+          | Success Rate | ${SUCCESS_RATE}% |
 
           ### Workflows Requiring Immediate Attention (<50% success)
 
@@ -267,7 +280,11 @@ jobs:
           AUDIT_EOF
 
           # Substitute environment variables
-          envsubst < /tmp/audit_body.md > /tmp/audit_final.md
+          # shellcheck disable=SC2016
+          envsubst '${AUDIT_MONTH} ${LOOKBACK} ${GENERATED_AT} ${TOTAL_RUNS}
+            ${TOTAL_SUCCESS} ${TOTAL_FAILURE} ${SUCCESS_RATE}
+            ${FAILING} ${WARNING} ${NOT_RUN} ${API_GUARD}' \
+            < /tmp/audit_body.md > /tmp/audit_final.md
 
           {
             echo "body<<EOF"
