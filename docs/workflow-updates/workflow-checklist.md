@@ -18,7 +18,7 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `agents-bot-comment-autolabel.yml` | Auto-labels trusted bot review comments with `autofix:bot-comments` so inline fixes run without human input. |
 | [x] | `agents-bot-comment-handler.yml` | Workflow now auto-runs when trusted bots comment (plus existing triggers); documented the new behavior. |
 | [x] | `agents-capability-check.yml` | Still needed as the pre-agent guard; runs the LangChain capability classifier, posts a structured comment, and applies `needs-human` when tasks are blocked. |
-| [x] | `agents-debug-issue-event.yml` | Kept as-is; purely dumps GitHub context for label debugging and doesn’t mutate issues. |
+| [x] | `agents-debug-issue-event.yml` | Manual diagnostic for current issue labels and an optional historical label change. [Dispatch and event lookup](../ci/WORKFLOWS.md#agents-control-plane). |
 | [x] | `agents-decompose.yml` | Removed the redundant GitHub App mint; decomposition now runs entirely via the shared API client before posting subtasks/removing the trigger label. |
 | [x] | `agents-dedup.yml` | Dropped the manual App-token mint; duplicate detection now relies on the shared API client while posting warnings for near matches. |
 | [x] | `agents-guard.yml` | Removed the redundant App-token mint; guard now relies fully on the shared API client for its safety and label checks. |
