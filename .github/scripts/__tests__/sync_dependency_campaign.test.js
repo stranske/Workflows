@@ -2188,3 +2188,23 @@ test('planMaint71Continuations requeues a campaign intent when its acknowledgmen
   const freshAcknowledgment = { ...staleAcknowledgment, completed_at: '2026-11-18T05:54:00Z' };
   assert.deepEqual(planMaint71Continuations(candidates, { now, acknowledgments: [freshAcknowledgment] }), []);
 });
+
+test('mergeContinuationAcknowledgments keeps the newest receipt so a fresh run still acknowledges its intent', () => {
+  const { mergeContinuationAcknowledgments } = require('../sync_dependency_campaign.js');
+  // Review on #4743: newest-first history (05:54 then 05:25) must not leave the 05:25 receipt.
+  const key = 'cand-20ff31ce9c634ae1bb13';
+  const intents = [{ lane: 'campaign', continuation_key: key, resume_after: '2026-11-18T05:53:07.361Z' }];
+  const run = (id, updated) => ({ id, run_attempt: 1, status: 'completed', conclusion: 'success',
+    event: 'workflow_dispatch', repository: { full_name: 'stranske/Workflows' }, head_branch: 'main',
+    path: '.github/workflows/maint-71-merge-sync-prs.yml', display_title: `Merge Sync PRs [campaign] ${key}`,
+    updated_at: updated });
+  const receipts = mergeContinuationAcknowledgments([], [run(2, '2026-11-18T05:54:00Z'), run(1, '2026-11-18T05:25:19Z')], intents);
+  assert.deepEqual(receipts.map((r) => r.run_id), [2]);
+  // a persisted older receipt is replaced by a newer run, never the reverse
+  const persisted = [{ lane: 'campaign', key, run_id: 1, run_attempt: 1, completed_at: '2026-11-18T05:25:19Z' }];
+  assert.deepEqual(mergeContinuationAcknowledgments(persisted, [run(2, '2026-11-18T05:54:00Z')], intents)
+    .map((r) => r.run_id), [2]);
+  const newer = [{ ...persisted[0], run_id: 3, completed_at: '2026-11-18T06:30:00Z' }];
+  assert.deepEqual(mergeContinuationAcknowledgments(newer, [run(2, '2026-11-18T05:54:00Z')], intents)
+    .map((r) => r.run_id), [3]);
+});

@@ -627,6 +627,10 @@ function mergeContinuationAcknowledgments(previous = [], runs = [], intents = []
     if (!match || !queued.has(`${match[1]}:${match[2]}`)) continue;
     const ack = { lane: match[1], key: match[2], run_id: run.id,
       run_attempt: run.run_attempt, completed_at: run.updated_at };
+    // Keep the latest completion: Actions history is newest-first, and the resume_after guard in
+    // hasContinuationAcknowledgment must see the newest receipt, not whichever run was read last.
+    const prior = receipts.get(`${ack.lane}:${ack.key}`);
+    if (prior && Date.parse(prior.completed_at) >= Date.parse(ack.completed_at)) continue;
     receipts.set(`${ack.lane}:${ack.key}`, ack);
   }
   return [...receipts.values()];
