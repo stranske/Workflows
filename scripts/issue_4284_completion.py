@@ -26,6 +26,7 @@ SCHEMA = "issue-4284-completion-reconciliation/v1"
 ISSUE_VIEW_COMMAND = "gh issue view 4284 --repo stranske/Workflows --json state,body,comments"
 _FOLLOWUP_RE = re.compile(r"followup=#(\d+)")
 _MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^()\s]+)\)")
+_OBSERVATION_BULLET_RE = re.compile(r"- (\d{4}-\d{2}-\d{2}): (?:p50 )?(\d+\.\d) seconds; (\S+)")
 _CHECKED_HEALTH85_RE = re.compile(
     r"(?m)^- \[x\] Live-verification gate: Health 85 reports",
     re.IGNORECASE,
@@ -166,6 +167,10 @@ def matching_observation_dates(
         return [], ["budget observations are missing"]
     issue_rows = set()
     for line in issue_text(issue).splitlines():
+        bullet = _OBSERVATION_BULLET_RE.fullmatch(line.strip())
+        if bullet:
+            issue_rows.add((bullet[1], bullet[2], bullet[3]))
+            continue
         cells = [cell.strip() for cell in line.split("|")]
         if len(cells) not in (6, 7) or cells[0] or cells[-1]:
             continue
