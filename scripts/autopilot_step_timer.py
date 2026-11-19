@@ -9,8 +9,9 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-if __package__:  # `python -m scripts.autopilot_step_timer`
+if TYPE_CHECKING or __package__:  # `python -m scripts.autopilot_step_timer`
     from scripts.autopilot_summary_environment import summary_environment_details
 else:  # `python scripts/autopilot_step_timer.py`
     from autopilot_summary_environment import summary_environment_details
