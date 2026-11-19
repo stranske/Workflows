@@ -15,7 +15,7 @@ import json
 import re
 import sys
 from collections.abc import Mapping
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -299,7 +299,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gate-evidence", type=Path, required=True)
     parser.add_argument("--budget", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--checked-on", default="2026-11-06")
+    parser.add_argument("--checked-on", default=datetime.now(UTC).date().isoformat())
     args = parser.parse_args(argv)
     issue = _load_object(args.issue_view)
     evidence = _load_object(args.gate_evidence)
@@ -320,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
     args.output.write_text(decision_json(decision), encoding="utf-8")
     print(
         f"action={decision['action']} "
-        f"completion_reconciled={decision['completion_reconciled']} "
+        f"completion_reconciled={_flag(decision['completion_reconciled'])} "
         f"state={decision['state']} "
         f"followup_issue={decision['followup_issue']}"
     )

@@ -21,11 +21,13 @@ calculated seconds and job URLs. Both jobs on this run finished within 600
 seconds.
 
 Health 85 is workflow id `387854305` (`Health 85 CI Time Budget`).
-`health85-daily-observations.json` is the 2026-10-31 through 2026-11-06 log
-extract. `docs/reports/ci-budget.json` retains those dates, minute p50 values,
-second equivalents, and source run URLs. That series does not qualify: every
-measured p50 is above 600 seconds, and 2026-11-05 and 2026-11-06 are
-measurement failures.
+`health85-daily-observations.json` and `docs/reports/ci-budget.json` retain
+the seven qualifying UTC dates from 2026-11-12 through 2026-11-18, the p50 in
+minutes and seconds, and the original run and artifact URLs. The first four
+dates were recovered from daily artifacts. The last three also match the
+published report on `ci-time-budget` at the commit recorded in the evidence.
+On 2026-11-18, the Workflows measurement used 206 Gate samples. The overall
+run failed after the Orchestrator measurement returned HTTP 502.
 
 Completion is reconciled only after both gates have supporting evidence:
 
@@ -38,9 +40,8 @@ python -m scripts.issue_4284_completion \
 ```
 
 `issue-view-4284.json` is `gh issue view 4284 --repo stranske/Workflows --json
-state,body,comments` on 2026-11-06. The issue is `CLOSED` because closer-core
-moved the unmet Health 85 gate to #4482. The named Gate jobs pass, and the
-seven Health 85 rows on the issue match `docs/reports/ci-budget.json`, but
-that series does not qualify. `completion-reconciliation.json` therefore
-records `action=leave_incomplete` and does not edit issue state or acceptance
-checkboxes.
+state,body,comments` on 2026-11-19. Closer-core had closed #4284 after moving
+the unmet Health 85 gate to #4482. The named Gate jobs passed, and all seven
+qualifying rows match the [delivery evidence on #4284](https://github.com/stranske/Workflows/issues/4284#issuecomment-7002527234).
+`completion-reconciliation.json` records `action=mark_complete` and
+`completion_reconciled=true`.
