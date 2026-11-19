@@ -261,7 +261,9 @@ jobs:
 
           **Previous audit:** Check for issues with label `workflow-audit`
           **Documentation:** See
-          [WORKFLOW_AUDIT_2025-12-25.md](docs/WORKFLOW_AUDIT_2025-12-25.md)
+          [Monthly workflow audit procedure](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOW_AUDIT_PROCEDURE.md)
+          and
+          [archived audit reports](https://github.com/stranske/Workflows/blob/main/docs/archive/ARCHIVE_PLANS.md#workflow-audit-reports)
           AUDIT_EOF
 
           # Substitute environment variables
