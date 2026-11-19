@@ -6,11 +6,13 @@ on:
       - '.github/sync-manifest.yml'
       - '.github/scripts/**/*.js'
       - 'scripts/aggregate_agent_metrics.py'
+      - 'scripts/langchain/checklist_utils.py'
       - 'scripts/sync_templates.sh'
       - 'scripts/validate_template_sync.py'
       - 'tools/requirements-llm.txt'
       - 'templates/consumer-repo/.github/scripts/**/*.js'
       - 'templates/consumer-repo/scripts/aggregate_agent_metrics.py'
+      - 'templates/consumer-repo/scripts/langchain/checklist_utils.py'
       - 'templates/consumer-repo/tools/requirements-llm.txt'
   push:
     branches: [main]
@@ -18,11 +20,13 @@ on:
       - '.github/sync-manifest.yml'
       - '.github/scripts/**/*.js'
       - 'scripts/aggregate_agent_metrics.py'
+      - 'scripts/langchain/checklist_utils.py'
       - 'scripts/sync_templates.sh'
       - 'scripts/validate_template_sync.py'
       - 'tools/requirements-llm.txt'
       - 'templates/consumer-repo/.github/scripts/**/*.js'
       - 'templates/consumer-repo/scripts/aggregate_agent_metrics.py'
+      - 'templates/consumer-repo/scripts/langchain/checklist_utils.py'
       - 'templates/consumer-repo/tools/requirements-llm.txt'
 
 permissions:
