@@ -43,39 +43,49 @@ jobs:
           set -euo pipefail
           # shellcheck disable=SC1009,SC1073,SC1039,SC1072
 
-          # Calculate date range
-          start_date=$(date -d "-${LOOKBACK_DAYS} days" +%Y-%m-%d)
-          echo "Analyzing runs since: ${start_date}"
-          export START_DATE="${start_date}"
+          # Bind collection, the checklist and its issue title to one UTC instant.
+          IFS='|' read -r END_DATE audit_month <<< "$(LC_ALL=C date -u '+%Y-%m-%dT%H:%M:%SZ|%B %Y')"
+          START_DATE=$(date -u -d "${END_DATE} ${LOOKBACK_DAYS} days ago" +%Y-%m-%dT00:00:00Z)
+          export START_DATE END_DATE
+          echo "Collecting runs created from ${START_DATE} through ${END_DATE}"
+          {
+            echo "generated_at=${END_DATE}"
+            echo "audit_month=${audit_month}"
+          } >> "$GITHUB_OUTPUT"
 
           # Get all workflow runs
           runs=$(node - <<-'NODE'
           const { Octokit } = require('@octokit/rest');
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+          const { collectRunWindow } = require('./.github/scripts/dependency_sync_run_window.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
           const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-          const startDate = process.env.START_DATE;
           (async () => {
             const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
-            const { paginateWithRetry } = await createTokenAwareRetry({
+            const { withRetry } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
               task: 'maint-66-monthly-audit',
               capabilities: ['actions:read']
             });
-            const runs = await paginateWithRetry(github.rest.actions.listWorkflowRunsForRepo, {
-              owner,
-              repo,
-              per_page: 100,
-              created: `>=${startDate}`
+            const runs = await collectRunWindow({
+              start: process.env.START_DATE,
+              end: process.env.END_DATE,
+              listPage: async (params) => {
+                const { data } = await withRetry((client) =>
+                  client.rest.actions.listWorkflowRunsForRepo({ owner, repo, ...params })
+                );
+                // Keep the monthly inventory small while retaining IDs for completeness checks.
+                return { data: {
+                  total_count: data.total_count,
+                  workflow_runs: data.workflow_runs.map(({ id, created_at, name, conclusion }) =>
+                    ({ id, created_at, name, conclusion })
+                  ),
+                } };
+              },
             });
-            const slim = runs.map((run) => ({
-              name: run.name,
-              conclusion: run.conclusion,
-              created_at: run.created_at
-            }));
-            process.stdout.write(JSON.stringify(slim));
+            process.stdout.write(JSON.stringify(runs));
           })().catch((error) => {
             console.error(error);
             process.exit(1);
@@ -191,6 +201,8 @@ jobs:
       - name: Generate audit checklist
         id: checklist
         env:
+          AUDIT_MONTH: ${{ steps.stats.outputs.audit_month }}
+          GENERATED_AT: ${{ steps.stats.outputs.generated_at }}
           FAILING: ${{ steps.attention.outputs.failing }}
           WARNING: ${{ steps.attention.outputs.warning }}
           NOT_RUN: ${{ steps.attention.outputs.not_run }}
@@ -202,8 +214,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          AUDIT_MONTH=$(LC_ALL=C date -u '+%B %Y')
-          GENERATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           total_runs="${TOTAL_RUNS:-0}"
           total_success="${TOTAL_SUCCESS:-0}"
           if [ "$total_runs" -gt 0 ]; then
@@ -211,7 +221,7 @@ jobs:
           else
             SUCCESS_RATE=0
           fi
-          export AUDIT_MONTH GENERATED_AT SUCCESS_RATE
+          export SUCCESS_RATE
 
           cat > /tmp/audit_body.md << 'AUDIT_EOF'
           ## Monthly Workflow Audit - ${AUDIT_MONTH}
@@ -297,10 +307,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           AUDIT_BODY: ${{ steps.checklist.outputs.body }}
+          AUDIT_MONTH: ${{ steps.stats.outputs.audit_month }}
         run: |
           set -euo pipefail
 
-          title="[Monthly Audit] Workflow Health Check - $(date +%B\ %Y)"
+          title="[Monthly Audit] Workflow Health Check - ${AUDIT_MONTH}"
 
           # Check for existing open audit issue
           existing=$(gh issue list --repo "${{ github.repository }}" \
