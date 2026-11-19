@@ -256,7 +256,6 @@ EXPECTED_NAMES = {
     "health-53-scorecard.yml": "Health 53 Scorecard",
     "maint-45-cosmetic-repair.yml": "Maint 45 Cosmetic Repair",
     "maint-46-post-ci.yml": "Maint 46 Post CI",
-    "maint-47-disable-legacy-workflows.yml": "Maint 47 Disable Legacy Workflows",
     "maint-48-docs-drift-audit.yml": "Maint 48 Docs Drift Audit",
     "maint-87-docs-drift-fix-agent.yml": "Maint 87 Docs Drift Fix Agent",
     "maint-88-verifier-runtime-comparison.yml": "Maint 88 Verifier Runtime Comparison",

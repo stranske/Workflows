@@ -523,9 +523,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   when the Gate `summary` job succeeded and only downloads artifacts, rebuilds the summary
   (including coverage deltas), and refreshes the commit status when Gate failed
   to publish its own summary.
-- **Maint 47 Disable Legacy Workflows** – `.github/workflows/maint-47-disable-legacy-workflows.yml`
-  runs on-demand and disables archived workflows still listed as active in the
-  Actions UI.
 - **Maint Sync Action Versions** – `.github/workflows/maint-sync-action-versions.yml`
   syncs action version pins from `.github/workflows` into workflow templates after
   Dependabot updates land.
@@ -720,7 +717,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | After the Gate CI jobs | Report the combined result and request follow-up for eligible failures. | ✅ Required | [Gate job map](WORKFLOWS.md#gate-job-map) |
 | [PR 11 - Minimal invariant CI](WORKFLOWS.md#minimal-invariant-ci) | Push and PR to `main`, manual dispatch | Inspect workflow YAML and script syntax failures. | ⚪ Supplemental | [Workflow runs](https://github.com/stranske/Workflows/actions/workflows/pr-11-ci-smoke.yml) |
 | **PR 46 Dependency Repair Contract** (`pr-46-dependency-repair-contract.yml`, PR checks bucket) | `pull_request_target` for dependency-bot and marked promotion PRs | Keep bot branches classified and verify the bot-delta first commit before agent repair commits. | ✅ Required for dependency repair lanes | [Dependency repair contract runs](https://github.com/stranske/Workflows/actions/workflows/pr-46-dependency-repair-contract.yml) |
-| **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Workflows/actions/workflows/maint-47-disable-legacy-workflows.yml) |
 | **Maint 50 Tool Version Check** (`maint-50-tool-version-check.yml`, maintenance bucket) | `schedule` (Mondays 8:00 AM UTC), `workflow_dispatch` | Publish read-only PyPI freshness evidence for the canonical dev-tool pin set. | ⚪ Scheduled | [Maint 50 version checks](https://github.com/stranske/Workflows/actions/workflows/maint-50-tool-version-check.yml) |
 | **Auto-label dependency PRs** (`maint-auto-label-dep-prs.yml`, maintenance bucket) | `pull_request_target` (`opened`) | Apply the `agents:allow-change` label to dependency-bot PRs (Dependabot + Renovate) so protected-workflow changes can be reviewed without manual label work. | ⚪ Automatic on PR open | [Auto-label runs](https://github.com/stranske/Workflows/actions/workflows/maint-auto-label-dep-prs.yml) |
 | **Auto-lock dependency PRs** (`maint-auto-lock-deps.yml`, maintenance bucket) | `pull_request` (dependency-bot branches `dependabot/**` + `renovate/**`, lock-input changes) | Regenerate `requirements.lock` by re-running the command recorded in the lock header when a dependency bot updates an input, committing the refreshed lock back to the PR branch. Workflows-local backstop to the fleet Renovate pip-compile manager. | ⚪ Automatic on dependency-bot PRs | [Auto-lock runs](https://github.com/stranske/Workflows/actions/workflows/maint-auto-lock-deps.yml) |

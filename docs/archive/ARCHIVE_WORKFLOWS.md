@@ -4,6 +4,18 @@ This document records the archival and eventual deletion of legacy agent-related
 
 ## Archived
 
+### Registered workflows after retirement
+
+From a checkout of the repository, list its registered workflow paths and states.
+
+```sh
+gh api --paginate 'repos/{owner}/{repo}/actions/workflows' --jq '.workflows[] | [.path, .state] | @tsv'
+```
+
+Compare a path against the default branch and the workflow’s run history before changing its state. Entries can belong to another branch.
+
+Maint 47 previously advertised a disable sweep. Its [manual workflow](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/.github/workflows/maint-47-disable-legacy-workflows.yml) invoked a [helper](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/tools/disable_legacy_workflows.py) with stubbed list and update methods and no command-line entry point. GitHub reported zero runs before retirement.
+
 ### Maintenance sweep (Issue #2823)
 - `ci.yml` → [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) — Gate now fans out to the reusable Python matrix so the standalone CI wrapper is redundant.
 - `docker.yml` → [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) — The Gate workflow’s Docker smoke job replaces the legacy bespoke Docker entry point.

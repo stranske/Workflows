@@ -1125,18 +1125,17 @@ The Workflows repository includes maintenance workflows that handle sync, update
 
 ---
 
-### `maint-47-disable-legacy-workflows.yml` - Disable Deprecated Workflows
-**Purpose:** Disables old workflow versions
+<a id="maint-47-disable-legacy-workflowsyml---disable-deprecated-workflows"></a>
 
-**Trigger:** Manual dispatch with workflow name
+### Review registered workflows after retirement
 
-**What It Does:**
-- Renames workflow file (adds `.disabled`)
-- Updates documentation
-- Posts deprecation notice
-- Schedules for removal
+From the consumer checkout, list the paths and states registered in Actions.
 
-**Use When:** Replacing old workflow with new version
+```sh
+gh api --paginate 'repos/{owner}/{repo}/actions/workflows' --jq '.workflows[] | [.path, .state] | @tsv'
+```
+
+Compare a path with the default branch and its run history before changing the workflow’s state.
 
 ---
 
