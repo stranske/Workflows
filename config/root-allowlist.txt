@@ -2,7 +2,6 @@
 .flake8
 .gitattributes
 .gitignore
-.langsmith-smoke-test.txt
 .pre-commit-config.yaml
 .release-please-manifest.json
 AGENTS.md
@@ -15,8 +14,6 @@ LICENSE
 README.md
 TEMPLATE_REPO_EVALUATION.md
 actionlint
-coverage.json
-find_duplicate_tokens.sh
 input.txt
 manage_sync_prs.sh
 pyproject.toml
@@ -25,7 +22,5 @@ renovate.json
 requirements.lock
 requirements.txt
 sitecustomize.py
-template-pr-description.md
 topics.json
-verify_comments.sh
 workloop-state.md
