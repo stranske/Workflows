@@ -1,11 +1,12 @@
 # Self-Test Workflow Overview
 
-**Selftest: Reusables** is the repository's optional-feature integration self-test workflow. It is scheduled nightly (`30 6 * * *`) and can also be launched manually through the *workflow_dispatch* form. The workflow fans out to the shared Python CI reusable (`reusable-10-ci-python.yml`) to exercise six optional-feature profiles against a small real consumer fixture on the default parallel Python 3.13/3.14 matrix. The full repository suite belongs to canonical Gate and main/manual Selftest CI, rather than being repeated in every profile.
+**Selftest: Reusables** is the repository's optional-feature integration self-test workflow. The workflow fans out to the shared Python CI reusable (`reusable-10-ci-python.yml`) to exercise six optional-feature profiles against a small real consumer fixture on the default parallel Python 3.13/3.14 matrix. The full repository suite belongs to canonical Gate and main/manual Selftest CI, rather than being repeated in every profile.
 
 ## Triggers
 
 | Trigger | Description |
 |---------|-------------|
+| Pull request | Changes to the paths named in the workflow trigger a run. The changed files determine which scenarios run. |
 | Nightly cron | Executes at 06:30 UTC and records the verification table in the run summary. |
 | Manual dispatch | Allows custom run reasons, comment mode, and optional report retrieval through the workflow inputs. |
 

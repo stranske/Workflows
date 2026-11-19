@@ -43,7 +43,7 @@ artifact count can continue rising until the shorter retention periods elapse.
 | `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
 | `agents-` | Agent orchestration entry points | `agents-63-issue-intake.yml`, `agents-64-verify-agent-assignment.yml`, `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-model-profile-trial.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-guard.yml`, `agents-pr-meta-v4.yml`, `agents-moderate-connector.yml`, `agents-keepalive-*.yml`, `agents-debug-issue-event.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-model-profile-trial.yml`, `reusable-agents-issue-bridge.yml` |
-| `selftest-` | Manual self-tests & experiments | `selftest-reusable-ci.yml` |
+| `selftest-` | Repository checks and reusable workflow tests | [Self-test workflows](ci/WORKFLOWS.md#self-test-harness) |
 | `autofix.yml` | CI autofix loop | `autofix.yml` |
 
 **Naming checklist**
@@ -202,7 +202,8 @@ failures. Consumer Gate Followups uses the same rule.
 - **`reusable-agents-verifier.yml`** — Post-merge verifier reusable that waits for CI (tracking every configured workflow until each has both started and completed), builds PR context, runs checkbox/evaluate/compare modes via the agent verifier stack, and opens follow-up issues when acceptance criteria fail. Checkbox mode defaults to `gpt-6-astra` with `gpt-5.5` fallback. It mints an optional read-only Workflows GitHub App token for private/same-repo caller contents, then falls back to `GITHUB_TOKEN` when App secrets are absent. The App token is restricted to the caller checkout; the Workflows scripts checkout uses `github.token`. Evaluate and compare require the full PR diff; a summary, malformed patch, or invalid quoted path is never substituted for code. The builder discovers bounded workflow artifacts associated with the exact merged PR head or merge commit, and the verifier budgets plan text and acceptance evidence separately. Non-directory archive entries excluded from the safe text allowlist, and missing or truncated required evidence/code, floor PASS. Explicit expanded comparison additionally requires a complete, error-free boolean `used_llm=true` PASS from each of the two configured provider/model slots; missing, duplicate, malformed or fallback arms cannot be filtered into a unified PASS. Standard is the default and aggregates available result rows without requiring both configured slots; a single completed judge can yield PASS, while reported FAIL/CONCERNS verdicts, unavailable/error results and CI/evidence floors still withhold PASS. A standard PASS alone does not prove two judges ran. See the [README comparison contract](../README.md#verification-pipeline). Verdict settlement runs after failed earlier steps, including artifact upload. Metrics and terminal/follow-up records consume the settled verdict, repeat the CI floor at the sink boundary, and require successful context, selected verifier and settlement outcomes. Only successful context explicitly declaring ineligibility is skipped; missing context or verdict evidence records an error and a matching non-PASS follow-up policy.
 
 ### Self-tests
-- **`selftest-reusable-ci.yml`** — Manual entry point that houses the verification matrix and comment/summary/dual-runtime publication logic.
+
+Use the [self-test catalog](ci/WORKFLOWS.md#self-test-harness) to choose the repository checks or the reusable CI scenario matrix.
 
 ## Archived & Legacy Workflows
 
@@ -442,8 +443,6 @@ These outputs land in the Actions run summary, with any follow-up issue filed in
 - `docs/agent-automation.md` — Detailed description of the agent orchestrator and options.
 - **`reusable-10-ci-python.yml`** — Primary Python CI composite (lint → format → mypy → pytest + coverage). Accepts matrix inputs and installs uv caches; optionally uses the GitHub App token for checkout when provided, but callers can rely on the default token.
 - **`reusable-pr-context.yml`** — GraphQL-based PR context fetcher used across workflows to gather labels/files/CI state in one call. Falls back to the caller’s token but prefers the GitHub App token or owner PAT when available to reduce per-run API limits.
-- **`selftest-ci.yml`** — Workflows’ own CI smoke (JS tests, Python tests, lint/YAML validation). Now relies solely on the default workflow token because the jobs only read this repo.
-- **`selftest-reusable-ci.yml`** — Scheduled/manual harness that drives `reusable-10-ci-python.yml` across multiple feature combinations (metrics, history, coverage delta, soft gate) and posts summary/comment outputs. Relies on the default workflow token plus inherited secrets—no extra token plumbing needed.
 
 
 ### Post-merge verifier evidence and visible dispositions

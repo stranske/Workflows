@@ -408,8 +408,7 @@ fires where” without diving into the full tables:
   - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
     `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-19-dependency-repair-contract.yml`, `reusable-20-pr-meta.yml`, `reusable-agents-issue-bridge.yml`, `reusable-agents-pr-health.yml`, `reusable-agents-verifier.yml`, `reusable-backplane-conformance.yml`, `reusable-bot-comment-handler.yml`, `reusable-claude-run.yml`, `reusable-codex-run.yml`, `reusable-model-profile-trial.yml`, `reusable-cursor-run.yml`, `reusable-gemini-run.yml`, `reusable-muse-run.yml`, `reusable-pr-context.yml`, and `selftest-reusable-ci.yml`.
   - **Triggers.** Invoked via `workflow_call` by Gate, Gate summary job, and manual
-    reruns. `selftest-reusable-ci.yml` handles the nightly rehearsal (cron at 06:30 UTC)
-    and manual publication modes via `workflow_dispatch`.
+    reruns. The [self-test catalog](WORKFLOWS.md#self-test-harness) covers the reusable CI harness.
   - **Purpose.** Provide a consistent lint/type/test/container matrix so every
     caller sees identical results.
   - **Codex entry point.** `reusable-codex-run.yml` centralizes prompt-file execution,
@@ -707,12 +706,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   helper checkout. It requires current remote `main` before auth and emits v2
   quarantine telemetry with GitHub provenance and bounded source manifests;
   `agents-model-profile-trial.yml` is its manual shim.
-- **Selftest: Reusables** – `selftest-reusable-ci.yml` is the consolidated entry
-  point. It runs nightly via cron (06:30 UTC) to rehearse all six optional-feature
-  profiles using a six-case consumer fixture on parallel Python 3.13/3.14
-  and accepts manual dispatches for summary/comment publication. Inputs:
-  - `mode`: `summary`, `comment`, or `dual-runtime` (controls reporting surface
-    and Python matrix).
+- **Selftest: Reusables** – Use the [dispatch options and scenario matrix](SELFTESTS.md#triggers) to run the consumer fixture or publish results on a PR. For custom run labels, use `summary_title` and `comment_title`.
+  - Gate summary job now serves as the canonical Gate follow-up comment. The
+    legacy wrappers `maint-43-selftest-pr-comment.yml`,
+    `pr-20-selftest-pr-comment.yml`, and `selftest-pr-comment.yml` were retired
+    in Issue #2720 so PR annotations flow through either Gate summary job or this
+    manual workflow. See [`docs/ci/SELFTESTS.md`](SELFTESTS.md) for the scenario
+    matrix and artifact expectations.
 - **Selftest CI** – `selftest-ci.yml` preserves its Python Tests check with the
   nine-case slow autofix/PyPI compatibility matrix; Gate owns the full PR suite
   with its 70% guard, and Selftest
@@ -720,18 +720,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   package tests, linting and YAML validation retain their push/PR triggers.
 - **Keepalive E2E** – `health-keepalive-e2e.yml` path-filtered E2E test for
   the keepalive system. Runs only when keepalive-related files change.
-  - `post_to`: `pr-number` or `none` (comment target when `mode == comment`).
-  - `enable_history`: `true` or `false` (download the verification artifact for
-    local inspection).
-  - Optional niceties include `pull_request_number`,
-    `summary_title`/`comment_title`, `reason`, and `python_versions` (JSON array
-    to override the default matrix).
-  - Gate summary job now serves as the canonical Gate follow-up comment. The
-    legacy wrappers `maint-43-selftest-pr-comment.yml`,
-    `pr-20-selftest-pr-comment.yml`, and `selftest-pr-comment.yml` were retired
-    in Issue #2720 so PR annotations flow through either Gate summary job or this
-    manual workflow. See [`docs/ci/SELFTESTS.md`](SELFTESTS.md) for the scenario
-    matrix and artifact expectations.
 - **Health Keepalive Auth Diagnostic** – `health-keepalive-auth-diagnostic.yml`
   4-part diagnostic: GitHub App tokens, Claude CLI auth, Codex auth, PAT
   availability. Manual dispatch.
@@ -830,7 +818,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Reusable Model Profile Trial** (`reusable-model-profile-trial.yml`, agents bucket) | `workflow_call` | Execute one immutable read-only Codex trial arm and upload a strict quarantine artifact. | ✅ When invoked | [Reusable model profile trial runs](https://github.com/stranske/Workflows/actions/workflows/reusable-model-profile-trial.yml) |
 | **Maint 88 Verifier Runtime Comparison** (`maint-88-verifier-runtime-comparison.yml`, maintenance bucket) | `workflow_dispatch` | Finite #3904 baseline/candidate experiment with immutable inputs, common dependencies, explicit cold application caches, raw JUnit/coverage and source hashes. Retains ordinary Gate acceptance. | ⚪ Manual | [Comparison runs](https://github.com/stranske/Workflows/actions/workflows/maint-88-verifier-runtime-comparison.yml) |
 | **Maint 89 Verifier Shadow Report** (`maint-89-verifier-shadow-report.yml`, maintenance bucket) | `schedule`, `workflow_dispatch` | Daily FYI report on shadow-run candidate verifier judges: collects `verifier-shadow.json` from fleet `comparison-results-*` artifacts into a 90-day ledger, applies the pre-registered criteria, updates one issue. Records only; no gate, no promotion. |
-| **Selftest: Reusables** (`selftest-reusable-ci.yml`, error-checking bucket) | `schedule` (06:30 UTC), `workflow_dispatch` | Rehearse the reusable CI scenarios nightly and publish manual summaries or PR comments on demand. | ⚪ Scheduled/manual | [Self-test workflow history](https://github.com/stranske/Workflows/actions/workflows/selftest-reusable-ci.yml) |
+| [Selftest: Reusables](WORKFLOWS.md#self-test-harness) | [Triggers and modes](SELFTESTS.md#triggers) | Exercise shared CI against a consumer fixture. | ⚪ Supplemental | [Workflow runs](https://github.com/stranske/Workflows/actions/workflows/selftest-reusable-ci.yml) |
 
 **PR body conflict guard.** `pr_body.md` is PR-specific. It must stay out of `main` and be ignored in consumer repos (`.gitignore` + `merge=ours` in `.gitattributes`). The Codex runner already `git reset`s `pr_body.md` before committing; if the file ever lands in `main`, rerun `maint-72-fix-pr-body-conflicts.yml` to delete it and reapply the ignore rule.
 
