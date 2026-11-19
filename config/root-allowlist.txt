@@ -14,7 +14,6 @@ LICENSE
 README.md
 TEMPLATE_REPO_EVALUATION.md
 actionlint
-manage_sync_prs.sh
 pyproject.toml
 release-please-config.json
 renovate.json
