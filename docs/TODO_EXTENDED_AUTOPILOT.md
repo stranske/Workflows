@@ -235,7 +235,7 @@ if (agentConfig.capabilities?.verifier_checkbox) {
 - `.github/scripts/agent_registry.js` - agent routing logic
 - `docs/analysis/autopilot-40pr-evaluation-feb-2026.md` - evaluation report
 - `docs/analysis/verify-compare-40pr-evaluation-feb-2026.md` - verifier evaluation
-- `skills/pr-finalize/` - similar logic for manual PR workflows
+- [Original manual finalization prompt](https://github.com/stranske/Workflows/blob/0baa7fa50c111de283c03533bd32f13f5f0629a1/skills/pr-finalize/prompt.md) used as a design reference.
 
 ## Success Metrics (After Implementation)
 
@@ -254,4 +254,4 @@ if (agentConfig.capabilities?.verifier_checkbox) {
 
 ---
 
-**Next Step**: Implement and test the pr-finalize skill first, then use its logic as a reference for the extended auto-pilot.
+The manual skill has been retired. For agent PRs, follow the [current closer procedure](ops/LOCAL_LANES.md#lanes-overview).
