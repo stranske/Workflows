@@ -17,12 +17,10 @@ on:
       - 'requirements.txt'
       - 'tools/requirements-llm.txt'
     branches:
-      - 'dependabot/**'
-      - 'renovate/**'
+      - main
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,18 +30,18 @@ jobs:
   regenerate-lock:
     name: Regenerate requirements.lock
     runs-on: ubuntu-latest
-    # This workflow runs on pull_request, not pull_request_target, so checking
-    # out github.head_ref is not an untrusted-code privileged checkout.
-    # Gate on the immutable PR author rather than github.actor, which can be a
-    # maintainer rerunning a bot-authored PR.
-    if: github.event.pull_request.user.login == 'dependabot[bot]' || github.event.pull_request.user.login == 'renovate[bot]'
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      ((github.event.pull_request.user.login == 'dependabot[bot]' && startsWith(github.head_ref, 'dependabot/')) ||
+       (github.event.pull_request.user.login == 'renovate[bot]' && startsWith(github.head_ref, 'renovate/')))
+    outputs:
+      needs_update: ${{ steps.check.outputs.needs_update }}
 
     steps:
-      # zizmor: ignore[artipacked] this backstop intentionally pushes regenerated requirements.lock
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -91,14 +89,68 @@ jobs:
             echo "⚠ Lock file regenerated; committing the refreshed lock"
           fi
 
-      - name: Commit updated lock file
+      - name: Save the regenerated lock
         if: steps.check.outputs.needs_update == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add requirements.lock
-          git commit \
-            -m "chore(deps): regenerate requirements.lock" \
-            -m "Backstop regeneration via the command recorded in the lock header."
-          git push
-          echo "✓ Committed and pushed updated lock file"
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: regenerated-lock-${{ github.event.pull_request.head.sha }}
+          path: requirements.lock
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+  publish-lock:
+    needs: regenerate-lock
+    if: needs.regenerate-lock.outputs.needs_update == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      # Only the trusted base supplies the API client on the writer.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+      - uses: stranske/Workflows/.github/actions/setup-api-client@34762b63d36b76a48a83d869e7448b1410c3e80f # trusted client
+        with:
+          github_token: ${{ github.token }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: regenerated-lock-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/regenerated-lock
+      - name: Commit only to the checked bot PR head
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const expected = context.payload.pull_request;
+            const repo = `${context.repo.owner}/${context.repo.repo}`;
+            const { data: pr } = await withRetry(() => github.rest.pulls.get({
+              ...context.repo, pull_number: expected.number,
+            }));
+            if (pr.state !== 'open' || pr.base.ref !== 'main' ||
+                pr.head.repo?.full_name !== repo || pr.user.login !== expected.user.login ||
+                pr.head.ref !== expected.head.ref || pr.head.sha !== expected.head.sha) {
+              core.notice('The dependency PR closed or changed since regeneration. Skipping this lock.');
+              return;
+            }
+            const lock = path.join(process.env.RUNNER_TEMP, 'regenerated-lock', 'requirements.lock');
+            if (!fs.lstatSync(lock).isFile()) throw new Error('Expected a regular requirements.lock');
+            const contents = fs.readFileSync(lock).toString('base64');
+            const { createCommitOnBranch } = await github.graphql(
+              `mutation($input: CreateCommitOnBranchInput!) {
+                createCommitOnBranch(input: $input) { commit { oid } }
+              }`,
+              { input: {
+                branch: { repositoryNameWithOwner: repo, branchName: pr.head.ref },
+                expectedHeadOid: expected.head.sha,
+                message: { headline: 'chore(deps): regenerate requirements.lock' },
+                fileChanges: { additions: [{ path: 'requirements.lock', contents }] },
+              } }
+            );
+            core.info(`Updated requirements.lock at ${createCommitOnBranch.commit.oid}`);
