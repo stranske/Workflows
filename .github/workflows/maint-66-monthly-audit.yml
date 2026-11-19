@@ -95,6 +95,10 @@ jobs:
 
           # Generate statistics
           echo "${runs}" | jq '
+            def conclusion_key:
+              if .conclusion != null then .conclusion
+              elif .status != null and .status != "completed" then "pending:" + .status
+              else "unknown" end;
             map(. + {workflow_key: (
               if .workflow_id != null then "id:" + (.workflow_id | tostring)
               elif .path != null then "path:" + (.path | split("@")[0])
@@ -114,8 +118,8 @@ jobs:
                 and .conclusion != "failure"
                 and .conclusion != "cancelled"
               )) | length,
-              conclusions: (group_by(.conclusion // "unknown") | map({
-                key: (.[0].conclusion // "unknown"), value: length
+              conclusions: (group_by(conclusion_key) | map({
+                key: (.[0] | conclusion_key), value: length
               }) | from_entries)
             }) |
             map(. + {failed_outcomes: (
@@ -136,7 +140,12 @@ jobs:
           total_failure=$(echo "${runs}" | jq \
             '[.[] | select(.conclusion == "failure")] | length')
 
+          total_failed_outcomes=$(jq '[.[].failed_outcomes] | add // 0' /tmp/workflow_stats.json)
+          total_decisive=$(jq '[.[].decisive] | add // 0' /tmp/workflow_stats.json)
+
           {
+            echo "total_failed_outcomes=${total_failed_outcomes}"
+            echo "total_decisive=${total_decisive}"
             echo "total_runs=${total_runs}"
             echo "total_success=${total_success}"
             echo "total_failure=${total_failure}"
@@ -176,8 +185,11 @@ jobs:
             "- **\(.name)** [\(.workflow_key)]: \(.failed_outcomes)/\(.decisive) decisive outcomes failed; insufficient sample for rate ranking"
           ' /tmp/workflow_stats.json)
           conclusion_mix=$(jq -r '
-            .[] | "- **\(.name)** [\(.workflow_key)]: " +
-            (.conclusions | to_entries | sort_by(.key) | map("\(.key)=\(.value)") | join(", "))
+            ([.[].conclusions | to_entries[]] | group_by(.key) |
+              map("\(.[0].key)=\(map(.value) | add)") | join(", ")),
+            "", "Per-workflow detail:",
+            (.[] | "- **\(.name)** [\(.workflow_key)]: " +
+            (.conclusions | to_entries | sort_by(.key) | map("\(.key)=\(.value)") | join(", ")))
           ' /tmp/workflow_stats.json)
 
           # Check for workflows that haven't run
@@ -207,6 +219,36 @@ jobs:
             fi
           done
 
+          # Preserve complete rankings and counts before bounding cross-step output.
+          # No run payloads or secrets are included in this artifact.
+          mkdir -p /tmp/monthly-audit-details
+          cp /tmp/workflow_stats.json /tmp/monthly-audit-details/workflow_stats.json
+          bound_section() {
+            local section="$1"
+            python3 -c '
+          import pathlib, sys
+          name = sys.argv[1]
+          text = sys.stdin.read()
+          pathlib.Path("/tmp/monthly-audit-details", name + ".txt").write_text(text)
+          lines = text.splitlines()
+          kept, size = [], 0
+          for line in lines:
+              if size + len(line.encode("utf-8")) + 1 > 6000:
+                  break
+              kept.append(line)
+              size += len(line.encode("utf-8")) + 1
+          print("\n".join(kept))
+          omitted = len(lines) - len(kept)
+          if omitted:
+              print(f"\n**{omitted} additional lines omitted here; see the complete {name}.txt in the monthly-audit-details artifact linked below.**")
+          ' "$section"
+          }
+          failing=$(printf '%s' "$failing" | bound_section failing)
+          warning=$(printf '%s' "$warning" | bound_section warning)
+          small_sample=$(printf '%s' "$small_sample" | bound_section small_sample)
+          conclusion_mix=$(printf '%s' "$conclusion_mix" | bound_section conclusion_mix)
+          not_run=$(printf '%b' "$not_run" | bound_section not_run)
+
           # Save outputs (handle multiline)
           {
             echo "failing<<EOF"
@@ -226,6 +268,14 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Preserve complete audit detail
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: monthly-audit-details
+          path: /tmp/monthly-audit-details/
+          retention-days: 90
+          if-no-files-found: error
+
       - name: Generate audit checklist
         id: checklist
         env:
@@ -239,6 +289,9 @@ jobs:
           TOTAL_RUNS: ${{ steps.stats.outputs.total_runs }}
           TOTAL_SUCCESS: ${{ steps.stats.outputs.total_success }}
           TOTAL_FAILURE: ${{ steps.stats.outputs.total_failure }}
+          TOTAL_FAILED_OUTCOMES: ${{ steps.stats.outputs.total_failed_outcomes }}
+          TOTAL_DECISIVE: ${{ steps.stats.outputs.total_decisive }}
+          DETAIL_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           LOOKBACK: ${{ inputs.lookback_days || 30 }}
           API_GUARD: ${{ steps.api_guard.outputs.report }}
         run: |
@@ -267,6 +320,8 @@ jobs:
           | Total Runs | ${TOTAL_RUNS} |
           | Successful | ${TOTAL_SUCCESS} |
           | Failure conclusion | ${TOTAL_FAILURE} |
+          | Failed outcomes (ranking numerator) | ${TOTAL_FAILED_OUTCOMES} |
+          | Decisive outcomes (ranking denominator) | ${TOTAL_DECISIVE} |
           | Other conclusions (including cancelled) | ${TOTAL_OTHER} |
           | Success Rate (all runs, descriptive only) | ${SUCCESS_RATE}% |
 
@@ -274,7 +329,14 @@ jobs:
           with at least five decisive outcomes. Failed outcomes are `failure`, `timed_out`,
           `startup_failure`, and `action_required` (blocked pending action).
           Neutral, skipped, cancelled, stale, null and unrecognized conclusions are
-          excluded from that denominator, not counted as failures; all remain listed below.
+          excluded from that denominator, not counted as failures. Null conclusions on
+          non-completed runs are listed as `pending:<status>`; completed or missing-status
+          nulls are `unknown`.
+
+          **Complete detail:** [monthly-audit-details artifact on this audit run](${DETAIL_URL})
+          retains every workflow, conclusion count, and full ranked list for 90 days.
+          Sections below are bounded to 6,000 bytes plus explicit omission notices;
+          omitted rankings remain in the artifact, not silently discarded.
 
           ### Workflows Requiring Immediate Attention (>50% failed decisive outcomes)
 
@@ -288,7 +350,7 @@ jobs:
 
           ${SMALL_SAMPLE}
 
-          ### Conclusion Mix (all workflows, including non-ranked outcomes)
+          ### Conclusion Mix (aggregate, then bounded per-workflow detail)
 
           ${CONCLUSION_MIX}
 
@@ -338,9 +400,17 @@ jobs:
           # Substitute environment variables
           # shellcheck disable=SC2016
           envsubst '${AUDIT_MONTH} ${LOOKBACK} ${GENERATED_AT} ${TOTAL_RUNS}
-            ${TOTAL_SUCCESS} ${TOTAL_FAILURE} ${TOTAL_OTHER} ${SUCCESS_RATE}
+            ${TOTAL_SUCCESS} ${TOTAL_FAILURE} ${TOTAL_FAILED_OUTCOMES} ${TOTAL_DECISIVE}
+            ${DETAIL_URL} ${TOTAL_OTHER} ${SUCCESS_RATE}
             ${FAILING} ${WARNING} ${SMALL_SAMPLE} ${CONCLUSION_MIX} ${NOT_RUN} ${API_GUARD}' \
             < /tmp/audit_body.md > /tmp/audit_final.md
+
+          # Fail visibly before crossing the issue-body or per-environment-value limit.
+          # Complete details have already been uploaded even if another report grows.
+          if [ "$(wc -c < /tmp/audit_final.md)" -gt 60000 ]; then
+            echo "Audit body exceeds safe 60,000-byte limit; see monthly-audit-details artifact" >&2
+            exit 1
+          fi
 
           {
             echo "body<<EOF"

@@ -65,3 +65,25 @@ not an attention trigger. The literal `failure` count remains backward compatibl
 `failed_outcomes` explicitly includes the additional actionable conclusions.
 Collection window, completeness checks, UTC issue month, API wrapper guard and
 publication controls are unchanged; no extra API calls are needed.
+
+
+### Output bounds and complete detail
+
+The issue shows aggregate conclusion counts, then bounded per-workflow detail.
+Each attention category, conclusion mix, and not-run section is limited to 6,000
+UTF-8 bytes of complete lines plus an explicit omitted-line count. Ranked failures
+beyond the limit are **not dropped**: every complete ranked list and the full
+workflow statistics JSON are uploaded as `monthly-audit-details` before rendering
+or writing the issue. The issue links to that run's artifact, retained for 90 days;
+download it within that window when longer-term historical detail is required.
+Artifact upload must succeed before publication. A separate 60,000-byte final-body
+guard fails visibly rather than posting a truncated or oversized issue, including
+if the API guard report grows unexpectedly. The JSON contains aggregate workflow
+counts, not raw run payloads. Uploading this artifact adds a bounded artifact-service
+operation but no new Actions inventory queries or model calls.
+
+Summary rows distinguish literal `failure` from the full failed-outcome numerator
+and decisive denominator. Null conclusions on non-completed runs are classified as
+`pending:<status>`; completed or missing-status nulls remain `unknown`. All such
+states remain outside the decisive denominator. Workflow IDs remain the grouping
+identity; display labels still use the most recently observed run name.
