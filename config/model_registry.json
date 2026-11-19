@@ -119,6 +119,18 @@
       "url": "https://developers.openai.com/api/docs/models/gpt-6.1-terra"
     },
     {
+      "source_id": "openai-gpt-6-2-sol-2026-11-18",
+      "provider": "openai",
+      "checked_at": "2026-11-18",
+      "url": "https://developers.openai.com/api/docs/models/gpt-6.2-sol"
+    },
+    {
+      "source_id": "openai-gpt-6-2-astra-2026-11-18",
+      "provider": "openai",
+      "checked_at": "2026-11-18",
+      "url": "https://developers.openai.com/api/docs/models/gpt-6.2-astra"
+    },
+    {
       "source_id": "openai-gpt-6-1-sol-2026-10-30",
       "provider": "openai",
       "checked_at": "2026-10-30",
@@ -180,6 +192,40 @@
         "as_of": "2026-10-29"
       },
       "notes": "Limits and price from the exact model page (2026-10-29): 1,050,000 context, 922,000 input, 128,000 output; $1/$5 per million tokens. Served by the OpenAI models API (checked 2026-10-27 for the verifier shadow)."
+    },
+    {
+      "model_id": "gpt-6.2-sol",
+      "provider": "openai",
+      "api": "responses",
+      "lifecycle": "current",
+      "positioning": "balanced",
+      "source_ids": [
+        "openai-gpt-6-2-sol-2026-11-18"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "as_of": "2026-11-18"
+      },
+      "notes": "Registered for the shared coding worker model table. The rates shown are standard short-context API prices."
+    },
+    {
+      "model_id": "gpt-6.2-astra",
+      "provider": "openai",
+      "api": "responses",
+      "lifecycle": "current",
+      "positioning": "frontier",
+      "source_ids": [
+        "openai-gpt-6-2-astra-2026-11-18"
+      ],
+      "pricing": {
+        "currency": "USD",
+        "input_per_million_tokens": 8.0,
+        "output_per_million_tokens": 40.0,
+        "as_of": "2026-11-18"
+      },
+      "notes": "Registered for the shared coding worker model table. The rates shown are standard short-context API prices."
     },
     {
       "model_id": "gpt-6.1-sol",

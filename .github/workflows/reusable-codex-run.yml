@@ -55,12 +55,12 @@ on:
       codex_cli_version:
         description: 'Pinned @openai/codex CLI version to install.'
         required: false
-        default: '0.160.0'
+        default: '0.169.0'
         type: string
       codex_model:
         description: 'Codex model ID to pass to codex exec.'
         required: false
-        default: 'gpt-6.1-sol'
+        default: 'gpt-6.2-sol'
         type: string
       codex_reasoning_effort:
         description: 'Reasoning effort for the selected Codex execution profile.'
@@ -343,7 +343,7 @@ jobs:
       session-event-count: ${{ steps.analyze_session.outputs.event-count }}
       session-todo-count: ${{ steps.analyze_session.outputs.todo-count }}
     env:
-      CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.160.0' }}
+      CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.169.0' }}
     steps:
       # Shared agent-agnostic setup (auth-token selection / Node.js / API client /
       # Workflows scripts checkout) lives in
@@ -678,7 +678,7 @@ jobs:
         if: steps.codex_cli_cache.outputs.cache-hit != 'true'
         env:
           NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/codex
-          CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.160.0' }}
+          CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.169.0' }}
         run: |
           set -euo pipefail
           echo "Installing Codex CLI..."
@@ -904,7 +904,7 @@ jobs:
       - name: Resolve Codex run model
         id: codex_model
         env:
-          DEFAULT_CODEX_MODEL: gpt-6.1-sol
+          DEFAULT_CODEX_MODEL: gpt-6.2-sol
           FALLBACK_CODEX_MODELS: ${{ inputs.codex_fallback_models }}
           REQUESTED_MODEL: ${{ inputs.codex_model }}
           REQUESTED_EFFORT: ${{ inputs.codex_reasoning_effort }}
@@ -2313,13 +2313,13 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/agent-cli/codex
-          key: ${{ runner.os }}-${{ runner.arch }}-node24-codex-cli-0.160.0
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-codex-cli-0.169.0
 
       - name: Install Codex CLI
         if: steps.pinned_codex_cli_cache.outputs.cache-hit != 'true'
         env:
           NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/codex
-          CODEX_CLI_VERSION: '0.160.0'
+          CODEX_CLI_VERSION: '0.169.0'
         run: | # zizmor: ignore[adhoc-packages]
           set -euo pipefail
           echo "Installing Codex CLI..."
