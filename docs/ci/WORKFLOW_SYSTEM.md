@@ -5,7 +5,7 @@ pieces interlock so contributors can land changes without tripping the
 guardrails. Automation shows up in four canonical buckets that mirror what a
 contributor experiences on a pull request or on the maintenance calendar:
 
-1. **PR checks** – gatekeeping for every pull request (Gate with Gate summary job handling opt-in autofix follow-up).
+1. **PR checks** – Gate reports CI status. [Autofix routes](WORKFLOWS.md#autofix-routes) handle eligible repairs.
 2. **Maintenance & repo health** – scheduled and follow-up automation that keeps
   the repository clean (Gate summary job, Maint Coverage Guard, Maint 45, recurring health checks).
 3. **Issue / agents automation** – orchestrated agent work and issue
@@ -333,13 +333,10 @@ and where to watch the result:
    calls the reusable lint/test topology. You can watch progress in the
   [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml)
    and follow the linked reusable job logs from the Checks tab.
-2. **Autofix (optional).** If reviewers add the `autofix:clean` label, the Gate
-   summary job fans out to `reusable-18-autofix.yml` after Gate succeeds. Its
-   logs show up under the same pull request for easy comparison with Gate.
+2. **Autofix (optional).** Open the [repair or formatting run](WORKFLOWS.md#autofix-routes) to inspect its outcome before merging.
 3. **Merge lands on the default branch.** The Gate summary job aggregates
-   artifacts from the successful run and applies any low-risk cleanup.
-  Scheduled maintenance jobs (Maint 46 Post CI, Maint 45, and Health
-   40–44) continue to run on their cadence even when no one is watching,
+   artifacts and status from the CI jobs.
+  Scheduled health checks (Health 40–44) continue to run on their cadence even when no one is watching,
    keeping the repo healthy. Maint 46 summary rendering is recovery-only: it wakes up
    when Gate fails to emit its own summary so there is a single source of
    truth on green runs.
@@ -360,15 +357,7 @@ new contributors or track down where a particular check originated.
 Use this cheat sheet when you need the quickest possible answer about “what
 fires where” without diving into the full tables:
 
-- **PR checks (Gate + Gate summary job opt-in autofix)**
-  - **Primary workflows.** `pr-00-gate.yml` under
-    `.github/workflows/`.
-  - **Triggers.** `pull_request`, with Gate also running in
-    `pull_request_target` for fork visibility. Autofix is label-gated.
-  - **Purpose.** Guard every PR, detect docs-only diffs, and offer an optional
-    autofix sweep via Gate summary job before reviewers spend time on hygiene nits.
-  - **Where to inspect logs.** Gate: [workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml).
-    Autofix: handled by Gate summary job after Gate completes.
+- **PR checks.** Open the [Gate job map](WORKFLOWS.md#gate-job-map) for required CI and the [Autofix routes](WORKFLOWS.md#autofix-routes) for repair logs and formatting artifacts.
 - **Maintenance & repo health**
   - **Primary workflows.** Gate summary job inside `pr-00-gate.yml`,
     `maint-46-post-ci.yml`, `maint-coverage-guard.yml`,
@@ -407,8 +396,7 @@ fires where” without diving into the full tables:
 - **Error checking, linting, and testing topology**
   - **Primary workflows.** `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`,
     `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-19-dependency-repair-contract.yml`, `reusable-20-pr-meta.yml`, `reusable-agents-issue-bridge.yml`, `reusable-agents-pr-health.yml`, `reusable-agents-verifier.yml`, `reusable-backplane-conformance.yml`, `reusable-bot-comment-handler.yml`, `reusable-claude-run.yml`, `reusable-codex-run.yml`, `reusable-model-profile-trial.yml`, `reusable-cursor-run.yml`, `reusable-gemini-run.yml`, `reusable-muse-run.yml`, `reusable-pr-context.yml`, and `selftest-reusable-ci.yml`.
-  - **Triggers.** Invoked via `workflow_call` by Gate, Gate summary job, and manual
-    reruns. The [self-test catalog](WORKFLOWS.md#self-test-harness) covers the reusable CI harness.
+  - **Triggers.** Invoked via `workflow_call` by Gate, Autofix and other CI callers, including manual reruns. The [self-test catalog](WORKFLOWS.md#self-test-harness) covers the reusable CI harness.
   - **Purpose.** Provide a consistent lint/type/test/container matrix so every
     caller sees identical results.
   - **Codex entry point.** `reusable-codex-run.yml` centralizes prompt-file execution,
@@ -433,7 +421,7 @@ enforces the guardrail so you know where to confirm compliance:
 
 | Bucket | Guardrails you must respect | Where it is enforced |
 | --- | --- | --- |
-| PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates so it never races Gate summary job. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
+| PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates per branch. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
 | Maintenance & repo health | Gate summary job only runs after Gate succeeds; Health 40–44 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Gate summary job summary comment, Health dashboard history, and Maint 45 run permissions. |
 | Issue / agents automation | `agents:allow-change` label and Health 45 Agents Guard are mandatory before protected YAML merges; Code Owner review is mandatory except for dependency-only `uses: owner/action@ref` updates by Dependabot, Renovate, or repository owner/member/collaborator authors using the narrow label path. Orchestrator dispatch only accepts labelled issues. | [Agents Workflow Protection Policy](../AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
 | Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, Health 43 signature guard, and the reusable workflow permissions matrix. |
@@ -490,7 +478,7 @@ status updates:
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
 | Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-62-integration-consumer.yml`, `maint-63-ensure-environments.yml`, `maint-65-sync-label-docs.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-model-profile-trial.yml`, `agents-moderate-connector.yml`, `agents-autofix-dispatcher.yml`, `agents-autofix-loop.yml`, `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`, `agents-keepalive-loop-reporter.yml`, `agents-keepalive-branch-sync.yml`, `agents-keepalive-dispatch-handler.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-issue-format-guard.yml`, `agents-issue-optimizer.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
-| Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Gate summary job, and manual triggers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
+| Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Autofix and manually dispatched CI callers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
 Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
 
@@ -508,15 +496,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
     docs-only comments left by older workflow revisions. No new PR comment is
     posted—the docs-only fast pass now lives exclusively in logs and the job
     summary.
-- **Gate summary job Autofix** – implemented inside `pr-00-gate.yml`
-  - Opt-in via the `autofix:clean` label. Runs the same formatters and light hygiene
-    steps that Gate would otherwise leave to contributors, then posts the
-    consolidated status comment.
+- **Autofix.** Use the [Autofix routes](WORKFLOWS.md#autofix-routes) to locate both callers.
 
 ### Maintenance & repo health
 - **Gate summary job** – the `summary` job within `pr-00-gate.yml` consolidates
-  CI results, uploads artifacts, and applies small, low-risk fixes (for example,
-  syncing generated docs or updating the failure tracker).
+  CI results and uploads the Gate artifacts.
 - **Maint Sync Pyproject from Env** – `.github/workflows/maint-sync-env-from-pyproject.yml`
   keeps `pyproject.toml`, templates, and direct `requirements.lock` pins aligned
   to the canonical `autofix-versions.env` source used by downstream consumers.
@@ -700,7 +684,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   docs-only changes.
 - For a failed [Reusable Cross-Repo Smoke](WORKFLOWS.md#reusable-cross-repo-smoke) check, open the run in the calling repository and inspect the logged dependency SHA.
 - **Reusable Agents** – `reusable-16-agents.yml` powers orchestrated dispatch.
-- **Reusable Autofix** – `reusable-18-autofix.yml` centralizes fixers for Gate summary job.
+- **Reusable Autofix** – See the [formatting caller and its results](WORKFLOWS.md#autofix-routes).
 - **Reusable Model Profile Trial** – `reusable-model-profile-trial.yml` runs one
   immutable read-only Sol/Terra/Luna plumbing arm from a separately pinned
   helper checkout. It requires current remote `main` before auth and emits v2
@@ -733,7 +717,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | Workflow | Trigger | Purpose | Required? | Artifacts / logs |
 | --- | --- | --- | --- | --- |
 | **Gate** (`pr-00-gate.yml`, PR checks bucket) | `pull_request`, `workflow_dispatch` | Detect docs-only diffs, orchestrate CI fan-out, and publish the combined status. | ✅ Always | [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml) |
-| **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after Gate finishes | Maintain the consolidated PR comment + status, upload Gate summary artifacts, and apply `autofix:clean` when the failure is cosmetic-only. | ⚪ Informational | [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml) |
+| **Gate summary job** (`pr-00-gate.yml`, job `summary`) | After the Gate CI jobs | Report the combined result and request follow-up for eligible failures. | ✅ Required | [Gate job map](WORKFLOWS.md#gate-job-map) |
 | [PR 11 - Minimal invariant CI](WORKFLOWS.md#minimal-invariant-ci) | Push and PR to `main`, manual dispatch | Inspect workflow YAML and script syntax failures. | ⚪ Supplemental | [Workflow runs](https://github.com/stranske/Workflows/actions/workflows/pr-11-ci-smoke.yml) |
 | **PR 46 Dependency Repair Contract** (`pr-46-dependency-repair-contract.yml`, PR checks bucket) | `pull_request_target` for dependency-bot and marked promotion PRs | Keep bot branches classified and verify the bot-delta first commit before agent repair commits. | ✅ Required for dependency repair lanes | [Dependency repair contract runs](https://github.com/stranske/Workflows/actions/workflows/pr-46-dependency-repair-contract.yml) |
 | **Maint 47 Disable Legacy Workflows** (`maint-47-disable-legacy-workflows.yml`, maintenance bucket) | `workflow_dispatch` | Run `tools/disable_legacy_workflows.py` to disable archived workflows that still appear in Actions. | ⚪ Manual | [Maint 47 dispatch](https://github.com/stranske/Workflows/actions/workflows/maint-47-disable-legacy-workflows.yml) |
@@ -852,9 +836,7 @@ snapshots for audit trails.
 
 - **Docs-only detection.** Lives exclusively inside Gate—there is no separate
   docs-only workflow.
-- **Autofix.** Gate summary job centralizes automated follow-up fixes. Forks upload
-  patch artifacts instead of pushing. The dedicated pre-CI runner was retired;
-  opt-in labels trigger Gate summary job after Gate succeeds.
+- **Autofix.** Follow the [Autofix routes](WORKFLOWS.md#autofix-routes) to the repair run or patch artifact.
 - **Branch protection.** The default-branch ruleset must require **`summary`** only
   (see `.github/config/required-contexts.json`). Health 44 resolves the current
   default branch via the REST API and either enforces or verifies the rule (requires
@@ -903,8 +885,7 @@ snapshots for audit trails.
    satisfy Health 45 with `agents:allow-change` when authored by Dependabot,
    Renovate, or a repository owner/member/collaborator; branch protection can
    still require review.
-5. After merge, remove the label, confirm Gate summary job processed the follow-up
-   hygiene, and verify Agents Guard reports green.
+5. After merge, remove the label, check any [formatting or repair outcome](WORKFLOWS.md#autofix-routes), and verify Agents Guard reports green.
 6. Update the entry in the [workflow catalog](WORKFLOWS.md). Update this overview
    when a change affects the relationships, operator procedures or guardrails it describes.
 
@@ -930,8 +911,7 @@ profile and actual limits. Expanded does not weaken completeness or CI floors.
   required check whenever `agents-*.yml` files change.
 - Health 41 and Health 44 confirm the effective default-branch ruleset requires
   **`summary`** (per `.github/config/required-contexts.json`).
-- Gate summary job posts a single consolidated summary comment; autofix artifacts or
-  commits are attached where allowed.
+- Gate publishes the consolidated summary. Find formatter commits and artifacts in the [Autofix caller](WORKFLOWS.md#autofix-routes).
 
 ### Required vs informational checks on `main`
 
