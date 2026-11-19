@@ -19,8 +19,10 @@ from typing import Any
 
 try:
     from scripts.langchain._llm_client import get_llm_client as _get_llm_client
+    from scripts.langchain.trace_utils import build_llm_config as _build_llm_config
 except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
     from _llm_client import get_llm_client as _get_llm_client
+    from trace_utils import build_llm_config as _build_llm_config
 
 ChatPromptTemplate: Any | None = None
 
@@ -105,50 +107,6 @@ class CapabilityCheckResult:
         if self.langsmith_trace_url:
             result["langsmith_trace_url"] = self.langsmith_trace_url
         return result
-
-
-def _build_llm_config(
-    *,
-    operation: str,
-    issue_number: int | None = None,
-) -> dict[str, object]:
-    """Build LangSmith metadata/tags for LLM call."""
-    import os
-
-    try:
-        from tools.llm_provider import build_langsmith_metadata
-
-        return build_langsmith_metadata(
-            operation=operation,
-            issue_number=issue_number,
-        )
-    except ImportError:
-        pass
-
-    # Inline fallback when tools.llm_provider is unavailable
-    repo = os.environ.get("GITHUB_REPOSITORY", "unknown")
-    run_id = os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
-    env_issue = os.environ.get("ISSUE_NUMBER", "")
-    issue_or_pr = (
-        str(issue_number)
-        if issue_number is not None
-        else env_issue if env_issue.isdigit() else "unknown"
-    )
-    metadata = {
-        "repo": repo,
-        "run_id": run_id,
-        "issue_or_pr_number": issue_or_pr,
-        "operation": operation,
-        "issue_number": str(issue_number) if issue_number is not None else None,
-    }
-    tags = [
-        "workflows-agents",
-        f"operation:{operation}",
-        f"repo:{repo}",
-        f"issue_or_pr:{issue_or_pr}",
-        f"run_id:{run_id}",
-    ]
-    return {"metadata": metadata, "tags": tags}
 
 
 def _prepare_prompt_values(tasks: list[str], acceptance: str) -> dict[str, str]:

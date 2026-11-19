@@ -84,6 +84,29 @@ def test_source_delta_selects_only_changed_manifest_sources() -> None:
     assert scoped["removals"] == []
     assert scoped["plan_id"] != plan()["plan_id"]
     assert evidence["ignored_changed_paths"] == ["README.md"]
+
+
+@pytest.mark.parametrize(
+    "importer",
+    [
+        "scripts/langchain/capability_check.py",
+        "scripts/langchain/issue_optimizer.py",
+    ],
+)
+def test_source_delta_includes_trace_helper_for_consolidated_importers(importer: str) -> None:
+    """Older consumers receive the new helper with either new importer."""
+    root = Path(__file__).resolve().parents[2]
+    full_plan = compile_manifest(root / ".github/sync-manifest.yml").to_plan()
+
+    _scoped, evidence = select_plan(
+        full_plan,
+        mode="source-delta",
+        changed_paths=[importer],
+        base_sha="1" * 40,
+        source_commit="2" * 40,
+    )
+
+    assert evidence["selected_targets"] == [importer, "scripts/langchain/trace_utils.py"]
     assert evidence["selected_entry_count"] == 2
     assert evidence["source_commit"] == "2" * 40
 

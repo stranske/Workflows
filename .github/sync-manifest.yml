@@ -730,6 +730,10 @@ scripts:
     # `sys.path.insert(0, 'scripts/langchain')`), which does NOT runtime-fetch
     # scripts/langchain. Must stay copy-synced.
     delivery: copy
+    # Source-delta delivery must update the helper when an older consumer only
+    # has the pre-consolidation trace_utils module.
+    requires:
+      - scripts/langchain/trace_utils.py
 
   - source: scripts/langchain/structured_output.py
     description: "Shared structured output helpers for LangChain workflows"
@@ -796,6 +800,10 @@ scripts:
   - source: scripts/langchain/capability_check.py
     description: "Capability check - pre-flight agent feasibility assessment"
     delivery: copy
+    # Source-delta delivery must update the helper when an older consumer only
+    # has the pre-consolidation trace_utils module.
+    requires:
+      - scripts/langchain/trace_utils.py
 
   - source: scripts/langchain/task_decomposer.py
     description: "Task decomposer - breaks large issues into sub-tasks"

@@ -35,6 +35,7 @@ try:
         render_correction_context,
         require_complete_correction_prompt,
     )
+    from scripts.langchain.trace_utils import build_llm_config as _build_llm_config
 except ModuleNotFoundError:
     from _llm_client import get_llm_client as _get_llm_client
     from injection_guard import check_prompt_injection
@@ -44,6 +45,7 @@ except ModuleNotFoundError:
         render_correction_context,
         require_complete_correction_prompt,
     )
+    from trace_utils import build_llm_config as _build_llm_config
 
 AGENT_LIMITATIONS = [
     "Cannot modify .github/workflows/*.yml (protected)",
@@ -354,50 +356,6 @@ def _load_apply_prompt() -> str:
     if APPLY_PROMPT_PATH.is_file():
         return APPLY_PROMPT_PATH.read_text(encoding="utf-8").strip()
     return APPLY_SUGGESTIONS_PROMPT
-
-
-def _build_llm_config(
-    *,
-    operation: str,
-    issue_number: int | None = None,
-) -> dict[str, object]:
-    """Build LangSmith metadata/tags for LLM call."""
-    import os
-
-    try:
-        from tools.llm_provider import build_langsmith_metadata
-
-        return build_langsmith_metadata(
-            operation=operation,
-            issue_number=issue_number,
-        )
-    except ImportError:
-        pass
-
-    # Inline fallback when tools.llm_provider is unavailable
-    repo = os.environ.get("GITHUB_REPOSITORY", "unknown")
-    run_id = os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
-    env_issue = os.environ.get("ISSUE_NUMBER", "")
-    issue_or_pr = (
-        str(issue_number)
-        if issue_number is not None
-        else env_issue if env_issue.isdigit() else "unknown"
-    )
-    metadata = {
-        "repo": repo,
-        "run_id": run_id,
-        "issue_or_pr_number": issue_or_pr,
-        "operation": operation,
-        "issue_number": str(issue_number) if issue_number is not None else None,
-    }
-    tags = [
-        "workflows-agents",
-        f"operation:{operation}",
-        f"repo:{repo}",
-        f"issue_or_pr:{issue_or_pr}",
-        f"run_id:{run_id}",
-    ]
-    return {"metadata": metadata, "tags": tags}
 
 
 def _invoke_llm_with_trace(
