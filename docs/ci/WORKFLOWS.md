@@ -416,9 +416,9 @@ release changelog's historical issue references part of the repair's contract.
 Commit-message checks retain their independent first-parent semantics; missing
 base references retain the existing explicitly marked fallback behavior.
 
-* [`selftest-reusable-ci.yml`](../../.github/workflows/selftest-reusable-ci.yml) exercises `reusable-10-ci-python.yml` across curated scenarios, publishing summaries or PR comments so maintainers can validate reusable changes before they ship.
+* [`selftest-reusable-ci.yml`](../../.github/workflows/selftest-reusable-ci.yml) exercises the shared Python CI workflow with a consumer fixture. Matching PR paths select affected scenarios. Nightly and manual runs exercise the full matrix with inherited secrets. Choose a run summary, PR comment or dual-runtime check using the [dispatch options and scenario matrix](SELFTESTS.md#triggers).
 
-* [`selftest-ci.yml`](../../.github/workflows/selftest-ci.yml) runs the repository's own test suite (JS + Python tests, linting, YAML validation) on push and PR, including the langchain verdict, verifier, and structured-output contract tests.
+* [`selftest-ci.yml`](../../.github/workflows/selftest-ci.yml) checks the repository on PRs to main, pushes to main and manual dispatch. Its jobs use the default workflow token. Gate owns the full PR suite, including the LangChain verdict, verifier and structured-output contracts. Main pushes and manual runs also call the canonical Python suite.
 * [`health-keepalive-e2e.yml`](../../.github/workflows/health-keepalive-e2e.yml) path-filtered E2E test for the keepalive system. Runs only when keepalive-related files change. Supports two modes: orchestration-only (default) and real Codex ping (via `e2e:codex-ping` label).
 
 ### Verifier corpus provenance

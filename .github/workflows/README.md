@@ -270,9 +270,7 @@ Outputs:
 
 ### Consolidated runner (Issue #2651 & Issue #2814 refresh)
 
-- **Entry point:** Dispatch **Selftest: Reusables** (`.github/workflows/selftest-reusable-ci.yml`) from the Actions tab when you need a
-  comment, workflow summary, or dual-runtime verification. The workflow also runs on a nightly cron (06:30 UTC); only PR and push
-  triggers remain disabled after consolidation.
+- Open **Selftest: Reusables** in Actions and select **Run workflow** to choose a reporting mode. The [trigger table](../../docs/ci/SELFTESTS.md#triggers) lists automatic runs.
 - **Inputs:**
   - `mode` — `summary`, `comment`, or `dual-runtime`. Summary posts only to the workflow run, comment publishes to a PR, and
     dual-runtime fans out to both Python 3.13 and 3.14 before surfacing a summary.
