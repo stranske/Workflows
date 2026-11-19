@@ -616,8 +616,10 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
     # Preserve ci-python-versions.env (#4045) and verifier_plan_fingerprint.js.
     # scripts/langchain/response_content.py (#4434) adds one copy entry.
     # Autofix PR-head observation and completion validation add one copy entry.
-    assert len(plan["entries"]) == 281
+    # The shared auto-pilot summary environment is shipped with its CLI callers.
+    assert len(plan["entries"]) == 282
     assert {
+        "scripts/autopilot_summary_environment.py",
         ".github/scripts/autofix_metrics.js",
         "tools/subscription_llm.py",
         ".github/scripts/rate_limit_receipt.js",
