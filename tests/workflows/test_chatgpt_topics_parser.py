@@ -235,9 +235,10 @@ def test_alphanumeric_enumeration():
 
 
 def test_lowercase_alpha_enumeration():
-    sample = "a) first\nb) second\nd) fourth skipped c\n"
-    code, out, err, topics = run_parser(sample)
+    fixture = pathlib.Path(__file__).parent / "fixtures/issue_intake_chatgpt/lowercase_enumeration"
+    code, _, _, topics = run_parser((fixture / "input.txt").read_text(encoding="utf-8"))
     assert code == 0
+    assert topics == json.loads((fixture / "topics.json").read_text(encoding="utf-8"))
     enums = [t["enumerator"] for t in topics]
     assert enums == ["a", "b", "d"]
     continuity = [t["continuity_break"] for t in topics]

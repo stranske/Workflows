@@ -116,7 +116,7 @@ _Inline Gate helper_
   It is not a keepalive, evaluator, merge, or learning lane; ordinary agent
   and Keepalive resolution reject all `lifecycle: trial` profiles.
 - **Consumer default entry points** — New consumer repos should install the template-managed pair `agents-80-pr-event-hub.yml` + `agents-81-gate-followups.yml` (along with `agents-verifier.yml`, `pr-00-gate.yml`, `AGENTS.md`, and `CLAUDE.md`). Treat `agents-pr-meta-v4.yml` as Workflows-local infrastructure, not a default consumer setup file.
-- **`agents-63-issue-intake.yml`** — Canonical front door for Codex issues. It normalizes ChatGPT export blobs / topic lists, dedupes and validates the resulting queue, optionally re-formats the new issues via LangChain, and drives the label-enforced issue bridge when `agent_bridge` mode is selected. The workflow now relies solely on the installation token + the shared API client (no ad-hoc GitHub App token mints), so manual reruns and workflow_call invocations stay lightweight while still enforcing the single-agent label contract before dispatching work to the belt.
+- **`agents-63-issue-intake.yml`** — Canonical front door for Codex issues. It normalizes ChatGPT export blobs / topic lists, dedupes and validates the resulting queue, optionally re-formats the new issues via LangChain, and drives the label-enforced issue bridge when `agent_bridge` mode is selected. The workflow now relies solely on the installation token + the shared API client (no ad-hoc GitHub App token mints), so manual reruns and workflow_call invocations stay lightweight while still enforcing the single-agent label contract before dispatching work to the belt. [Supply input or preview an import](#import-issues-from-a-topic-list).
 - **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator that enforces the single `agent:*` label contract and confirms the assignee belongs to the approved automation roster. It now runs entirely on the default workflow token with the shared retry helper (no bespoke GitHub App mint), so verification hooks stay lightweight for orchestrator and issue-bridge callers.
 - **`agents-capability-check.yml`** — Pre-flight guard that fires when an `agent:*` label lands on an issue. It installs `tools/requirements-llm.txt` after an optional metadata-guarded editable install, so package-shaped consumers and tool-only `pyproject.toml` repositories both receive the canonical LangChain dependencies without relying on a `langchain` extra. It runs `scripts/langchain/capability_check.py` to classify tasks as actionable/partial/blocked, adds `needs-human` + removes agent labels on BLOCKED outcomes, and posts/updates a structured comment so humans know why automation paused.
 - **`agents-70-orchestrator.yml`** — 30-minute cron (`schedule`, forced `dry_run=true` shadow) plus manual dispatch (`workflow_dispatch`, input-controlled `inputs.dry_run`, default `'false'`) entry point for readiness, Codex/Claude bootstrap, diagnostics, verification, and keepalive sweeps. Although `workflow_run` (`Gate` `completed`) and `repository_dispatch` (`agents-orchestrator-ping`) remain declared under `on:`, `jobs.eligibility` (`expected-actions: workflow_dispatch,schedule`) denies both before `jobs.init`. In `jobs.init`, `schedule` forces `dry_run=true` as an A1 retirement shadow (attributed in workflow history to `0ecdff0f3`, qualified until runtime shadow coverage is verified) while `agents-keepalive-loop.yml` and `agents-keepalive-sweep.yml` own authored Gate-completion and hourly keepalive triggers (workflow YAML source does not prove production liveness, and retiring versus restoring Agents 70 remains undecided; see [docs/AGENTS_POLICY.md](AGENTS_POLICY.md)). Delegates to `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, and `reusable-16-agents.yml`, so optimization lives in the reusable stack; this wrapper sequences the admitted cron/manual hooks, feeds `options_json`, and never mints extra tokens beyond the shared API client. When adding new stages, read `.github/agents/registry.yml` and treat every listed agent key the same so we can add Claude or future providers without touching the orchestrator again.
@@ -214,6 +214,26 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`, `selftest-81-reusable-ci.yml`) — Superseded by the consolidated `selftest-reusable-ci.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
 - **`health-claude-cli-auth-debug.yml`** — Archived manual Claude CLI auth harness in `archives/diagnostics/`. Run ad-hoc only when investigating Claude CLI regressions.
 - **`health-keepalive-auth-diagnostic.yml`** — Archived manual harness for verifying GitHub App push scopes plus Claude/Codex secrets across consumer repos (`archives/diagnostics/`).
+
+## Import issues from a topic list
+
+In **Actions → Agents 63 Issue Intake → Run workflow**, choose `chatgpt_sync`. For a single issue, enter a short enumerated title such as `1. Fix the import test` in `raw_input`. For multiple issues or multiline descriptions, commit a text file to the selected ref and enter its repository-relative path in `source`. Start each issue with a numbered title on its own line. See the [single-issue input](../tests/workflows/fixtures/issue_intake_chatgpt/valid_import.txt) and [three-issue input](../tests/workflows/fixtures/issue_intake_chatgpt/multi_issue_payload.txt).
+
+To import the repository’s `Issues.txt` on `main`, run the following command from the Workflows checkout. The workflow creates or updates GitHub issues. An empty source file yields zero issues. A source path that does not exist stops the import.
+
+```sh
+gh workflow run agents-63-issue-intake.yml --ref main -f intake_mode=chatgpt_sync -f source=Issues.txt
+```
+
+To preview locally, give the parser a fresh directory and copy your source there as `input.txt`. This example parses `Issues.txt` and prints the generated `topics.json`. To try the [sample input and expected output](../tests/workflows/fixtures/issue_intake_chatgpt/lowercase_enumeration/), use that directory’s `input.txt` in the copy step.
+
+```sh
+repo=$(git rev-parse --show-toplevel)
+preview=$(mktemp -d)
+cp "$repo/Issues.txt" "$preview/input.txt"
+(cd "$preview" && python "$repo/.github/scripts/parse_chatgpt_topics.py")
+cat "$preview/topics.json"
+```
 
 ## Trigger Wiring Tips
 1. When renaming a workflow, update any `workflow_run` consumers. In this roster that includes the Gate summary job.

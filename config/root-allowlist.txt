@@ -14,7 +14,6 @@ LICENSE
 README.md
 TEMPLATE_REPO_EVALUATION.md
 actionlint
-input.txt
 manage_sync_prs.sh
 pyproject.toml
 release-please-config.json
@@ -22,5 +21,4 @@ renovate.json
 requirements.lock
 requirements.txt
 sitecustomize.py
-topics.json
 workloop-state.md
