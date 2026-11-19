@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reconcile issue #4284 completion only after both live-verification gates pass.
+"""Reconcile completion for Workflows #4284 after both live-verification gates pass.
 
 The check consumes ``gh issue view 4284 --json state,body,comments`` together
 with the retained Gate-run evidence and ``docs/reports/ci-budget.json``.
@@ -15,7 +15,7 @@ import json
 import re
 import sys
 from collections.abc import Mapping
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +25,8 @@ ISSUE_NUMBER = 4284
 SCHEMA = "issue-4284-completion-reconciliation/v1"
 ISSUE_VIEW_COMMAND = "gh issue view 4284 --repo stranske/Workflows --json state,body,comments"
 _FOLLOWUP_RE = re.compile(r"followup=#(\d+)")
+_MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^()\s]+)\)")
+_OBSERVATION_BULLET_RE = re.compile(r"- (\d{4}-\d{2}-\d{2}): (?:p50 )?(\d+\.\d) seconds; (\S+)")
 _CHECKED_HEALTH85_RE = re.compile(
     r"(?m)^- \[x\] Live-verification gate: Health 85 reports",
     re.IGNORECASE,
@@ -159,11 +161,24 @@ def sustained_series_supported(report: Mapping[str, Any]) -> tuple[bool, list[st
 def matching_observation_dates(
     report: Mapping[str, Any], issue: Mapping[str, Any]
 ) -> tuple[list[str], list[str]]:
-    """Require each budget row's date, p50 seconds, and Health 85 URL on one issue line."""
-    lines = issue_text(issue).splitlines()
+    """Match dates, p50 seconds, and run URLs in the issue's Health 85 tables."""
     observations = report.get("observations")
     if not isinstance(observations, list):
         return [], ["budget observations are missing"]
+    issue_rows = set()
+    for line in issue_text(issue).splitlines():
+        bullet = _OBSERVATION_BULLET_RE.fullmatch(line.strip())
+        if bullet:
+            issue_rows.add((bullet[1], bullet[2], bullet[3]))
+            continue
+        cells = [cell.strip() for cell in line.split("|")]
+        if len(cells) not in (6, 7) or cells[0] or cells[-1]:
+            continue
+        # Older delivery tables have a status column before the run URL.
+        source = cells[-2]
+        link = _MARKDOWN_LINK_RE.fullmatch(source)
+        issue_rows.add((cells[1], cells[3].lower(), link[1] if link else source))
+
     matched: list[str] = []
     failures: list[str] = []
     for row in observations:
@@ -173,17 +188,13 @@ def matching_observation_dates(
         day = str(row.get("date") or "")
         url = str(row.get("source_run_url") or "")
         seconds = row.get("p50_seconds")
-        found = False
-        for line in lines:
-            if not day or day not in line or not url or url not in line:
-                continue
-            if seconds is None:
-                found = "missing" in line.lower()
-            elif isinstance(seconds, (int, float)) and not isinstance(seconds, bool):
-                found = f"{float(seconds):.1f}" in line
-            if found:
-                break
-        if found:
+        if seconds is None:
+            recorded_seconds = "missing"
+        elif isinstance(seconds, (int, float)) and not isinstance(seconds, bool):
+            recorded_seconds = f"{float(seconds):.1f}"
+        else:
+            recorded_seconds = ""
+        if day and url and recorded_seconds and (day, recorded_seconds, url) in issue_rows:
             matched.append(day)
         else:
             failures.append(f"{day}: issue text has no matching Health 85 p50 line")
@@ -299,7 +310,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gate-evidence", type=Path, required=True)
     parser.add_argument("--budget", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--checked-on", default="2026-11-06")
+    parser.add_argument("--checked-on", default=datetime.now(UTC).date().isoformat())
     args = parser.parse_args(argv)
     issue = _load_object(args.issue_view)
     evidence = _load_object(args.gate_evidence)
@@ -320,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
     args.output.write_text(decision_json(decision), encoding="utf-8")
     print(
         f"action={decision['action']} "
-        f"completion_reconciled={decision['completion_reconciled']} "
+        f"completion_reconciled={_flag(decision['completion_reconciled'])} "
         f"state={decision['state']} "
         f"followup_issue={decision['followup_issue']}"
     )

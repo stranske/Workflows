@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import pytest
+from scripts import issue_4284_completion
 from scripts.issue_4284_completion import main, reconcile_completion
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -104,6 +106,62 @@ def test_qualifying_series_without_matching_issue_text_stays_incomplete() -> Non
     assert any("no matching Health 85 p50 line" in failure for failure in decision["failures"])
 
 
+@pytest.mark.parametrize(
+    ("original", "different"),
+    [
+        ("| 570.0 |", "| 1570.0 |"),
+        ("| 570.0 |", "| 570.01 |"),
+        ("| 570.0 | yes |", "| 999.0 | 570.0 |"),
+        ("/actions/runs/5000 |", "/actions/runs/50001 |"),
+    ],
+)
+def test_partial_issue_row_match_stays_incomplete(original: str, different: str) -> None:
+    report = _qualifying_report()
+    issue = _issue_for(report)
+    issue["body"] = issue["body"].replace(original, different, 1)
+
+    decision = reconcile_completion(issue, _load(GATE), report)
+
+    assert decision["sustained_series_supported"] is True
+    assert decision["matched_dates"] == [row["date"] for row in report["observations"][1:]]
+    assert decision["completion_reconciled"] is False
+
+
+@pytest.mark.parametrize(
+    "original,different",
+    [("570.0", "1570.0"), ("570.0", "570.01"), ("/runs/5000", "/runs/50001")],
+)
+def test_partial_match_in_health85_bullet_stays_incomplete(original: str, different: str) -> None:
+    report = _qualifying_report()
+    issue = _issue_for(report)
+    row = report["observations"][0]
+    lines = issue["body"].splitlines()
+    bullet = f"- {row['date']}: p50 570.0 seconds; {row['source_run_url']}"
+    lines[0] = bullet.replace(original, different)
+    issue["body"] = "\n".join(lines)
+
+    decision = reconcile_completion(issue, _load(GATE), report)
+
+    assert decision["matched_dates"] == [row["date"] for row in report["observations"][1:]]
+    assert decision["completion_reconciled"] is False
+
+
+def test_qualifying_series_with_only_health85_bullets_reconciles() -> None:
+    report = _qualifying_report()
+    observations = report["observations"]
+    body = "\n".join(
+        f"- {row['date']}: p50 {row['p50_seconds']:.1f} seconds; {row['source_run_url']}"
+        for row in observations
+    )
+    issue = {"state": "OPEN", "body": body, "comments": []}
+
+    decision = reconcile_completion(issue, _load(GATE), report)
+
+    assert decision["observations_match_issue"] is True
+    assert decision["completion_reconciled"] is True
+    assert decision["matched_dates"] == [row["date"] for row in observations]
+
+
 def test_true_flag_with_an_over_limit_day_does_not_qualify() -> None:
     report = _qualifying_report()
     report["observations"][-1]["p50_seconds"] = 705.0
@@ -181,8 +239,47 @@ def test_main_rejects_a_non_object_issue_view(tmp_path: Path) -> None:
     assert not output.exists()
 
 
+@pytest.mark.parametrize(
+    ("issue_view", "budget", "expected"),
+    [
+        (GATE.with_name("issue-view-4284.json"), ROOT / "docs/reports/ci-budget.json", "true"),
+        (ISSUE_VIEW, BUDGET, "false"),
+    ],
+)
+def test_main_defaults_to_current_utc_date_and_prints_lowercase_result(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    issue_view: Path,
+    budget: Path,
+    expected: str,
+) -> None:
+    class FixedClock:
+        @staticmethod
+        def now(tz: object) -> datetime:
+            assert tz is UTC
+            return datetime(2026, 11, 20, 0, 1, tzinfo=UTC)
+
+    monkeypatch.setattr(issue_4284_completion, "datetime", FixedClock)
+    output = tmp_path / "completion-reconciliation.json"
+    code = main(
+        [
+            "--issue-view",
+            str(issue_view),
+            "--gate-evidence",
+            str(GATE),
+            "--budget",
+            str(budget),
+            "--output",
+            str(output),
+        ]
+    )
+    assert code == 0
+    assert _load(output)["checked_on"] == "2026-11-20"
+    assert f"completion_reconciled={expected}" in capsys.readouterr().out.split()
+
+
 def test_issue_4284_completion_helper_and_validation_branches(tmp_path: Path) -> None:
-    import pytest
     from scripts.issue_4284_completion import (
         _computed_series_failures,
         _flag,
