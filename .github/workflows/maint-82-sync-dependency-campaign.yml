@@ -169,6 +169,7 @@ jobs:
             core.setOutput('maint71_acknowledgments', JSON.stringify(result.state.continuation_acknowledgments || []));
             core.setOutput('maint71_observed_runs', JSON.stringify((result.maint71Runs || []).map(run => ({
               status: run.status, conclusion: run.conclusion, display_title: run.display_title,
+              updated_at: run.updated_at,
             }))));
             core.setOutput('maint71_continuations', JSON.stringify(continuations));
             core.setOutput('maint71_delivery_handoffs', JSON.stringify(
@@ -263,11 +264,8 @@ jobs:
                 )
                 .map((run) => normalizeTitle(run.display_title)),
             );
-            const completedTitles = new Set(
-              (runs.workflow_runs || [])
-                .filter((run) => run.status === 'completed' && run.conclusion === 'success')
-                .map((run) => normalizeTitle(run.display_title)),
-            );
+            const successfulRuns = (runs.workflow_runs || [])
+              .filter((run) => run.status === 'completed' && run.conclusion === 'success');
             if (activeTitles.size > 0) {
               core.notice('Maint 71 writer already active or queued; durable intents remain pending');
               return;
@@ -284,9 +282,17 @@ jobs:
                 core.notice('Maint 71 candidate lane held while delivery is active');
                 continue;
               }
-              if (activeTitles.has(title) || (key && completedTitles.has(title))
+              const observedAt = Date.parse(continuation.resume_after);
+              const alreadyCompleted = key && successfulRuns.some((run) => {
+                if (normalizeTitle(run.display_title) !== title) return false;
+                const completedAt = Date.parse(run.updated_at);
+                // Preserve deduplication when either timestamp is unavailable.
+                return !Number.isFinite(observedAt) || !Number.isFinite(completedAt)
+                  || completedAt >= observedAt;
+              });
+              if (activeTitles.has(title) || alreadyCompleted
                 || hasContinuationAcknowledgment(acknowledgments, continuation)) {
-                core.notice(`Maint 71 ${selector} continuation is active or already completed; a new key remains eligible`);
+                core.notice(`Maint 71 ${selector} continuation is active or already completed for this observation`);
                 continue;
               }
               const inputs = {

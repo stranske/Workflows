@@ -47,3 +47,15 @@ test('duplicate rows dispatch once and active delivery retains candidate priorit
 test('different due keys submit one writer so the pending queue cannot replace an earlier intent', async () => {
   assert.equal((await dispatch([], [continuation, {...continuation, continuation_key: 'other-key'}])).length, 1);
 });
+
+test('a completed key covers only observations through its completion time', async () => {
+  const intent = {...continuation, resume_after: '2026-11-19T17:55:15.099Z'};
+  const run = {status: 'completed', conclusion: 'success', display_title: 'Merge Sync PRs [dev-tool]\nsame-key'};
+  const earlier = {...run, updated_at: '2026-11-19T17:52:00Z'};
+  const atObservation = {...run, updated_at: intent.resume_after};
+  assert.equal((await dispatch([earlier], [intent])).length, 1);
+  assert.equal((await dispatch([atObservation, earlier], [intent])).length, 0);
+  assert.equal((await dispatch([{...run, updated_at: '2026-11-19T18:04:30Z'}], [intent])).length, 0);
+  assert.equal((await dispatch([run], [intent])).length, 0);
+  assert.equal((await dispatch([earlier], [continuation])).length, 0);
+});
