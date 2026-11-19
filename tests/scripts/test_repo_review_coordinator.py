@@ -960,6 +960,53 @@ def test_coordinate_repo_restarts_round1_after_late_head_drift(tmp_path: Path, m
     )
 
 
+def test_round2_head_drift_restarts_without_retrying_stale_findings(
+    tmp_path: Path, monkeypatch
+) -> None:
+    calls: list[str] = []
+
+    def fake_run_subprocess(_cmd, *, cwd, log_path, name, timeout):
+        calls.append(name)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        drift = name == "round-2" and "head-drift-preflight" not in calls
+        log_path.write_text(
+            (
+                "[round2] stranske/Example: codex round-1 source commit does not match "
+                "reviewed repo HEAD 7c68d9442fbbea57bd60b93b8c390a373bcff87e\n"
+                if drift
+                else f"{name} complete\n"
+            ),
+            encoding="utf-8",
+        )
+        return coordinator.StepResult(name=name, succeeded=not drift, duration_seconds=0.01)
+
+    monkeypatch.setattr(coordinator, "run_subprocess", fake_run_subprocess)
+    report = coordinator.coordinate_repo_with_restarts(
+        repo="stranske/Example",
+        output_dir=tmp_path / "review",
+        workflows_steward_root=tmp_path,
+        registry_path=tmp_path / "config" / "repo_review_registry.json",
+        agents=["codex", "claude"],
+        log_dir=tmp_path / "review" / "logs" / "coordinator",
+        round1_timeout=30,
+        round2_timeout=30,
+        max_turns=1,
+        skip_gate_enabled=False,
+        repair_attempts=2,
+    )
+
+    assert calls == [
+        "round-1",
+        "round-2",
+        "head-drift-preflight",
+        "round-1",
+        "round-2",
+        "body-writer",
+    ]
+    assert report["body_writer"]["succeeded"] is True
+    assert len(report["head_drift_restarts"]) == 1
+
+
 def test_head_drift_restart_io_failure_returns_controlled_report(
     tmp_path: Path, monkeypatch
 ) -> None:
