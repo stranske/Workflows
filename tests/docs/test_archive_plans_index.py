@@ -41,6 +41,16 @@ def _resolve_link(source: Path, target: str) -> Path:
 
 def test_archive_plans_ledger_links_resolve() -> None:
     text = ARCHIVE_LEDGER.read_text(encoding="utf-8")
+    archive_links = {
+        target for target in MARKDOWN_LINK.findall(text) if target.startswith(("plans/", "audits/"))
+    }
+    assert archive_links == {
+        "plans/SHORT_TERM_PLAN.md",
+        "plans/SHORT_TERM_PLAN_SUMMARY.md",
+        "plans/LONG_TERM_PLAN.md",
+        "audits/WORKFLOW_AUDIT_2025-12-25.md",
+        "audits/WORKFLOW_AUDIT_2026-01-09.md",
+    }
     for target in MARKDOWN_LINK.findall(text):
         if target.startswith("#"):
             continue
