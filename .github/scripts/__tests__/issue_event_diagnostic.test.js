@@ -7,7 +7,7 @@ const test = require('node:test');
 
 const workflow = readFileSync(path.join(__dirname, '../../workflows/agents-debug-issue-event.yml'), 'utf8');
 const script = workflow.split('          script: |\n')[1];
-const run = new (Object.getPrototypeOf(async function () {}).constructor)('github', 'context', 'core', 'process', script);
+const run = new (Object.getPrototypeOf(async function () {}).constructor)('github', 'context', 'core', 'process', 'require', script);
 
 async function inspect(eventId, event) {
   let report;
@@ -20,7 +20,7 @@ async function inspect(eventId, event) {
   }}};
   await run(github, {repo: {owner: 'stranske', repo: 'Workflows'}},
     {info: line => { report = JSON.parse(line); }},
-    {env: {ISSUE_NUMBER: '4501', EVENT_ID: eventId}});
+    {env: {ISSUE_NUMBER: '4501', EVENT_ID: eventId}}, require('node:module').createRequire(path.resolve('package.json')));
   return report;
 }
 

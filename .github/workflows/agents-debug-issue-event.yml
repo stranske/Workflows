@@ -12,12 +12,19 @@ on:
         type: string
 
 permissions:
+  contents: read
   issues: read
 
 jobs:
   debug_dump:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
       - name: Inspect issue and label event
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
@@ -25,6 +32,7 @@ jobs:
           EVENT_ID: ${{ inputs.event_id }}
         with:
           script: |
+            const { withRetry } = require('./.github/scripts/github-api-with-retry.js');
             function positiveId(value, name) {
               const id = Number(value);
               if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(id)) {
@@ -34,9 +42,9 @@ jobs:
             }
             const issueNumber = positiveId(process.env.ISSUE_NUMBER, 'issue_number');
             const hasAgentPrefix = name => /^(agent|agents):/.test(name);
-            const { data: issue } = await github.rest.issues.get({
+            const { data: issue } = await withRetry(() => github.rest.issues.get({
               ...context.repo, issue_number: issueNumber,
-            });
+            }));
             if (issue.pull_request) throw new Error(`#${issueNumber} is a pull request`);
             const labels = issue.labels.map(label => typeof label === 'string' ? label : label.name);
             const report = {
@@ -46,9 +54,9 @@ jobs:
             };
             if (process.env.EVENT_ID) {
               const id = positiveId(process.env.EVENT_ID, 'event_id');
-              const { data: event } = await github.rest.issues.getEvent({
+              const { data: event } = await withRetry(() => github.rest.issues.getEvent({
                 ...context.repo, event_id: id,
-              });
+              }));
               if (event.issue?.number !== issueNumber || !['labeled', 'unlabeled'].includes(event.event)) {
                 throw new Error(`Event ${id} must be a label change on issue #${issueNumber}`);
               }
