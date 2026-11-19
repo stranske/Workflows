@@ -305,6 +305,40 @@ def test_trace_helpers_fall_back_when_provider_imports_fail(monkeypatch) -> None
     assert trace == trace_utils.TraceInfo()
 
 
+def test_build_llm_config_falls_back_with_issue_metadata(monkeypatch) -> None:
+    import builtins
+
+    real_import = builtins.__import__
+
+    def unavailable_provider(name, globals=None, locals=None, fromlist=(), level=0):  # noqa: ANN001
+        if name == "tools.llm_provider":
+            raise ImportError("provider unavailable")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", unavailable_provider)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "acme/repo")
+    monkeypatch.delenv("GITHUB_RUN_ID", raising=False)
+    monkeypatch.setenv("RUN_ID", "run-1")
+
+    config = trace_utils.build_llm_config(operation="check", issue_number=42)
+    assert config == {
+        "metadata": {
+            "repo": "acme/repo",
+            "run_id": "run-1",
+            "issue_or_pr_number": "42",
+            "operation": "check",
+            "issue_number": "42",
+        },
+        "tags": [
+            "workflows-agents",
+            "operation:check",
+            "repo:acme/repo",
+            "issue_or_pr:42",
+            "run_id:run-1",
+        ],
+    }
+
+
 def test_is_call_instruction_returns_false_for_unknown_instruction_offset() -> None:
     frame = trace_utils._TracebackFrame(
         code=test_is_call_instruction_returns_false_for_unknown_instruction_offset.__code__,

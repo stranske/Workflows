@@ -6,6 +6,7 @@ import dis
 import inspect
 import linecache
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -39,6 +40,48 @@ class _TracebackFrame:
     code: Any
     lineno: int
     lasti: int
+
+
+def build_llm_config(
+    *,
+    operation: str,
+    issue_number: int | None = None,
+) -> dict[str, object]:
+    """Build LangSmith metadata/tags for LLM call (issue-scoped entry points)."""
+
+    try:
+        from tools.llm_provider import build_langsmith_metadata
+
+        return build_langsmith_metadata(
+            operation=operation,
+            issue_number=issue_number,
+        )
+    except ImportError:
+        pass
+
+    repo = os.environ.get("GITHUB_REPOSITORY", "unknown")
+    run_id = os.environ.get("GITHUB_RUN_ID") or os.environ.get("RUN_ID") or "unknown"
+    env_issue = os.environ.get("ISSUE_NUMBER", "")
+    issue_or_pr = (
+        str(issue_number)
+        if issue_number is not None
+        else env_issue if env_issue.isdigit() else "unknown"
+    )
+    metadata = {
+        "repo": repo,
+        "run_id": run_id,
+        "issue_or_pr_number": issue_or_pr,
+        "operation": operation,
+        "issue_number": str(issue_number) if issue_number is not None else None,
+    }
+    tags = [
+        "workflows-agents",
+        f"operation:{operation}",
+        f"repo:{repo}",
+        f"issue_or_pr:{issue_or_pr}",
+        f"run_id:{run_id}",
+    ]
+    return {"metadata": metadata, "tags": tags}
 
 
 def build_trace_config(
