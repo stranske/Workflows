@@ -858,3 +858,93 @@ def test_native_daily_observation_is_bound_to_measured_repository(monkeypatch):
     consumer = budget.observation({}, metrics(), NOW, repo="example/consumer")
     assert source["daily_observations"][NOW.date().isoformat()]["run_id"] == 123
     assert consumer["daily_observations"] == {}
+
+
+def test_wall_clock_matches_latest_summary_without_changing_budget(monkeypatch):
+    jobs = {
+        1: [job("python", 7), job("summary", 1)],
+        2: [job("python", 8), job("summary", 1, conclusion="failure")],
+        3: [job("python", 6), job("summary", 1, conclusion="skipped")],
+        4: [job("python", 90), job("summary", 1)],
+        5: [job("python", 5), job("python ci / logs summary", 1)],
+        6: [job("python", 7), job("summary", 1), job("summary", 1)],
+        7: [job("python", 7), job("summary", 1)],
+        8: [job("python", 7), job("summary", 1)],
+    }
+    runs = [
+        {
+            "id": i,
+            "conclusion": "cancelled" if i == 4 else "failure" if i == 2 else "success",
+            "created_at": (
+                None
+                if i == 7
+                else (NOW - timedelta(minutes={1: 11, 2: 15, 8: 0}.get(i, 12))).isoformat()
+            ),
+            "run_attempt": 2 if i == 2 else 1,
+            "run_started_at": (NOW - timedelta(minutes=9)).isoformat(),
+        }
+        for i in jobs
+    ]
+    monkeypatch.setattr(budget, "gate_runs", lambda *_: runs)
+    api = ActionsAPI(jobs)
+    source = budget.measure(budget.SOURCE_REPO, api=api, now=NOW)
+    consumer = budget.measure(REPO, api=api, now=NOW)
+    timing = source.pop("gate_wall_clock")
+    assert source == consumer  # Even absent/ambiguous summaries leave old metrics intact.
+    assert source["p50"] == 7
+    assert timing == {
+        "p50": 12,
+        "p90": pytest.approx(13.6),
+        "sample_count": 2,
+        "eligible_count": 7,
+        "matched_rerun_count": 1,
+        "over_10_minutes_count": 1,  # Exactly 10 minutes is not over.
+        "over_10_minutes_share": 0.5,
+    }
+    previous = {"gate_wall_clock": timing}
+    for measured in (None, source):
+        assert "gate_wall_clock" not in budget.observation(previous, measured, NOW)
+
+
+def test_wall_clock_uses_existing_v1_job_cache_and_reports_missing_coverage(tmp_path, monkeypatch):
+    class Cached(budget.GitHub):
+        reads = 0
+
+        def pages(self, path, key=None, **params):
+            self.reads += 1
+            assert self.reads == 1, "Existing raw-job cache should be reused"
+            return [
+                job(name, minutes, run_id=123, status="completed")
+                for name, minutes in (("python ci / python 3.14", 533 / 60), ("summary", 28 / 60))
+            ]
+
+    api = Cached("fixture-token")
+    api.cache_dir = tmp_path
+    run = {
+        "id": 123,
+        "run_attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "a" * 40,
+        "updated_at": NOW.isoformat(),
+        "created_at": (NOW - timedelta(seconds=733 + 60)).isoformat(),
+    }
+    monkeypatch.setattr(budget, "gate_runs", lambda *_: [run])
+    api.run_jobs(budget.SOURCE_REPO, run)
+    assert json.loads(next(tmp_path.glob("*.json")).read_text())["schema"] == "ci-budget-jobs/v1"
+    result = budget.measure(budget.SOURCE_REPO, api=api, now=NOW)
+    assert result["p50"] == pytest.approx(533 / 60)
+    assert result["gate_wall_clock"]["p50"] == pytest.approx(733 / 60)
+    assert result["gate_wall_clock"]["sample_count"] == 1
+
+    del run["created_at"]
+    result = budget.measure(budget.SOURCE_REPO, api=api, now=NOW)
+    assert result["gate_wall_clock"] == {
+        "p50": None,
+        "p90": None,
+        "sample_count": 0,
+        "eligible_count": 1,
+        "matched_rerun_count": 0,
+        "over_10_minutes_count": 0,
+        "over_10_minutes_share": None,
+    }

@@ -3,6 +3,7 @@
 
 Durations are minutes. Each Gate run contributes its slowest executed job;
 short setup/summary jobs must not dilute the test matrix's bottleneck.
+Workflows also reports advisory wall-clock timing through the Gate summary.
 Run with ``python -m scripts.ci_time_budget`` from the Workflows checkout.
 """
 
@@ -28,6 +29,7 @@ BASE_SHARE = 0.05
 DOUBLING_DISTANCE = 0.25
 MAX_SHARE = 0.5
 TARGET_MINUTES = 10.0
+WALL_CLOCK_THRESHOLD_MINUTES = 10.0
 RECOVERY_DAYS = 7
 REPORT_PATH = Path("docs/reports/ci-budget.json")
 REPORT_BRANCH = "ci-time-budget"
@@ -189,10 +191,13 @@ def measure(repo: str, *, api: GitHub, now: datetime) -> dict:
     start = now - timedelta(days=7)
     samples: list[float] = []
     longest: dict = {}
+    wall_clock: list[float] = []
+    matched_reruns = 0
     for run in gate_runs(api, repo, start, now):
         if run["conclusion"] not in {"success", "failure", "timed_out"}:
             continue
         durations: list[float] = []
+        summaries: list[tuple[datetime, datetime]] = []
         read_jobs = getattr(api, "run_jobs", None)
         jobs = (
             read_jobs(repo, run)
@@ -210,18 +215,43 @@ def measure(repo: str, *, api: GitHub, now: datetime) -> dict:
                 continue
             duration = (completed - started).total_seconds() / 60
             durations.append(duration)
+            if repo == SOURCE_REPO and job["name"] == "summary":
+                summaries.append((started, completed))
             if duration > longest.get("minutes", -1):
                 longest = {"name": job["name"], "minutes": duration, "url": job["html_url"]}
         if durations:
             samples.append(max(durations))
+            if len(summaries) == 1:
+                try:
+                    created = timestamp(run["created_at"])
+                except (KeyError, ValueError, AttributeError):
+                    continue  # Unavailable wall-clock input must not alter the budget.
+                summary_started, summary_completed = summaries[0]
+                if start <= created <= summary_started:
+                    wall_clock.append((summary_completed - created).total_seconds() / 60)
+                    attempt = run.get("run_attempt")
+                    matched_reruns += int(type(attempt) is int and attempt > 1)
     if not samples:
         raise RuntimeError("No completed executed Gate jobs in the trailing seven days")
-    return {
+    result: dict = {
         "p50": percentile(samples, 0.5),
         "p90": percentile(samples, 0.9),
         "longest_job": longest,
         "sample_count": len(samples),
     }
+    if repo == SOURCE_REPO:
+        count = len(wall_clock)
+        over = sum(value > WALL_CLOCK_THRESHOLD_MINUTES for value in wall_clock)
+        result["gate_wall_clock"] = {
+            "p50": percentile(wall_clock, 0.5) if count else None,
+            "p90": percentile(wall_clock, 0.9) if count else None,
+            "sample_count": count,
+            "eligible_count": len(samples),
+            "matched_rerun_count": matched_reruns,
+            "over_10_minutes_count": over,
+            "over_10_minutes_share": over / count if count else None,
+        }
+    return result
 
 
 def observation(
@@ -278,6 +308,8 @@ def observation(
         "status": "measured" if measured else "unknown",
     }
     row.pop("error", None)
+    if not measured or "gate_wall_clock" not in measured:
+        row.pop("gate_wall_clock", None)  # Do not present an earlier window as current.
     if (
         distance is not None
         and distance > 0
@@ -483,6 +515,14 @@ def run(api: GitHub, repos: list[str], now: datetime) -> int:
             f"filing_latency_hours={row.get('filing_latency_hours')} "
             f"filed_under_24h={row.get('filed_under_24h')} issues={row.get('issue_numbers', [])}"
         )
+        if timing := row.get("gate_wall_clock"):
+            print(
+                f"{repo}: Gate wall clock (minutes, advisory): "
+                f"p50={timing['p50']} p90={timing['p90']} "
+                f"coverage={timing['sample_count']}/{timing['eligible_count']} "
+                f"over_10m={timing['over_10_minutes_count']} "
+                f"over_10m_share={timing['over_10_minutes_share']}"
+            )
     publish(report, api=api, sha=sha)
     for error in errors:
         print(f"ERROR: {error}")
