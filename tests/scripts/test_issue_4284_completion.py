@@ -106,6 +106,27 @@ def test_qualifying_series_without_matching_issue_text_stays_incomplete() -> Non
     assert any("no matching Health 85 p50 line" in failure for failure in decision["failures"])
 
 
+@pytest.mark.parametrize(
+    ("original", "different"),
+    [
+        ("| 570.0 |", "| 1570.0 |"),
+        ("| 570.0 |", "| 570.01 |"),
+        ("| 570.0 | yes |", "| 999.0 | 570.0 |"),
+        ("/actions/runs/5000 |", "/actions/runs/50001 |"),
+    ],
+)
+def test_partial_issue_row_match_stays_incomplete(original: str, different: str) -> None:
+    report = _qualifying_report()
+    issue = _issue_for(report)
+    issue["body"] = issue["body"].replace(original, different, 1)
+
+    decision = reconcile_completion(issue, _load(GATE), report)
+
+    assert decision["sustained_series_supported"] is True
+    assert decision["matched_dates"] == [row["date"] for row in report["observations"][1:]]
+    assert decision["completion_reconciled"] is False
+
+
 def test_true_flag_with_an_over_limit_day_does_not_qualify() -> None:
     report = _qualifying_report()
     report["observations"][-1]["p50_seconds"] = 705.0
