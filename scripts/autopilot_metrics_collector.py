@@ -42,6 +42,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+if __package__:  # `python -m scripts.autopilot_metrics_collector`
+    from scripts.autopilot_summary_environment import summary_environment_details
+else:  # `python scripts/autopilot_metrics_collector.py`
+    from autopilot_summary_environment import summary_environment_details
+
 AUTOPILOT_METRICS_SCHEMA_VERSION = 1
 
 AUTOPILOT_METRICS_SCHEMA: dict[str, Any] = {
@@ -452,24 +457,6 @@ def append_record(path: Path, record: dict[str, Any]) -> None:
         handle.write(payload + "\n")
 
 
-def _summary_env_details() -> dict[str, str]:
-    keys = (
-        "GITHUB_RUN_ID",
-        "GITHUB_WORKFLOW",
-        "GITHUB_JOB",
-        "GITHUB_RUN_ATTEMPT",
-        "GITHUB_REF",
-        "GITHUB_SHA",
-        "RUNNER_OS",
-    )
-    details: dict[str, str] = {}
-    for key in keys:
-        value = os.environ.get(key)
-        if value:
-            details[key.lower()] = value
-    return details
-
-
 def _write_failure_summary(
     *,
     error: Exception,
@@ -500,7 +487,7 @@ def _write_failure_summary(
         "error_category": error_category,
         "exit_code": exit_code,
         "message": str(error),
-        "environment": _summary_env_details(),
+        "environment": summary_environment_details(),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(record, separators=(",", ":"), sort_keys=True)
@@ -530,7 +517,7 @@ def _write_runtime_summary(*, elapsed_ms: int, args: argparse.Namespace | None) 
         "threshold_ms": RUNTIME_WARNING_THRESHOLD_MS,
         "step_name": step_name or "",
         "metric_type": str(metric_type).strip().lower() if metric_type else "",
-        "environment": _summary_env_details(),
+        "environment": summary_environment_details(),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(record, separators=(",", ":"), sort_keys=True)
