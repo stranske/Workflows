@@ -146,6 +146,22 @@ def test_partial_match_in_health85_bullet_stays_incomplete(original: str, differ
     assert decision["completion_reconciled"] is False
 
 
+def test_qualifying_series_with_only_health85_bullets_reconciles() -> None:
+    report = _qualifying_report()
+    observations = report["observations"]
+    body = "\n".join(
+        f"- {row['date']}: p50 {row['p50_seconds']:.1f} seconds; {row['source_run_url']}"
+        for row in observations
+    )
+    issue = {"state": "OPEN", "body": body, "comments": []}
+
+    decision = reconcile_completion(issue, _load(GATE), report)
+
+    assert decision["observations_match_issue"] is True
+    assert decision["completion_reconciled"] is True
+    assert decision["matched_dates"] == [row["date"] for row in observations]
+
+
 def test_true_flag_with_an_over_limit_day_does_not_qualify() -> None:
     report = _qualifying_report()
     report["observations"][-1]["p50_seconds"] = 705.0
