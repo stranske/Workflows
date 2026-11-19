@@ -1,46 +1,60 @@
 name: Agents Debug Issue Event
 on:
   workflow_dispatch:
-  issues:
-    types: [labeled]
+    inputs:
+      issue_number:
+        description: Issue number to inspect
+        required: true
+        type: string
+      event_id:
+        description: Optional issue event ID to inspect a specific label change
+        required: false
+        type: string
 
 permissions:
-  contents: read
+  issues: read
 
 jobs:
   debug_dump:
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'agents:debug'
     runs-on: ubuntu-latest
     steps:
-      - name: Dump GitHub Context
+      - name: Inspect issue and label event
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
-      - name: Check Label Logic
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          EVENT_ACTION: ${{ github.event.action }}
-          LABEL_NAME: ${{ github.event.label.name }}
-          ISSUE_LABELS_JSON: >-
-            ${{ toJson(github.event.issue.labels.*.name) }}
-        run: |
-          echo "Event Name: $EVENT_NAME"
-          echo "Action: $EVENT_ACTION"
-          echo "Label Name: '$LABEL_NAME'"
-          echo "Issue Labels: '$ISSUE_LABELS_JSON'"
-
-          # Simulate the checks
-          if [[ "$EVENT_ACTION" == "labeled" ]]; then
-            if [[ "$LABEL_NAME" == agent:* ]] || [[ "$LABEL_NAME" == agents:* ]]; then
-              echo "MATCH: Explicit label check passed"
-            else
-              echo "FAIL: Explicit label check failed"
-            fi
-          fi
-
-           if [[ "$ISSUE_LABELS_JSON" == *"agent:"* ]] || \
-            [[ "$ISSUE_LABELS_JSON" == *"agents:"* ]]; then
-             echo "MATCH: Contains check passed"
-          else
-             echo "FAIL: Contains check failed"
-          fi
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          EVENT_ID: ${{ inputs.event_id }}
+        with:
+          script: |
+            function positiveId(value, name) {
+              const id = Number(value);
+              if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(id)) {
+                throw new Error(`${name} must be a positive integer`);
+              }
+              return id;
+            }
+            const issueNumber = positiveId(process.env.ISSUE_NUMBER, 'issue_number');
+            const hasAgentPrefix = name => /^(agent|agents):/.test(name);
+            const { data: issue } = await github.rest.issues.get({
+              ...context.repo, issue_number: issueNumber,
+            });
+            if (issue.pull_request) throw new Error(`#${issueNumber} is a pull request`);
+            const labels = issue.labels.map(label => typeof label === 'string' ? label : label.name);
+            const report = {
+              issue: issue.number,
+              current_labels: labels,
+              current_agent_labels: labels.filter(hasAgentPrefix),
+            };
+            if (process.env.EVENT_ID) {
+              const id = positiveId(process.env.EVENT_ID, 'event_id');
+              const { data: event } = await github.rest.issues.getEvent({
+                ...context.repo, event_id: id,
+              });
+              if (event.issue?.number !== issueNumber || !['labeled', 'unlabeled'].includes(event.event)) {
+                throw new Error(`Event ${id} must be a label change on issue #${issueNumber}`);
+              }
+              report.label_event = {
+                id: event.id, action: event.event, label: event.label.name,
+                agent_label: hasAgentPrefix(event.label.name),
+              };
+            }
+            core.info(JSON.stringify(report));
