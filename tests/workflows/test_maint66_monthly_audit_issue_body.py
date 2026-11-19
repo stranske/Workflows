@@ -70,6 +70,8 @@ def test_rendered_checklist_fields(tmp_path: Path, total: int, successful: int, 
         "LOOKBACK": "30",
         "FAILING": finding,
         "WARNING": "None",
+        "SMALL_SAMPLE": "Small sample failure",
+        "CONCLUSION_MIX": "skipped=8, unknown=2",
         "NOT_RUN": "None",
         "API_GUARD": "All clear",
     }
@@ -77,8 +79,11 @@ def test_rendered_checklist_fields(tmp_path: Path, total: int, successful: int, 
     body = output.read_text(encoding="utf-8")
     assert "**Generated:** 2026-11-30T23:59:59Z" in body
     assert "## Monthly Workflow Audit - November 2026" in body
-    assert f"| Success Rate | {rate}% |" in body
+    assert f"| Success Rate (all runs, descriptive only) | {rate}% |" in body
     assert finding in body
+    assert "Small sample failure" in body
+    assert "skipped=8, unknown=2" in body
+    assert "at least five decisive outcomes" in body
     assert "Check for issues with label `workflow-audit`" in body
 
 
