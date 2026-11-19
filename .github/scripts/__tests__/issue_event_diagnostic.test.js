@@ -20,7 +20,7 @@ async function inspect(eventId, event) {
   }}};
   await run(github, {repo: {owner: 'stranske', repo: 'Workflows'}},
     {info: line => { report = JSON.parse(line); }},
-    {env: {ISSUE_NUMBER: '4501', EVENT_ID: eventId}}, require('node:module').createRequire(path.resolve('package.json')));
+    {env: {ISSUE_NUMBER: '4501', EVENT_ID: eventId}}, require('node:module').createRequire(path.resolve(__dirname, '../../../package.json')));
   return report;
 }
 

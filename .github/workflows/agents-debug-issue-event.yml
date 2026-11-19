@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-api-client
+      - uses: stranske/Workflows/.github/actions/setup-api-client@34762b63d36b76a48a83d869e7448b1410c3e80f # trusted client
         with:
           github_token: ${{ github.token }}
       - name: Inspect issue and label event
