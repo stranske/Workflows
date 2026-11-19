@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -63,6 +62,8 @@ def test_rendered_checklist_fields(tmp_path: Path, total: int, successful: int, 
     env = {
         **os.environ,
         "GITHUB_OUTPUT": str(output),
+        "AUDIT_MONTH": "November 2026",
+        "GENERATED_AT": "2026-11-30T23:59:59Z",
         "TOTAL_RUNS": str(total),
         "TOTAL_SUCCESS": str(successful),
         "TOTAL_FAILURE": str(total - successful),
@@ -72,13 +73,47 @@ def test_rendered_checklist_fields(tmp_path: Path, total: int, successful: int, 
         "NOT_RUN": "None",
         "API_GUARD": "All clear",
     }
-    before = datetime.now(UTC).replace(microsecond=0)
     subprocess.run(["bash", "-e", "-c", script], env=env, cwd=tmp_path, check=True, timeout=15)
-    after = datetime.now(UTC)
     body = output.read_text(encoding="utf-8")
-    matches = re.search(r"^\*\*Generated:\*\* (\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)$", body, re.M)
-    assert matches and before <= datetime.fromisoformat(matches[1]) <= after
-    assert any(f"## Monthly Workflow Audit - {point:%B %Y}" in body for point in (before, after))
+    assert "**Generated:** 2026-11-30T23:59:59Z" in body
+    assert "## Monthly Workflow Audit - November 2026" in body
     assert f"| Success Rate | {rate}% |" in body
     assert finding in body
     assert "Check for issues with label `workflow-audit`" in body
+
+
+def test_issue_title_uses_the_checklist_month_after_midnight(tmp_path: Path) -> None:
+    steps = yaml.safe_load(WORKFLOW_PATH.read_text())["jobs"]["audit"]["steps"]
+    checklist = next(step for step in steps if step.get("id") == "checklist")
+    writer = next(step for step in steps if step["name"] == "Create or update audit issue")
+    assert writer["env"]["AUDIT_MONTH"] == checklist["env"]["AUDIT_MONTH"]
+    assert writer["env"]["AUDIT_MONTH"] == "${{ steps.stats.outputs.audit_month }}"
+    assert checklist["env"]["GENERATED_AT"] == "${{ steps.stats.outputs.generated_at }}"
+
+    # The collection finished in November and the issue is posted after midnight.
+    shell = """
+date() { echo 'December 2026'; }
+gh() {
+  if [[ "$2" == create ]]; then printf '%s\\n' "$@" > issue-args; fi
+}
+"""
+    script = writer["run"].replace("${{ github.repository }}", "stranske/Workflows")
+    subprocess.run(
+        ["bash", "-c", shell + script],
+        cwd=tmp_path,
+        env={**os.environ, "AUDIT_MONTH": "November 2026", "AUDIT_BODY": "checklist"},
+        check=True,
+        timeout=15,
+    )
+    args = (tmp_path / "issue-args").read_text().splitlines()
+    assert (
+        args[args.index("--title") + 1] == "[Monthly Audit] Workflow Health Check - November 2026"
+    )
+
+
+def test_scheduled_audits_publish_and_manual_runs_honor_the_checkbox() -> None:
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text())
+    steps = workflow["jobs"]["audit"]["steps"]
+    writer = next(step for step in steps if step["name"] == "Create or update audit issue")
+    assert workflow[True]["workflow_dispatch"]["inputs"]["create_issue"]["default"] is True
+    assert writer["if"] == "github.event_name == 'schedule' || inputs.create_issue"

@@ -137,3 +137,34 @@ test('the actual workflow records collection failure and does not emit partial r
   assert.deepEqual(runs, []);
   assert.deepEqual(failures, ['stranske/Workflows: workflow runs: missing page']);
 });
+
+test('the monthly audit reports the complete inventory for a dense interval', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const vm = require('node:vm');
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-66-monthly-audit.yml'), 'utf8');
+  const script = workflow.match(/runs=\$\(node - <<-'NODE'\n([\s\S]*?)\n\s*NODE\n/)[1];
+  const rows = Array.from({ length: 1001 }, (_, id) => ({
+    id, created_at: new Date(+start + id * 1000).toISOString(),
+    name: 'Gate', conclusion: id % 2 ? 'success' : 'failure',
+  }));
+  const api = { rest: { actions: { listWorkflowRunsForRepo: fixture(rows, []) } } };
+  const dependencies = {
+    '@octokit/rest': { Octokit: class {} },
+    './.github/scripts/github-api-with-retry.js': {
+      createTokenAwareRetry: async () => ({ withRetry: (request) => request(api) }),
+    },
+    './.github/scripts/dependency_sync_run_window.js': { collectRunWindow },
+  };
+  let output;
+  await vm.runInNewContext(script, {
+    require: (name) => dependencies[name],
+    console,
+    process: {
+      env: { GITHUB_REPOSITORY: 'example/project', START_DATE: start.toISOString(), END_DATE: end.toISOString() },
+      stdout: { write: (json) => { output = JSON.parse(json); } },
+      exit: (code) => { throw new Error(`monthly audit exited ${code}`); },
+    },
+  });
+  assert.deepEqual(output, rows);
+});
