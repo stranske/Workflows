@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.1](https://github.com/stranske/Workflows/compare/v1.52.0...v1.52.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **sync-campaign:** an acknowledgment older than the intent's observation does not count ([#4743](https://github.com/stranske/Workflows/issues/4743)) ([ff39150](https://github.com/stranske/Workflows/commit/ff391504f4e97ad58ed73a898831bbd2fb98331d))
+
 ## [1.52.0](https://github.com/stranske/Workflows/compare/v1.51.1...v1.52.0) (2026-11-18)
 
 
