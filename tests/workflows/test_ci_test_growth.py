@@ -174,6 +174,36 @@ def test_serial_test_failure_preserves_complete_collection_receipt(tmp_path):
     assert receipt.get("complete") is not False
 
 
+@pytest.mark.parametrize(
+    ("xml", "include_json", "expected"),
+    [
+        ('<coverage line-rate="0.927"/>', False, {"percent": 92.7, "source": "coverage.xml"}),
+        (None, True, {"percent": 91.28, "source": "coverage.json"}),
+        ('<coverage line-rate="0.927"/>', True, {"percent": 92.7, "source": "coverage.xml"}),
+        ("<broken", True, {"percent": 91.28, "source": "coverage.json"}),
+        (None, False, None),
+    ],
+    ids=["xml-only", "json-only", "both", "malformed-xml-fallback", "neither"],
+)
+def test_ci_summary_names_the_report_it_read(tmp_path, xml, include_json, expected):
+    script = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
+    runtime = tmp_path / "artifacts/coverage/runtimes/3.14"
+    runtime.mkdir(parents=True)
+    if xml is not None:
+        (runtime / "coverage.xml").write_text(xml, encoding="utf-8")
+    if include_json:
+        (runtime / "coverage.json").write_text(
+            json.dumps({"totals": {"percent_covered": 91.284}}), encoding="utf-8"
+        )
+    subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHON_VERSION": "3.14", "GITHUB_OUTPUT": str(tmp_path / "out")},
+        check=True,
+    )
+    assert json.loads((runtime / "summary.json").read_text()).get("coverage") == expected
+
+
 def test_actual_ci_summary_reports_growth_and_preserves_failed_gate(tmp_path):
     script = _python_heredoc(_steps()[SUMMARY_STEP]["run"], SUMMARY_OPENER, SUMMARY_STEP)
     runtime = tmp_path / "artifacts/coverage/runtimes/3.12"
