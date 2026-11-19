@@ -1,9 +1,14 @@
 import json
+import shutil
+import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from scripts import autopilot_metrics_collector as collector
+from scripts.scope_consumer_sync_plan import select_plan
+from scripts.sync_manifest_compiler import compile_manifest
 
 
 def _step_record(success: bool = True) -> dict:
@@ -1154,3 +1159,32 @@ def test_write_runtime_summary_skips_fast_runs(
     )
 
     assert not summary_path.exists()
+
+
+def test_each_installed_metrics_entrypoint_receives_its_environment_helper(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[2]
+    plan = compile_manifest(root / ".github/sync-manifest.yml").to_plan()
+    for module in ("autopilot_metrics_collector", "autopilot_step_timer"):
+        caller = f"scripts/{module}.py"
+        scoped, _ = select_plan(
+            plan,
+            mode="source-delta",
+            changed_paths=[caller],
+            base_sha="base",
+            source_commit="head",
+        )
+        assert "scripts/autopilot_summary_environment.py" in {
+            entry["target"] for entry in scoped["entries"]
+        }
+        consumer = tmp_path / module
+        for entry in scoped["entries"]:
+            destination = consumer / entry["target"]
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(root / entry["resolved_source"], destination)
+        # Only files in this caller's delivery plan are available to the installed CLI.
+        subprocess.run(
+            [sys.executable, "-E", "-S", caller, "--help"],
+            cwd=consumer,
+            check=True,
+            capture_output=True,
+        )

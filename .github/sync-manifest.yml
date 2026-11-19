@@ -365,11 +365,18 @@ scripts:
     description: "Checks test dependencies match - required by reusable CI workflow"
 
   # Python scripts for auto-pilot metrics
+  - source: scripts/autopilot_summary_environment.py
+    description: "Shares GitHub environment details for auto-pilot metric summaries"
+
   - source: scripts/autopilot_step_timer.py
     description: "Emits step timing timestamps for auto-pilot workflows - required by agents-auto-pilot.yml"
+    requires:
+      - scripts/autopilot_summary_environment.py
 
   - source: scripts/autopilot_metrics_collector.py
     description: "Collects and appends structured auto-pilot metrics to NDJSON log - required by agents-auto-pilot.yml"
+    requires:
+      - scripts/autopilot_summary_environment.py
 
   # Python scripts for ChatGPT topic sync
   - source: .github/scripts/decode_raw_input.py
