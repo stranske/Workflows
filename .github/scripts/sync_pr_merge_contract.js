@@ -1089,6 +1089,33 @@ function sortSyncPrs(prs) {
   });
 }
 
+function isStaleSyncPrCandidate(candidate, active) {
+  if (!candidate || !active || candidate.number === active.number) return false;
+  const activeBranch = branchNameFromRef(active?.head?.ref);
+  const candidateBranch = branchNameFromRef(candidate?.head?.ref);
+  const activeLane = generatedDeliveryLane(activeBranch);
+  if (!activeLane || generatedDeliveryLane(candidateBranch) !== activeLane) return false;
+  if (activeLane === 'dev-tool-sync') return true;
+
+  // Distinct stable delivery branches (candidate vs delivery) represent
+  // independent delivery tracks and never supersede each other by age or
+  // selector alone.
+  if (isStableSyncBranchName(candidateBranch) && candidateBranch !== activeBranch) {
+    return false;
+  }
+
+  const activePlanId = parseDeliveryRecord(active?.body || '')?.plan_id || '';
+  const candidatePlanId = parseDeliveryRecord(candidate?.body || '')?.plan_id || '';
+  // When either sync PR carries a delivery record, supersession requires the
+  // same plan_id; never infer ownership from age alone across unrelated plans
+  // or between leased and unleased deliveries.
+  if (activePlanId || candidatePlanId) {
+    return Boolean(activePlanId && candidatePlanId && activePlanId === candidatePlanId);
+  }
+
+  return true;
+}
+
 function selectActiveSyncPr(prs, syncHash = '') {
   const ordered = sortSyncPrs(prs);
   if (normalizeSyncHash(syncHash) === DEV_TOOL_SYNC_SELECTOR) {
@@ -1099,7 +1126,7 @@ function selectActiveSyncPr(prs, syncHash = '') {
     return {
       active,
       stale: active
-        ? devToolPrs.filter((pr) => pr.number !== active.number)
+        ? devToolPrs.filter((pr) => isStaleSyncPrCandidate(pr, active))
         : [],
       expectedBranch: '',
       missingExpected: false,
@@ -1108,14 +1135,10 @@ function selectActiveSyncPr(prs, syncHash = '') {
   const expectedBranch = syncBranchForHash(syncHash);
   if (!expectedBranch) {
     const active = ordered[ordered.length - 1] || null;
-    const activeLane = generatedDeliveryLane(active?.head?.ref);
     return {
       active,
       stale: active
-        ? ordered.filter(
-          (pr) => pr.number !== active.number
-            && generatedDeliveryLane(pr?.head?.ref) === activeLane,
-        )
+        ? ordered.filter((pr) => isStaleSyncPrCandidate(pr, active))
         : [],
       expectedBranch: '',
       missingExpected: false,
@@ -1123,14 +1146,10 @@ function selectActiveSyncPr(prs, syncHash = '') {
   }
 
   const active = ordered.find((pr) => pr.head && pr.head.ref === expectedBranch) || null;
-  const expectedLane = generatedDeliveryLane(expectedBranch);
   return {
     active,
     stale: active
-      ? ordered.filter(
-        (pr) => pr.number !== active.number
-          && generatedDeliveryLane(pr?.head?.ref) === expectedLane,
-      )
+      ? ordered.filter((pr) => isStaleSyncPrCandidate(pr, active))
       : [],
     expectedBranch,
     missingExpected: !active,
@@ -1157,9 +1176,20 @@ function selectMergeEligibleSyncPr(
       (pr) => parseDeliveryRecord(pr.body || '')?.plan_id === expectedPlanId,
     );
   }
-  const eligibility = record
-    ? mergeEligibility(record, { now, planId: expectedPlanId, repository, desiredTreeHash })
-    : { eligible: false, reason: 'missing_delivery_record' };
+  if (!record) {
+    const stale = generatedDeliveryLane(selection.active?.head?.ref) === 'dev-tool-sync'
+      ? selection.stale
+      : [];
+    return {
+      ...selection,
+      stale,
+      deliveryRecord: null,
+      eligibility: { eligible: false, reason: 'missing_delivery_record' },
+    };
+  }
+  const eligibility = mergeEligibility(record, {
+    now, planId: expectedPlanId, repository, desiredTreeHash,
+  });
   return { ...selection, deliveryRecord: record, eligibility };
 }
 

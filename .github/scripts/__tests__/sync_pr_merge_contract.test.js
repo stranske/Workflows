@@ -4493,3 +4493,313 @@ test('noChangeCarriesToHead carries a no-change verdict only across commits that
   refuse(null, 'history_unknown');
   assert.equal(noChangeCarriesToHead({ comparison: live, managed, fromSha: 'short', toSha: to }).reason, 'head_invalid');
 });
+
+test('unscoped and branch-scoped selection preserves distinct stable branches and unrelated plans while restoring dev-tool legacy cleanup', () => {
+  const repository = 'stranske/Portable-Alpha-Extension-Model';
+  const planA = `sha256:${'a'.repeat(64)}`;
+  const planB = `sha256:${'b'.repeat(64)}`;
+  const now = '2026-11-18T12:00:00Z';
+  const leasedPr = (number, branch, planId, createdAt) => ({
+    ...pr(number, branch, createdAt),
+    body: '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify({
+      schema: 'sync-pr-delivery-record/v1',
+      durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+      plan_id: planId, generation: planId.slice(-12), repository,
+      desired_tree_hash: `tree-${number}`, source_commit: 'c'.repeat(40),
+      lease_expires_at: '2099-11-18T12:00:00Z', predecessor_prs: [], successor_prs: [],
+    }) + ' -->',
+  });
+
+  // Portable Alpha #2220 delivery (plan A) and #2222 candidate (plan B) in both time orders.
+  for (const [deliveryAt, candidateAt, expectedActive] of [
+    ['2026-11-18T01:00:00Z', '2026-11-18T02:00:00Z', 2222],
+    ['2026-11-18T02:00:00Z', '2026-11-18T01:00:00Z', 2220],
+  ]) {
+    const pair = [
+      leasedPr(2220, 'sync/workflows-delivery', planA, deliveryAt),
+      leasedPr(2222, 'sync/workflows-candidate', planB, candidateAt),
+    ];
+    const activeSel = selectActiveSyncPr(pair, '');
+    assert.equal(activeSel.active.number, expectedActive);
+    assert.deepEqual(activeSel.stale, []);
+    const mergeSel = selectMergeEligibleSyncPr(pair, { syncHash: '', now, repository });
+    assert.equal(mergeSel.active.number, expectedActive);
+    assert.deepEqual(mergeSel.stale, []);
+    assert.equal(mergeSel.eligibility.eligible, true);
+  }
+
+  // Distinct stable branches never supersede each other even with the same plan or explicit branch selector.
+  const samePlanPair = [
+    leasedPr(2220, 'sync/workflows-delivery', planA, '2026-11-18T01:00:00Z'),
+    leasedPr(2222, 'sync/workflows-candidate', planA, '2026-11-18T02:00:00Z'),
+  ];
+  for (const syncHash of ['', 'candidate', 'delivery']) {
+    assert.deepEqual(selectActiveSyncPr(samePlanPair, syncHash).stale, []);
+    assert.deepEqual(
+      selectMergeEligibleSyncPr(samePlanPair, { syncHash, now, repository, planId: syncHash ? planA : '' }).stale,
+      [],
+    );
+  }
+
+  // Unrelated plans and mixed/unleased workflows-sync PRs never infer ownership from age alone.
+  const oldPlanA = leasedPr(2210, 'sync/workflows-old-a', planA, '2026-11-18T01:00:00Z');
+  const newPlanB = leasedPr(2211, 'sync/workflows-new-b', planB, '2026-11-18T02:00:00Z');
+  const unleasedOld = pr(2212, 'sync/workflows-unleased-old', '2026-11-18T00:30:00Z');
+  const unleasedNew = pr(2213, 'sync/workflows-unleased-new', '2026-11-18T03:00:00Z');
+  assert.deepEqual(selectActiveSyncPr([oldPlanA, newPlanB], '').stale, []);
+  assert.deepEqual(selectMergeEligibleSyncPr([oldPlanA, newPlanB], { syncHash: '', now, repository }).stale, []);
+  assert.deepEqual(selectActiveSyncPr([unleasedOld, newPlanB], '').stale, []);
+  assert.deepEqual(selectActiveSyncPr([oldPlanA, unleasedNew], '').stale, []);
+  const unleasedSel = selectMergeEligibleSyncPr([unleasedOld, unleasedNew], { syncHash: '', now, repository });
+  assert.equal(unleasedSel.eligibility.reason, 'missing_delivery_record');
+  assert.deepEqual(unleasedSel.stale, []);
+
+  // Scoped plan mismatch and same-plan legacy supersession while preserving another stable branch.
+  const deliveryA = leasedPr(2220, 'sync/workflows-delivery', planA, '2026-11-18T01:00:00Z');
+  const candidateB = leasedPr(2222, 'sync/workflows-candidate', planB, '2026-11-18T02:00:00Z');
+  const legacyB = leasedPr(2219, 'sync/workflows-legacy-b', planB, '2026-11-18T00:45:00Z');
+  const foreign = selectMergeEligibleSyncPr([deliveryA, candidateB], { syncHash: 'candidate', planId: planA, now, repository });
+  assert.equal(foreign.foreignPlan, true);
+  assert.equal(foreign.eligibility.reason, 'plan_mismatch');
+  assert.deepEqual(foreign.stale, []);
+  for (const opts of [{ syncHash: '', now, repository }, { syncHash: 'candidate', planId: planB, now, repository }]) {
+    const sel = selectMergeEligibleSyncPr([legacyB, deliveryA, candidateB], opts);
+    assert.equal(sel.active.number, 2222);
+    assert.deepEqual(sel.stale.map((item) => item.number), [2219]);
+  }
+
+  // Dev-tool lane retains prior unscoped stale cleanup for both recordless legacy and tracked rows
+  // without touching tracked stable candidate/delivery branches or explicit plan-scoped runs.
+  const devLegacy1 = pr(1, 'deps/sync-dev-versions-old', '2026-11-18T01:00:00Z');
+  const devLegacy2 = pr(2, 'deps/sync-dev-versions-new', '2026-11-18T02:00:00Z');
+  const devLegacyUnscoped = selectMergeEligibleSyncPr([devLegacy1, devLegacy2]);
+  assert.equal(devLegacyUnscoped.eligibility.reason, 'missing_delivery_record');
+  assert.deepEqual(devLegacyUnscoped.stale.map((item) => item.number), [1]);
+  assert.deepEqual(
+    selectMergeEligibleSyncPr([devLegacy1, candidateB, devLegacy2]).stale.map((item) => item.number),
+    [1],
+  );
+  assert.deepEqual(
+    selectMergeEligibleSyncPr([devLegacy1, devLegacy2], { syncHash: 'dev-tool', planId: 'dev-tool-new' }).stale,
+    [],
+  );
+  const devTracked1 = leasedPr(3001, 'deps/sync-dev-versions-a', 'dev-tool-old', '2026-11-18T01:00:00Z');
+  const devTracked2 = leasedPr(3002, 'deps/sync-dev-versions-b', 'dev-tool-new', '2026-11-18T02:00:00Z');
+  assert.deepEqual(
+    selectMergeEligibleSyncPr([devTracked1, devTracked2], { syncHash: 'dev-tool', now, repository }).stale.map((item) => item.number),
+    [3001],
+  );
+  assert.deepEqual(
+    selectMergeEligibleSyncPr([devTracked1, devTracked2], { syncHash: 'dev-tool', planId: 'dev-tool-new', now, repository }).stale,
+    [],
+  );
+});
+
+test('maint71 scheduled unscoped execution preserves Portable Alpha delivery/candidate in either order and supersedes same-plan legacy attempts', async (t) => {
+  const fixedNow = '2026-11-18T12:00:00Z';
+  const [t0, t1, t2] = ['2026-11-18T11:25:00Z', '2026-11-18T11:35:00Z', '2026-11-18T11:45:00Z'];
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse(fixedNow) });
+  t.mock.method(require('../github-api-with-retry'), 'createTokenAwareRetry', async () => null);
+
+  const repository = 'stranske/Portable-Alpha-Extension-Model';
+  const planDelivery = `sha256:${'1'.repeat(64)}`;
+  const planCandidate = `sha256:${'2'.repeat(64)}`;
+  const sourceDelivery = '3'.repeat(40);
+  const sourceCandidate = '4'.repeat(40);
+  const envKeys = [
+    'REGISTERED_REPOS_INPUT', 'REPOS_INPUT', 'CLEANUP_BRANCHES_INPUT', 'DRY_RUN_INPUT',
+    'AUTO_MERGE_INPUT', 'ACTIVE_SYNC_HASH_INPUT', 'SYNC_HASH_INPUT', 'EXPECTED_PLAN_ID_INPUT',
+    'EXPECTED_PLAN_SCOPE_INPUT', 'EXPECTED_SCOPE_BASE_SHA_INPUT', 'EXPECTED_SOURCE_COMMIT_INPUT',
+    'OWNER_PR_PAT', 'CONSUMER_SYNC_CANARIES_PATH', 'TRUSTED_SYNC_ACTORS', 'SYNC_PR_MERGE_REPORT_JSON',
+  ];
+
+  const makeSyncPr = ({ number, branch, planId, sourceCommit, headSha, treeSha, phase, createdAt }) => ({
+    number, title: `chore: sync ${phase} (${number})`,
+    body: `<!-- workflows-consumer-sync:v1 ${JSON.stringify({
+      schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
+      plan_id: planId, plan_scope: 'full', scope_base_sha: '',
+      source_commit: sourceCommit, source_sha: sourceCommit,
+      template_hash: planId.slice(-12), sync_phase: phase, sync_branch: branch,
+    })} -->\n<!-- sync-pr-delivery-record:v1 ${JSON.stringify({
+      schema: 'sync-pr-delivery-record/v1',
+      durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+      plan_id: planId, generation: planId.slice(-12), repository,
+      desired_tree_hash: treeSha, source_commit: sourceCommit,
+      head_observed_sha: headSha, head_observed_at: createdAt,
+      lease_expires_at: '2099-11-21T00:00:00Z', predecessor_prs: [], successor_prs: [],
+      delivery_state: 'reviewing', review_started_at: createdAt,
+    })} -->`,
+    created_at: createdAt, updated_at: createdAt, state: 'open', draft: false,
+    mergeable: true, mergeable_state: 'clean',
+    base: { ref: 'main', repo: { default_branch: 'main' } },
+    head: { ref: branch, sha: headSha }, user: { login: 'stranske' },
+    _commit: {
+      sha: headSha, tree: { sha: treeSha }, verification: { verified: true, reason: 'valid' },
+      message: `Consumer-sync plan ID: ${planId}\nPlan scope: full\nScope base SHA: full\nSource commit: ${sourceCommit}`,
+    },
+  });
+
+  const runScheduled = async (name, openPrs, activePrNumber) => {
+    const originalCwd = process.cwd();
+    const originalEnv = Object.fromEntries(envKeys.map((k) => [k, process.env[k]]));
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `maint71-sched-${name}-`));
+    const reportPath = path.join(tempDir, 'artifacts', 'merge-report.json');
+    const canaryConfig = { canaries: [{ repo: repository }] };
+    const canaryConfigPath = path.join(tempDir, 'consumer-sync-canaries.json');
+    fs.writeFileSync(canaryConfigPath, JSON.stringify(canaryConfig));
+
+    const prsByNumber = new Map(openPrs.map((item) => [item.number, item]));
+    const commitsBySha = new Map(openPrs.map((item) => [item.head.sha, item._commit]));
+    const closedPrs = [], deletedRefs = [], merges = [], restages = [], failures = [];
+    const github = {
+      paginate: async (method, params) => {
+        if (method === github.rest.pulls.list) return params.state === 'open' ? openPrs : [];
+        if (method === github.rest.repos.listBranches) return openPrs.map((item) => ({ name: item.head.ref }));
+        if (method === github.rest.checks.listForRef) return [{ name: 'Gate / gate', status: 'completed', conclusion: 'success' }];
+        return [];
+      },
+      graphql: async (query) => String(query).includes('search(')
+        ? { search: { pageInfo: { hasNextPage: false }, nodes: [] } }
+        : {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                pageInfo: { hasNextPage: false },
+                nodes: [{
+                  id: `PRRT_active_${activePrNumber}`, path: 'consumer-owned.js',
+                  isResolved: false, isOutdated: false,
+                  comments: {
+                    pageInfo: { hasNextPage: false },
+                    nodes: [{
+                      id: `PRRC_${activePrNumber}`, body: 'Review finding requiring resolution.',
+                      updatedAt: t2, url: `https://github.com/${repository}/pull/${activePrNumber}#discussion_r1`,
+                      path: 'consumer-owned.js', author: { login: 'stranske' },
+                    }],
+                  },
+                }],
+              },
+            },
+          },
+        },
+      rest: {
+        users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
+        actions: {
+          listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+          createWorkflowDispatch: async () => ({ status: 204 }),
+        },
+        pulls: {
+          list: async (params = {}) => ({ data: params.state === 'open' && params.repo === 'Portable-Alpha-Extension-Model' ? openPrs : [] }),
+          get: async ({ pull_number }) => ({ data: prsByNumber.get(pull_number) }),
+          update: async (args) => {
+            const target = prsByNumber.get(args.pull_number);
+            if (args.state === 'closed') {
+              closedPrs.push(args.pull_number);
+              return { data: { number: target.number, state: 'closed', head: { sha: target.head.sha } } };
+            }
+            restages.push(args.pull_number);
+            if (args.body) target.body = args.body;
+            return { data: target };
+          },
+          merge: async (args) => { merges.push(args); return { data: {} }; },
+        },
+        issues: { listComments: async () => ({ data: [] }), addLabels: async () => {}, removeLabel: async () => {} },
+        checks: { listForRef: () => {} },
+        git: {
+          getCommit: async ({ commit_sha }) => ({ data: commitsBySha.get(commit_sha) }),
+          deleteRef: async ({ ref }) => { deletedRefs.push(ref); return {}; },
+        },
+        repos: {
+          listBranches: () => {},
+          getCommit: async ({ ref }) => ({ data: { sha: ref, commit: { committer: { date: t2 } } } }),
+          getContent: async ({ path: filePath }) => filePath === 'config/consumer_sync_canaries.json'
+            ? { data: { content: Buffer.from(JSON.stringify(canaryConfig)).toString('base64') } }
+            : consumerDeclarationAbsent(),
+          getBranchProtection: async () => ({ data: { required_status_checks: { contexts: ['Gate / gate'], checks: [] } } }),
+          getCombinedStatusForRef: async () => ({ data: { statuses: [] } }),
+          createDispatchEvent: async () => ({}),
+        },
+      },
+    };
+    const core = {
+      notice: () => {}, warning: () => {}, setFailed: (message) => failures.push(message),
+      summary: { addRaw: () => ({ write: async () => {} }) },
+    };
+
+    try {
+      process.chdir(tempDir);
+      Object.assign(process.env, {
+        REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
+        CLEANUP_BRANCHES_INPUT: 'true', DRY_RUN_INPUT: 'false', AUTO_MERGE_INPUT: 'true',
+        ACTIVE_SYNC_HASH_INPUT: '', SYNC_HASH_INPUT: '', EXPECTED_PLAN_ID_INPUT: '',
+        EXPECTED_PLAN_SCOPE_INPUT: '', EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: '',
+        OWNER_PR_PAT: 'test-owner-token', CONSUMER_SYNC_CANARIES_PATH: canaryConfigPath,
+        TRUSTED_SYNC_ACTORS: 'stranske', SYNC_PR_MERGE_REPORT_JSON: reportPath,
+      });
+      await run({
+        github, core,
+        context: {
+          eventName: 'schedule', repo: { owner: 'stranske', repo: 'Workflows' },
+          payload: {}, runId: 710, runNumber: 710, workflow: 'Merge Sync PRs',
+          ref: 'refs/heads/main', sha: sourceCandidate,
+        },
+      });
+      return {
+        report: JSON.parse(fs.readFileSync(reportPath, 'utf8')),
+        closedPrs, deletedRefs, merges, restages, failures,
+      };
+    } finally {
+      process.chdir(originalCwd);
+      for (const [k, v] of Object.entries(originalEnv)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  };
+
+  const deliveryOlder = await runScheduled('delivery-older', [
+    makeSyncPr({ number: 2220, branch: 'sync/workflows-delivery', planId: planDelivery, sourceCommit: sourceDelivery, headSha: '5'.repeat(40), treeSha: '7'.repeat(40), phase: 'promote', createdAt: t1 }),
+    makeSyncPr({ number: 2222, branch: 'sync/workflows-candidate', planId: planCandidate, sourceCommit: sourceCandidate, headSha: '6'.repeat(40), treeSha: '8'.repeat(40), phase: 'canary', createdAt: t2 }),
+  ], 2222);
+  assert.deepEqual([deliveryOlder.closedPrs, deliveryOlder.deletedRefs, deliveryOlder.merges, deliveryOlder.failures], [[], [], [], []]);
+  assert.equal(deliveryOlder.report.summary.stale_closed, 0);
+  assert.equal(deliveryOlder.report.summary.merged, 0);
+  assert.equal(deliveryOlder.report.canary_refresh.review_blocked, 1);
+  assert.deepEqual(deliveryOlder.report.canary_refresh.held_plans, [planCandidate]);
+  assert.deepEqual(
+    deliveryOlder.report.results.map(({ pr: num, status, refresh_reason }) => ({ pr: num, status, refresh_reason })),
+    [{ pr: 2222, status: 'stable_base_refresh_required', refresh_reason: 'review_blocked' }],
+  );
+
+  const candidateOlder = await runScheduled('candidate-older', [
+    makeSyncPr({ number: 2220, branch: 'sync/workflows-delivery', planId: planDelivery, sourceCommit: sourceDelivery, headSha: '5'.repeat(40), treeSha: '7'.repeat(40), phase: 'promote', createdAt: t2 }),
+    makeSyncPr({ number: 2222, branch: 'sync/workflows-candidate', planId: planCandidate, sourceCommit: sourceCandidate, headSha: '6'.repeat(40), treeSha: '8'.repeat(40), phase: 'canary', createdAt: t1 }),
+  ], 2220);
+  assert.deepEqual([candidateOlder.closedPrs, candidateOlder.deletedRefs, candidateOlder.merges, candidateOlder.restages, candidateOlder.failures], [[], [], [], [], []]);
+  assert.equal(candidateOlder.report.summary.stale_closed, 0);
+  assert.equal(candidateOlder.report.summary.merged, 0);
+  assert.equal(candidateOlder.report.summary.review_blocked, 1);
+  assert.deepEqual(
+    candidateOlder.report.results.map(({ pr: num, status }) => ({ pr: num, status })),
+    [{ pr: 2220, status: 'review_blocked' }],
+  );
+
+  const supersede = await runScheduled('same-plan-supersession', [
+    makeSyncPr({ number: 2219, branch: 'sync/workflows-legacy-attempt', planId: planCandidate, sourceCommit: sourceCandidate, headSha: '9'.repeat(40), treeSha: '8'.repeat(40), phase: 'canary', createdAt: t0 }),
+    makeSyncPr({ number: 2220, branch: 'sync/workflows-delivery', planId: planDelivery, sourceCommit: sourceDelivery, headSha: '5'.repeat(40), treeSha: '7'.repeat(40), phase: 'promote', createdAt: t1 }),
+    makeSyncPr({ number: 2222, branch: 'sync/workflows-candidate', planId: planCandidate, sourceCommit: sourceCandidate, headSha: '6'.repeat(40), treeSha: '8'.repeat(40), phase: 'canary', createdAt: t2 }),
+  ], 2222);
+  assert.deepEqual(supersede.closedPrs, [2219]);
+  assert.deepEqual(supersede.deletedRefs, ['heads/sync/workflows-legacy-attempt']);
+  assert.deepEqual([supersede.merges, supersede.failures], [[], []]);
+  assert.equal(supersede.report.summary.stale_closed, 1);
+  assert.equal(supersede.report.summary.merged, 0);
+  assert.equal(supersede.report.canary_refresh.review_blocked, 1);
+  assert.deepEqual(
+    supersede.report.results.map(({ pr: num, status, refresh_reason }) => ({ pr: num, status, refresh_reason })),
+    [
+      { pr: 2219, status: 'stale_closed', refresh_reason: undefined },
+      { pr: 2222, status: 'stable_base_refresh_required', refresh_reason: 'review_blocked' },
+    ],
+  );
+});
