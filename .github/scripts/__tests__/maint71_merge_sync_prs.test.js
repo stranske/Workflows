@@ -3898,6 +3898,25 @@ test('identical digest across SHAs preserves the exact-head seal even beyond the
   assert.equal(f.parseDeliveryRecord(f.pr.body).sealed_head_sha, f.pr.head.sha);
 });
 
+test('an open candidate for a different plan cannot confirm a full same-payload delivery', async t => {
+  const f = sealedRefreshFixture(t);
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async () => f.payload);
+  const check = async planId => deferSealedCanaryRefresh({
+    state: { ...f.state(), refresh_plan: { plan_scope: 'full', plan_id: planId } },
+    payload: f.payload, withRetry: f.withRetry, now: refreshNow,
+  });
+  const queued = await check('requested-full-plan');
+  assert.equal(queued.eligible, false);
+  assert.equal(queued.producer_succeeded, false);
+  assert.equal(queued.state, 'current-delivery-owned');
+  assert.match(queued.queue_reason, /stranske\/Ready#12/);
+  const same = await check(f.record.plan_id);
+  assert.equal(same.eligible, false);
+  assert.equal(same.producer_succeeded, true);
+  f.pr.state = 'closed';
+  assert.equal((await check('requested-full-plan')).eligible, true);
+});
+
 function partialCanaryRefreshFixture(t) {
   const f = sealedRefreshFixture(t);
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');

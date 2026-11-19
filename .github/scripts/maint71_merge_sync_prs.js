@@ -694,7 +694,8 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
       if (!prior) return shaRefreshFallback(state, now);
       if (state.refresh_plan?.plan_scope !== 'source-delta'
         && prior.digest === payload.digest && !state.drift_key) {
-        waiting.push({ reason: 'unchanged', repository, source: record.source_commit });
+        waiting.push({ reason: 'unchanged', repository, source: record.source_commit,
+          planId: record.plan_id, pr: pr.number });
         continue;
       }
       if (record.delivery_state !== 'sealed' || record.sealed_head_sha !== pr.head?.sha
@@ -745,6 +746,16 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
     .map(row => row.repository));
   if (sealed.length || (state.candidates.length > 0
     && state.candidates.every(repository => unchanged.has(repository)))) {
+    // The same rendered source can back a smaller plan. Keep its open PR in
+    // place and retry after it closes, without crediting it to the requested plan.
+    if (!sealed.length && state.refresh_plan?.plan_id) {
+      const owners = waiting.filter(row => row.planId !== state.refresh_plan.plan_id);
+      if (owners.length) {
+        Object.assign(state, { eligible: false, state: 'current-delivery-owned', producer_succeeded: false,
+          queue_reason: `open canary PRs for another plan: ${owners.map(row => `${row.repository}#${row.pr}`).join(', ')}; recheck after closure` });
+        return state;
+      }
+    }
     const clearsAt = Math.max(...sealed.map(row => Date.parse(row.sealed_at) + CANARY_SEALED_REFRESH_WAIT_MS));
     Object.assign(state, { eligible: false, state: sealed.length ? 'sealed-cycle' : 'success',
       producer_succeeded: !sealed.length, unchanged_since: waiting[0].source,

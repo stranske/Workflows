@@ -24,6 +24,8 @@ updates those ready-for-review PRs in place. Before changing a head it disables
 auto-merge and applies `sync:delivery-staging` without changing readiness; an
 exact base/tree no-op preserves the existing lifecycle instead of restarting review.
 
+When a full canary run reports that another plan owns the open PRs, follow the listed PRs through closure and recheck the full plan. Two plans can render the same source files while selecting different files for delivery. Verify the expected file hashes on the receiving default branches.
+
 Maint 71 advances a stable PR from `staging` to `reviewing` and finally
 `sealed`. Reviewer capacity is explicitly bounded: one configured reviewer
 response is sufficient after seven minutes, all-capacity-unavailable may
