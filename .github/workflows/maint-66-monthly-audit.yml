@@ -303,7 +303,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create or update audit issue
-        if: inputs.create_issue != false
+        if: github.event_name == 'schedule' || inputs.create_issue
         env:
           GH_TOKEN: ${{ github.token }}
           AUDIT_BODY: ${{ steps.checklist.outputs.body }}

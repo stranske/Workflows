@@ -109,3 +109,11 @@ gh() {
     assert (
         args[args.index("--title") + 1] == "[Monthly Audit] Workflow Health Check - November 2026"
     )
+
+
+def test_scheduled_audits_publish_and_manual_runs_honor_the_checkbox() -> None:
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text())
+    steps = workflow["jobs"]["audit"]["steps"]
+    writer = next(step for step in steps if step["name"] == "Create or update audit issue")
+    assert workflow[True]["workflow_dispatch"]["inputs"]["create_issue"]["default"] is True
+    assert writer["if"] == "github.event_name == 'schedule' || inputs.create_issue"
