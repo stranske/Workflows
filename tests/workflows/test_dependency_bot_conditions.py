@@ -41,10 +41,38 @@ def test_dependency_bot_workflows_gate_on_pr_author_not_trigger_actor():
         assert "github.actor == 'renovate[bot]'" not in source
 
 
-def test_auto_lock_documents_pull_request_head_ref_trust_boundary():
-    source = _workflow_source(WORKFLOW_ROOT / "maint-auto-lock-deps.yml")
-    assert "pull_request, not pull_request_target" in source
-    assert "github.head_ref is not an untrusted-code privileged checkout" in source
+def test_auto_lock_separates_pr_resolution_from_publication():
+    workflow = yaml.safe_load(_workflow_source(WORKFLOW_ROOT / "maint-auto-lock-deps.yml"))
+    trigger = workflow[True]["pull_request"]
+    assert trigger["branches"] == ["main"]
+    assert set(trigger["paths"]) == {
+        "pyproject.toml",
+        "requirements.txt",
+        "tools/requirements-llm.txt",
+    }
+    assert workflow["permissions"] == {"contents": "read"}
+    resolve = workflow["jobs"]["regenerate-lock"]
+    assert "permissions" not in resolve
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in resolve["if"]
+    for bot in ("renovate", "dependabot"):
+        assert f"'{bot}[bot]' && startsWith(github.head_ref, '{bot}/')" in resolve["if"]
+    assert resolve["steps"][0]["with"] == {
+        "ref": "${{ github.event.pull_request.head.sha }}",
+        "persist-credentials": False,
+    }
+    artifact = resolve["steps"][-1]
+    assert artifact["if"] == "steps.check.outputs.needs_update == 'true'"
+    assert artifact["with"]["path"] == "requirements.lock"
+    writer = workflow["jobs"]["publish-lock"]
+    assert writer["needs"] == "regenerate-lock"
+    assert writer["if"] == "needs.regenerate-lock.outputs.needs_update == 'true'"
+    assert writer["permissions"] == {"contents": "write", "pull-requests": "read"}
+    checkout, client, download, publish = writer["steps"]
+    assert checkout["with"]["ref"] == "${{ github.event.pull_request.base.sha }}"
+    assert checkout["with"]["persist-credentials"] is False
+    assert client["with"] == {"github_token": "${{ github.token }}"}
+    assert download["with"]["name"] == artifact["with"]["name"]
+    assert publish["uses"].startswith("actions/github-script@")
 
 
 def test_retired_consumer_dependabot_automerge_template_stays_removed():
