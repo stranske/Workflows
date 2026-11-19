@@ -117,6 +117,9 @@ archives/metrics/
 # --- Build and coverage artifacts ---
 .autofix-venv/
 coverage.xml
+/coverage.json
+/pytest-collection.json
+/actionlint-allowlist.args
 
 # --- Wrong package manager artifacts (defense-in-depth) ---
 Pipfile.lock
