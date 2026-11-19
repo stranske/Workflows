@@ -38,7 +38,7 @@ artifact count can continue rising until the shorter retention periods elapse.
 
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
-| `pr-` | Pull-request CI wrappers | `pr-00-gate.yml`, `pr-11-ci-smoke.yml` |
+| `pr-` | Pull-request CI wrappers | [Gate and smoke checks](ci/WORKFLOWS.md#required-merge-gate) |
 | `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-46-post-ci.yml`, `maint-47-disable-legacy-workflows.yml`, `maint-50-tool-version-check.yml`, `maint-52-validate-workflows.yml`, `maint-60-release.yml`, `maint-61-release-please.yml`, `maint-coverage-guard.yml` |
 | `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
 | `agents-` | Agent orchestration entry points | `agents-63-issue-intake.yml`, `agents-64-verify-agent-assignment.yml`, `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-model-profile-trial.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-guard.yml`, `agents-pr-meta-v4.yml`, `agents-moderate-connector.yml`, `agents-keepalive-*.yml`, `agents-debug-issue-event.yml` |
@@ -60,12 +60,10 @@ Tests under `tests/workflows/test_workflow_naming.py` check workflow names and c
 Use the sections below to choose the workflow or operator procedure for a task. Maintain the full roster in the [workflow catalog](ci/WORKFLOWS.md).
 
 ### PR Checks
-- **`pr-00-gate.yml`** — Required orchestrator that calls the reusable Python (3.13/3.14 in parallel), reusable-workflow docs guard, and Docker smoke workflows, then fails fast if any leg does not succeed. A lightweight `detect_doc_only` job mirrors the former PR‑14 filters (Markdown, `docs/`, `assets/`) to skip heavy legs and post the friendly notice when a PR is documentation-only, while the cheap docs guard still checks Workflows reusable input/output documentation.
-  Gate uses the same full-suite selection, common lock, branch coverage and four pytest workers on both runtimes. Explicit consumer 3.12 overrides and the package minimum of Python >=3.12 remain supported; existing create-only consumer Gates migrate separately.
-- **`pr-11-ci-smoke.yml`** — Minimal invariant CI that runs on push/PR to `main`. Installs the project, validates imports, and runs `pytest tests/test_invariants.py` for fast regression detection; the checkout now relies on the default workflow token since the job never leaves the repository.
 
-_Inline Gate helper_
-- **Gate summary job (`pr-00-gate.yml`)** — Post-CI job that downloads artifacts, computes coverage deltas, runs the label-gated autofix routine, and updates the PR summary comment with a stable marker.
+For a pending PR, open Gate’s required `summary` check and use the [Gate job map](ci/WORKFLOWS.md#gate-job-map) to find the failing leg or see why a job was skipped. For a consumer with an explicit Python version, consult the [runtime and coverage policy](ci/WORKFLOWS.md#python-runtime-and-coverage-policy).
+
+For a YAML or script syntax failure, open [Minimal invariant CI](ci/WORKFLOWS.md#minimal-invariant-ci). Its `pr-source-context` artifact records the PR context used by the smoke job.
 
 ### Maintenance & Repo Health
 - **Fleet Renovate intake** — `renovate-presets/fleet.json` bounds routine dependency work to Monday 01:00–05:00 America/Chicago, with two commits per hour and three concurrent branches/PRs. Trusted GitHub Actions digest/pin/minor/patch updates share the green-automerge lane; routine releases wait three days and for non-pending update-branch checks; major updates require explicit Dependency Dashboard approval. Vulnerability alerts bypass those routine delays, and grouped lock-file maintenance uses the same explicit weekly window.

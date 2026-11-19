@@ -61,10 +61,10 @@ history without confusing it with the live inventory.
 
 | Workflow | File | Trigger(s) | Permissions | Required? | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Explicit `contents: read`, `pull-requests: write`, `statuses: write` (doc-only comment + commit status). | **Yes** – aggregate `gate` status must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs. Docs-only or empty diffs skip the heavy legs while Gate posts the friendly notice and reports success. |
+| **Gate** | `.github/workflows/pr-00-gate.yml` | `pull_request`, `workflow_dispatch` | Explicit `contents: read`, `pull-requests: write`, `statuses: write` (doc-only comment + commit status). | **Yes** – the [required `summary` check](../../.github/config/required-contexts.json) must pass. | Fan-out orchestrator chaining the reusable Python CI and Docker smoke jobs. Docs-only or empty diffs skip the heavy legs while Gate posts the friendly notice and reports success. |
 | **Gate Fork Status Publisher** | `.github/workflows/pr-00-gate-fork-status.yml` | `workflow_run` for Gate requested/in-progress/completed | `actions: read`, `contents: read`, `pull-requests: read`, `statuses: write` | Publishes the existing `Gate / gate` context for fork PRs. | Trusted default-branch publisher; never checks out PR code and fails closed on stale heads, changed controls, missing jobs, or ambiguous conclusions. |
 | **Agents Guard Fork Status Publisher** | `.github/workflows/agents-guard-fork-status.yml` | `workflow_run` for completed Health 45 Agents Guard runs | `actions: read`, `contents: read`, `pull-requests: read`, `statuses: write` | Publishes `Health 45 Agents Guard / guard` for fork PRs. | Managed consumer bridge; validates the exact guard run, attempt, PR head, and complete `guard` job without executing PR code. |
-| **Minimal invariant CI** | `.github/workflows/pr-11-ci-smoke.yml` | `push`/`pull_request` targeting `main`, `workflow_dispatch` | `contents: read` | **No** – supplemental smoke test. | Single-runtime import + invariants sweep (`pytest tests/test_invariants.py -q`) that catches regressions quickly while Gate runs the heavier matrix. |
+| [Minimal invariant CI](#minimal-invariant-ci) | [Workflow YAML](../../.github/workflows/pr-11-ci-smoke.yml) | Pushes and PRs targeting `main`, manual dispatch | `contents: read` | Supplemental | Workflow YAML and Python script syntax. |
 
 The fork publisher checks out the immutable default-branch `github.sha` for its
 `workflow_run`, rather than a moving branch name. A successful status write logs
@@ -124,7 +124,6 @@ Existing consumers need the updated Gate dispatch input before this wakeup works
 the Gate template is create-only, so normal sync does not overwrite custom Gates.
 
 * [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR. Gate listens on `pull_request` types `opened`, `synchronize`, `reopened`, and `ready_for_review` only; label-only events do not start or cancel an in-flight Gate run. Agent routing, verify, autofix, and keepalive labels therefore cannot churn the per-PR Gate concurrency group. Use `workflow_dispatch` with `pr_number` when a label-only wakeup must re-run Gate at the current head. `tests/workflows/test_gate_trigger_contract.py` locks the root and consumer-template trigger contract.
-* [`Minimal invariant CI`](../../.github/workflows/pr-11-ci-smoke.yml) supplies the lightweight Issue #3651 sweep: install once on the shared `CI_PYTHON_VERSION` runtime (3.14) with pip caching, sanity-check imports, and run `pytest tests/test_invariants.py -q` on pushes and PRs targeting `main`.
 * [`Reusable CI (Python)`](../../.github/workflows/reusable-10-ci-python.yml) drives the primary test matrix (lint, type-check, tests, coverage) for PR builds.
   When the consumer-regeneration linkage test is present, its test job fetches the fixed historical source since 2026-10-14 with a two-minute timeout and checks #3900 ancestry before pytest. Missing history fails required validation instead of silently skipping the proof.
     * Workflows Gate and the new-consumer Gate template select **3.13 and 3.14 in parallel**, with identical full-suite selection, identical markers, the same dependency lock, branch coverage on 3.14 only, and four pytest workers using `loadgroup`. Neither runtime selects a reduced suite. Python >=3.13 is the package floor (3.12 is retired); consumer Gates are create-only, so each consumer moves its own explicit overrides.
@@ -139,6 +138,10 @@ the Gate template is create-only, so normal sync does not overwrite custom Gates
 * [`Reusable CI (Docker)`](../../.github/workflows/reusable-12-ci-docker.yml) executes the container smoke test whenever Docker-related files change.
 
 The gate uses the shared `.github/scripts/detect-changes.js` helper to decide when documentation-only changes can skip heavy jobs and when Docker smoke tests must run.
+
+### Minimal invariant CI
+
+[PR 11](../../.github/workflows/pr-11-ci-smoke.yml) installs PyYAML on the shared `CI_PYTHON_VERSION` runtime. The **YAML syntax + script imports** job parses the root workflow YAML files and compiles the top-level Python scripts in `scripts/` whose names do not begin with an underscore. It publishes the PR source context in the run summary and uploads JSON and Markdown in the `pr-source-context` artifact.
 
 ### Reusable Cross-Repo Smoke
 
