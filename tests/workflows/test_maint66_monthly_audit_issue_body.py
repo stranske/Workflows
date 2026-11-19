@@ -25,8 +25,7 @@ def test_audit_issue_body_documentation_links_resolve() -> None:
     workflow_text = WORKFLOW_PATH.read_text(encoding="utf-8")
     body = _extract_audit_heredoc(workflow_text)
     assert (
-        "https://github.com/stranske/Workflows/blob/main/"
-        "docs/ci/WORKFLOW_AUDIT_PROCEDURE.md"
+        "https://github.com/stranske/Workflows/blob/main/" "docs/ci/WORKFLOW_AUDIT_PROCEDURE.md"
     ) in body
     assert (
         "https://github.com/stranske/Workflows/blob/main/"
