@@ -52,8 +52,19 @@ No extra pages, broad 141642-run retrieval, workflow dispatch, issue edit or
 production audit were performed. The production collector's existing window
 subdivision/completeness checks are unchanged by this fix.
 
-Validation: 57 tests passed across the two Maint 66 modules, workflow naming and
+Validation: 62 tests passed across the two Maint 66 modules, workflow naming and
 untrusted-interpolation checks. `actionlint` on Maint 66, Ruff on changed tests,
 and `git diff --check` passed. Local Python 3.12 required the explicit asyncio
 fixture-scope override above because of its installed pytest plugin; hosted CI
 remains a separate exact-head verification. No application model/API spend.
+
+
+Independent-review regressions additionally execute the production attention path
+on 1,000 synthetic workflows with long Unicode names and 5,000 failures. The issue
+sections stay below 32,000 bytes in aggregate, omitted-line counts match, and all
+1,000 ranked failures remain in the full artifact files. A render-path test sends
+an oversized API report and proves the final 60,000-byte guard exits before writing
+issue output. Status-aware null classification, aggregate numerator/denominator,
+and artifact-before-publication ordering are separately asserted. Tests remap all
+artifact/intermediate paths into per-test temporary directories; no upload or live
+issue write is performed by these fixtures.

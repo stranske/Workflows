@@ -156,6 +156,7 @@ def _attention(tmp_path, runs):
     steps = yaml.safe_load(WORKFLOW_PATH.read_text())["jobs"]["audit"]["steps"]
     script = next(step["run"] for step in steps if step.get("id") == "attention")
     script = script.replace("/tmp/workflow_stats.json", str(stats))
+    script = script.replace("/tmp/monthly-audit-details", str(tmp_path / "details"))
     output = tmp_path / "outputs"
     result = subprocess.run(
         ["bash", "-e", "-c", script],
@@ -301,3 +302,63 @@ def test_collector_keeps_stable_identity_without_new_api_calls():
     assert "id, created_at, name, conclusion, workflow_id, path, status" in text
     assert text.count("client.rest.actions.") == 1
     assert "collectRunWindow" in text
+
+
+def test_pending_null_conclusions_are_distinct_from_unknown():
+    runs = _runs("CI", None, 5)
+    for run, status in zip(
+        runs, ["queued", "in_progress", "waiting", "completed", None], strict=True
+    ):
+        run["status"] = status
+    row = _stats(runs)[0]
+    assert row["conclusions"] == {
+        "pending:queued": 1,
+        "pending:in_progress": 1,
+        "pending:waiting": 1,
+        "unknown": 2,
+    }
+    assert row["failed_outcomes"] == row["decisive"] == 0
+
+
+def test_large_fleet_bounds_output_without_losing_artifact_rankings(tmp_path):
+    # 1,000 distinct workflows with long Unicode names exceeds the issue ceiling
+    # without bounding. Exercise the production jq + attention shell, not a mock.
+    runs = []
+    for index in range(1000):
+        runs += _runs("長" * 100 + str(index), "failure", 5, workflow_id=index)
+    outputs = _attention(tmp_path, runs)
+    assert sum(len(value.encode()) for value in outputs.values()) < 32000
+    assert "additional lines omitted" in outputs["failing"]
+    assert "failure=5000" in outputs["conclusion_mix"]
+    detail = tmp_path / "details"
+    complete = (detail / "failing.txt").read_text()
+    assert complete.count("100% failed outcomes (5/5 decisive") == 1000
+    assert len(json.loads((detail / "workflow_stats.json").read_text())) == 1000
+    assert "id:999" in complete
+    kept = outputs["failing"].count("100% failed outcomes")
+    assert f"{1000 - kept} additional lines omitted" in outputs["failing"]
+
+
+def test_ranking_aggregate_matches_summary_expressions():
+    rows = _stats(
+        sum(
+            (
+                _runs("CI", value, 1)
+                for value in [
+                    "failure",
+                    "timed_out",
+                    "startup_failure",
+                    "action_required",
+                    "success",
+                    "skipped",
+                ]
+            ),
+            [],
+        )
+    )
+    text = WORKFLOW_PATH.read_text()
+    for field, expected in [("failed_outcomes", 4), ("decisive", 5)]:
+        program = re.search(r"total_" + field + r"=\$\(jq '([^']+)'", text).group(1)
+        result = _run_jq(program, json.dumps(rows), slurp=False)
+        assert result.returncode == 0
+        assert int(result.stdout) == expected
