@@ -591,9 +591,20 @@ function candidateCommitContinuations(handoffs = []) {
   return out;
 }
 
+// An acknowledgment counts only if its run completed at or after the observation that made the intent
+// (2026-11-18: run 44243878235 completed 05:25Z without merging; the candidates were re-observed prepared at
+// 05:53Z, and the older receipt kept the campaign commit from ever being dispatched again: 18 h idle). A run's own
+// observations precede its completion, so the run that does the work still acknowledges it. An intent with no
+// readable resume_after keeps the old rule (any receipt) rather than re-dispatching on every tick.
 function hasContinuationAcknowledgment(acknowledgments = [], intent = {}) {
-  return cleanArray(acknowledgments).some(ack => ack.lane === intent.lane
-    && ack.key === intent.continuation_key && cleanInteger(ack.run_id));
+  const resumeAfterMs = Date.parse(intent.resume_after);
+  return cleanArray(acknowledgments).some((ack) => (
+    ack.lane === intent.lane
+    && ack.key === intent.continuation_key
+    && cleanInteger(ack.run_id)
+    && (!Number.isFinite(resumeAfterMs)
+      || (Number.isFinite(Date.parse(ack.completed_at)) && Date.parse(ack.completed_at) >= resumeAfterMs))
+  ));
 }
 
 // Retain success receipts for every still-queued key, independently of Actions
@@ -616,6 +627,10 @@ function mergeContinuationAcknowledgments(previous = [], runs = [], intents = []
     if (!match || !queued.has(`${match[1]}:${match[2]}`)) continue;
     const ack = { lane: match[1], key: match[2], run_id: run.id,
       run_attempt: run.run_attempt, completed_at: run.updated_at };
+    // Keep the latest completion: Actions history is newest-first, and the resume_after guard in
+    // hasContinuationAcknowledgment must see the newest receipt, not whichever run was read last.
+    const prior = receipts.get(`${ack.lane}:${ack.key}`);
+    if (prior && Date.parse(prior.completed_at) >= Date.parse(ack.completed_at)) continue;
     receipts.set(`${ack.lane}:${ack.key}`, ack);
   }
   return [...receipts.values()];
@@ -626,7 +641,7 @@ function queuedMaint71Intents(records = []) {
   return [...handoffs, ...candidateCommitContinuations(handoffs)]
     .map(record => preparedDeliveryContinuation(record))
     .filter(next => next.class === 'transient')
-    .map(next => ({ lane: next.lane, continuation_key: next.key }));
+    .map(next => ({ lane: next.lane, continuation_key: next.key, resume_after: next.resume_after }));
 }
 
 async function observeMaint71Runs({ read, owner, repo, workflowRun, completionRunId, pendingRunIds = [] }) {
@@ -664,7 +679,8 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
     const continuation = preparedDeliveryContinuation(record);
     if (continuation.class !== 'transient') continue;
     if (hasContinuationAcknowledgment(acknowledgments,
-      { lane: continuation.lane, continuation_key: continuation.key })) continue;
+      { lane: continuation.lane, continuation_key: continuation.key,
+        resume_after: continuation.resume_after || record.observed_at })) continue;
     if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) continue;
     if (deliveryActive && continuation.lane === 'candidate') continue;
     const dueMs = Date.parse(continuation.resume_after || record.observed_at);
