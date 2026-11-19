@@ -4,7 +4,8 @@ Monthly docs-drift audit. Doc-rot is this system's most pervasive defect class (
 ## Scope — canonical docs to verify (this round)
 For each, check that every concrete claim (file paths, counts, workflow names, command names, described behavior) matches the current repo:
 - [ ] `README.md` — pipeline overview, consumer list, entry points
-- [ ] `docs/ci/WORKFLOWS.md` + `docs/ci/WORKFLOW_SYSTEM.md` — workflow inventory (names, triggers, counts)
+- [ ] `docs/ci/WORKFLOWS.md` — inventory of active workflow files
+- [ ] `docs/ci/WORKFLOW_SYSTEM.md` — workflow relationships, guardrails and links to the catalog
 - [ ] `docs/STRUCTURE.md` — directory/file counts and key-directory prose
 - [ ] `docs/INTEGRATION_GUIDE.md` — inputs/secrets/versioning claims vs the reusables
 - [ ] `docs/keepalive/GoalsAndPlumbing.md` + `docs/keepalive/Agents.md` — labels, guardrails, agent routing
@@ -12,7 +13,7 @@ For each, check that every concrete claim (file paths, counts, workflow names, c
 
 ## How to verify (no hand-waving)
 - Cross-check each claim against the actual file/command/workflow it describes; cite the source `path:line` in the fix PR.
-- Where a doc-validation test exists it must stay green: `pytest tests/workflows/ -q` (e.g. `test_workflow_naming.py::test_inventory_docs_list_all_workflows` enforces that the inventory docs list every workflow).
+- Run `pytest -q tests/workflows/test_workflow_naming.py -k catalog` to check the active inventory and the overview's link to it.
 
 ## Tasks
 - [ ] For each drifted claim found, open a focused fix PR correcting the doc to match reality (link the source `path:line`).

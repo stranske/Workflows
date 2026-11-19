@@ -248,17 +248,7 @@ jobs:
 
 ## Repository Structure
 
-```
-.github/
-  workflows/          # Workflows (reusable + first-party orchestration)
-  actions/            # Composite actions
-  scripts/            # JS helpers used by workflows (includes tests)
-
-docs/                 # Documentation
-scripts/              # Standalone tooling and validation scripts
-templates/            # Consumer templates and examples
-tests/                # Python tests
-```
+Use the [repository map](docs/STRUCTURE.md) to find the source for a [shared workflow change](docs/STRUCTURE.md#change-a-reusable-workflow), [a file distributed to consumers](docs/STRUCTURE.md#change-a-file-distributed-to-consumers), or [a stalled coding task](docs/STRUCTURE.md#diagnose-a-stalled-coding-task).
 
 ## Contributing
 

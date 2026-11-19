@@ -1,9 +1,8 @@
 # Workflow & Agent Automation Quick Start (Issue #2466)
 
 This guide gives maintainers a fast reference for the streamlined CI and agent
-automation stack. Pair it with
-[docs/WORKFLOW_GUIDE.md](../../docs/WORKFLOW_GUIDE.md) for the canonical
-inventory and naming rules.
+automation stack. Find active workflow files in the [catalog](../../docs/ci/WORKFLOWS.md)
+and naming rules in the [routing guide](../../docs/WORKFLOW_GUIDE.md).
 
 ---
 ## 1. Architecture Snapshot

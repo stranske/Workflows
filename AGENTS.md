@@ -20,8 +20,8 @@ This repository is the source of truth for:
 Start with the current docs instead of inferring behavior from old comments:
 
 1. `README.md` - repository purpose, architecture, and current consumer model
-2. `docs/WORKFLOW_GUIDE.md` - full workflow inventory and purpose
-3. `docs/ci/WORKFLOWS.md` - workflow topology and active automation layout
+2. `docs/ci/WORKFLOWS.md` - authoritative inventory of active workflows
+3. `docs/WORKFLOW_GUIDE.md` - workflow naming, agent routing and operator procedures
 4. `docs/INTEGRATION_GUIDE.md` - consumer integration and versioning policy
 5. `docs/ops/CONSUMER_REPO_MAINTENANCE.md` - sync mechanics and consumer exceptions
 6. `docs/keepalive/Agents.md` and `docs/keepalive/GoalsAndPlumbing.md` - keepalive contract
@@ -100,7 +100,7 @@ This file is the agent-generic contract. Keep it materially aligned with `CLAUDE
 
 ### Definition Of Done
 
-- Workflow additions or renames must update docs/ci/WORKFLOWS.md, docs/ci/WORKFLOW_SYSTEM.md, and the workflow naming tests.
+- For a workflow addition or rename, update the authoritative roster in docs/ci/WORKFLOWS.md and the expected name in the workflow naming tests. Run the naming and catalog tests. Update docs/ci/WORKFLOW_SYSTEM.md only when workflow relationships, operator procedures, or guardrails change.
 - Consumer-facing files usually need sync-manifest/template coverage, not just the root copy.
 - Route-weight codemod/refactor issues must produce the requested code or test change for the closer lane to validate; campaign plans, backfill plans, or analysis artifacts are not completion unless the issue explicitly asks for them. (tasks: codemod)
 - Epic or cross-repo documentation issues must create the named Markdown artifact at the requested path; dry-run rollout JSON or execution plans alone do not satisfy documentation acceptance criteria. (tasks: epic, cross_repo)

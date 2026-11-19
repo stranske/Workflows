@@ -1,6 +1,7 @@
 import pathlib
 
 import yaml
+from scripts.check_docs_drift import WORKFLOWS_DOC, check_workflow_inventory
 
 ALLOWED_PREFIXES = (
     "pr-",
@@ -15,7 +16,6 @@ ALLOWED_PREFIXES = (
     "debug-",
 )
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
-DOC_INVENTORY_EXEMPT_WORKFLOWS = set()
 
 
 def _workflow_paths():
@@ -169,31 +169,15 @@ def test_maint_83_bootstrap_uses_published_action_versions():
     )
 
 
-def test_inventory_docs_list_all_workflows():
-    docs = {
-        "docs/ci/WORKFLOW_SYSTEM.md": pathlib.Path("docs/ci/WORKFLOW_SYSTEM.md").read_text(
-            encoding="utf-8"
-        ),
-        "docs/ci/WORKFLOWS.md": pathlib.Path("docs/ci/WORKFLOWS.md").read_text(encoding="utf-8"),
-    }
+def test_workflow_catalog_lists_all_workflows():
+    assert WORKFLOWS_DOC.is_file(), f"Missing workflow catalog: {WORKFLOWS_DOC}"
+    drift = check_workflow_inventory(pathlib.Path.cwd())
+    assert not drift, drift
 
-    def _listed(contents: str, slug: str) -> bool:
-        options = (
-            f"`{slug}`",
-            f"`.github/workflows/{slug}`",
-        )
-        return any(option in contents for option in options)
 
-    missing_by_doc = {
-        doc_name: [
-            path.name
-            for path in _workflow_paths()
-            if path.name not in DOC_INVENTORY_EXEMPT_WORKFLOWS and not _listed(contents, path.name)
-        ]
-        for doc_name, contents in docs.items()
-    }
-    failures = {doc: names for doc, names in missing_by_doc.items() if names}
-    assert not failures, f"Workflow inventory missing entries: {failures}"
+def test_workflow_overview_links_to_catalog():
+    overview = WORKFLOWS_DOC.with_name("WORKFLOW_SYSTEM.md")
+    assert f"]({WORKFLOWS_DOC.name})" in overview.read_text(encoding="utf-8")
 
 
 def test_workflow_names_match_filename_convention():

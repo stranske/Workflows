@@ -20,8 +20,8 @@ This repository is the source of truth for:
 Start with the current docs instead of inferring behavior from old comments:
 
 1. `README.md` - repository purpose, architecture, and current consumer model
-2. `docs/WORKFLOW_GUIDE.md` - full workflow inventory and purpose
-3. `docs/ci/WORKFLOWS.md` - workflow topology and active automation layout
+2. `docs/ci/WORKFLOWS.md` - authoritative inventory of active workflows
+3. `docs/WORKFLOW_GUIDE.md` - workflow naming, agent routing and operator procedures
 4. `docs/INTEGRATION_GUIDE.md` - consumer integration and versioning policy
 5. `docs/ops/CONSUMER_REPO_MAINTENANCE.md` - sync mechanics and consumer exceptions
 6. `docs/keepalive/Agents.md` and `docs/keepalive/GoalsAndPlumbing.md` - keepalive contract
