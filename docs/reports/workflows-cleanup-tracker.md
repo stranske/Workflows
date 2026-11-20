@@ -36,6 +36,23 @@
 - [x] **Pilot one generated consumer mirror.** Health 72 regenerated a stale checklist helper byte-for-byte. A second pass needed zero writes, and the hosted canary preview confirmed zero writes across three consumers. [PR #4773](https://github.com/stranske/Workflows/pull/4773)
 - [x] **Evaluate a narrow split in a large agent helper.** A trial split preserved the classification decisions but broke a caller-only upgrade from an earlier consumer version. Retain the existing Gate classifier. [Original PR input](https://github.com/stranske/Workflows/pull/4709)
 
+## Repo-wide follow-on review
+
+**Status as of 2026-11-20 UTC.** This is a separate review, not part of the original 28 checks above. The [pinned inventory](https://github.com/stranske/Workflows/tree/e8156ba8483532729b2adae78027936d94775bf1) covers 5,554 tracked files, 487 directories including the root, 184 workflow definitions (129 hosted plus 55 templates, archives and replays), and 14 registry-only records. These are inventory counts, not completed reviews.
+
+| Stage | Verified progress | What remains |
+| --- | --- | --- |
+| 1A. Workflow behavior | First batch reviewed 20 items: 11 keep, 2 proposed changes, 5 need more evidence, and 2 await the same live deliveries already tracked above. | Verify the proposed Health 42 action-reference failure handling on hosted GitHub Actions (including annotations and fork behavior), and decide whether the narrow Maint 52 docs-only lint bypass is worth shipping. Gather the five missing evidence sets: Agents 64, Auto-Pilot, hosted keepalive, consumer Gate Followups, and the consumer reporter. No proposed change is counted as delivered. |
+| 1B. Root and folder placement | Two placement decisions recorded and one archival move proposed. The pinned inventory has 27 tracked root files, which is not a reviewed count. | Review the dependency-testing and decisions docs, the five root verifier files as a set, and the root actionlint fallback with a live consumer. Verify links and readers before any move. |
+| 2. Evidence and archives | Preliminary inventory: 2,901 open file rows across `docs/evidence`, `evidence`, `artifacts`, `archives`, and `docs/archive`. Only four identical blobs occur across roots, all 65 bytes or smaller. The [#3844 replay](../evidence/artifact-retention-3844) passed all six bundled cases with its companion file present and failed to load without it. The [January 9 audit stub](../WORKFLOW_AUDIT_2026-01-09.md) still leads to the canonical report, ledger and current procedure. | Map current readers, identify canonical copies, and verify retrieval and replay before proposing changes. The preparatory cases do not close this stage. |
+| 3. Code ownership | No completed stage review recorded. | Review `scripts`, `tools`, `src`, `packages`, and `.github/scripts` for ownership and caller compatibility. |
+| 4. GitHub, templates and tests | No completed stage review recorded. | Review `.github`, templates, tests, fixtures, and configuration for authoritative sources and how they ship. |
+| 5. Instructions and final sweep | No completed stage review recorded. | Reconcile instructions and remaining configuration, then account for unresolved items. |
+
+The [Health 42 run](https://github.com/stranske/Workflows/actions/runs/42782538005/job/129715818035) and [Maint 52 run](https://github.com/stranske/Workflows/actions/runs/42782538199/job/129715778797) both printed the invalid action reference on the same PR, but only Maint 52 failed. An offline Health 42 replay is evidence for the proposed fix, not a hosted acceptance result.
+
+Record decisions, proposed changes, merged changes, and verified delivery separately. Add a PR and verification link when a change lands. Keep the two live-delivery items in the original checklist only.
+
 ## Acceptance checkpoints
 
 For behavior changes, compare a real input before and after the change, including a case that should produce no write. Verify shipped files on the receiving default branch. Keep each Python Gate job within 600 seconds and preserve the five live root verifier files together.
