@@ -78,3 +78,4 @@ Examples in `examples/` should:
 - Templates and checklists: [templates/](templates/)
 - Monthly workflow audit: [ci/WORKFLOW_AUDIT_PROCEDURE.md](ci/WORKFLOW_AUDIT_PROCEDURE.md)
 - Archived plans and audit snapshots: [archive/ARCHIVE_PLANS.md](archive/ARCHIVE_PLANS.md)
+- [Workflows cleanup tracker](reports/workflows-cleanup-tracker.md) records verified changes and the remaining live checks.
