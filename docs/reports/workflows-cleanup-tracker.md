@@ -4,7 +4,7 @@
 
 ## Awaiting live verification
 
-- [ ] **Observe the next Maint 84 commit with eligible input.** The last scheduled run was November 16. At the November 19 check, main contained zero eligible marker files. Close when a scheduled run finds eligible markers and its deletion commit lands on main. The workflow is scheduled for Mondays at 08:00 UTC. [Last scheduled run](https://github.com/stranske/Workflows/actions/runs/43830898674) · [Workflow](../../.github/workflows/maint-84-prune-agent-stubs.yml)
+- [ ] **Observe the next Maint 84 commit with eligible input.** The November 16 schedule selected 35 eligible files. GitHub rejected its direct push because main requires a PR and the `summary` check. The corrected workflow requested the PR step for the same 35 files in replay. Preview and a repeat on the cleaned tree requested zero writes. The November 20 default branch contained zero eligible filenames. Close when a scheduled run opens or updates a reviewed deletion PR and its changes land on main. The schedule runs Mondays at 08:00 UTC. [Failed delivery](https://github.com/stranske/Workflows/actions/runs/43830898674) · [Repair PR #4783](https://github.com/stranske/Workflows/pull/4783)
 - [ ] **Verify delivery of the dependency-lock correction to a live bot PR.** The repair merged. The compatible archived PR produced the same lock hash as the primary resolver. A repeat requested zero writes and the incompatible input preserved its lock. Close when a real, eligible Dependabot or Renovate PR receives the regenerated `requirements.lock` on its intended branch and expected head. No eligible PR or fallback run had appeared as of the November 19 check. [PR #4779](https://github.com/stranske/Workflows/pull/4779)
 
 ## Completed
