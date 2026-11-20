@@ -2,9 +2,27 @@
 
 import json
 import subprocess
+from pathlib import Path
 
+import yaml
 from scripts import prune_agent_stubs
 from scripts.prune_agent_stubs import select_prunable
+
+
+def test_workflow_delivers_deletions_through_a_reviewable_pr() -> None:
+    root = Path(__file__).resolve().parents[2]
+    workflow = root / ".github/workflows/maint-84-prune-agent-stubs.yml"
+    job = yaml.load(workflow.read_text(), Loader=yaml.BaseLoader)["jobs"]["prune"]
+    assert all("git push" not in step.get("run", "") for step in job["steps"])
+    delivery = next(step for step in job["steps"] if "create-pull-request@" in step.get("uses", ""))
+    assert delivery["if"] == "steps.prune.outputs.changed == 'true'"
+    settings = delivery["with"]
+    assert settings["base"] == "${{ github.event.repository.default_branch }}"
+    assert settings["branch"] != "main"
+    assert settings["add-paths"] == "agents/*.md"
+    assert settings.get("draft", "false") == "false"
+    assert "[skip ci]" not in settings["commit-message"]
+
 
 # ---------------------------------------------------------------------------
 # Core acceptance-criteria test (from issue #2336)
