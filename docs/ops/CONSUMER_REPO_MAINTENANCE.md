@@ -93,14 +93,30 @@ use its canonical `requirements.lock` in the same configuration root. This
 fallback accepts blank/comment lines and unconditional `name==version` pins
 only. Includes, editable installs, URLs, pip options, extras, ranges, wildcard
 versions and environment markers fail the audit; the script does not follow or
-execute them. An import absent from the selected declarations still fails
-`--verify`.
+execute them. Run the check from the repository root to find imports missing
+from the selected declarations:
+
+```sh
+python scripts/sync_test_dependencies.py --verify
+```
+
+In a package repository, add missing test dependencies to the `dev` extra in
+`pyproject.toml` with:
+
+```sh
+python scripts/sync_test_dependencies.py --fix
+```
+
+Review the declaration changes, then regenerate the lock using that
+repository's recorded command. For Workflows, use the command in the
+[lock header](../../requirements.lock). Rerun the verification command after
+regenerating the lock.
 
 For non-package repositories, `--fix` succeeds without changes when imports are
 already declared. Otherwise it refuses to rewrite the lock or create a package
 project table: maintain the pins through the repository's existing dependency
-process, then rerun the audit. Project repositories keep their existing dev-extra
-fix behavior; a lock file cannot mask an undeclared project dependency.
+process, then rerun the audit. A lock file cannot mask an undeclared package
+project dependency.
 
 ## Dependency candidate runtime and evidence preservation
 
