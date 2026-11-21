@@ -183,10 +183,13 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 In **Actions → Agents 63 Issue Intake → Run workflow**, choose `chatgpt_sync`. For a single issue, enter a short enumerated title such as `1. Fix the import test` in `raw_input`. For multiple issues or multiline descriptions, commit a text file to the selected ref and enter its repository-relative path in `source`. Start each issue with a numbered title on its own line. See the [single-issue input](../tests/workflows/fixtures/issue_intake_chatgpt/valid_import.txt) and [three-issue input](../tests/workflows/fixtures/issue_intake_chatgpt/multi_issue_payload.txt).
 
-To use `Issues.txt`, supply your own topic file at that path, commit and push it to the branch you want to import from, and set `ref` below to that branch. The workflow reads `source` from the selected GitHub ref. It creates or updates GitHub issues. An empty source file yields zero issues, and a missing named file stops the import.
+To use `Issues.txt`, put your topic file at that path on the branch you want to import from. Git ignores local `Issues.txt` drafts, so force-add this file when you intend to publish it. The workflow reads `source` from the selected GitHub ref. It creates or updates GitHub issues. An empty source file yields zero issues, and a missing named file stops the import.
 
 ```sh
-ref=your-published-branch
+ref=$(git branch --show-current)
+git add -f -- Issues.txt
+git commit -m "Add issue intake topics"
+git push origin "$ref"
 gh workflow run agents-63-issue-intake.yml --ref "$ref" -f intake_mode=chatgpt_sync -f source=Issues.txt
 ```
 
