@@ -16,6 +16,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.langchain.response_content import text_from_response_content
+except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
+    from response_content import text_from_response_content
+
 AGENT_CAPABILITY_CHECK_PROMPT = """
 Analyze these tasks and acceptance criteria for agent compatibility.
 
@@ -271,7 +276,11 @@ def classify_capabilities(tasks: list[str], acceptance: str) -> CapabilityCheckR
     template = ChatPromptTemplate.from_template(AGENT_CAPABILITY_CHECK_PROMPT)
     chain = template | client
     response = chain.invoke(_prepare_prompt_values(tasks, acceptance))
-    content = getattr(response, "content", None) or str(response)
+    raw_content = getattr(response, "content", None)
+    if isinstance(raw_content, list):
+        content = text_from_response_content(raw_content) or ""
+    else:
+        content = raw_content or str(response)
     payload = _extract_json_payload(content)
     if not payload:
         result = _fallback_classify(tasks, acceptance, "LLM response missing JSON payload")

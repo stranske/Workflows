@@ -19,9 +19,11 @@ from typing import Any
 
 try:
     from scripts.langchain._llm_client import get_llm_client as _get_llm_client
+    from scripts.langchain.response_content import text_from_response_content
     from scripts.langchain.trace_utils import build_llm_config as _build_llm_config
 except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
     from _llm_client import get_llm_client as _get_llm_client
+    from response_content import text_from_response_content
     from trace_utils import build_llm_config as _build_llm_config
 
 ChatPromptTemplate: Any | None = None
@@ -346,7 +348,11 @@ def classify_capabilities(tasks: list[str] | str, acceptance: str) -> Capability
     except ImportError:
         pass
 
-    content = getattr(response, "content", None) or str(response)
+    raw_content = getattr(response, "content", None)
+    if isinstance(raw_content, list):
+        content = text_from_response_content(raw_content) or ""
+    else:
+        content = raw_content or str(response)
     payload = _extract_json_payload(content)
     if not payload:
         result = _fallback_classify(
