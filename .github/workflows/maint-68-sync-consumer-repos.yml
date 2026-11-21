@@ -1034,11 +1034,7 @@ jobs:
           plan_scope = os.environ.get('PLAN_SCOPE', '')
           if plan_scope == 'full':
               targets_path = Path('sync_targets.txt')
-              target_lines = (
-                  targets_path.read_text(encoding='utf-8').splitlines()
-                  if targets_path.is_file()
-                  else []
-              )
+              target_lines = targets_path.read_text(encoding='utf-8').splitlines()
               if '.gitignore' not in target_lines:
                   target_lines.append('.gitignore')
                   targets_path.write_text(
