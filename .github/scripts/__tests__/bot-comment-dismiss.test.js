@@ -633,3 +633,6 @@ describe('bot-comment-dismiss timestamp logic', () => {
     assert.deepStrictEqual(dismissable, []);
   });
 });
+
+// Register the dismissal contract suite with the hosted test selection.
+require('../../../tests/bot-comment-dismiss-contract.test.js');
