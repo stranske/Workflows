@@ -4,7 +4,7 @@
 
 ## November 21 workflow routing and default test discovery
 
-At [the reviewed revision](https://github.com/stranske/Workflows/tree/67c50f472934b3be89de9ec7dbfdc9433c1e8197), the structure review has decisions for **780 of 5,554 files, 96 of 487 folders and 59 of 198 workflows**. The original cleanup checklist is **26 of 28**. Its remaining inputs are a scheduled reviewed stub deletion and an eligible dependency lock repair.
+At [the reviewed revision](https://github.com/stranske/Workflows/tree/67c50f472934b3be89de9ec7dbfdc9433c1e8197), the structure review has decisions for **781 of 5,554 files, 96 of 487 folders and 59 of 198 workflows**. This replaces the earlier November 21 checkpoint of 717 files, 88 folders and 56 workflows. The original cleanup checklist is **26 of 28**. Its remaining inputs are a scheduled reviewed stub deletion and an eligible dependency lock repair.
 
 ### Workflow behavior
 
@@ -12,13 +12,13 @@ Auto-Pilot’s explicit request for a PR summary reached an installed event hub 
 
 ### Default and hosted test discovery
 
-The original November 19 bare Node run selected 176 cases, with 162 passes and 14 earlier failures. Comparing names found that 84 previously passing cases had disappeared from default discovery. The combined main run grew from 78 to 127 passing cases. That restored 48 original passing cases and included one newer negative control. Five alternating offline measurements per tree gave medians of 460 ms and 506 ms. Four earlier file decisions remain open. Their 36 original passing cases and 14 earlier failures map to 51 current explicit cases that bare discovery still misses. The hourly check now compares both local and hosted discovery by case identity. [Dismissal suite](https://github.com/stranske/Workflows/pull/4866) · [Runner and dismissal cases](https://github.com/stranske/Workflows/pull/4871) · [Cascade and review cases](https://github.com/stranske/Workflows/pull/4870)
+The original November 19 bare Node run selected 176 cases, with 162 passes and 14 earlier failures. Comparing names found that 84 previously passing cases had disappeared from default discovery. The combined main run grew from 78 to 127 passing cases. That restored 48 original passing cases and included one newer negative control. Five alternating offline measurements per tree gave medians of 460 ms and 506 ms. The review guard’s three replacement cases now pass through both routes. Three file decisions remain open. Their 48 current assertions for bot comments, keepalive state and persisted counters pass via the explicit command and are absent from bare discovery. The hourly check now compares both local and hosted discovery by case identity. [Dismissal suite](https://github.com/stranske/Workflows/pull/4866) · [Runner and dismissal cases](https://github.com/stranske/Workflows/pull/4871) · [Cascade and review cases](https://github.com/stranske/Workflows/pull/4870)
 
 ### Evidence and regression checks
 
 The operator guides recover seven conflict-recovery receipts and nine historical publication notes at their original bytes. The 43-file reporter acceptance packet and three publication records named by machine-readable receipts retain their paths. All three agent navigation routes resolved (6, 7 and 8). Fresh reports, issue intake and the consumer plan passed. Primary Python jobs took 327–514 seconds against the 600-second per-job checkpoint. The complete Gate workflows took 79–624 seconds. Four of the original five workflow decisions are complete. An opted-in Agents 64 mismatch and a live fork event for Health 42 remain open. [Conflict recovery](https://github.com/stranske/Workflows/pull/4867) · [Publication notes](https://github.com/stranske/Workflows/pull/4868)
 
-The next hourly batch will verify the four remaining local test owners, trial skipping an identical issue-label suggestion update, and trace the delivery tests that read the remaining evidence files. The installed Linux Actionlint assertion is the last open decision among the original 27 root files.
+The next hourly batch will verify the three remaining local test owners, trial skipping an identical issue-label suggestion update, and trace the delivery tests that read the remaining evidence files. The installed Linux Actionlint assertion is the last open decision among the original 27 root files.
 
 ## November 21 test discovery and evidence archives
 
