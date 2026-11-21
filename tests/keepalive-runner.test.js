@@ -12,7 +12,7 @@ const {
   coerceNumber,
   resolvePromptCheckboxCounts,
   shouldIncludeScopeBlock,
-} = require('../../../scripts/keepalive-runner.js');
+} = require('../scripts/keepalive-runner.js');
 
 test('resolveInstructionToken prefers service bot PAT over actions bot PAT', () => {
   const env = {
