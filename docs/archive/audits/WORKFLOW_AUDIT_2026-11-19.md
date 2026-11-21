@@ -86,13 +86,34 @@ The November issue listed ~100 files as unrun because matching used **quoted `na
 
 | Class | Examples | Disposition |
 |-------|----------|-------------|
-| `workflow_call`-only reusable | `reusable-*.yml`, health-42-actionlint | Expected — no independent runs |
+| `workflow_call`-only reusable | `reusable-*.yml` and belt workers (19 files; no independent `on:` trigger) | Expected — omitted from not-run after Maint 66 skip logic |
+| Reusable with manual dispatch | `health-42-actionlint.yml`, `reusable-10-ci-python.yml` | Keep — may appear in not-run in a quiet window despite `workflow_dispatch` |
 | Active with runs in window | `pr-00-gate.yml`, `maint-66-monthly-audit.yml`, `agents-dedup.yml` | **False positive** — fixed by path-based detection |
 | Scheduled / manual utilities | `maint-45-cosmetic-repair.yml`, `maint-60-release.yml` | Keep — on-demand or tag-driven |
 | Retired this month | `maint-47-disable-legacy-workflows.yml` | **Archived** — #4771 |
 | Consumer sync / health spot checks | `health-68-*`, `maint-68-*` preview variants | Keep — campaign/canary naming only affects display |
 
 No additional workflow **files** were archived in this PR beyond Maint 47 (already merged). Remaining removal candidates stay in [`docs/reports/workflows-cleanup-tracker.md`](../../reports/workflows-cleanup-tracker.md).
+
+### Full-path inventory (`scripts/workflow_inventory_audit.py`)
+
+Automated classification of all **129** on-disk workflow files (November 2026 checkout):
+
+| Bucket | Count | Disposition |
+|--------|------:|-------------|
+| `reusable_call_only` | 19 | Expected zero independent runs — Maint 66 skip |
+| `reusable_with_independent_trigger` | 11 | Callable plus `workflow_dispatch` / schedule / PR hooks — keep |
+| `scheduled` | 31 | Cron or low-frequency — not-run row often benign |
+| `manual_utility` | 9 | `workflow_dispatch`-only utilities — keep |
+| `event_driven` | 59 | Push, PR, issue, or `workflow_run` — false positives were path/display-name mismatch |
+
+Regenerate the per-file table with:
+
+```bash
+PYTHONPATH=. python scripts/workflow_inventory_audit.py --markdown
+```
+
+Confirmed **retirement** this cycle: `maint-47-disable-legacy-workflows.yml` ([#4771](https://github.com/stranske/Workflows/pull/4771)); see [`ARCHIVE_WORKFLOWS.md`](../ARCHIVE_WORKFLOWS.md). No other November “not run” rows were confirmed unused.
 
 ## Parallelism, runtime, and caching
 
@@ -124,6 +145,10 @@ pytest tests/scripts/test_issue_dedup.py tests/scripts/test_check_api_wrapper_gu
 
 pytest tests/scripts/test_validate_workflow_yaml.py \
   tests/workflows/test_workflows_doc_links_resolve.py -q \
+  -o asyncio_default_fixture_loop_scope=function
+→ passed
+
+pytest tests/scripts/test_workflow_inventory_audit.py -q \
   -o asyncio_default_fixture_loop_scope=function
 → passed
 ```

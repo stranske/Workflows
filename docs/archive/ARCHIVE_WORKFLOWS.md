@@ -16,6 +16,14 @@ Compare a path against the default branch and the workflow’s run history befor
 
 Maint 47 previously advertised a disable sweep. Its [manual workflow](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/.github/workflows/maint-47-disable-legacy-workflows.yml) invoked a [helper](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/tools/disable_legacy_workflows.py) with stubbed list and update methods and no command-line entry point. GitHub reported zero runs before retirement.
 
+### November 2026 retirement (Issue #4770 / PR #4771) {#november-2026-retirement-issue-4770--pr-4771}
+
+| Removed workflow | Reason | Replacement |
+|------------------|--------|-------------|
+| `maint-47-disable-legacy-workflows.yml` | Inert manual “disable legacy” sweep; helper never implemented end-to-end | Individual retirements continue via this ledger plus `gh workflow disable` |
+
+Verification (2026-11-21): the YAML file is absent from `.github/workflows/`. The November Maint 66 “not run” audit classified the remaining fleet via [`scripts/workflow_inventory_audit.py`](../../scripts/workflow_inventory_audit.py) and recorded dispositions in [`audits/WORKFLOW_AUDIT_2026-11-19.md`](audits/WORKFLOW_AUDIT_2026-11-19.md).
+
 ### Legacy verify-to-issue v1
 
 The disabled [v1 definition](https://github.com/stranske/Workflows/blob/d884606ce6ec93b67029bf081ad509a25fdbe39c/archives/deprecated-workflows/agents-verify-to-issue.yml) is preserved in Git at `d884606ce6ec93b67029bf081ad509a25fdbe39c`. Its SHA-256 is `f9409273791aec983766cb9562d8fb36dd519bd3ce9da9c677977173afc95b63`. Recover the original bytes with `git show d884606ce6ec93b67029bf081ad509a25fdbe39c:archives/deprecated-workflows/agents-verify-to-issue.yml`.
