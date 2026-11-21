@@ -1,7 +1,10 @@
 """Tests for scripts/prune_agent_stubs.py — select_prunable is pure/unit-testable."""
 
 import json
+import os
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -154,3 +157,37 @@ def test_main_reports_nothing_to_prune(tmp_path, monkeypatch, capsys) -> None:
     assert prune_agent_stubs.main([]) == 0
     assert "Nothing to prune." in capsys.readouterr().out
     assert (agents / "codex-99.md").exists()
+
+
+def test_main_clean_checkout_without_markers_uses_no_github(tmp_path) -> None:
+    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    script = shutil.copy2(prune_agent_stubs.__file__, scripts)
+    env = dict(os.environ, PATH="")
+    agents = tmp_path / "agents"
+
+    def assert_noop(*args):
+        result = subprocess.run(
+            [sys.executable, script, *args],
+            cwd=tmp_path,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert "Nothing to prune." in result.stdout
+
+    assert_noop("--dry-run")
+    assert not agents.exists()
+    agents.mkdir()
+    (agents / "local-notes.md").write_text("local notes", encoding="utf-8")
+    assert_noop()
+    assert (agents / "local-notes.md").read_text(encoding="utf-8") == "local notes"
+
+
+def test_main_rejects_unrelated_git_root_without_agents(tmp_path, monkeypatch, capsys) -> None:
+    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)
+    monkeypatch.chdir(tmp_path)
+    assert prune_agent_stubs.main([]) == 1
+    assert "directory not found" in capsys.readouterr().err

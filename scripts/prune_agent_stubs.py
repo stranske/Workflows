@@ -7,6 +7,7 @@ Stubs for open issues (or names that don't match the pattern) are left alone.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -82,12 +83,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if not AGENTS_DIR.is_dir():
+    if AGENTS_DIR.is_dir():
+        stub_names = [
+            path.name
+            for path in AGENTS_DIR.iterdir()
+            if path.is_file() and _STUB_RE.fullmatch(path.name)
+        ]
+    elif (
+        not os.path.lexists(AGENTS_DIR)
+        and AGENTS_DIR.resolve() == Path(__file__).resolve().parents[1] / "agents"
+        and (AGENTS_DIR.parent / ".git").exists()
+    ):
+        # Git omits the directory from a clean checkout after its last marker is removed.
+        stub_names = []
+    else:
         print(f"agents/ directory not found (cwd={Path.cwd()})", file=sys.stderr)
         return 1
 
-    stub_names = [p.name for p in AGENTS_DIR.iterdir() if p.is_file()]
-    closed = _fetch_closed_issue_numbers(args.repo)
+    closed = _fetch_closed_issue_numbers(args.repo) if stub_names else set()
     to_prune = select_prunable(stub_names, closed)
 
     if not to_prune:
