@@ -838,6 +838,20 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
     template_text = Path(
         "templates/consumer-repo/.github/workflows/agents-weekly-metrics.yml"
     ).read_text(encoding="utf-8")
+    pool = ".github/scripts/weekly_metrics_download_pool.js"
+    assert pool in workflow_text, "Weekly metrics must run the bounded downloader"
+    assert (
+        "--download-status failed" in template_text
+        and "--unzip-status skipped" in template_text
+        and "--unzip-status failed" in template_text
+    ), "Weekly metrics must record download and unzip failure reasons"
+    assert (
+        'artifact_dir="artifacts/$safe_name/$id"' in template_text and "safe_name=" in template_text
+    ), "Weekly metrics must sanitize artifact paths and isolate downloads by artifact ID"
+    assert (
+        'export ARTIFACT_ZIP="$artifact_dir/$id.zip"' in template_text
+        and 'unzip -o "$ARTIFACT_ZIP" -d "$ARTIFACT_DIR"' in template_text
+    ), "Weekly metrics must unzip each artifact inside its unique extraction directory"
     for text in (workflow_text, template_text):
         assert (
             "artifacts/metric-artifacts-selection.json" in text
@@ -850,24 +864,12 @@ def test_weekly_metrics_uploads_selector_report_on_failure():
             and "artifacts/metric-artifact-download-manifest.md" in text
         ), "Weekly metrics must upload artifact download manifest reports"
         assert (
-            "--download-status failed" in text
-            and "--unzip-status skipped" in text
-            and "--unzip-status failed" in text
-        ), "Weekly metrics must record download and unzip failure reasons"
-        assert (
             "--finalize" in text and '--manifest "$download_manifest"' in text
         ), "Weekly metrics must finalize the artifact download manifest after the loop"
         assert (
             "OUTPUT_JSON_PATH: agent-weekly-metrics.json" in text
             and "agent-weekly-metrics.json" in text
         ), "Weekly metrics must upload a machine-readable aggregate summary"
-        assert (
-            'artifact_dir="artifacts/$safe_name/$id"' in text and "safe_name=" in text
-        ), "Weekly metrics must sanitize artifact paths and isolate downloads by artifact ID"
-        assert (
-            'export ARTIFACT_ZIP="$artifact_dir/$id.zip"' in text
-            and 'unzip -o "$ARTIFACT_ZIP" -d "$ARTIFACT_DIR"' in text
-        ), "Weekly metrics must unzip each artifact inside its unique extraction directory"
         assert (
             "uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7" in text
         ), "Weekly metrics must pin the Node runtime setup action to the v6 commit SHA"

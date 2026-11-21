@@ -32,6 +32,7 @@ jobs:
             .github/scripts/token_load_balancer.js
             .github/scripts/weekly_metrics_artifacts.js
             .github/scripts/weekly_metrics_download_manifest.js
+            .github/scripts/weekly_metrics_download_pool.js
             scripts/aggregate_agent_metrics.py
           sparse-checkout-cone-mode: false
 
@@ -114,101 +115,8 @@ jobs:
           if [ ! -s "$artifact_list" ]; then
             echo "No metrics artifacts found"
           fi
-          while IFS=$'\t' read -r id name; do
-            echo "Downloading artifact $id ($name)"
-            safe_name="$(
-              node -e '
-                const { safeArtifactPathSegment } =
-                  require("./.github/scripts/weekly_metrics_download_manifest.js");
-                process.stdout.write(safeArtifactPathSegment(process.argv[1] || ""));
-              ' "$name"
-            )"
-            artifact_dir="artifacts/$safe_name/$id"
-            mkdir -p "$artifact_dir"
-            # shellcheck disable=SC1009,SC1073,SC1039,SC1072
-            export ARTIFACT_ID="$id"
-            export ARTIFACT_DIR="$artifact_dir"
-            export ARTIFACT_ZIP="$artifact_dir/$id.zip"
-            if ! node - <<'NODE'
-          const fs = require('fs');
-          const { Octokit } = require('@octokit/rest');
-          const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-          const core = { info: () => {}, warning: console.warn, debug: () => {} };
-          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-          const artifactId = Number(process.env.ARTIFACT_ID);
-          const zipPath = process.env.ARTIFACT_ZIP;
-          (async () => {
-            const token = process.env.GH_TOKEN ||
-              process.env.GITHUB_TOKEN;
-            const github = new Octokit({ auth: token });
-            const { withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'agents-weekly-metrics-download',
-              capabilities: ['actions:read']
-            });
-            const response = await withRetry((client) => client.rest.actions.downloadArtifact({
-              owner,
-              repo,
-              artifact_id: artifactId,
-              archive_format: 'zip'
-            }));
-            const data = response.data;
-            const buffer = Buffer.isBuffer(data)
-              ? data
-              : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
-            fs.writeFileSync(zipPath, buffer);
-          })().catch((error) => {
-            console.error(error);
-            process.exit(1);
-          });
-          NODE
-            then
-              echo "Warning: Could not download artifact $id ($name)"
-              node .github/scripts/weekly_metrics_download_manifest.js \
-                --record \
-                --manifest "$download_manifest" \
-                --markdown "$download_manifest_markdown" \
-                --id "$id" \
-                --name "$name" \
-                --artifact-dir "$ARTIFACT_DIR" \
-                --zip-path "$ARTIFACT_ZIP" \
-                --download-status failed \
-                --download-error download-command-failed \
-                --unzip-status skipped \
-                --unzip-error download-failed
-              continue
-            fi
-            zip_bytes="$(wc -c < "$ARTIFACT_ZIP" | tr -d ' ')"
-            if unzip -o "$ARTIFACT_ZIP" -d "$ARTIFACT_DIR" >/dev/null; then
-              node .github/scripts/weekly_metrics_download_manifest.js \
-                --record \
-                --manifest "$download_manifest" \
-                --markdown "$download_manifest_markdown" \
-                --id "$id" \
-                --name "$name" \
-                --artifact-dir "$ARTIFACT_DIR" \
-                --zip-path "$ARTIFACT_ZIP" \
-                --zip-bytes "$zip_bytes" \
-                --download-status pass \
-                --unzip-status pass
-            else
-              echo "Warning: Could not unzip artifact $id ($name)"
-              node .github/scripts/weekly_metrics_download_manifest.js \
-                --record \
-                --manifest "$download_manifest" \
-                --markdown "$download_manifest_markdown" \
-                --id "$id" \
-                --name "$name" \
-                --artifact-dir "$ARTIFACT_DIR" \
-                --zip-path "$ARTIFACT_ZIP" \
-                --zip-bytes "$zip_bytes" \
-                --download-status pass \
-                --unzip-status failed \
-                --unzip-error unzip-command-failed
-            fi
-          done < "$artifact_list"
+          node .github/scripts/weekly_metrics_download_pool.js \
+            "$artifact_list" "$download_manifest" "$download_manifest_markdown"
           node .github/scripts/weekly_metrics_download_manifest.js \
             --finalize \
             --manifest "$download_manifest" \
