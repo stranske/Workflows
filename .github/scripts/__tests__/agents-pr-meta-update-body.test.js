@@ -2497,6 +2497,72 @@ test('keepalive-gate-citation extractor is included in the reusable metadata che
   assert.match(bodyUpdateJob, /^          sparse-checkout: \|\n(?: {12}[^\n]+\n)* {12}scripts\/runner_lib\/acceptance_gate\.py$/m);
 });
 
+test('consumer PR metadata admits explicit live manual dispatch and preserves other routes', () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/reusable-20-pr-meta.yml'), 'utf8');
+  const guard = (jobName) => {
+    const job = workflow.split(`\n  ${jobName}:\n`)[1]?.split(/\n {2}\w+:/)[0];
+    const match = job?.match(/^    if: (?:>-\n((?: {6}[^\n]*\n)+)|([^\n]+))/m);
+    assert.ok(match, `Missing ${jobName} job guard`);
+    return new Function('inputs', 'github', `return (${match[1] || match[2]})`);
+  };
+  const metadata = guard('pr_body_update');
+  const comment = guard('keepalive_dispatch');
+  const replay = guard('keepalive_from_gate');
+
+  const dispatch = { event_name: 'workflow_dispatch', event_action: 'workflow_dispatch', dry_run: false };
+  const event = { event_name: 'workflow_dispatch', event: { inputs: { handler: 'pr-meta', debug: 'false' } } };
+  assert.equal(metadata(dispatch, event), true, 'Auto-Pilot PR metadata dispatch reaches the body writer');
+  assert.equal(metadata({ ...dispatch, dry_run: true }, event), false, 'hub debug/preview blocks the body writer');
+  for (const inputs of [{ handler: 'pr-meta', dry_run: 'true' }, { handler: 'bot-comments' }, { handler: '' }]) {
+    assert.equal(metadata(dispatch, { ...event, event: { inputs } }), false);
+  }
+  assert.equal(metadata(dispatch, { event_name: 'pull_request' }), false);
+  assert.equal(comment(dispatch, event), false);
+  assert.equal(replay(dispatch, event), false);
+
+  const pr = { event_name: 'pull_request', event_action: 'opened' };
+  const issueComment = { event_name: 'issue_comment', event_action: 'created' };
+  const gate = { event_name: 'workflow_run', event_action: 'success' };
+  assert.equal(metadata(pr, {}), true);
+  assert.equal(metadata(issueComment, {}), false);
+  assert.equal(metadata(gate, {}), false);
+  assert.equal(comment(issueComment, {}), true);
+  assert.equal(replay(gate, {}), false);
+  assert.equal(replay({ ...gate, allow_replay: true }, {}), true);
+});
+
+test('manual consumer PR metadata renders the existing issue-backed body', async () => {
+  await assertIssueSyncPreservesIntent((args) => run({
+    ...args,
+    context: { ...args.context, eventName: 'workflow_dispatch', payload: {} },
+    inputs: { pr_number: '55' },
+  }));
+});
+
+test('manual consumer PR metadata skips a closed PR and reports a missing PR without writing', async () => {
+  for (const missing of [false, true]) {
+    const failures = [];
+    let lookups = 0;
+    await run({
+      github: { rest: { pulls: {
+        get: async ({ pull_number }) => {
+          assert.equal(pull_number, 55);
+          lookups++;
+          if (missing) {
+            throw Object.assign(new Error('Not Found'), { status: 404 });
+          }
+          return { data: { number: 55, state: 'closed', head: { sha: 'abc123' } } };
+        },
+      } } },
+      context: { repo: { owner: 'octo', repo: 'demo' }, eventName: 'workflow_dispatch' },
+      inputs: { pr_number: '55' },
+      core: { info() {}, warning() {}, error() {}, setFailed: (error) => failures.push(error) },
+    });
+    assert.equal(lookups, missing ? 1 : 2);
+    assert.deepEqual(failures, missing ? ['PR Meta update failed: Not Found'] : []);
+  }
+});
+
 async function assertIssueSyncPreservesIntent(sync, overrides = {}, closing = false) {
   const pull = {
     number: 55, state: 'open', title: 'Repair a local request',
