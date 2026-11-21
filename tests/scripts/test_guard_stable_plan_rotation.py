@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 import yaml
 from scripts.guard_stable_plan_rotation import uncovered_pending_paths
+from scripts.scope_consumer_sync_plan import select_plan
 from scripts.sync_manifest_compiler import compile_manifest
 
 
@@ -322,6 +323,8 @@ scripts:
 removals:
   - target: obsolete.txt
     description: Explicit removal
+  - target: obsolete-directory
+    description: Explicit directory removal
 """,
     )
     _git(source, "add", ".")
@@ -330,11 +333,19 @@ removals:
     source_cache = source / directory / "__pycache__/core.pyc"
     py_compile.compile(str(source / directory / "core.py"), cfile=str(source_cache), doraise=True)
     assert compile_manifest(manifest).to_plan() == plan
-    _write(tmp_path, "manifest.json", json.dumps(plan))
+    scoped, _ = select_plan(
+        plan,
+        mode=plan_scope,
+        changed_paths=[f"{directory}/core.py"],
+        base_sha="a" * 40,
+        source_commit="b" * 40,
+    )
+    _write(tmp_path, "manifest.json", json.dumps(scoped))
 
     consumer, _, _ = _repo_with_pending_delivery(tmp_path)
     _write(consumer, ".gitignore", "*.pyc\n")
     _write(consumer, "obsolete.txt", "remove this\n")
+    _write(consumer, "obsolete-directory/old.txt", "remove this directory\n")
     unrelated = [f"{directory}/.contracts.txt", f"{directory}/consumer-owned.txt"]
     for name in unrelated:
         _write(consumer, name, "consumer baseline\n")
@@ -351,44 +362,79 @@ removals:
         **os.environ,
         "CURRENT_REPO": "test/fixture",
         "DRY_RUN": "false",
-        "FORCE": "false",
+        "FORCE": "true",
         "PLAN_SCOPE": plan_scope,
         "GITHUB_OUTPUT": str(tmp_path / "outputs"),
     }
-    actual = subprocess.run(
-        [sys.executable, "-B", "-c", authored],
-        cwd=tmp_path,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+
+    def apply() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, "-B", "-c", authored],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+    collision = f"{directory}/.contract[spec].txt"
+    child = f"{collision}/unrelated.txt"
+    _write(consumer, child, "unmanaged descendant\n")
+    rejected = apply()
+    assert rejected.returncode == 1
+    assert f"Sync file target is a directory: {collision}" in rejected.stderr
+    assert (consumer / child).read_text() == "unmanaged descendant\n"
+    assert not (consumer / directory / "core.py").exists()
+    assert not (tmp_path / "sync_targets.txt").exists()
+
+    _git(consumer, "--literal-pathspecs", "add", "--", child)
+    _git(consumer, "commit", "-qm", "tracked directory collision fixture")
+    (consumer / child).unlink()
+    (consumer / collision).rmdir()
+    rejected = apply()
+    assert rejected.returncode == 1
+    assert f"Sync file target has a tracked consumer child: {child}" in rejected.stderr
+    assert not (consumer / directory / "core.py").exists()
+    assert not (tmp_path / "sync_targets.txt").exists()
+    _git(consumer, "--literal-pathspecs", "rm", "-q", "--cached", "--", child)
+    _git(consumer, "commit", "-qm", "remove tracked collision fixture")
+
+    actual = apply()
     assert actual.returncode == 0, actual.stderr
     selected = [f"{directory}/{name}" for name in [*names, ".contract[spec].txt"]]
-    expected = sorted(
-        [*selected, "obsolete.txt", *([".gitignore"] if plan_scope == "full" else [])]
-    )
-    assert (tmp_path / "sync_targets.txt").read_text().splitlines() == expected
+    full_inventory = [".gitignore", "obsolete.txt", "obsolete-directory"]
+    expected_inventory = sorted([*selected, *(full_inventory if plan_scope == "full" else [])])
+    assert (tmp_path / "sync_targets.txt").read_text().splitlines() == expected_inventory
     assert not (consumer / directory / "__pycache__/core.pyc").exists()
     assert (consumer / cache).read_text() == "keep receiving cache\n"
     assert source_cache.is_file()
-    assert not (consumer / "obsolete.txt").exists()
+    assert (consumer / "obsolete.txt").exists() == (plan_scope == "source-delta")
+    assert (consumer / "obsolete-directory/old.txt").exists() == (plan_scope == "source-delta")
     for name in selected:
         assert (source / name).read_bytes() == (consumer / name).read_bytes()
+
+    # Refuse a new file-to-directory collision before any path is staged.
+    copied = (consumer / collision).read_bytes()
+    (consumer / collision).unlink()
+    _write(consumer, child, "late unmanaged descendant\n")
+    rejected = _run_maint68_staging(tmp_path)
+    assert rejected.returncode == 1
+    assert f"Staging file target is a directory: {collision}" in rejected.stdout
+    assert _git(consumer, "diff", "--cached", "--name-only") == ""
+    (consumer / child).unlink()
+    (consumer / collision).rmdir()
+    (consumer / collision).write_bytes(copied)
+
     staged = _run_maint68_staging(tmp_path)
     assert staged.returncode == 0, staged.stderr
-    assert _git(consumer, "diff", "--cached", "--name-only").splitlines() == expected
+    full_staged = [".gitignore", "obsolete.txt", "obsolete-directory/old.txt"]
+    expected_staged = sorted([*selected, *(full_staged if plan_scope == "full" else [])])
+    assert _git(consumer, "diff", "--cached", "--name-only").splitlines() == expected_staged
     assert _git(consumer, "diff", "--name-only").splitlines() == unrelated
 
     # A stale or incomplete checkout refuses before copying or writing the inventory.
     (tmp_path / "sync_targets.txt").unlink()
     (source / directory / "core.py").unlink()
-    rejected = subprocess.run(
-        [sys.executable, "-B", "-c", authored],
-        cwd=tmp_path,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    rejected = apply()
     assert rejected.returncode == 1
     assert "Directory content differs from sync plan: scripts/runner_lib" in rejected.stderr
     assert not (tmp_path / "sync_targets.txt").exists()

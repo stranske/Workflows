@@ -753,6 +753,19 @@ jobs:
                   targets.update((Path(target) / path).as_posix() for path in files)
               else:
                   targets.add(target)
+          for target in sorted(targets):
+              if (Path('consumer') / target).is_dir():
+                  raise ValueError(f'Sync file target is a directory: {target}')
+          if targets:
+              # A dirty checkout can hide a directory still represented in the index.
+              tracked_children = subprocess.check_output(
+                  ['git', '--literal-pathspecs', 'ls-files', '--cached', '-z', '--',
+                   *(target + '/' for target in sorted(targets))],
+                  cwd='consumer',
+              )
+              if tracked_children:
+                  child = os.fsdecode(tracked_children.split(b'\0', 1)[0])
+                  raise ValueError(f'Sync file target has a tracked consumer child: {child}')
           targets.update(item['target'] for item in removals if item.get('target'))
           if any('\n' in path or '\r' in path for path in targets):
               raise ValueError('Sync target paths must not contain line breaks')
@@ -1436,6 +1449,13 @@ jobs:
 
           # Stage ONLY manifest-declared targets, to avoid accidentally committing
           # consumer-specific artifacts (e.g. requirements.lock, *.pyc, *.egg-info).
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            if [ -d "$path" ]; then
+              echo "::error::Staging file target is a directory: $path"
+              exit 1
+            fi
+          done < "../sync_targets.txt"
           while IFS= read -r path; do
             [ -z "$path" ] && continue
             if [ -e "$path" ]; then
