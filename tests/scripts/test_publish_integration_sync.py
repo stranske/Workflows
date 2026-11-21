@@ -1,6 +1,7 @@
 """Exercise the Maint 69 publication against a real local Git receiver."""
 
 from pathlib import Path
+from shlex import quote
 
 import pytest
 from scripts import publish_integration_sync as delivery
@@ -192,4 +193,31 @@ def test_retry_refuses_to_restore_withdrawn_receiver_history(tmp_path, monkeypat
         delivery.publish(receiver, apply_script, ["Delivery"])
     assert len(push_attempts) == 2
     assert git(remote, "rev-parse", "main") == original
+    assert git(remote, "show", f"main:{MANAGED}") == "old content"
+
+
+def test_retry_refuses_publication_if_default_switches_during_apply(tmp_path, monkeypatch):
+    remote, receiver, competitor, apply_script = seed_receiver(tmp_path)
+    actual_push = delivery.push
+    push_attempts = []
+    with apply_script.open("a") as script:
+        script.write(
+            f"git --git-dir={quote(str(remote))} symbolic-ref HEAD refs/heads/new-default\n"
+        )
+
+    def race_push(repo, ref):
+        push_attempts.append(ref)
+        if len(push_attempts) == 1:
+            install(competitor, UNRELATED, "parallel docs change\n")
+            commit(competitor, "Receiver advanced")
+            git(competitor, "push", "origin", "main", "HEAD:refs/heads/new-default")
+        return actual_push(repo, ref)
+
+    monkeypatch.setattr(delivery, "push", race_push)
+    install(receiver, MANAGED, "canonical content\n")
+    with pytest.raises(delivery.PublicationError, match="no longer advertises"):
+        delivery.publish(receiver, apply_script, ["Delivery"])
+    assert len(push_attempts) == 1
+    assert git(remote, "symbolic-ref", "HEAD") == "refs/heads/new-default"
+    assert git(remote, "rev-parse", "main") == git(remote, "rev-parse", "HEAD")
     assert git(remote, "show", f"main:{MANAGED}") == "old content"

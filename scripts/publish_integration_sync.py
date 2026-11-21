@@ -36,6 +36,14 @@ def revision(repo: Path, ref: str) -> str:
     return git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}").stdout.decode().strip()
 
 
+def receiver_default(repo: Path, branch: str) -> str:
+    lines = git(repo, "ls-remote", "--symref", "origin", "HEAD").stdout.decode().splitlines()
+    symbolic = f"ref: {branch}\tHEAD"
+    if symbolic not in lines:
+        raise PublicationError("The receiver no longer advertises the cloned default branch")
+    return next((line.removesuffix("\tHEAD") for line in lines if line != symbolic), "")
+
+
 def changed_paths(repo: Path, before: str, after: str) -> set[bytes]:
     output = git(repo, "diff", "--no-renames", "--name-only", "-z", before, after, "--").stdout
     return set(output.split(b"\0")) - {b""}
@@ -91,13 +99,11 @@ def publish(repo: Path, apply_script: Path, messages: list[str]) -> bool:
     if not race_rejection(first, branch):
         raise PublicationError("Integration push failed without a default-branch race")
 
-    remote_head = git(repo, "ls-remote", "--symref", "origin", "HEAD").stdout.splitlines()
-    if f"ref: {branch}\tHEAD".encode() not in remote_head:
-        raise PublicationError("The receiver no longer advertises the cloned default branch")
+    advertised = receiver_default(repo, branch)
     git(repo, "fetch", "--no-tags", f"--deepen={MAX_FETCH_DEPTH}", "origin", branch)
     advanced = revision(repo, "FETCH_HEAD")
     ancestor = git(repo, "merge-base", "--is-ancestor", base, advanced, check=False)
-    if advanced == base or ancestor.returncode != 0:
+    if advanced != advertised or advanced == base or ancestor.returncode != 0:
         raise PublicationError("Cannot verify that the receiver default advanced from the checkout")
 
     incoming = changed_paths(repo, base, advanced)
@@ -127,12 +133,18 @@ def publish(repo: Path, apply_script: Path, messages: list[str]) -> bool:
     stage_delivery(repo)
     staged = git(repo, "diff", "--cached", "--no-renames", "--name-only", "-z", "--").stdout
     recomputed = set(staged.split(b"\0")) - {b""}
+    if any(paths_overlap(path, proposed) for path in incoming for proposed in recomputed):
+        raise PublicationError("Recomputed delivery would change a concurrent receiver path")
+    if recomputed:
+        commit_delivery(repo, messages)
+
+    # Recheck the default setting after rendering and before publication.
+    # The subsequent native push separately guards the target ref update.
+    if receiver_default(repo, branch) != advanced:
+        raise PublicationError("The receiver default moved again during recomputation")
     if not recomputed:
         print("No changes needed after recomputing from the current receiver default")
         return False
-    if any(paths_overlap(path, proposed) for path in incoming for proposed in recomputed):
-        raise PublicationError("Recomputed delivery would change a concurrent receiver path")
-    commit_delivery(repo, messages)
     if push(repo, branch).returncode != 0:
         raise PublicationError("Integration push failed after one fresh recomputation")
     return True
