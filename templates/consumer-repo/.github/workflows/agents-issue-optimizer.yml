@@ -468,7 +468,9 @@ jobs:
 
           # Conservative defaults; can be tuned later.
           threshold = 0.82
-          store = issue_dedup.build_issue_vector_store(open_issues)
+          issue_number = issue['number']
+          candidates = [candidate for candidate in open_issues if candidate.get('number') != issue_number]
+          store = issue_dedup.build_issue_vector_store(candidates)
           if store is None:
               raise SystemExit(0)
 
