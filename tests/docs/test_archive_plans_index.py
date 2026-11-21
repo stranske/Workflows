@@ -41,6 +41,20 @@ ACTIVE_PLANS = [
 ]
 
 
+def _ledger_archive_target(canonical_repo_path: str) -> str:
+    """Map ``docs/archive/...`` paths to ledger-relative link targets."""
+
+    prefix = "docs/archive/"
+    assert canonical_repo_path.startswith(prefix), canonical_repo_path
+    return canonical_repo_path.removeprefix(prefix)
+
+
+def _expected_ledger_archive_links() -> set[str]:
+    """Ledger audit/plan links must stay aligned with ``ARCHIVED_CANONICAL``."""
+
+    return {_ledger_archive_target(path) for path in ARCHIVED_CANONICAL} | set(ARCHIVED_KEEPALIVE)
+
+
 def _resolve_link(source: Path, target: str) -> Path:
     if target.startswith("http://") or target.startswith("https://"):
         raise AssertionError(f"unexpected external link in ledger: {target}")
@@ -56,16 +70,7 @@ def test_archive_plans_ledger_links_resolve() -> None:
         for target in MARKDOWN_LINK.findall(text)
         if target.startswith(("plans/", "audits/", "keepalive/"))
     }
-    assert archive_links == {
-        "plans/SHORT_TERM_PLAN.md",
-        "plans/LONG_TERM_PLAN.md",
-        "audits/WORKFLOW_AUDIT_2025-12-25.md",
-        "audits/WORKFLOW_AUDIT_2026-01-09.md",
-        "audits/WORKFLOW_AUDIT_2026-11-19.md",
-        "audits/TEMPLATE_REPO_EVALUATION.md",
-        "audits/issue-3060-verifier-evidence.md",
-        *ARCHIVED_KEEPALIVE,
-    }
+    assert archive_links == _expected_ledger_archive_links()
     for target in MARKDOWN_LINK.findall(text):
         if target.startswith("#"):
             continue
