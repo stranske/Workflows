@@ -105,15 +105,16 @@ Four packets at the [merged revision](https://github.com/stranske/Workflows/comm
 | [Fork publisher](https://github.com/stranske/Workflows/tree/f3efbfc4d4ee95fb584057885c7cc985be0ca5c2/docs/evidence/issue-3757-fork-publisher) | Includes the manifest, the two failing assertions when publisher collection was disabled, and the passing result after restoration. |
 | [Publisher attempt](https://github.com/stranske/Workflows/tree/f3efbfc4d4ee95fb584057885c7cc985be0ca5c2/docs/evidence/issue-3757-publisher-attempt) | Records the separate correction for binding the publisher attempt, its three failing assertions, and the restored test run. |
 
-To recover all 15 files at their recorded paths, run this from a Workflows checkout. The command prints a temporary directory containing the four packets.
+To recover all 15 files at their recorded paths, run this from a Workflows checkout. The command prints a temporary directory containing the four packets and the version of this guide linked from the collection-context README.
 
 ```sh
-evidence_dir=$(mktemp -d)
+evidence_dir=$(mktemp -d) &&
 git archive --format=tar f3efbfc4d4ee95fb584057885c7cc985be0ca5c2 -- \
   docs/evidence/issue-3757-context-binding \
   docs/evidence/issue-3757-status-provenance \
   docs/evidence/issue-3757-fork-publisher \
-  docs/evidence/issue-3757-publisher-attempt | tar -x -C "$evidence_dir"
+  docs/evidence/issue-3757-publisher-attempt \
+  docs/ops/EXPECTED_CHECK_RECEIPTS.md | tar -x -C "$evidence_dir" &&
 printf '%s\n' "$evidence_dir"
 ```
 
