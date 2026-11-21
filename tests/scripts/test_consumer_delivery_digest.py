@@ -75,7 +75,7 @@ def test_descriptive_manifest_metadata_does_not_change_payload(source):
     assert digest.render_payload(source, ["owner/repo"]) == before
 
 
-def test_scopes_create_only_directory_and_removal_change_identity(source):
+def test_scopes_create_only_directory_and_removal_change_identity(source, monkeypatch):
     manifest = source / ".github/sync-manifest.yml"
     manifest.write_text(
         manifest.read_text().replace(
@@ -90,6 +90,7 @@ def test_scopes_create_only_directory_and_removal_change_identity(source):
     )
     (source / "scripts/directory").mkdir()
     (source / "scripts/directory/child.js").write_text("child\n")
+    (source / "scripts/directory/.managed").write_text("intentional dotfile\n")
     manifest.write_text(
         manifest.read_text().replace(
             "removals:",
@@ -105,7 +106,34 @@ removals:""",
     assert rendered["files"]["owner/overwrite"]["scripts/rendered.js"]["create_only"] is False
     assert "scripts/rendered.js" not in rendered["files"]["owner/excluded"]
     assert "delivered-directory/child.js" in rendered["files"]["owner/repo"]
-    (source / "scripts/directory/child.js").write_text("changed child\n")
+    assert "delivered-directory/.managed" in rendered["files"]["owner/repo"]
+    commit(source)
+    cache = source / "scripts/directory/__pycache__/child.pyc"
+    cache.parent.mkdir()
+    cache.write_bytes(b"local generated file")
+    indexed = []
+    child_reads = []
+    check_output = subprocess.check_output
+    read_bytes = Path.read_bytes
+    child = source / "scripts/directory/child.js"
+
+    def count_inventory(args, **kwargs):
+        if args[:2] == ["git", "ls-files"]:
+            indexed.append(kwargs["cwd"])
+        return check_output(args, **kwargs)
+
+    def count_child_reads(path):
+        if path == child:
+            child_reads.append(path)
+        return read_bytes(path)
+
+    monkeypatch.setattr(subprocess, "check_output", count_inventory)
+    monkeypatch.setattr(Path, "read_bytes", count_child_reads)
+    assert digest.render_payload(source, list(rendered["files"])) == rendered
+    assert indexed == [source]
+    # One compile read and one render read shared across all three receivers.
+    assert child_reads == [child, child]
+    child.write_text("changed child\n")
     assert digest.render_payload(source, list(rendered["files"]))["digest"] != rendered["digest"]
 
 

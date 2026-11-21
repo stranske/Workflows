@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from sync_manifest_compiler import compile_manifest
+from sync_manifest_compiler import DirectorySourceInventory, compile_manifest
 from sync_status_file_ignores import load_template_block
 
 
@@ -29,29 +29,38 @@ def render_payload(root: Path, repositories: list[str]) -> dict:
     Consumer-local content is deliberately absent: this is delivery intent, not
     an authorization to overwrite local files or to carry a seal to a new head.
     """
-    plan = compile_manifest(root / ".github/sync-manifest.yml", repo_root=root).to_plan()
-    files = {}
-    for repository in sorted(set(repositories)):
-        rows = {}
-        for entry in plan["entries"]:
-            if entry["include_repos"] and repository not in entry["include_repos"]:
+    directories = DirectorySourceInventory(root)
+    plan = compile_manifest(
+        root / ".github/sync-manifest.yml", repo_root=root, directories=directories
+    ).to_plan()
+    files = {repository: {} for repository in sorted(set(repositories))}
+    for entry in plan["entries"]:
+        recipients = [
+            repository
+            for repository in files
+            if (not entry["include_repos"] or repository in entry["include_repos"])
+            and repository not in entry["skip_repos"]
+        ]
+        if not recipients:
+            continue
+        source = root / entry["resolved_source"]
+        children = directories.files(source) if entry["is_directory"] else [source]
+        for child in children:
+            if not child.is_file():
                 continue
-            if repository in entry["skip_repos"]:
-                continue
-            source = root / entry["resolved_source"]
-            children = sorted(source.rglob("*")) if entry["is_directory"] else [source]
-            for child in children:
-                if not child.is_file():
-                    continue
-                target = entry["target"]
-                if entry["is_directory"]:
-                    target += "/" + child.relative_to(source).as_posix()
-                rows[target] = {
-                    "content": hashlib.sha256(child.read_bytes()).hexdigest(),
-                    "executable": bool(child.stat().st_mode & 0o111),
+            target = entry["target"]
+            if entry["is_directory"]:
+                target += "/" + child.relative_to(source).as_posix()
+            content = hashlib.sha256(child.read_bytes()).hexdigest()
+            executable = bool(child.stat().st_mode & 0o111)
+            for repository in recipients:
+                files[repository][target] = {
+                    "content": content,
+                    "executable": executable,
                     "create_only": entry["sync_mode"] == "create_only"
                     and repository not in entry["overwrite_repos"],
                 }
+    for rows in files.values():
         for removal in plan["removals"]:
             rows[removal["target"]] = {"remove": True}
         # Full plans also reconcile this generated block outside the manifest.
@@ -62,7 +71,6 @@ def render_payload(root: Path, repositories: list[str]) -> dict:
                 load_template_block(preserve_vendored_node_modules=value) for value in (False, True)
             ]
         rows.setdefault(".gitignore", {})["managed_blocks"] = blocks
-        files[repository] = rows
     return {"digest": delivery_digest(files), "files": files}
 
 

@@ -78,6 +78,8 @@ const SOURCE_WORKFLOWS = new Set([
   'e6f00c2e6835ebcf449a48bed2e84f24f04179914fa9199fd92168d1fbd00990',
   // Missing staging inventory stops publication. Source resolution, checkout, and upload are unchanged.
   '8ff84ede3c45b5d063c72058e9ce396031ae3fc862225d53980e6d1113000330',
+  // Verify tracked leaves and stage the selected paths. Source identity and artifacts are unchanged.
+  '686ee6836c50bf8d3603749e76dfb5ae1a69e4232c5a323379b5646ff61400cb',
 ]);
 
 async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {
