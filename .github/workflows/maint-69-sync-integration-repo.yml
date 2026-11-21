@@ -280,6 +280,8 @@ jobs:
             -m "maint-69-sync-integration-repo.yml"
 
       - name: Summary
+        env:
+          PUBLISHED: ${{ steps.publish.outputs.published }}
         run: |
           {
             echo "## Integration Repo Sync"
@@ -292,7 +294,7 @@ jobs:
               echo "✅ No changes needed - already in sync"
             elif [ "${{ inputs.dry_run }}" = "true" ]; then
               echo "✅ Dry run complete - see diff above"
-            elif [ "${{ steps.publish.outputs.published }}" = "false" ]; then
+            elif [ "$PUBLISHED" = "false" ]; then
               echo "✅ No changes needed after recomputing from the current receiver default"
             else
               echo "✅ Sync complete - templates pushed to Integration-Tests"

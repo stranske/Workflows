@@ -181,3 +181,10 @@ def test_integration_sync_api_setup_preserves_vendored_dependencies(tmp_path: Pa
     assert (install_dir / "node_modules/minimatch/package.json").is_file()
     assert (install_dir / "package.json").read_bytes() == original_package
     assert json.loads(original_package)["dependencies"]["minimatch"].startswith("file:")
+
+
+def test_integration_sync_summary_passes_the_publication_result_as_data() -> None:
+    step = next(step for step in _workflow()["jobs"]["sync"]["steps"] if step["name"] == "Summary")
+    assert step["env"]["PUBLISHED"] == "${{ steps.publish.outputs.published }}"
+    assert 'elif [ "$PUBLISHED" = "false" ]' in step["run"]
+    assert "steps.publish.outputs" not in step["run"]
