@@ -3,7 +3,6 @@ import textwrap
 from pathlib import Path
 
 import pytest
-
 from scripts import mypy_return_autofix
 
 
