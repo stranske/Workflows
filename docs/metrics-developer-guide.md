@@ -106,6 +106,37 @@ Example config:
 
 Run the grouped metrics tests from the repo root with `python -m pytest -q tests/metrics`.
 
+## Python imports from a full checkout
+
+Use qualified imports such as `from src.ndjson_parser import read_ndjson_file`.
+A full Workflows checkout on `PYTHONPATH` now exposes qualified imports without
+automatically adding its `src/` directory. Existing commands that use bare
+imports can opt in for a single invocation:
+
+```sh
+workflows_root=/absolute/path/to/Workflows
+workflows_python=/absolute/path/to/selected/python
+PYTHONPATH="$workflows_root/src:$workflows_root${PYTHONPATH:+:$PYTHONPATH}" \
+  "$workflows_python" -B -c 'import aggregator, cli_parser, ndjson_parser, percentile_calculator, trend_analysis'
+```
+
+Use both paths: the `aggregator` module itself uses the qualified
+`src.percentile_calculator` import. Python's `-I` and `-E` ignore
+`PYTHONPATH`. The reusable verifier uses its own sparse checkout with
+`PYTHONPATH=.workflows-lib`. Use a full checkout for the legacy bare imports.
+
+If a command needs the original startup hook, use this pinned checkout for
+that command. If your checkout is shallow and lacks this revision, first
+fetch it with `git -C "$workflows_root" fetch --depth=1 origin 84ebfe746f68b6a42805609580da5e1125df3218`.
+
+```sh
+legacy_parent=$(mktemp -d)
+git -C "$workflows_root" worktree add --detach "$legacy_parent/Workflows" 84ebfe746f68b6a42805609580da5e1125df3218
+PYTHONPATH="$legacy_parent/Workflows${PYTHONPATH:+:$PYTHONPATH}" \
+  "$workflows_python" -B -c 'import aggregator, cli_parser, ndjson_parser, percentile_calculator, trend_analysis'
+git -C "$workflows_root" worktree remove "$legacy_parent/Workflows"
+```
+
 ## Quick validation
 
 From the repo root:
