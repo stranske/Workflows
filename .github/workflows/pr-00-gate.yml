@@ -88,6 +88,7 @@ jobs:
         }}
       docker_changed: >-
         ${{ steps.diff.outputs.docker_changed || 'false' }}
+      app_baseline_kit_required: ${{ steps.diff.outputs.app_baseline_kit_changed != 'false' }}
       lint: ${{ steps.python_ci_toggles.outputs.lint || 'true' }}
       format_check: ${{ steps.python_ci_toggles.outputs.format_check || 'true' }}
       typecheck: ${{ steps.python_ci_toggles.outputs.typecheck || 'true' }}
@@ -155,7 +156,7 @@ jobs:
         with:
           script: |
             const { detectChanges } = require('./.github/scripts/detect-changes.js');
-            await detectChanges({ github, context, core });
+            await detectChanges({ github, context, core, checkAppBaselineKit: true });
 
       - name: Compute Python CI toggles
         id: python_ci_toggles
@@ -522,6 +523,38 @@ jobs:
           PYTHONPATH: src
         run: python -m pytest tests
 
+  packages-app-baseline-kit:
+    name: app-baseline-kit package tests
+    needs:
+      - resolve-pr
+      - detect
+      - environment-gate
+    if: ${{ needs.detect.outputs.app_baseline_kit_required == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/app-baseline-kit
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
+          ref: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: packages/app-baseline-kit/pyproject.toml
+      - name: Install app-baseline-kit
+        run: |
+          python -m venv "$RUNNER_TEMP/app-baseline-kit"
+          "$RUNNER_TEMP/app-baseline-kit/bin/python" -m pip install .
+      - name: Run app-baseline-kit test suite
+        run: |-
+          "$RUNNER_TEMP/app-baseline-kit/bin/python" -I -m pytest -c pyproject.toml --import-mode=importlib -v tests
+
   issue-consistency:
     name: issue consistency
     needs:
@@ -830,6 +863,7 @@ jobs:
       - docker-smoke
       - github-scripts-tests
       - packages-pdf-extract
+      - packages-app-baseline-kit
       - issue-consistency
       - test-quality
       - acceptance-criteria-label
@@ -921,7 +955,7 @@ jobs:
       - name: Install GitHub API dependencies
         run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
       - name: Handle docs-only change
-        if: needs.detect.outputs.doc_only == 'true'
+        if: needs.detect.outputs.doc_only == 'true' && needs.detect.outputs.app_baseline_kit_required != 'true'
         id: docs_only
         uses: actions/github-script@v9
         env:
@@ -932,7 +966,7 @@ jobs:
             await handleDocsOnlyFastPass({ core, reason: process.env.REASON });
 
       - name: Ensure docs-only fast-pass comment
-        if: needs.detect.outputs.doc_only == 'true'
+        if: needs.detect.outputs.doc_only == 'true' && needs.detect.outputs.app_baseline_kit_required != 'true'
         uses: actions/github-script@v9
         env:
           COMMENT_BODY: ${{ steps.docs_only.outputs.comment_body }}
@@ -952,7 +986,7 @@ jobs:
             });
 
       - name: Remove docs-only fast-pass comment when not needed
-        if: needs.detect.outputs.doc_only != 'true'
+        if: needs.detect.outputs.doc_only != 'true' || needs.detect.outputs.app_baseline_kit_required == 'true'
         uses: actions/github-script@v9
         env:
           MARKER: ${{ steps.docs_only.outputs.marker }}
@@ -1082,6 +1116,8 @@ jobs:
               || 'skipped'
             }}
           DOCS_GUARD_RESULT: ${{ needs.docs-guard.result || 'success' }}
+          APP_BASELINE_KIT_REQUIRED: ${{ needs.detect.outputs.app_baseline_kit_required }}
+          APP_BASELINE_KIT_RESULT: ${{ needs.packages-app-baseline-kit.result }}
           PYTHON_REQUIRED: >-
             ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' }}
           DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
@@ -1115,7 +1151,28 @@ jobs:
               event["number"] = resolved["number"]
               path.write_text(json.dumps(event), encoding="utf-8")
           PY
-          python .github/scripts/gate_summary.py
+          if [ "${APP_BASELINE_KIT_REQUIRED:-false}" != 'true' ]; then
+            python .github/scripts/gate_summary.py
+          else
+            gate_output=$(mktemp)
+            trap 'rm -f "$gate_output"' EXIT
+            GITHUB_OUTPUT="$gate_output" python .github/scripts/gate_summary.py
+            IFS= read -r gate_state < "$gate_output"
+            package_result=${APP_BASELINE_KIT_RESULT:-skipped}
+            printf '\n- app-baseline-kit package tests: %s\n' "$package_result" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$gate_state" = 'state=success' ] && [ "$package_result" != 'success' ]; then
+              gate_state=failure
+              if [ "$package_result" = 'cancelled' ]; then
+                gate_state=pending
+              fi
+              {
+                printf 'state=%s\n' "$gate_state"
+                printf 'description=app-baseline-kit package tests: %s.\n' "$package_result"
+              } >> "$GITHUB_OUTPUT"
+            else
+              cat "$gate_output" >> "$GITHUB_OUTPUT"
+            fi
+          fi
 
       - name: Auto-apply autofix label for cosmetic failures
         id: autofix_label

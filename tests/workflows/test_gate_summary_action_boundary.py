@@ -100,3 +100,55 @@ def test_summary_refresh_and_helper_share_actual_runner_action(
         check=False,
     )
     assert result.returncode == expected, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("required", "package_result", "old_state", "expected"),
+    [
+        ("false", "failure", "success", "success"),
+        ("true", "success", "success", "success"),
+        ("true", "failure", "success", "failure"),
+        ("true", "cancelled", "success", "pending"),
+        ("true", "skipped", "success", "failure"),
+        ("true", "success", "failure", "failure"),
+    ],
+)
+def test_selected_baseline_kit_result_reaches_gate_status(
+    tmp_path: Path, required: str, package_result: str, old_state: str, expected: str
+) -> None:
+    workflow = yaml.safe_load(GATES[0].read_text(encoding="utf-8"))
+    job = workflow["jobs"]["summary"]
+    assert "packages-app-baseline-kit" in job["needs"]
+    step = next(step for step in job["steps"] if step.get("id") == "summarize")
+    assert step["env"]["APP_BASELINE_KIT_RESULT"] == "${{ needs.packages-app-baseline-kit.result }}"
+    output = tmp_path / "outputs"
+    summary = tmp_path / "summary"
+    # An older checked-out renderer emits the same established output contract.
+    probe = (
+        shlex.quote(sys.executable)
+        + " -c "
+        + shlex.quote(
+            "import os; from pathlib import Path; "
+            f"Path(os.environ['GITHUB_OUTPUT']).write_text('state={old_state}\\ndescription=Old receipt.\\n')"
+        )
+    )
+    command = step["run"].replace("python .github/scripts/gate_summary.py", probe)
+    subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", command],
+        env={
+            **os.environ,
+            "GATE_PR_JSON": "",
+            "GITHUB_OUTPUT": str(output),
+            "GITHUB_STEP_SUMMARY": str(summary),
+            "APP_BASELINE_KIT_REQUIRED": required,
+            "APP_BASELINE_KIT_RESULT": package_result,
+        },
+        check=True,
+    )
+    receipt = dict(line.split("=", 1) for line in output.read_text().splitlines())
+    assert receipt["state"] == expected
+    if required == "true":
+        assert f"app-baseline-kit package tests: {package_result}" in summary.read_text()
+    else:
+        assert receipt["description"] == "Old receipt."
+        assert not summary.exists()
