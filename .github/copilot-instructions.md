@@ -41,8 +41,16 @@ These files are internal task trackers and should never receive Copilot review c
 
 ## Template Changes
 
-Any change to workflows that consumers use must be reflected in BOTH:
-1. `.github/workflows/` (main workflow)
-2. `templates/consumer-repo/.github/workflows/` (template)
+Look up the workflow in the [sync manifest](sync-manifest.yml) to find its
+source. Workflow entries normally use `templates/consumer-repo/`. An explicit
+`source_tree: root` selects the file in this repository's root tree.
 
-The `ci-template-drift.yml` workflow will fail if these drift too far apart.
+[Health 74 Template Drift](workflows/health-74-template-drift.yml) compares
+covered main and consumer workflow pairs. Keep shared behavior aligned. When
+a pair intentionally differs, review the change against its
+[fingerprinted allowlist entry](../config/template-drift-allowlist.txt).
+Run the same check from the repository root:
+
+```sh
+python scripts/check_template_drift.py --allowlist config/template-drift-allowlist.txt
+```
