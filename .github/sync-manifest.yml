@@ -812,6 +812,7 @@ scripts:
     # has the pre-consolidation trace_utils module.
     requires:
       - scripts/langchain/trace_utils.py
+      - scripts/langchain/response_content.py
 
   - source: scripts/langchain/task_decomposer.py
     description: "Task decomposer - breaks large issues into sub-tasks"

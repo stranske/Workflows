@@ -478,6 +478,56 @@ class TestClassifyCapabilities:
         assert result.langsmith_trace_id is None
         assert result.langsmith_trace_url is None
 
+    @pytest.mark.parametrize("recommendation", ["PROCEED", "REVIEW_NEEDED", "BLOCKED"])
+    def test_text_blocks_preserve_plain_response_classification(
+        self, monkeypatch: pytest.MonkeyPatch, recommendation: str
+    ) -> None:
+        chain = MagicMock()
+        self._install_fake_langchain(monkeypatch, chain)
+        payload = json.dumps(
+            {
+                "recommendation": recommendation,
+                "partial_tasks": [{"task": "task", "limitation": "manual review"}],
+            }
+        )
+        monkeypatch.setattr(
+            capability_check, "_get_llm_client", lambda: (object(), "test-provider")
+        )
+        chain.invoke.return_value = types.SimpleNamespace(content=payload)
+        expected = classify_capabilities(["task"], "criteria")
+        chain.invoke.return_value = types.SimpleNamespace(
+            content=[
+                {"type": "text", "text": payload[:22]},
+                {"type": "output_text", "text": payload[22:]},
+            ]
+        )
+        result = classify_capabilities(["task"], "criteria")
+        assert result.to_dict() == expected.to_dict()
+        assert result.recommendation == recommendation
+
+    @pytest.mark.parametrize(
+        ("content", "fallback_reason"),
+        [
+            (
+                [{"type": "tool_use", "text": '{"recommendation":"PROCEED"}'}],
+                "LLM response missing JSON payload",
+            ),
+            ([{"type": "text", "text": '{"invalid": }'}], "LLM response JSON parse failed"),
+        ],
+    )
+    def test_unusable_response_blocks_keep_manual_fallback(
+        self, monkeypatch: pytest.MonkeyPatch, content: list[dict[str, str]], fallback_reason: str
+    ) -> None:
+        chain = MagicMock()
+        self._install_fake_langchain(monkeypatch, chain)
+        monkeypatch.setattr(
+            capability_check, "_get_llm_client", lambda: (object(), "test-provider")
+        )
+        chain.invoke.return_value = types.SimpleNamespace(content=content)
+        result = classify_capabilities(["Integrate Stripe payments"], "Confirm payment integration")
+        assert result.recommendation == "BLOCKED"
+        assert fallback_reason in result.human_actions_needed
+
     def test_returns_fallback_when_response_missing_json(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
