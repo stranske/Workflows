@@ -9,5 +9,3 @@ This archive path is indexed in [`ARCHIVE_PLANS.md`](../ARCHIVE_PLANS.md) so the
 **Audit procedure:** [`docs/ci/WORKFLOW_AUDIT_PROCEDURE.md`](../../ci/WORKFLOW_AUDIT_PROCEDURE.md)
 
 The full November 2026 audit narrative ships with the monthly health audit remediation work tracked in open PR [#4884](https://github.com/stranske/Workflows/pull/4884).
-
-**Heal tracking (archive index gate):** [#4885](https://github.com/stranske/Workflows/issues/4885)
