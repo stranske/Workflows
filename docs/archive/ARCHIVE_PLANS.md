@@ -1,6 +1,6 @@
 # Archived Plans and Audit Reports (updated 2026-11-18)
 
-This ledger records superseded planning documents and point-in-time workflow audit reports. Canonical copies live under `docs/archive/plans/` and `docs/archive/audits/`. Compatibility stubs remain at the former paths so historical links keep resolving.
+This ledger records superseded plans and point-in-time audits. Canonical copies live under `docs/archive/plans/` and `docs/archive/audits/`. Compatibility stubs remain for the former `docs/` paths.
 
 For retired GitHub workflows, see [`ARCHIVE_WORKFLOWS.md`](ARCHIVE_WORKFLOWS.md).
 
@@ -23,7 +23,7 @@ Historical snapshots from the December 2025–January 2026 audit cycle. Monthly 
 
 ## January 2026 Template handoff
 
-- [Template repository evaluation](audits/TEMPLATE_REPO_EVALUATION.md) records the January 3 documentation handoff. The receiving issue is closed. For current setup and architecture, use the [consumer README](../../templates/consumer-repo/README.md) and [keepalive guide](../keepalive/GoalsAndPlumbing.md). [Workflows PR #493](https://github.com/stranske/Workflows/pull/493) · [Template issue #63](https://github.com/stranske/Template/issues/63)
+- [Template repository evaluation](audits/TEMPLATE_REPO_EVALUATION.md) records the January 3 documentation handoff and links its PR and receiving issue. For current setup and architecture, use the [consumer README](../../templates/consumer-repo/README.md) and [keepalive guide](../keepalive/GoalsAndPlumbing.md).
 
 ## Documents kept active (not archived)
 
@@ -35,4 +35,4 @@ Historical snapshots from the December 2025–January 2026 audit cycle. Monthly 
 
 ## Rollback
 
-To restore a document at its former path, copy the archived file from this tree back over the stub and update this ledger.
+To restore a document, copy the archived file to its former path and update this ledger.
