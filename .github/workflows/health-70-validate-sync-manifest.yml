@@ -1,13 +1,6 @@
-# Sync Manifest Validation - Ensures sync-manifest.yml is complete
-#
-# This workflow validates that:
-# 1. Every file in templates/consumer-repo/ is accounted for in sync-manifest.yml
-# 2. Every workflow in .github/workflows/ is categorized (reusable-*, maint-*, or in manifest)
-# 3. Every prompt in .github/codex/prompts/ is in the manifest
-# 4. No orphaned files exist that should be synced but aren't declared
-#
-# POLICY ENFORCEMENT: This workflow fails PRs that add sync-able files without
-# updating the manifest, preventing the "forgot to wire it up" failure mode.
+# Validate the sync manifest and its declared sources.
+# Check consumer-workflow names against template files and manifest targets.
+# Report action pin violations in the selected hosted and consumer workflows.
 
 name: Validate Sync Manifest
 
@@ -74,6 +67,7 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml
       - name: Validate manifest schema
+        id: manifest_schema
         run: >-
           python scripts/sync_manifest_compiler.py
           --manifest .github/sync-manifest.yml
@@ -88,6 +82,7 @@ jobs:
             --source "sync-manifest" \
             --strict
       - name: Validate workflow action pins
+        id: action_pins
         run: |
           mkdir -p artifacts/workflow-action-pins
           python scripts/check_workflow_action_pins.py \
@@ -106,6 +101,10 @@ jobs:
       - name: Comment on PR
         if: failure() && github.event_name == 'pull_request'
         uses: actions/github-script@v9
+        env:
+          MANIFEST_SCHEMA_OUTCOME: ${{ steps.manifest_schema.outcome }}
+          TEMPLATE_COMPLETENESS_OUTCOME: ${{ steps.validate.outcome }}
+          ACTION_PINS_OUTCOME: ${{ steps.action_pins.outcome }}
         with:
           script: |
             const fs = require('fs');
@@ -120,26 +119,26 @@ jobs:
                             ? require(retryHelperPath)
                             : defaultHelpers;
             const { withRetry } = retryHelpers;
-            const body = `## ❌ Sync Manifest Validation Failed
-
-            This PR modifies files that should be synced to consumer repos,
-            but the sync manifest is incomplete.
-
-              **Required action:** Update \`.github/sync-manifest.yml\` to include the
-              new/modified files.
-
-            ### Why this matters
-            Files not declared in the manifest won't be synced to consumer repos
-            (Template, Manager-Database, trip-planner, Travel-Plan-Permission),
-            causing features to silently not work in those repos.
-
-            ### How to fix
-            1. Open \`.github/sync-manifest.yml\`
-            2. Add your new files to the appropriate section (workflows, prompts, scripts, etc.)
-            3. Include a \`description\` explaining what the file does
-            4. If the file should NOT be synced, add it to \`excluded:\` with a reason
-
-            See the workflow logs for specific files that need to be added.`;
+            const guidance = [];
+            if (process.env.MANIFEST_SCHEMA_OUTCOME === 'failure') {
+              guidance.push('**Validate manifest schema:** Follow the compiler error in the job log. ' +
+                'Correct the reported manifest field or restore the declared source.');
+            }
+            if (process.env.TEMPLATE_COMPLETENESS_OUTCOME === 'failure') {
+              guidance.push('**Validate manifest:** Review the named workflow in the job log. ' +
+                'For a workflow intended for consumers, make sure it has a template and a manifest target. ' +
+                'For a hosted-only workflow, check the existing rules in ' +
+                '`scripts/validate_template_completeness.py`.');
+            }
+            if (process.env.ACTION_PINS_OUTCOME === 'failure') {
+              guidance.push('**Validate workflow action pins:** See the failing step or the ' +
+                '`workflow-action-pins` artifact for the reference. Use a full action commit SHA ' +
+                'and keep its readable version comment.');
+            }
+            if (guidance.length === 0) {
+              guidance.push('Open the validation job log and address the failing step shown there.');
+            }
+            const body = ['## ❌ Sync Manifest Validation Failed', ...guidance].join('\n\n');
 
                         const createComment = () => {
                             return github.rest.issues.createComment({
