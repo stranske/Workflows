@@ -49,9 +49,9 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
 
     # ...and no longer selects purely on the run conclusion. The old jq selector is
     # pinned as ABSENT so restoring it is a test failure, not a silent regression.
-    assert "--argjson current" not in text, (
-        "the bare-conclusion jq selector is back; it counts debounced no-ops as runs"
-    )
+    assert (
+        "--argjson current" not in text
+    ), "the bare-conclusion jq selector is back; it counts debounced no-ops as runs"
 
 
 def test_api_client_setup_follows_and_respects_debounce() -> None:
@@ -240,9 +240,9 @@ def test_consumer_drift_detector_executed_recently() -> None:
     )
     created = datetime.fromisoformat(latest_comparing.replace("Z", "+00:00"))
     hours = (datetime.now(UTC) - created).total_seconds() / 3600.0
-    assert hours <= 48, (
-        f"newest Health 68 run that COMPARED is {latest_comparing} ({hours:.1f}h old)"
-    )
+    assert (
+        hours <= 48
+    ), f"newest Health 68 run that COMPARED is {latest_comparing} ({hours:.1f}h old)"
 
 
 def test_live_probe_skips_only_on_a_missing_token() -> None:
@@ -255,9 +255,9 @@ def test_live_probe_skips_only_on_a_missing_token() -> None:
     # and it does. The literal is split so the needle cannot match its own line.
     source = Path(__file__).read_text(encoding="utf-8")
     needle = 'environ.get("RUN_LIVE' + '_HEALTH_68_PROBE")'
-    assert needle not in source, (
-        "the opt-in flag is being read again; the live probe will never run in CI"
-    )
+    assert (
+        needle not in source
+    ), "the opt-in flag is being read again; the live probe will never run in CI"
 
     assert "GH_TOKEN" in LIVE_PROBE_SKIP_REASON
     assert "GITHUB_TOKEN" in LIVE_PROBE_SKIP_REASON
