@@ -756,16 +756,6 @@ jobs:
           '["3.13","3.14"]'
         }}
     steps:
-      # Mint GitHub App token early to use for API calls (avoids rate limits)
-      - name: Mint GitHub App Token
-        id: app_token
-        uses: actions/create-github-app-token@v3
-        continue-on-error: true
-        with:
-          client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
-          owner: ${{ github.repository_owner }}
-
       - name: Validate pull request target
         if: ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' }}
         run: |
@@ -780,12 +770,20 @@ jobs:
               ;;
           esac
 
-      - name: Checkout artifact cache action
-        if: ${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' }}
+      - name: Checkout publication dependencies
+        if: >-
+          ${{
+            (env.ENABLE_HISTORY == 'true' && env.RUN_ID != '') ||
+            (env.MODE == 'comment' && env.POST_TO == 'pr-number')
+          }}
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: |
-            .github/actions/artifact-cache
+            ${{ env.ENABLE_HISTORY == 'true' && env.RUN_ID != '' && '.github/actions/artifact-cache' || '' }}
+            ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' && '.github/actions/setup-api-client' || '' }}
+            ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' && '.github/scripts' || '' }}
+            ${{ env.MODE == 'comment' && env.POST_TO == 'pr-number' && '!.github/scripts/__tests__/' || '' }}
           sparse-checkout-cone-mode: false
 
       - name: Restore self-test report cache
