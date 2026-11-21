@@ -33,7 +33,14 @@ GATE_VALIDATE_DOC_BUNDLE = (
 
 def _run_gate(command: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [*shlex.split(command), "-q", "-m", "not slow"],
+        [
+            *shlex.split(command),
+            "-q",
+            "-o",
+            "asyncio_default_fixture_loop_scope=function",
+            "-m",
+            "not slow",
+        ],
         cwd=REPO_ROOT,
         check=False,
         capture_output=True,
