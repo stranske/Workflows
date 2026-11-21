@@ -99,10 +99,12 @@ Example config:
 ## Updating tests
 
 - Add new fixture values in `tests/fixtures/sample_metrics.json`.
-- Update `tests/e2e/test_metrics_dashboard.py` assertions if the new metric is
-  required for the pipeline.
+- Update the [dashboard pipeline test](../tests/metrics/test_metrics_dashboard.py)
+  assertions if the new metric is required for the pipeline.
 - For dashboard logic changes, update unit tests in
   `tests/scripts/test_metrics_dashboard_generator.py`.
+
+Run the grouped metrics tests from the repo root with `python -m pytest -q tests/metrics`.
 
 ## Quick validation
 
