@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const Module = require('node:module');
 
 const {
   buildOctokitInstance,
@@ -70,7 +71,17 @@ test('resolveDispatchToken accepts lower-case github_token', () => {
   assert.equal(resolveDispatchToken(env), 'github-token');
 });
 
-test('buildOctokitInstance ignores plain object constructor fallbacks', () => {
+test('buildOctokitInstance ignores plain object constructor fallbacks', (t) => {
+  const originalLoad = Module._load;
+  t.mock.method(Module, '_load', function loadWithoutOptionalClients(request, ...args) {
+    if (request === '@actions/github' || request === '@octokit/rest') {
+      const error = new Error('Optional GitHub client unavailable in this fixture');
+      error.code = 'MODULE_NOT_FOUND';
+      throw error;
+    }
+    return originalLoad.call(this, request, ...args);
+  });
+
   const core = { debug: () => {} };
   const github = {
     getOctokit: () => {
