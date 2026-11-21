@@ -90,6 +90,7 @@ def test_scopes_create_only_directory_and_removal_change_identity(source):
     )
     (source / "scripts/directory").mkdir()
     (source / "scripts/directory/child.js").write_text("child\n")
+    (source / "scripts/directory/.managed").write_text("intentional dotfile\n")
     manifest.write_text(
         manifest.read_text().replace(
             "removals:",
@@ -105,6 +106,12 @@ removals:""",
     assert rendered["files"]["owner/overwrite"]["scripts/rendered.js"]["create_only"] is False
     assert "scripts/rendered.js" not in rendered["files"]["owner/excluded"]
     assert "delivered-directory/child.js" in rendered["files"]["owner/repo"]
+    assert "delivered-directory/.managed" in rendered["files"]["owner/repo"]
+    commit(source)
+    cache = source / "scripts/directory/__pycache__/child.pyc"
+    cache.parent.mkdir()
+    cache.write_bytes(b"local generated file")
+    assert digest.render_payload(source, list(rendered["files"])) == rendered
     (source / "scripts/directory/child.js").write_text("changed child\n")
     assert digest.render_payload(source, list(rendered["files"]))["digest"] != rendered["digest"]
 

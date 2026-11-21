@@ -680,6 +680,7 @@ jobs:
           FORCE: ${{ inputs.force }}
         run: |
           python3 << 'SYNC_SCRIPT'
+          import hashlib
           import json
           import os
           import shutil
@@ -715,12 +716,46 @@ jobs:
                   return str(reasons.get(repo) or 'Manifest skip for repo')
               return ''
 
-          targets = {
-              item['target']
-              for item in entries
-              if item.get('target') and not manifest_skip_reason(item, current_repo)
-          }
+          def verified_directory_files(item):
+              # The workflow owns this selection even for older payload checkouts.
+              # Compare its tracked leaves with the existing v1 directory hash.
+              source = Path(item['resolved_source'])
+              root = Path('workflows')
+              names = subprocess.check_output(
+                  ['git', '--literal-pathspecs', 'ls-files', '--cached', '-z', '--',
+                   source.as_posix() + '/'],
+                  cwd=root,
+              )
+              paths = {Path(os.fsdecode(name)) for name in names.split(b'\0') if name}
+              files = [path.relative_to(source) for path in sorted(paths) if (root / path).is_file()]
+              rows = [
+                  {'path': path.as_posix(), 'sha256': hashlib.sha256(
+                      (root / source / path).read_bytes()).hexdigest()}
+                  for path in files
+              ]
+              encoded = json.dumps(rows, sort_keys=True, separators=(',', ':'), ensure_ascii=True)
+              actual = 'sha256:' + hashlib.sha256(
+                  b'consumer-sync-directory\0' + encoded.encode()
+              ).hexdigest()
+              if actual != item['content_sha256']:
+                  raise ValueError(f'Directory content differs from sync plan: {source}')
+              return files
+
+          directory_files = {}
+          targets = set()
+          for item in entries:
+              target = item['target']
+              if manifest_skip_reason(item, current_repo):
+                  continue
+              if item['is_directory']:
+                  files = verified_directory_files(item)
+                  directory_files[target] = files
+                  targets.update((Path(target) / path).as_posix() for path in files)
+              else:
+                  targets.add(target)
           targets.update(item['target'] for item in removals if item.get('target'))
+          if any('\n' in path or '\r' in path for path in targets):
+              raise ValueError('Sync target paths must not contain line breaks')
 
           Path('sync_targets.txt').write_text(
               ''.join(f"{path}\n" for path in sorted(targets) if path),
@@ -797,8 +832,8 @@ jobs:
                   return True
               return False
 
-          def sync_directory(source_path, target_path, description, item=None):
-              """Sync an entire directory from template to consumer."""
+          def sync_directory(source_path, target_path, description, item):
+              """Sync the directory leaves verified against the plan."""
               src = Path(source_path)
               dst = Path(target_path)
               relative_target = (
@@ -807,7 +842,7 @@ jobs:
                   else str(dst)
               )
 
-              skip_reason = manifest_skip_reason(item or {}, current_repo)
+              skip_reason = manifest_skip_reason(item, current_repo)
               if skip_reason:
                   skipped.append(f"{relative_target}: {skip_reason}")
                   return False
@@ -817,15 +852,14 @@ jobs:
                   return False
 
               dir_changes = []
-              for src_file in src.rglob('*'):
-                  if src_file.is_file():
-                      rel_path = src_file.relative_to(src)
-                      dst_file = dst / rel_path
-                      if force or files_differ(src_file, dst_file):
-                          if not dry_run:
-                              dst_file.parent.mkdir(parents=True, exist_ok=True)
-                              shutil.copy2(src_file, dst_file)
-                          dir_changes.append(str(rel_path))
+              for rel_path in directory_files[item['target']]:
+                  src_file = src / rel_path
+                  dst_file = dst / rel_path
+                  if force or files_differ(src_file, dst_file):
+                      if not dry_run:
+                          dst_file.parent.mkdir(parents=True, exist_ok=True)
+                          shutil.copy2(src_file, dst_file)
+                      dir_changes.append(str(rel_path))
 
               if dir_changes:
                   changes.append(f"{dst.name}/ ({len(dir_changes)} files): {description}")
@@ -1407,10 +1441,10 @@ jobs:
             if [ -e "$path" ]; then
               # Use --force so consumer .gitignore rules cannot silently
               # exclude files that the sync manifest declares.
-              git add --force -- "$path"
+              git --literal-pathspecs add --force -- "$path"
             else
               # Stage deletions for removal targets (or files removed by sync).
-              git add -u -- "$path" >/dev/null 2>&1 || true
+              git --literal-pathspecs add -u -- "$path" >/dev/null 2>&1 || true
             fi
           done < "../sync_targets.txt"
 

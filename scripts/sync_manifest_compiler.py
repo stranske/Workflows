@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -149,18 +150,35 @@ def _stable_hash(namespace: str, value: Any) -> str:
     return "sha256:" + hashlib.sha256(namespace.encode() + b"\0" + encoded).hexdigest()
 
 
-def _content_hash(path: Path) -> str:
+def directory_source_files(path: Path, repo_root: Path) -> list[Path]:
+    """Use tracked leaves when a directory is present in the source index."""
+    if (repo_root / ".git").exists():
+        relative = path.relative_to(repo_root).as_posix()
+        try:
+            names = subprocess.check_output(
+                ["git", "--literal-pathspecs", "ls-files", "--cached", "-z", "--", relative + "/"],
+                cwd=repo_root,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise ManifestCompileError(
+                [f"cannot list tracked directory source {relative!r}"]
+            ) from exc
+        if names:
+            children = {repo_root / os.fsdecode(name) for name in names.split(b"\0") if name}
+            return sorted(child for child in children if child.is_file())
+    return sorted(child for child in path.rglob("*") if child.is_file())
+
+
+def _content_hash(path: Path, repo_root: Path) -> str:
     if path.is_file():
         return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
-    rows: list[dict[str, str]] = []
-    for child in sorted(path.rglob("*")):
-        if child.is_file():
-            rows.append(
-                {
-                    "path": child.relative_to(path).as_posix(),
-                    "sha256": hashlib.sha256(child.read_bytes()).hexdigest(),
-                }
-            )
+    rows = [
+        {
+            "path": child.relative_to(path).as_posix(),
+            "sha256": hashlib.sha256(child.read_bytes()).hexdigest(),
+        }
+        for child in directory_source_files(path, repo_root)
+    ]
     return _stable_hash("consumer-sync-directory", rows)
 
 
@@ -433,7 +451,7 @@ def _compile_entry(
         if is_directory != resolved_path.is_dir():
             expected = "directory" if is_directory else "file"
             errors.append(f"{context}: resolved source must be a {expected}")
-        content_sha256 = _content_hash(resolved_path)
+        content_sha256 = _content_hash(resolved_path, repo_root)
     else:
         content_sha256 = ""
     if errors:

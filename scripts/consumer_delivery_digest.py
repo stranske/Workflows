@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from sync_manifest_compiler import compile_manifest
+from sync_manifest_compiler import compile_manifest, directory_source_files
 from sync_status_file_ignores import load_template_block
 
 
@@ -39,7 +39,7 @@ def render_payload(root: Path, repositories: list[str]) -> dict:
             if repository in entry["skip_repos"]:
                 continue
             source = root / entry["resolved_source"]
-            children = sorted(source.rglob("*")) if entry["is_directory"] else [source]
+            children = directory_source_files(source, root) if entry["is_directory"] else [source]
             for child in children:
                 if not child.is_file():
                     continue
