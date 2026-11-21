@@ -64,8 +64,10 @@ complete. It runs in two complementary ways:
   next round if unchecked tasks remain.
 - **Hourly sweep** — `agents-keepalive-sweep.yml`, cron `23 * * * *`. A round
   ending with zero commits emits no event, so a stalled PR would never be
-  re-evaluated; the sweep re-runs the loop for every open `agent:*` PR to
-  resurface stalls. It makes no dispatch decision of its own and honors
+  re-evaluated; the sweep re-runs the loop only for open, non-draft PRs with
+  `agents:keepalive` and an agent routing label (not `agent:needs-attention`,
+  `agent:rate-limited`, or `agent:retry`) to resurface stalls. It makes no
+  dispatch decision of its own and honors
   `agents:paused` / `needs-human` / `agents:max-runs:0`.
 
 **Activation guardrails** (all must hold, per
