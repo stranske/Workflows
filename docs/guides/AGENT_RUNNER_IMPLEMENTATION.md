@@ -23,6 +23,8 @@ This guide covers the implementation patterns that every agent runner workflow (
 
 ## 1. CLI Invocation Patterns
 
+For hosted Gemini setup, sign-in, and troubleshooting, see the [Gemini runner operator notes](GEMINI_RUNNER.md).
+
 Each agent CLI has different flags, but the runner must handle the same concerns: prompt delivery, permission escalation, output capture, and session logging.
 
 ### Codex CLI

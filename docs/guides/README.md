@@ -12,6 +12,7 @@ This folder is intentionally small right now; most “getting started” and int
 
 ## Available Guides
 
+- **[Gemini Runner Operator Notes](GEMINI_RUNNER.md)** - Set up the hosted Gemini runner and troubleshoot its sign-in and output.
 - **[Adding a New Coding Agent](ADD_NEW_AGENT.md)** - Stage-gated checklist for bringing an agent through registry, runner, pipeline wiring, consumer delivery, tests, canaries and the parity review
 - **[Agent Readiness Evaluations](agent-readiness/README.md)** - Template and worked evaluations (currently `agy`) that decide whether an agent should be integrated, with re-evaluation triggers
 - **[Agent Runner Implementation](AGENT_RUNNER_IMPLEMENTATION.md)** - Technical patterns for building and debugging agent runner workflows (CLI invocation, unpushed commit detection, artifact filtering, push retry)

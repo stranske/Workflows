@@ -24,7 +24,7 @@ until 2026-11-11. That day Google refused a real gemini-cli subscription login
 (`IneligibleTierError UNSUPPORTED_CLIENT`, "migrate to the Antigravity suite", R), and the owner
 reserved the API key for the verify workflows. The hosted runner (`reusable-gemini-run.yml`) now
 runs `agy` on the owner's subscription sign-in file restored from `GEMINI_OAUTH_CREDS`; see
-`docs/agents/GEMINI_NOTES.md` and the 2026-11-11 update to rows 1 and 2 below.
+[Gemini runner operator notes](../GEMINI_RUNNER.md) and the 2026-11-11 update to rows 1 and 2 below.
 
 ## 2. Stage 0 questions
 
