@@ -3210,6 +3210,30 @@ manual input to disable workflow branch deletion for diagnostics or for a shipme
 that must preserve its branches. Existing repository automatic branch-deletion
 settings remain independent of this workflow policy.
 
+### Verify dependency updates
+
+Use each repository's tracked dependency declarations and the command recorded
+at the top of its lock file when rebuilding dependencies. For Workflows, the
+[lock header](../../requirements.lock) records the Python target, extras and
+input files. The [fleet Renovate preset](../../renovate-presets/fleet.json)
+enables in-PR lock regeneration and periodic lock maintenance. The
+[Workflows-only backstop](../../.github/workflows/maint-auto-lock-deps.yml)
+replays the header command for eligible dependency-bot PRs. Use the
+[dependency repair guide](DEPENDENCY_REPAIR_PROMOTION.md) when a bot update
+needs an agent repair.
+
+From the Workflows checkout, use the project's Python environment with the dev
+dependencies installed to run the
+[dependency alignment tests](../../tests/test_dependency_version_alignment.py):
+
+```sh
+python -m pytest -q tests/test_dependency_version_alignment.py
+```
+
+These tests check the tracked lock against the project declarations, the source
+dev-tool pins and the delivered tool-update path. In a consuming repository, use
+that repository's lock inputs and alignment checks.
+
 ### Autofix Tool Version Ownership
 
 Workflows owns shared autofix/dev-tool pins in

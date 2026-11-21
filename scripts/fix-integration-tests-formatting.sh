@@ -6,7 +6,26 @@ set -euo pipefail
 
 REPO_DIR="${1:-.}"
 
-cd "$REPO_DIR"
+CDPATH='' cd -- "$REPO_DIR"
+
+if [[ ! -f .github/workflows/notify-workflows.yml ]]; then
+    printf 'Use the Workflows-Integration-Tests checkout. %s has no integration notifier.\n' \
+        "$PWD" >&2
+    exit 1
+fi
+
+format_targets=(
+    scripts/validate_dependency_test_setup.py
+    tests/test_dependency_version_alignment.py
+)
+
+for target in "${format_targets[@]}"; do
+    if [[ ! -f "$target" || -L "$target" ]]; then
+        printf 'Expected a regular integration formatting input at %s in %s.\n' \
+            "$target" "$PWD" >&2
+        exit 1
+    fi
+done
 
 echo "Fixing formatting issues in Integration-Tests repository..."
 
@@ -17,11 +36,7 @@ if ! command -v black &> /dev/null; then
 fi
 
 # Format the problematic files
-echo "Running black on scripts/validate_dependency_test_setup.py..."
-black scripts/validate_dependency_test_setup.py
-
-echo "Running black on tests/test_dependency_version_alignment.py..."
-black tests/test_dependency_version_alignment.py
+black "${format_targets[@]}"
 
 echo "✅ Formatting complete!"
 echo ""
