@@ -19,6 +19,9 @@ const {
   collectUnresolvedBotComments,
   getBotCommentAssignees,
   isBotAuthor,
+  listCommentsWithLimit,
+  MAX_COMMENT_PAGES,
+  normalizeBoolean,
   resolveBotCommentAgent,
 } = require('../bot-comment-handler.js');
 
@@ -51,6 +54,26 @@ test('custom bot author input replaces the default workflow allowlist', () => {
   assert.equal(isBotAuthor('Copilot', custom), false);
 });
 
+test('bot-comment-handler enforces pagination upper bound', async () => {
+  let calls = 0;
+  const listFn = async () => {
+    calls += 1;
+    return { data: [{ id: calls }] };
+  };
+
+  await listCommentsWithLimit({
+    owner: 'octo',
+    repo: 'repo',
+    issueNumber: 123,
+    perPage: 1,
+    maxPages: MAX_COMMENT_PAGES,
+    listFn,
+  });
+
+  assert.ok(calls <= MAX_COMMENT_PAGES);
+  assert.equal(calls, MAX_COMMENT_PAGES);
+});
+
 test('comment collection skips bot threads where a human replied by default', () => {
   const collected = collectUnresolvedBotComments(commentsFixture, {
     ignoredPaths: 'docs/,.agents/',
@@ -59,6 +82,33 @@ test('comment collection skips bot threads where a human replied by default', ()
   assert.deepEqual(
     collected.map((comment) => comment.id),
     [1005],
+  );
+});
+
+test('bot-comment-handler parses string boolean options', () => {
+  const comments = [
+    {
+      id: 1,
+      user: { login: 'copilot[bot]' },
+      path: 'src/app.py',
+      body: 'Please change this.',
+    },
+    {
+      id: 2,
+      in_reply_to_id: 1,
+      user: { login: 'maintainer' },
+      path: 'src/app.py',
+      body: 'Handled separately.',
+    },
+  ];
+
+  assert.equal(normalizeBoolean('false', true), false);
+  assert.deepEqual(
+    collectUnresolvedBotComments(comments, {
+      botAuthors: ['copilot[bot]'],
+      skipIfHumanReplied: 'false',
+    }).map((comment) => comment.id),
+    [1],
   );
 });
 
@@ -130,33 +180,52 @@ test('comment collection filters ignored review paths by prefix', () => {
 });
 
 test('active thread collection preserves reviewer debt after maintainer replies', () => {
-  const collected = collectActiveBotReviewThreads([
-    {
-      id: 'PRRT_exact',
-      isResolved: false,
-      isOutdated: false,
-      path: 'src/service.js',
-      line: 22,
-      comments: {
-        nodes: [
-          {
-            databaseId: 1005,
-            author: { login: 'chatgpt-codex-connector' },
-            body: 'Guard against missing input.',
-            url: 'https://example.test/thread',
-          },
-          {
-            databaseId: 1006,
-            author: { login: 'maintainer' },
-            body: 'Fixed on the exact head.',
-          },
-        ],
-      },
+  const activeThread = {
+    id: 'PRRT_exact',
+    isResolved: false,
+    isOutdated: false,
+    path: 'src/service.js',
+    line: 22,
+    comments: {
+      nodes: [
+        {
+          databaseId: 1005,
+          author: { login: 'chatgpt-codex-connector' },
+          body: 'Guard against missing input.',
+          url: 'https://example.test/thread',
+        },
+        {
+          databaseId: 1006,
+          author: { login: 'maintainer' },
+          body: 'Fixed on the exact head.',
+        },
+      ],
     },
-  ]);
+  };
+  const botComment = activeThread.comments.nodes[0];
+  const threads = [
+    activeThread,
+    {
+      ...activeThread,
+      id: 'PRRT_resolved',
+      isResolved: true,
+      comments: { nodes: [{ ...botComment, databaseId: 1007 }] },
+    },
+    {
+      ...activeThread,
+      id: 'PRRT_outdated',
+      isOutdated: true,
+      comments: { nodes: [{ ...botComment, databaseId: 1008 }] },
+    },
+  ];
+  const collected = collectActiveBotReviewThreads(threads);
 
   assert.deepEqual(collected.map((comment) => comment.thread_id), ['PRRT_exact']);
   assert.equal(collected[0].replies[0].author, 'maintainer');
+  assert.deepEqual(
+    collectActiveBotReviewThreads(threads, { skipIfHumanReplied: true }),
+    [],
+  );
 });
 
 test('active thread output bounds bodies while preserving thread and reply metadata', () => {
@@ -272,6 +341,35 @@ test('prepare prompt uses longer fences when comment bodies contain fences', () 
 
   assert.match(prompt, /````\nUse this block:/);
   assert.match(prompt, /````diff\n```diff/);
+});
+
+test('bot-comment prompt requires exact-thread disposition instead of generic review', () => {
+  const comments = [
+    {
+      id: 10,
+      thread_id: 'PRRT_active',
+      path: 'src/app.py',
+      line: 12,
+      author: 'chatgpt-codex-connector',
+      body: 'Cover the execution path.',
+      url: 'https://example.test/thread',
+      diff_hunk: '@@ -1 +1 @@',
+    },
+  ];
+  const prompt = buildBotCommentsPrompt(comments, { headSha: 'abc123' });
+  const dispatch = buildBotCommentDispatchComment({
+    agent: 'codex',
+    count: 1,
+    comments,
+    headSha: 'abc123',
+  });
+
+  for (const text of [prompt, dispatch]) {
+    assert.match(text, /PRRT_active/);
+    assert.match(text, /abc123/);
+    assert.match(text, /generic top-level review|generic review/i);
+    assert.match(text, /Never self-resolve/i);
+  }
 });
 
 test('dispatch fixture selects the assignee and stable marker comment for Codex', () => {
