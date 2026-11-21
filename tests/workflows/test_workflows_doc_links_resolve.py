@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 WORKFLOWS_DOC = Path("docs/ci/WORKFLOWS.md")
@@ -42,6 +44,18 @@ def test_workflows_doc_references_existing_workflow_files() -> None:
 
     assert references, "docs/ci/WORKFLOWS.md should reference at least one workflow file"
     assert not dangling, f"Dangling workflow reference(s): {dangling}"
+
+
+def test_bare_validate_workflow_yaml_passes_on_git_changed_workflows() -> None:
+    """Acceptance criterion 3: `python scripts/validate_workflow_yaml.py` on PR-touched workflows."""
+    result = subprocess.run(
+        [sys.executable, "scripts/validate_workflow_yaml.py"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert "validated successfully" in result.stdout
 
 
 def test_november_2026_archived_workflow_audit_report() -> None:
