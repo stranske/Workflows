@@ -1632,6 +1632,54 @@ def test_materialize_reference_packs_keeps_token_out_of_git_argv(
     assert all(env.get("GIT_ASKPASS_PASSWORD") == "secret-token" for _cmd, env in calls)
 
 
+@pytest.mark.parametrize("use_pack", [False, True], ids=["direct", "pack"])
+@pytest.mark.parametrize("include_export", [False, True], ids=["missing", "partial"])
+def test_assemble_prompt_with_exported_orchestrator_skill(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, use_pack: bool, include_export: bool
+) -> None:
+    from scripts.orchestrator_skill import OrchestratorSkillConfigError
+
+    _write_prompt_fixture(tmp_path)
+    export = Path("docs/exports/orchestrator-skill/SKILL.md")
+    export_bytes = (Path(__file__).resolve().parents[2] / export).read_bytes()
+    requested_paths = [str(export.with_suffix(".txt"))]
+    if include_export:
+        requested_paths.append(str(export))
+    source = {"repo": "owner/orchestrator", "ref": "main", "paths": requested_paths}
+    config = {"pack": "orchestrator"} if use_pack else source
+    (tmp_path / ".github/orchestrator_skill.json").write_text(json.dumps(config), encoding="utf-8")
+    if use_pack:
+        (tmp_path / ".github/reference_packs.json").write_text(
+            json.dumps({"orchestrator": source}), encoding="utf-8"
+        )
+
+    summary = tmp_path / ".reference/ORCHESTRATOR_SKILL.md"
+    summary.write_text("stale summary\n", encoding="utf-8")
+
+    def fake_run_git(command: list[str], **_kwargs: Any) -> None:
+        if command[:2] == ["git", "clone"]:
+            cloned_export = Path(command[-1]) / export
+            cloned_export.parent.mkdir(parents=True)
+            cloned_export.write_bytes(export_bytes)
+
+    monkeypatch.setattr(runner_core, "_run_git", fake_run_git)
+    context = {
+        "workspace": tmp_path,
+        "base_prompt_file": ".github/codex/prompts/task.md",
+        "materialize_orchestrator_skill": True,
+    }
+    if include_export:
+        prompt = assemble_prompt(None, context, "codex")
+        assert "## Orchestrator Skill Context" in prompt.text
+        assert str(export) in summary.read_text(encoding="utf-8")
+        checkout = "orchestrator" if use_pack else "orchestrator-skill"
+        assert (tmp_path / ".reference" / checkout / export).read_bytes() == export_bytes
+    else:
+        with pytest.raises(OrchestratorSkillConfigError, match="No Orchestrator skill files"):
+            assemble_prompt(None, context, "codex")
+        assert not summary.exists()
+
+
 def test_materialize_orchestrator_skill_clears_stale_pack_checkout(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
