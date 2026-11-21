@@ -983,6 +983,9 @@ def corpus_cases_with_snapshots(
     for case in corpus.get("cases", []):
         if case["case_id"] in seen or not (case.get("snapshot_ref") or case.get("mutation_recipe")):
             continue
+        # Recipes preserve their row metadata. Snapshot refs can carry it in the gzip instead.
+        if not include_diagnostic and case.get("mutation_recipe") and case.get("diagnostic_only"):
+            continue
         cases.append(load_case(case, root))
     if not include_diagnostic:
         cases = [c for c in cases if not c.get("diagnostic_only")]
