@@ -100,14 +100,6 @@ jobs:
             echo "Closed issue — cleared stale agents:auto-pilot-pause hold."
           fi
 
-      - name: Setup API client
-        if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true'
-        uses: ./.github/actions/setup-api-client
-        with:
-          # This guard only reads issue comments with the workflow token. Do not
-          # expose the repository-wide secret bundle to the composite action.
-          github_token: ${{ github.token }}
-
       - name: Validate against AGENT_ISSUE_FORMAT
         id: validate
         if: steps.issue.outputs.exempt != 'true'
@@ -142,6 +134,14 @@ jobs:
             exit "$rc"
           fi
           cp "$report_file" report.md
+
+      - name: Setup API client
+        if: steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true' && steps.issue.outputs.state == 'OPEN' && steps.validate.outputs.rc == '1'
+        uses: ./.github/actions/setup-api-client
+        with:
+          # This guard only reads issue comments with the workflow token. Do not
+          # expose the repository-wide secret bundle to the composite action.
+          github_token: ${{ github.token }}
 
       - name: Invalidate stale format completion after an invalid issue change
         if: >-

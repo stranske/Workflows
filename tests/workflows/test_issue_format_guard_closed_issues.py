@@ -28,6 +28,28 @@ JQ_AVAILABLE = shutil.which("jq") is not None
 skip_if_no_jq = pytest.mark.skipif(not JQ_AVAILABLE, reason="jq required by the guard step")
 
 
+@pytest.mark.parametrize("guard_path", GUARD_PATHS, ids=lambda p: str(p.relative_to(REPO_ROOT)))
+def test_api_client_follows_successful_validation_for_optimizer_routes(guard_path: Path) -> None:
+    steps = yaml.safe_load(guard_path.read_text(encoding="utf-8"))["jobs"]["check"]["steps"]
+    indexed = {step["name"]: (index, step) for index, step in enumerate(steps) if "name" in step}
+    validate_index, _ = indexed["Validate against AGENT_ISSUE_FORMAT"]
+    setup_index, setup = indexed["Setup API client"]
+    invalidate_index, _ = indexed[
+        "Invalidate stale format completion after an invalid issue change"
+    ]
+    route_index, route = indexed["Route non-conforming issue to the optimizer"]
+
+    assert validate_index < setup_index < invalidate_index < route_index
+    eligible_route = (
+        "steps.issue.outputs.exempt != 'true' && steps.issue.outputs.held != 'true' && "
+        "steps.issue.outputs.state == 'OPEN' && steps.validate.outputs.rc == '1'"
+    )
+    assert setup["if"] == route["if"] == eligible_route
+    assert setup["uses"] == "./.github/actions/setup-api-client"
+    assert setup["with"] == {"github_token": "${{ github.token }}"}
+    assert setup.get("continue-on-error") is None
+
+
 def _resolve_step_script(path: Path) -> str:
     workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
     for step in workflow["jobs"]["check"]["steps"]:
