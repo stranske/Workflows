@@ -154,3 +154,21 @@ def test_main_reports_nothing_to_prune(tmp_path, monkeypatch, capsys) -> None:
     assert prune_agent_stubs.main([]) == 0
     assert "Nothing to prune." in capsys.readouterr().out
     assert (agents / "codex-99.md").exists()
+
+
+def test_main_clean_checkout_without_markers_uses_no_github(tmp_path, monkeypatch, capsys) -> None:
+    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)
+    monkeypatch.chdir(tmp_path)
+
+    def unexpected_fetch(_repo):
+        raise AssertionError("an empty candidate set should not query closed issues")
+
+    monkeypatch.setattr(prune_agent_stubs, "_fetch_closed_issue_numbers", unexpected_fetch)
+    assert prune_agent_stubs.main(["--dry-run"]) == 0
+    assert not Path("agents").exists()
+
+    Path("agents").mkdir()
+    Path("agents/local-notes.md").write_text("local notes", encoding="utf-8")
+    assert prune_agent_stubs.main([]) == 0
+    assert Path("agents/local-notes.md").read_text(encoding="utf-8") == "local notes"
+    assert capsys.readouterr().out.count("Nothing to prune.") == 2
