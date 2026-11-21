@@ -54,6 +54,8 @@ def test_starter_template_metadata_matches_yaml():
 
 def test_python_ci_starter_inputs_match_reusable_workflow():
     caller = _read_yaml(TEMPLATE_DIR / "python-ci.yml")["jobs"]["python-ci"]
+    assert caller["with"]["coverage-min"] == "70"
+    assert "secrets" not in caller
     target = caller["uses"].removeprefix("stranske/Workflows/").split("@")[0]
     contract = yaml.load(Path(target).read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
     inputs = contract["on"]["workflow_call"]["inputs"]
