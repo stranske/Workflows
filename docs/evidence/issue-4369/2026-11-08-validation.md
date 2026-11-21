@@ -2646,6 +2646,12 @@ next exact-head CI readback; no new job, hold, or merge action is created.
 
 ## Keepalive round 10: hosted execution receipt binding — 2026-11-09
 
+The links to archived publication notes open the original revision. To read one offline in a checkout with history, run this command with the linked filename.
+
+```sh
+git show d17b088aa5c97e6b024101c39252480c622e8395:docs/evidence/issue-4369/runtime-4550/4558-round10-publication-blocker.md
+```
+
 Check date and plan, recorded before implementation: **2026-11-09T02:01:37Z**.
 The first unchecked revision-selection task has retained passing evidence, but
 its regression validator does not yet bind suite runner/interpreter/timing
@@ -2713,7 +2719,7 @@ the working tree for the existing writer; no alternate remote commit was made.
 Posting the concrete PR blocker comment and adding `needs-human` were each
 rejected with `MCP tool call requires approval, but approval policy is never`.
 Neither remote mutation succeeded. The
-[blocker note](runtime-4550/4558-round10-publication-blocker.md) is retained locally.
+[blocker note](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round10-publication-blocker.md) is available at the original revision.
 
 ## Keepalive round 11: continuous origin observation — 2026-11-09
 
@@ -2784,9 +2790,9 @@ not execution of this working tree.
 
 Publication: explicit-path `git add` exits **128** because `.git/index.lock`
 cannot be created on the read-only filesystem. No commit or push succeeded.
-The [proposed PR body](runtime-4550/4558-round11-pr-body-reconciled.md) checks only
+The [proposed PR body](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round11-pr-body-reconciled.md) checks only
 the six verified stale task/acceptance rows. Updating the PR body, posting the
-concrete blocker comment, and adding `needs-human` were each rejected by
+[concrete blocker comment](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round11-publication-blocker.md), and adding `needs-human` were each rejected by
 automatic approval review: `MCP tool call requires approval, but approval policy
 is never`. None of those remote mutations succeeded. The existing authorized
 writer must publish the local changes and apply reconciliation. The original
@@ -2952,7 +2958,7 @@ push succeeded. Automatic approval review rejected both adding `needs-human`
 and posting the concrete blocker comment: `MCP tool call requires approval,
 but approval policy is never`. Neither remote mutation succeeded. The
 [publication receipt](runtime-4550/4558-round13-publication.json) and
-[blocker comment](runtime-4550/4558-round13-publication-blocker.md) retain the
+[blocker comment](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round13-publication-blocker.md) retain the
 specific failure and proposed commit subject. The existing authorized writer
 must publish these local code/test changes. Overall acceptance remains incomplete.
 ## Keepalive round 14: bounded native run collection — 2026-11-09
@@ -3044,7 +3050,7 @@ No commit or push succeeded. Automatic approval review also rejected the PR-body
 correction, `needs-human` label and blocker comment because approval is required
 but the active approval policy is `never`
 ([remote results](runtime-4550/4558-round14-remote-publication.json)).
-The [concrete handoff](runtime-4550/4558-round14-publication-blocker.md) and exact
+The [concrete handoff](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-publication-blocker.md) and exact
 reconciled body are retained for the authorized writer. Overall acceptance
 remains incomplete; no new source/runtime failure was inferred from this blocker.
 
@@ -3059,7 +3065,7 @@ passes **124 tests** with `-m "not slow"`. The first unchecked revision-selectio
 task and four corresponding suite/payload rows are already verified. Automatic
 approval review rejected the five-checkbox PR-body reconciliation because
 approval is required but approval policy is `never`; the exact proposed body is
-retained in [the reconciliation artifact](runtime-4550/4558-round15-pr-body-reconciled.md).
+retained in [the reconciliation artifact](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-pr-body-reconciled.md).
 [Fresh readback](runtime-4550/4558-round15-readback.json) retains #4550/#4551/main
 and PR 4558 open and ready. Upstream verifier attempt 1 is unchanged; Actions
 success does not clear the retained model non-PASS disposition.
@@ -3122,7 +3128,7 @@ label and blocker comment: `MCP tool call requires approval, but approval policy
 is never`. No remote task checkbox was changed. The
 [publication receipt](runtime-4550/4558-round15-publication.json) retains the
 Git error, remote rejection results and final PR readback confirming open and
-ready (`isDraft=false`). The [concrete blocker note](runtime-4550/4558-round15-publication-blocker.md)
+ready (`isDraft=false`). The [concrete blocker note](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-publication-blocker.md)
 and proposed PR body are retained for the existing authorized writer.
 Overall acceptance remains incomplete.
 
@@ -3278,8 +3284,8 @@ Publication is blocked. Explicit-path `git add` exits **128** because
 succeeded. Automatic approval review rejected the PR-body reconciliation, blocker
 comment and `needs-human` label: `MCP tool call requires approval, but approval
 policy is never`. No remote checkbox was changed. The exact five-row correction
-is retained in the [proposed PR body](runtime-4550/4558-round16-pr-body-reconciled.md),
-with a [concrete handoff](runtime-4550/4558-round16-publication-blocker.md) and
+is retained in the [proposed PR body](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-pr-body-reconciled.md),
+with a [concrete handoff](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-publication-blocker.md) and
 [publication receipt](runtime-4550/4558-round16-publication.json). Final readback
 confirms PR 4558 is open and ready (`isDraft=false`) at incoming head
 `b818bbd881d5d9999937b2e2e2181e43d8092403`. The authenticated delivery chain
