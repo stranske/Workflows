@@ -278,7 +278,7 @@ jobs:
         env:
           EXIT_CODE: ${{ needs.codex-ping-run.outputs.exit-code }}
           CHANGES_MADE: ${{ needs.codex-ping-run.outputs.changes-made }}
-          FINAL_MESSAGE: ${{ needs.codex-ping-run.outputs.final-message }}
+          PING_REPLY_MATCHED: ${{ needs.codex-ping-run.outputs.e2e-ping-reply-matched }}
         run: |
           if [ "$EXIT_CODE" != "0" ]; then
             echo "::error::Codex ping expected exit-code=0"
@@ -290,24 +290,10 @@ jobs:
             exit 1
           fi
 
-          python3 -I - <<'PY'
-          import base64
-          import binascii
-          import os
-
-          encoded = os.environ["FINAL_MESSAGE"]
-          if not encoded:
-              raise SystemExit("::error::Codex ping missing final message")
-          try:
-              reply = base64.b64decode(encoded, validate=True)
-          except (binascii.Error, ValueError):
-              raise SystemExit("::error::Codex ping final message has invalid base64") from None
-          if base64.b64encode(reply).decode("ascii") != encoded:
-              raise SystemExit("::error::Codex ping final message has invalid base64")
-
-          if reply.rstrip(b"\r\n") != b"keepalive-e2e-ping-ok":
-              raise SystemExit("::error::Codex ping returned an unexpected reply")
-          PY
+          if [ "$PING_REPLY_MATCHED" != "true" ]; then
+            echo "::error::Codex ping expected a matching reply"
+            exit 1
+          fi
 
           echo "✅ Codex ping E2E passed"
 
