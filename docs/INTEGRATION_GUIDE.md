@@ -48,7 +48,7 @@ jobs:
 | Reference | When to use it | Behavior |
 |-----------|----------------|----------|
 | **Default branch (`@main`)** | The supported pin for all consumers. | Tracks the latest reusable workflow behavior used by the synced consumer templates. |
-| **Pinned commit SHA** | Only for a one-off reproducible build or a controlled rollout you manage yourself. | Locked to a specific revision; **not** kept current and **unsupported** for ongoing use — the reusable's helper checkouts resolve against `main` (see below), so a SHA pin is no longer self-consistent. |
+| **Pinned commit SHA** | Only for a one-off reproducible build or a controlled rollout you manage yourself. | Pins the reusable workflow definition. Standard consumers omit `workflows_ref`, so their helpers still come from `main`. Use `@main` for ongoing consumer configurations. |
 
 > **No floating version tags.** The repository previously published a floating
 > `v1` tag (auto-refreshed to track `main`). That scheme has been **removed** —
@@ -56,12 +56,12 @@ jobs:
 > without benefit. Do not pin reusable workflows at the `v1` tag or any other
 > tag; use `@main`.
 >
-> **Why `@main` is self-consistent and a SHA pin is not.** Inside
-> `reusable-10-ci-python.yml`, the helper-code checkouts use `ref: main`
-> intentionally (the helper layer is only validated as a unit on `main`). A
-> caller pinned at `@main` therefore runs helper code that matches its pin. A
-> caller pinned at an arbitrary SHA would still execute the helper scripts from
-> `main`, so SHA pins are not supported for ongoing use.
+> **Why `@main` is the supported consumer pin.** Inside
+> `reusable-10-ci-python.yml`, helper-code checkouts use
+> `inputs.workflows_ref || 'main'`. Standard callers omit `workflows_ref`, so an
+> `@main` caller uses helpers from `main`. Maint 62 explicitly passes
+> `github.sha` for its local same-commit integration check; that internal test
+> arrangement does not make arbitrary SHA pins supported for consumers.
 
 Example (the supported pattern):
 
