@@ -79,11 +79,11 @@ fingerprint_refreshed = 2026-08-24
 [pair.5]
 main = .github/workflows/agents-auto-label.yml
 template = templates/consumer-repo/.github/workflows/agents-auto-label.yml
-main_sha256 = 6cfcfec322642a8a68e460c88060ab0328227f235e1b6314cd7f147726889bac
+main_sha256 = a56db5c0e490c186227d61ff0662a8b4b28133093c097f9225da58cbd8d5055d
 template_sha256 = f747501ebf28bec4589f1c873fbef4faaae9e86a26a4fd80b78b6656c2d46ace
-divergence = Bounded suggestions display 2026-08-31: both surfaces now derive suggestions from bounded_diverse_matches excluding auto-apply winners instead of re-scanning the full match list, applied identically to root and consumer. Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its prior date. Prior divergence unchanged: Label-matcher margin-check fix 2026-08-31: both surfaces now pass diverse=False into find_similar_labels for the auto-apply margin gate and apply bounded_diverse_matches only to the suggestions display, applied identically to root and consumer. Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-31: root and consumer workflows both use the bounded shared matcher and issue-safe auto-apply gate while retaining root sparse-checkout plus App-token setup and consumer SHA-pinned actions plus token-aware retry plumbing. Do not align wholesale: that would strip the consumer security contract.
-divergence_reviewed = 2026-08-31
-fingerprint_refreshed = 2026-10-02
+divergence = Workflows-only identical suggestion update skip 2026-11-21 preserves comment selection and write paths while leaving shipped consumer workflow unchanged. Prior divergence unchanged: Bounded suggestions display 2026-08-31: both surfaces now derive suggestions from bounded_diverse_matches excluding auto-apply winners instead of re-scanning the full match list, applied identically to root and consumer. Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its prior date. Prior divergence unchanged: Label-matcher margin-check fix 2026-08-31: both surfaces now pass diverse=False into find_similar_labels for the auto-apply margin gate and apply bounded_diverse_matches only to the suggestions display, applied identically to root and consumer. Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-31: root and consumer workflows both use the bounded shared matcher and issue-safe auto-apply gate while retaining root sparse-checkout plus App-token setup and consumer SHA-pinned actions plus token-aware retry plumbing. Do not align wholesale: that would strip the consumer security contract.
+divergence_reviewed = 2026-11-21
+fingerprint_refreshed = 2026-11-21
 
 [pair.6]
 main = .github/workflows/agents-autofix-dispatcher.yml

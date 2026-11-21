@@ -402,6 +402,11 @@ jobs:
               c.user.type === 'Bot'
             );
 
+            if (existingComment?.body === body) {
+              core.info('Existing suggestion comment is already up to date');
+              return;
+            }
+
             if (existingComment) {
               // Update existing comment
               await withRetry(() => github.rest.issues.updateComment({
