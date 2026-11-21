@@ -20,6 +20,8 @@ except ImportError:
 LINE_LENGTH_EXEMPTIONS = (
     "stranske/Workflows/.github/actions/setup-api-client@",
     "stranske/Workflows/.github/workflows/reusable-model-profile-trial.yml@",
+    "docs/ci/WORKFLOW_AUDIT_PROCEDURE.md",
+    "docs/archive/ARCHIVE_PLANS.md#workflow-audit-reports",
 )
 
 
