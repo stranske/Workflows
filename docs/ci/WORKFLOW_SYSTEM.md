@@ -704,11 +704,13 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   package tests, linting and YAML validation retain their push/PR triggers.
 - **Keepalive E2E** – `health-keepalive-e2e.yml` path-filtered E2E test for
   the keepalive system. Runs only when keepalive-related files change.
-- **Health Keepalive Auth Diagnostic** – `health-keepalive-auth-diagnostic.yml`
-  4-part diagnostic: GitHub App tokens, Claude CLI auth, Codex auth, PAT
-  availability. Manual dispatch.
-- **Health Claude CLI Auth Debug** – `health-claude-cli-auth-debug.yml`
-  isolated Claude Code CLI auth test. Temporary; delete after validation.
+
+### Keepalive and CLI troubleshooting
+
+- Inspect the failed [Keepalive E2E](https://github.com/stranske/Workflows/actions/workflows/health-keepalive-e2e.yml) run for orchestration evidence and the Codex ping result when that job was selected. The scheduled [Codex Auth Check](https://github.com/stranske/Workflows/actions/workflows/health-codex-auth-check.yml) checks the stored Codex token's structure and expiry.
+- For a failing Claude execution, inspect **Preflight auth** and **Run Claude** in the existing caller's run. [Reusable Claude workflow](../../.github/workflows/reusable-claude-run.yml)
+- [Health 75 API Rate Diagnostic](https://github.com/stranske/Workflows/actions/workflows/health-75-api-rate-diagnostic.yml) reports API credential-pool quota. For a failed App-backed push, inspect the actual [keepalive branch-sync run](https://github.com/stranske/Workflows/actions/workflows/agents-keepalive-branch-sync.yml). A successful push using a fallback credential leaves the preferred App unverified. The retired combined auth harness has no maintained one-for-one replacement.
+- Historical source is available for the [Keepalive Auth Diagnostic](https://github.com/stranske/Workflows/blob/67c2558643792c08e2063bbd0c4133c561fb009e/archives/diagnostics/health-keepalive-auth-diagnostic.yml) and the [Claude CLI Auth Debug](https://github.com/stranske/Workflows/blob/67c2558643792c08e2063bbd0c4133c561fb009e/archives/diagnostics/health-claude-cli-auth-debug.yml). Both were retired from GitHub Actions in February 2026.
 
 ## Workflow summary table
 

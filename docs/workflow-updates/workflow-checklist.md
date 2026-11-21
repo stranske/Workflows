@@ -49,9 +49,9 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `health-73-template-completeness.yml` | Already uses the shared validator script; dropped the unused GitHub App token mint. |
 | [x] | `health-74-template-drift.yml` | Drift mapping now includes every agents workflow; still warning-only until residual drift is cleared. |
 | [x] | `health-75-api-rate-diagnostic.yml` | Hourly snapshots only; consumer repo scans + load-sharing/access probes now manual inputs to avoid constant PAT/app churn, and the alert job finally reads the correct summary keys. |
-| [x] | `health-claude-cli-auth-debug.yml` | Archived under `archives/diagnostics/` so the active health roster only contains automated monitors. |
+| [x] | `health-claude-cli-auth-debug.yml` | Retired from Actions and preserved in [Git history](https://github.com/stranske/Workflows/blob/67c2558643792c08e2063bbd0c4133c561fb009e/archives/diagnostics/health-claude-cli-auth-debug.yml). |
 | [x] | `health-codex-auth-check.yml` | Removed the extra GitHub App token mint so the twice-daily expiry check only makes the issue list/create calls it actually needs. |
-| [x] | `health-keepalive-auth-diagnostic.yml` | Archived alongside the Claude CLI diagnostic so the health roster only tracks automated monitors; manual keepalive auth drills now live under `archives/diagnostics/`. |
+| [x] | `health-keepalive-auth-diagnostic.yml` | Retired from Actions and preserved in [Git history](https://github.com/stranske/Workflows/blob/67c2558643792c08e2063bbd0c4133c561fb009e/archives/diagnostics/health-keepalive-auth-diagnostic.yml). See [current troubleshooting](../ci/WORKFLOW_SYSTEM.md#keepalive-and-cli-troubleshooting). |
 | [x] | `health-keepalive-e2e.yml` | Dropped the duplicate GitHub App token mints so orchestration-only runs stick to the default installation token while keeping the Codex ping path unchanged. |
 | [x] | `maint-39-test-llm-providers.yml` | Manual LLM credential test no longer mints a GitHub App token or overrides checkout auth, so the diagnostic run stays lightweight. |
 | [x] | `maint-45-cosmetic-repair.yml` | Dropped the App token mint and only create PRs when not in dry-run mode to save API calls. |
