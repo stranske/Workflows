@@ -35,12 +35,12 @@ Exit 0 from the ancestry check means the fetched base is already integrated. Rep
 
 - Read the conflicting hunks and the surrounding code. Combine compatible changes and adapt PR code, tests and documentation to any changed base contracts. Preserve coverage contributed by either side.
 - Keep the PR version of `pr_body.md` and `ci/autofix/history.json` when they conflict, following the repository's branch-specific merge rules.
-- Remove conflict markers and stage only the resolved paths, including intended deletions. Confirm `git ls-files --unmerged` returns no entries, inspect the resolved files, and run `git diff --check` and `git diff --cached --check`.
+- Resolve the working files, including intended deletions. Inspect the resulting content for conflict markers and whitespace errors. In a reusable runner, leave the original index entries in place for its staging helper to validate. Report any path the helper refuses.
 - Run the relevant project tests using the repository's documented commands. Preserve test output and exit status. Report failures or any tests you could not run.
 
 ## Finalize the verified merge
 
-- **Reusable runner:** Stage the resolutions and leave the verified merge pending with `MERGE_HEAD` intact, including a clean merge with no staged diff. The runner's commit-and-push step finalizes the merge and publishes it to the PR branch.
-- **Standalone:** Complete the verified pending merge with a descriptive merge commit, even with no staged diff. Confirm the commit has the original PR head and the pending incoming commit as parents. Publish only when the caller has authorized it, through the normal fast-forward update to the verified PR head branch.
+- **Reusable runner:** Leave the resolved working files and `MERGE_HEAD` for the runner, including a clean merge with no staged diff. Its shared staging helper validates and stages the resolutions. The runner finalizes and publishes the merge to the PR branch.
+- **Standalone:** Stage the intended resolutions. Check that `git ls-files --unmerged` is empty and `git diff --cached --check` succeeds. Complete the verified pending merge with a descriptive merge commit, even with no staged diff. Confirm the commit has the original PR head and the pending incoming commit as parents. Publish only when the caller has authorized it, through the normal fast-forward update to the verified PR head branch.
 
 Report the base or incoming commit, the resolution and test results, and whether the merge was unnecessary, left for runner finalization, or committed locally. Never force-push.
