@@ -4,6 +4,17 @@ This ledger records superseded plans, point-in-time audits and historical keepal
 
 For retired GitHub workflows, see [`ARCHIVE_WORKFLOWS.md`](ARCHIVE_WORKFLOWS.md).
 
+## Historical Actionlint references
+
+The [workflow guide](../ci/WORKFLOW_SYSTEM.md) links to the manual for the Actionlint version used by Health 42 and Maint 52. Six copies formerly under `docs/archive/plans/` can be recovered from Git.
+
+| Original revision | Filenames |
+| --- | --- |
+| `1785424766b30b8860d2a6a2f8d8bf71c4847058` | `actionlint-usage.md` |
+| `e1c4da427cbc9081a154bcab10d300001cb8ef7c` | `actionlint-api.md`, `actionlint-checks-reference.md`, `actionlint-config.md`, `actionlint-install-reference.md`, `actionlint-reference.md` |
+
+For example, `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/actionlint-checks-reference.md` prints the original checks reference.
+
 ## Archived January 2026 plans
 
 | Former path | Archive path | Superseded by |
