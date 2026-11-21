@@ -157,6 +157,16 @@ function isWorkflowFile(filename) {
   return normalized.startsWith(WORKFLOW_PREFIX);
 }
 
+function isAppBaselineKitInput(filename) {
+  return typeof filename === 'string' && (
+    filename === '.github/workflows/pr-00-gate.yml' ||
+    filename === '.github/scripts/detect-changes.js' ||
+    filename === 'packages/app-baseline-kit/pyproject.toml' ||
+    filename.startsWith('packages/app-baseline-kit/baseline_kit/') ||
+    filename.startsWith('packages/app-baseline-kit/tests/')
+  );
+}
+
 function isNonFatalListFilesError(error) {
   if (!error) {
     return false;
@@ -179,7 +189,7 @@ function isNonFatalListFilesError(error) {
   );
 }
 
-async function listChangedFiles({ github, context }) {
+async function listChangedFiles({ github, context, onFile }) {
   const pull = context?.payload?.pull_request;
   const number = pull?.number;
   if (!github || !context || !number) {
@@ -200,6 +210,7 @@ async function listChangedFiles({ github, context }) {
           for (const item of page.data) {
             if (item && typeof item.filename === 'string') {
               files.push(item.filename);
+              onFile?.(item);
             }
           }
         }
@@ -213,6 +224,7 @@ async function listChangedFiles({ github, context }) {
         for (const item of items) {
           if (item && typeof item.filename === 'string') {
             files.push(item.filename);
+            onFile?.(item);
           }
         }
       }
@@ -256,7 +268,7 @@ function classifyChanges(filenames) {
   };
 }
 
-async function detectChanges({ github, context, core, files, fetchFiles } = {}) {
+async function detectChanges({ github, context, core, files, fetchFiles, checkAppBaselineKit = false } = {}) {
   const eventName = context?.eventName;
   if (eventName !== 'pull_request') {
     const outputs = {
@@ -265,6 +277,7 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
       reason: 'non_pr_event',
       docker_changed: 'false',  // Don't assume docker changes - causes failures in repos without Dockerfile
       workflow_changed: 'true',
+      ...(checkAppBaselineKit ? { app_baseline_kit_changed: 'true' } : {}),
     };
     if (core) {
       for (const [key, value] of Object.entries(outputs)) {
@@ -275,11 +288,20 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
   }
 
   let changedFiles = Array.isArray(files) ? files : null;
+  let renamedFromKit = false;
   if (!changedFiles) {
     if (typeof fetchFiles === 'function') {
       changedFiles = await fetchFiles();
     } else {
-      changedFiles = await listChangedFiles({ github, context });
+      changedFiles = await listChangedFiles({
+        github,
+        context,
+        onFile: checkAppBaselineKit
+          ? item => {
+            renamedFromKit ||= isAppBaselineKitInput(item.previous_filename);
+          }
+          : undefined,
+      });
     }
   }
 
@@ -290,6 +312,7 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
       reason: 'rate_limited',
       docker_changed: 'false',  // Don't assume docker changes - causes failures in repos without Dockerfile
       workflow_changed: 'true',
+      ...(checkAppBaselineKit ? { app_baseline_kit_changed: 'true' } : {}),
     };
     const warn = core?.warning ? core.warning.bind(core) : console.warn.bind(console);
     warn('Unable to determine changed files via API; assuming code changes (but not docker).');
@@ -309,6 +332,19 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
     docker_changed: dockerChanged ? 'true' : 'false',
     workflow_changed: workflowChanged ? 'true' : 'false',
   };
+  if (checkAppBaselineKit) {
+    const expected = context?.payload?.pull_request?.changed_files;
+    // GitHub lists at most 3,000 files. A truncated response cannot prove irrelevance.
+    const entries = Array.isArray(changedFiles) ? changedFiles : [];
+    const incomplete =
+      !Array.isArray(changedFiles) ||
+      entries.length >= 3_000 ||
+      (typeof expected === 'number' && entries.length < expected) ||
+      (entries.length === 0 && expected !== 0 &&
+        !Array.isArray(files) && typeof fetchFiles !== 'function');
+    const selected = incomplete || renamedFromKit || entries.some(isAppBaselineKitInput);
+    outputs.app_baseline_kit_changed = selected ? 'true' : 'false';
+  }
 
   if (core) {
     for (const [key, value] of Object.entries(outputs)) {
@@ -329,7 +365,7 @@ async function detectChanges({ github, context, core, files, fetchFiles } = {}) 
 }
 
 module.exports = {
-  detectChanges: async function ({ github: rawGithub, context, core, files, fetchFiles } = {}) {
+  detectChanges: async function ({ github: rawGithub, context, core, files, fetchFiles, checkAppBaselineKit } = {}) {
     let github = rawGithub;
     try {
       github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
@@ -337,7 +373,7 @@ module.exports = {
       const message = error instanceof Error ? error.message : String(error);
       core?.warning?.(`Failed to enable rate-limit wrapper for detect-changes: ${message}`);
     }
-    return detectChanges({ github, context, core, files, fetchFiles });
+    return detectChanges({ github, context, core, files, fetchFiles, checkAppBaselineKit });
   },
   classifyChanges,
   isDocumentationFile,
