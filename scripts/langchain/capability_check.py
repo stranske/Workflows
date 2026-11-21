@@ -348,9 +348,11 @@ def classify_capabilities(tasks: list[str] | str, acceptance: str) -> Capability
     except ImportError:
         pass
 
-    content = getattr(response, "content", None) or str(response)
-    if isinstance(content, list):
-        content = text_from_response_content(content) or ""
+    raw_content = getattr(response, "content", None)
+    if isinstance(raw_content, list):
+        content = text_from_response_content(raw_content) or ""
+    else:
+        content = raw_content or str(response)
     payload = _extract_json_payload(content)
     if not payload:
         result = _fallback_classify(

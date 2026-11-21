@@ -508,6 +508,7 @@ class TestClassifyCapabilities:
     @pytest.mark.parametrize(
         ("content", "fallback_reason"),
         [
+            ([], "LLM response missing JSON payload"),
             (
                 [{"type": "tool_use", "text": '{"recommendation":"PROCEED"}'}],
                 "LLM response missing JSON payload",
@@ -523,7 +524,16 @@ class TestClassifyCapabilities:
         monkeypatch.setattr(
             capability_check, "_get_llm_client", lambda: (object(), "test-provider")
         )
-        chain.invoke.return_value = types.SimpleNamespace(content=content)
+
+        class Response:
+            content: list[dict[str, str]]
+
+            def __str__(self) -> str:
+                return '{"recommendation":"PROCEED"}'
+
+        response = Response()
+        response.content = content
+        chain.invoke.return_value = response
         result = classify_capabilities(["Integrate Stripe payments"], "Confirm payment integration")
         assert result.recommendation == "BLOCKED"
         assert fallback_reason in result.human_actions_needed
