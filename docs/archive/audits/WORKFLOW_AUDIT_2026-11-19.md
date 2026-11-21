@@ -66,6 +66,24 @@ Rates below use the **corrected** Maint 66 policy: decisive outcomes = success +
 
 **Historical optimizer issues** `#4623`, `#4413`, `#4437`, `#4400`, `#4432`, `#4393` remain closed per non-goals.
 
+## Failed run inspection (T4, `gh run view --log-failed`)
+
+Inspected 2026-11-21 via `gh run list` (last 5–30 runs per file) and `gh run view <id> --log-failed` on representative failures. No additional repo-local script or trigger fixes were required in this PR beyond Maint 66 ranking and `agents-dedup.yml` checkout (see **Fixes delivered**).
+
+| Workflow file | Sample run | Root cause from failed logs | Disposition |
+|---------------|------------|------------------------------|-------------|
+| `agents-keepalive-loop-reporter.yml` | [44951017026](https://github.com/stranske/Workflows/actions/runs/44951017026) | `Reporter applicability unavailable: API rate limit exceeded for installation` | Transient GitHub API / installation quota; recent window mostly `skipped` when keepalive summary job already ran |
+| `maint-46-post-ci.yml` | [44951684191](https://github.com/stranske/Workflows/actions/runs/44951684191) | `HttpError: API rate limit exceeded for installation` in Gate snapshot step | Transient API pressure on post-Gate housekeeping; same workflow succeeding on adjacent Gate runs (e.g. 44955752749) |
+| `agents-63-issue-intake.yml` | [44953709513](https://github.com/stranske/Workflows/actions/runs/44953709513) | `Expected exactly one agent:* label; found 0` on issue #4792 | Intentional intake guard for misrouted `workflow_dispatch` without routing labels — not a script defect |
+| `maint-sync-env-from-pyproject.yml` | [42622854064](https://github.com/stranske/Workflows/actions/runs/42622854064) | `GH013` / `push declined due to repository rule violations` (direct push to `main`) | Branch-protection policy; workflow succeeds when alignment produces no commit ([43820042751](https://github.com/stranske/Workflows/actions/runs/43820042751)). PR-based landing remains the supported path for pin drift |
+| `pr-46-dependency-repair-contract.yml` | — | No `failure` conclusions in the last 50 runs (mostly `skipped`) | Volume noise under legacy success/all-runs ranking |
+| `health-40-repo-selfcheck.yml` | [43819301872](https://github.com/stranske/Workflows/actions/runs/43819301872) | `403` updating status-check protection (`Resource not accessible by personal access token`) | Admin PAT / permissions ceiling on branch-protection writes |
+| `health-41-repo-health.yml` | [42578814903](https://github.com/stranske/Workflows/actions/runs/42578814903) | Health sweep reports missing `Gate / gate` required check on `main` | Advisory drift signal; not a workflow script error ([43824607161](https://github.com/stranske/Workflows/actions/runs/43824607161) success after policy stabilized) |
+| `maint-84-prune-agent-stubs.yml` | [43830898674](https://github.com/stranske/Workflows/actions/runs/43830898674) | Direct `git push` to `main` rejected (`GH013`) | **Already fixed on `main`:** workflow opens `maint/prune-closed-agent-stubs` via `create-pull-request` ([44668751200](https://github.com/stranske/Workflows/actions/runs/44668751200) success) |
+| `agents-weekly-metrics.yml` | [41398873782](https://github.com/stranske/Workflows/actions/runs/41398873782) | `Max retries reached` / `HttpError` on `WORKFLOWS_APP` after metrics aggregation | Transient GitHub API; newer runs succeed ([43815934471](https://github.com/stranske/Workflows/actions/runs/43815934471)) |
+| `health-78-backplane-contract.yml` | — | No failures in the last 15 runs sampled | Contract checks healthy in current window |
+| `health-85-ci-time-budget.yml` | [44296475975](https://github.com/stranske/Workflows/actions/runs/44296475975) | `ERROR: stranske/Orchestrator: measurement unavailable` | External fleet dependency (#4284, #4769); advisory series continues |
+
 ## Workflows in the 50–80% band (non-dynamic)
 
 | Workflow file | Notes |

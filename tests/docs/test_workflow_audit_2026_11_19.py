@@ -31,6 +31,21 @@ BELOW_50_WORKFLOWS = (
     "health-83-dependency-sync-efficiency.yml",
 )
 
+# Remediation targets for issue #4770 task T4 (log-failed inspection).
+T4_FAILURE_INSPECTION_WORKFLOWS = (
+    "agents-keepalive-loop-reporter.yml",
+    "maint-46-post-ci.yml",
+    "agents-63-issue-intake.yml",
+    "maint-sync-env-from-pyproject.yml",
+    "pr-46-dependency-repair-contract.yml",
+    "health-40-repo-selfcheck.yml",
+    "health-41-repo-health.yml",
+    "maint-84-prune-agent-stubs.yml",
+    "agents-weekly-metrics.yml",
+    "health-78-backplane-contract.yml",
+    "health-85-ci-time-budget.yml",
+)
+
 BAND_50_80_WORKFLOWS = (
     "pr-00-gate.yml",
     "health-74-template-drift.yml",
@@ -86,3 +101,11 @@ def test_november_2026_audit_records_not_run_inventory() -> None:
         "event_driven",
     ):
         assert bucket in text, f"missing not-run bucket: {bucket!r}"
+
+
+def test_november_2026_audit_t4_failure_inspection_section() -> None:
+    text = AUDIT_REPORT.read_text(encoding="utf-8")
+    assert "Failed run inspection" in text
+    assert "gh run view" in text
+    missing = [name for name in T4_FAILURE_INSPECTION_WORKFLOWS if name not in text]
+    assert not missing, f"T4 inspection omits workflows: {missing}"
