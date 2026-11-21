@@ -123,8 +123,8 @@ jobs:
       rate_limit_recommendation: ${{ steps.evaluate.outputs.rate_limit_recommendation }}
       rounds_without_task_completion: ${{ steps.evaluate.outputs.rounds_without_task_completion }}
       force_retry: ${{ steps.evaluate.outputs.force_retry }}
-      fingerprint_should_run: ${{ steps.fingerprint.outputs.should_run || 'true' }}
-      fingerprint_reason: ${{ steps.fingerprint.outputs.reason }}
+      fingerprint_should_run: ${{ steps.admission.outputs.should_run || 'true' }}
+      fingerprint_reason: ${{ steps.admission.outputs.reason }}
       dispatch_should_run: ${{ steps.runner_dispatch.outputs.should_dispatch || 'false' }}
       dispatch_reason: ${{ steps.runner_dispatch.outputs.reason }}
     steps:
@@ -155,11 +155,9 @@ jobs:
           app_2_private_key: ${{ secrets.APP_2_PRIVATE_KEY }}
           github_token: ${{ github.token }}
 
-      - name: Compute state fingerprint
-        id: fingerprint
+      - name: Check keepalive event eligibility
+        id: admission
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: >-
             ${{
               github.event.workflow_run.pull_requests[0].number ||
@@ -167,7 +165,6 @@ jobs:
               github.event.inputs.pr_number ||
               ''
             }}
-          GATE_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
           PR_ACTOR: ${{ github.actor }}
           AUTHORITY_CHALLENGE_FINGERPRINT: >-
             ${{ github.event_name == 'workflow_dispatch' &&
@@ -183,30 +180,20 @@ jobs:
             {
               echo "should_run=true"
               echo "reason=no-pr-context"
-              echo "current_hash="
-              echo "prior_hash="
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Dependency-bot PRs (Dependabot/Renovate) are not agent work. Route them to the existing
-          # should_run=false path BEFORE the authenticated fingerprint API calls, which 403 on the
-          # restricted bot-PR token (a non-required, non-blocking but noisy keepalive failure).
-          # Dependabot is already implicitly skipped by GitHub's token restrictions; this makes both
-          # explicit. Normal (human/agent) PRs are unaffected.
+          # Dependency-originated PRs do not enter hosted keepalive evaluation.
           if [ "${PR_ACTOR:-}" = "dependabot[bot]" ] || [ "${PR_ACTOR:-}" = "renovate[bot]" ]; then
             {
               echo "should_run=false"
               echo "reason=dependency-bot-pr"
-              echo "current_hash="
-              echo "prior_hash="
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Every eligible hourly sweep must re-evaluate stalled agent work even
-          # when its last head/label fingerprint is unchanged. This bypasses only
-          # the state debounce; force_retry remains limited to due challenges.
+          # Keep the trusted sweep reason separate from ordinary event admission.
           if [ "${SWEEP_RECHECK:-false}" = "true" ]; then
             {
               echo "should_run=true"
@@ -215,64 +202,18 @@ jobs:
               else
                 echo "reason=scheduled-sweep-recheck"
               fi
-              echo "current_hash="
-              echo "prior_hash="
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          python - <<'PY' > /tmp/state-fingerprint-inputs.json
-          import json
-          import os
-          import urllib.request
+          {
+            echo "should_run=true"
+            echo "reason=ordinary-event"
+          } >> "$GITHUB_OUTPUT"
 
-          repo = os.environ["GITHUB_REPOSITORY"]
-          token = os.environ["GITHUB_TOKEN"]
-          pr_number = os.environ["PR_NUMBER"]
-          headers = {
-              "Accept": "application/vnd.github+json",
-              "Authorization": f"Bearer {token}",
-              "X-GitHub-Api-Version": "2022-11-28",
-          }
-          api_root = (os.environ.get("GITHUB_API_URL") or "https://api." + "github.com").rstrip("/")
-
-          def api(path):
-              request = urllib.request.Request(f"{api_root}{path}", headers=headers)
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  return json.loads(response.read().decode("utf-8"))
-
-          pr = api(f"/repos/{repo}/pulls/{pr_number}")
-          labels = api(f"/repos/{repo}/issues/{pr_number}/labels")
-          label_names = sorted(label.get("name", "") for label in labels if label.get("name"))
-          payload = {
-              "pr_number": int(pr_number),
-              "head_sha": pr.get("head", {}).get("sha", ""),
-              "gate_conclusion": os.environ.get("GATE_CONCLUSION", ""),
-              "automation_label_state": [
-                  name for name in label_names
-                  if (
-                      name.startswith("autofix")
-                      or name.startswith("agent:")
-                      or name in {
-                          "agents:auto-pilot",
-                          "agents:keepalive",
-                          "agents:paused",
-                          "needs-human",
-                      }
-                  )
-              ],
-          }
-          print(json.dumps(payload, sort_keys=True))
-          PY
-
-          python scripts/state_fingerprint.py compare \
-            --workflow "${GITHUB_WORKFLOW}" \
-            --inputs "$(cat /tmp/state-fingerprint-inputs.json)" \
-            --storage pr-comment
-
-      - name: Report unchanged state skip
-        if: steps.fingerprint.outputs.should_run == 'false'
-        run: echo "Skipped - ${{ steps.fingerprint.outputs.reason }}"
+      - name: Report keepalive skip
+        if: steps.admission.outputs.should_run == 'false'
+        run: echo "Skipped - ${{ steps.admission.outputs.reason }}"
 
 
 
@@ -280,7 +221,7 @@ jobs:
       - name: Handle agent:retry label
         id: retry_label
         if: >-
-          steps.fingerprint.outputs.should_run == 'true' &&
+          steps.admission.outputs.should_run == 'true' &&
           github.event_name == 'pull_request' &&
           github.event.action == 'labeled' &&
           github.event.label.name == 'agent:retry'
@@ -349,11 +290,11 @@ jobs:
 
       - name: Capture timestamps
         id: timestamps
-        if: steps.fingerprint.outputs.should_run == 'true'
+        if: steps.admission.outputs.should_run == 'true'
         run: echo "start_ts=$(date -u +%s)" >> "$GITHUB_OUTPUT"
       - name: Security gate - prompt injection guard
         id: security_gate
-        if: steps.fingerprint.outputs.should_run == 'true'
+        if: steps.admission.outputs.should_run == 'true'
         uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -417,7 +358,7 @@ jobs:
 
       - name: Evaluate keepalive state
         id: evaluate
-        if: steps.fingerprint.outputs.should_run == 'true'
+        if: steps.admission.outputs.should_run == 'true'
         uses: actions/github-script@v9
         env:
           INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
@@ -580,7 +521,7 @@ jobs:
       - name: Check runner dispatch debounce
         id: runner_dispatch
         if: >
-          steps.fingerprint.outputs.should_run == 'true' &&
+          steps.admission.outputs.should_run == 'true' &&
           (steps.evaluate.outputs.action == 'run' ||
           steps.evaluate.outputs.action == 'fix' ||
           steps.evaluate.outputs.action == 'conflict')
@@ -653,7 +594,7 @@ jobs:
 
       - name: Verify task appendix artifact
         if: >
-          steps.fingerprint.outputs.should_run == 'true' &&
+          steps.admission.outputs.should_run == 'true' &&
           (steps.evaluate.outputs.action == 'run' ||
           steps.evaluate.outputs.action == 'fix' ||
           steps.evaluate.outputs.action == 'conflict')
@@ -666,7 +607,7 @@ jobs:
 
       - name: Upload task appendix artifact
         if: >
-          steps.fingerprint.outputs.should_run == 'true' &&
+          steps.admission.outputs.should_run == 'true' &&
           (steps.evaluate.outputs.action == 'run' ||
           steps.evaluate.outputs.action == 'fix' ||
           steps.evaluate.outputs.action == 'conflict')
