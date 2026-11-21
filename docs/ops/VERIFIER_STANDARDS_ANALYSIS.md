@@ -3,6 +3,8 @@
 Date: 2026-10-18 (Workflows, evidence under `docs/evidence/judge-screen-20261017/`).
 Reproduce the numbers with `python -m tools.verifier_standards_model --operating-points docs/evidence/verifier-standards/operating-points-35-cases.json` and the data scripts named below.
 
+[Download the original Word edition](https://raw.githubusercontent.com/stranske/Workflows/9ea942aa52aed7ae2f91e1fab881c63ac63640d0/docs/ops/VERIFIER_STANDARDS_ANALYSIS.docx).
+
 Policy status as of 2026-10-23: this report compares exploratory alternatives. The adopted production experiment is the seven-day shadow in docs/ops/VERIFIER_SHADOW.md and config/verifier_shadow.json. The fourteen-day alternative below is not adopted; this analysis changes no CI, review, merge or model-promotion gate.
 
 ## 1. Bottom line
