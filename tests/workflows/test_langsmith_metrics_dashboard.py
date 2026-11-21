@@ -1,5 +1,9 @@
 import json
+import os
+import subprocess
 from pathlib import Path
+
+import yaml
 
 WORKFLOW = Path(".github/workflows/maint-80-langsmith-metrics-dashboard.yml")
 FLEET_REGISTRY = Path("config/langsmith_fleet_registry.json")
@@ -18,6 +22,78 @@ def test_fleet_artifact_lookup_does_not_mix_slurp_with_jq() -> None:
     assert "'index($path) != null'" in source
     assert "--slurp --method GET \\\n" in source
     assert '--jq "[.[].artifacts' not in source
+
+
+def test_exact_artifact_lookup_uses_full_inventory_only_when_needed(tmp_path):
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["generate-dashboard"]["steps"]
+    command = next(step["run"] for step in steps if step["name"] == "Validate fleet artifacts")
+    start = command.index('echo "🔎 Resolving')
+    end = command.index("safe_repo=", start)
+    selector = command[start:end]
+    (tmp_path / ".metrics-tmp/fleet").mkdir(parents=True)
+
+    def lookup(filtered, full, exit_code=0):
+        (tmp_path / "filtered").write_text(json.dumps(filtered), encoding="utf-8")
+        (tmp_path / "full").write_text(json.dumps(full), encoding="utf-8")
+        shell = """
+            set -euo pipefail
+            repo="example/project"
+            artifact_name="metrics.ndjson"
+            trusted_workflow_paths='[".github/workflows/gate.yml"]'
+            gh() {
+              case "$*" in
+                *"name=metrics.ndjson"*) echo filtered >&2; cat filtered; return "$FILTER_EXIT" ;;
+                *"/actions/runs/7"*) echo ".github/workflows/gate.yml" ;;
+                *"/actions/runs/"*) echo "other.yml" ;;
+                *) echo full >&2; cat full ;;
+              esac
+            }
+            for entry in once; do
+        """
+        log = tmp_path / ".metrics-tmp/fleet/fleet_errors.log"
+        log.write_text("", encoding="utf-8")
+        result = subprocess.run(
+            ["bash", "-c", shell + selector + '\nprintf "selected=%s\\n" "$artifact_id"\ndone'],
+            env={**os.environ, "FILTER_EXIT": str(exit_code)},
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        selected = [line for line in result.stdout.splitlines() if line.startswith("selected=")]
+        return selected, log.read_text(encoding="utf-8").splitlines()
+
+    def artifact(identifier, *, prefix="", timestamp="2026-11-01", expired=False, run=7):
+        return {
+            "id": identifier,
+            "name": prefix + "metrics.ndjson",
+            "created_at": timestamp,
+            "expired": expired,
+            "workflow_run": {"id": run},
+        }
+
+    older = artifact(1)
+    newest = artifact(2, timestamp="2026-11-05")
+    expired = artifact(3, timestamp="2026-11-06", expired=True)
+    full = [{"artifacts": [older, newest, expired]}]
+    pages = [{"artifacts": [newest]}, {"artifacts": [older, expired]}]
+    assert lookup(pages, full) == (["selected=2"], ["filtered"])
+    assert lookup(pages, full, exit_code=1) == (["selected=2"], ["filtered", "full"])
+    tied = artifact(4, timestamp="2026-11-05")
+    assert lookup([{"artifacts": [tied, newest]}], [{"artifacts": [newest, tied]}]) == (
+        ["selected=4"],
+        ["filtered", "full"],
+    )
+    prefixed = [
+        artifact(5, prefix="old-"),
+        artifact(6, prefix="new-", timestamp="2026-11-07", run=9),
+    ]
+    assert lookup([{"artifacts": [expired]}], [{"artifacts": prefixed}]) == (
+        ["selected=5"],
+        ["filtered", "full"],
+    )
+    assert lookup([{"artifacts": []}], [{"artifacts": []}]) == ([], ["filtered", "full"])
 
 
 def test_fleet_registry_declares_trusted_artifact_workflows() -> None:
