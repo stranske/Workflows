@@ -183,19 +183,28 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 In **Actions → Agents 63 Issue Intake → Run workflow**, choose `chatgpt_sync`. For a single issue, enter a short enumerated title such as `1. Fix the import test` in `raw_input`. For multiple issues or multiline descriptions, commit a text file to the selected ref and enter its repository-relative path in `source`. Start each issue with a numbered title on its own line. See the [single-issue input](../tests/workflows/fixtures/issue_intake_chatgpt/valid_import.txt) and [three-issue input](../tests/workflows/fixtures/issue_intake_chatgpt/multi_issue_payload.txt).
 
-To import the repository’s `Issues.txt` on `main`, run the following command from the Workflows checkout. The workflow creates or updates GitHub issues. An empty source file yields zero issues. A source path that does not exist stops the import.
+To use `Issues.txt`, put your topic file at that path on the branch you want to import from. Git ignores local `Issues.txt` drafts, so force-add this file when you intend to publish it. The workflow reads `source` from the selected GitHub ref. It creates or updates GitHub issues. An empty source file yields zero issues, and a missing named file stops the import.
 
 ```sh
-gh workflow run agents-63-issue-intake.yml --ref main -f intake_mode=chatgpt_sync -f source=Issues.txt
+ref=$(git branch --show-current)
+git add -f -- Issues.txt
+git commit -m "Add issue intake topics"
+git push origin "$ref"
+gh workflow run agents-63-issue-intake.yml --ref "$ref" -f intake_mode=chatgpt_sync -f source=Issues.txt
 ```
 
-To preview locally, give the parser a fresh directory and copy your source there as `input.txt`. This example parses `Issues.txt` and prints the generated `topics.json`. To try the [sample input and expected output](../tests/workflows/fixtures/issue_intake_chatgpt/lowercase_enumeration/), use that directory’s `input.txt` in the copy step.
+The former root draft is preserved at its [last committed revision](https://github.com/stranske/Workflows/blob/5fbda473e4b542449d8027709a884f2a6c8fb912/Issues.txt) and records the completed [reference-pack issue](https://github.com/stranske/Workflows/issues/1465).
+
+To preview locally without creating issues, use the Workflows Python environment and set `source_file` to your file or the [sample input](../tests/workflows/fixtures/issue_intake_chatgpt/lowercase_enumeration/input.txt). The decoder prepares `input.txt` the same way as the workflow. The parser writes `topics.json`.
 
 ```sh
 repo=$(git rev-parse --show-toplevel)
+source_file=/path/to/your/topics.txt
 preview=$(mktemp -d)
-cp "$repo/Issues.txt" "$preview/input.txt"
-(cd "$preview" && python "$repo/.github/scripts/parse_chatgpt_topics.py")
+cp "$source_file" "$preview/source.txt"
+(cd "$preview" &&
+  python "$repo/.github/scripts/decode_raw_input.py" --passthrough --in source.txt --source repo_file &&
+  python "$repo/.github/scripts/parse_chatgpt_topics.py")
 cat "$preview/topics.json"
 ```
 
