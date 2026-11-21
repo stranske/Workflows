@@ -131,8 +131,8 @@ jobs:
           {
             echo "## Label Documentation Sync"
             echo ""
-            echo 'Source: `templates/consumer-repo/docs/LABELS.md`'
-            echo 'Destination: `docs/LABELS.md`'
+            echo "Source: \`templates/consumer-repo/docs/LABELS.md\`"
+            echo "Destination: \`docs/LABELS.md\`"
             echo ""
             echo "**Outcome:** $outcome"
           } >> "$GITHUB_STEP_SUMMARY"
