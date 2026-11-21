@@ -81,3 +81,54 @@ def test_synced_consumer_tree_imports_langchain_helpers(tmp_path: Path) -> None:
         cwd=consumer,
         env=env,
     )
+
+
+def test_raw_consumer_scaffold_handles_capability_text_blocks(tmp_path: Path) -> None:
+    consumer = tmp_path / "consumer"
+    shutil.copytree(TEMPLATE, consumer)
+    script = dedent("""
+        import sys
+        from types import ModuleType, SimpleNamespace
+        from unittest.mock import MagicMock, patch
+
+        from scripts.langchain import capability_check
+
+        payload = '{"recommendation":"REVIEW_NEEDED"}'
+        chain = MagicMock()
+        template = MagicMock()
+        template.__or__.return_value = chain
+
+        class EmptyBlocks:
+            content = []
+
+            def __str__(self):
+                return '{"recommendation":"PROCEED"}'
+
+        prompts = ModuleType("langchain_core.prompts")
+        prompts.ChatPromptTemplate = SimpleNamespace(from_template=lambda _prompt: template)
+        with (
+            patch.dict(sys.modules, {"langchain_core.prompts": prompts}),
+            patch.object(capability_check, "_get_llm_client", return_value=(object(), "test")),
+        ):
+            tasks = ["Integrate Stripe payments"]
+            acceptance = "Confirm payment integration"
+            chain.invoke.return_value = SimpleNamespace(content=payload)
+            expected = capability_check.classify_capabilities(tasks, acceptance)
+            chain.invoke.return_value = SimpleNamespace(content=[
+                {"type": "text", "text": payload[:12]},
+                {"type": "text", "text": payload[12:]},
+            ])
+            result = capability_check.classify_capabilities(tasks, acceptance)
+            assert result.recommendation == "REVIEW_NEEDED"
+            assert result.to_dict() == expected.to_dict()
+            chain.invoke.return_value = EmptyBlocks()
+            result = capability_check.classify_capabilities(tasks, acceptance)
+            assert result.recommendation == "BLOCKED"
+            assert "LLM response missing JSON payload" in result.human_actions_needed
+        """)
+    subprocess.run(
+        [sys.executable, "-c", script],
+        check=True,
+        cwd=consumer,
+        env={"PYTHONPATH": str(consumer)},
+    )
