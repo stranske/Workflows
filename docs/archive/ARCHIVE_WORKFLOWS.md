@@ -16,6 +16,12 @@ Compare a path against the default branch and the workflow’s run history befor
 
 Maint 47 previously advertised a disable sweep. Its [manual workflow](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/.github/workflows/maint-47-disable-legacy-workflows.yml) invoked a [helper](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/tools/disable_legacy_workflows.py) with stubbed list and update methods and no command-line entry point. GitHub reported zero runs before retirement.
 
+### Legacy verify-to-issue v1
+
+The disabled [v1 definition](https://github.com/stranske/Workflows/blob/d884606ce6ec93b67029bf081ad509a25fdbe39c/archives/deprecated-workflows/agents-verify-to-issue.yml) is preserved in Git at `d884606ce6ec93b67029bf081ad509a25fdbe39c`. Its SHA-256 is `f9409273791aec983766cb9562d8fb36dd519bd3ce9da9c677977173afc95b63`. Recover the original bytes with `git show d884606ce6ec93b67029bf081ad509a25fdbe39c:archives/deprecated-workflows/agents-verify-to-issue.yml`.
+
+In Workflows, [verify-to-issue v2](../../.github/workflows/agents-verify-to-issue-v2.yml) handles the `verify:create-issue` label on merged pull requests. Managed consumer repositories receive that route through the [PR Event Hub](../../templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml).
+
 ### Maintenance sweep (Issue #2823)
 - `ci.yml` → [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) — Gate now fans out to the reusable Python matrix so the standalone CI wrapper is redundant.
 - `docker.yml` → [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml) — The Gate workflow’s Docker smoke job replaces the legacy bespoke Docker entry point.
