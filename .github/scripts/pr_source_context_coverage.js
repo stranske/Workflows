@@ -73,6 +73,7 @@ function buildCoverageReport(options = {}) {
   let inferredCount = 0;
   let validCount = 0;
   let unknownCount = 0;
+  let nonPrCount = 0;
   let taskListRecords = 0;
   let taskItemsTotal = 0;
   let taskItemsOpen = 0;
@@ -90,6 +91,13 @@ function buildCoverageReport(options = {}) {
     const sourceType = cleanString(source.sourceType) || 'unknown';
     increment(statusCounts, status);
     increment(reasonCounts, reason);
+    if (
+      (report.event_name === 'push' || report.event_name === 'workflow_dispatch') &&
+      status === 'skipped' && reason === 'not-pull-request' && report.pull_request === null
+    ) {
+      nonPrCount += 1;
+      continue;
+    }
     increment(sourceTypeCounts, sourceType);
     if (source.isValid) validCount += 1;
     if (source.isExplicit) explicitCount += 1;
@@ -126,7 +134,12 @@ function buildCoverageReport(options = {}) {
   }
 
   const warningCount = (statusCounts.get('warning') || 0) + unknownCount + parse_errors.length;
-  const status = parse_errors.length > 0 ? 'warning' : unknownCount > 0 ? 'warning' : 'pass';
+  let status = 'pass';
+  if (parse_errors.length || unknownCount) {
+    status = 'warning';
+  } else if (nonPrCount > 0 && nonPrCount === reports.length) {
+    status = 'no-data';
+  }
 
   return {
     schema: COVERAGE_SCHEMA,
