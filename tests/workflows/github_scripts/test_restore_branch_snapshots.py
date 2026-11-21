@@ -196,7 +196,7 @@ def test_extract_zip_and_copy_json(tmp_path: Path) -> None:
     assert (extracted / "ignore.txt").exists()
 
     destination = tmp_path / "previous"
-    rbs._copy_json(extracted, destination)
+    assert list(rbs._copy_json(extracted, destination)) == ["verification.json"]
     assert (destination / "verification.json").exists()
     assert not (destination / "ignore.txt").exists()
 
@@ -206,7 +206,7 @@ def test_copy_json_requires_content(tmp_path: Path) -> None:
     source.mkdir()
     destination = tmp_path / "dest"
     with pytest.raises(rbs.RestoreError):
-        rbs._copy_json(source, destination)
+        list(rbs._copy_json(source, destination))
 
 
 def test_restore_previous_snapshots_happy_path(
@@ -445,6 +445,7 @@ def test_workflow_restore_step_preserves_exit_status(
         ("gate-branch-protection/", {"metadata.json": b"{}"}, True, False, 99, None),
         ("gate-branch-protection/", {"verification.json": b"{"}, True, False, 99, None),
         ("", {"verification.json": b"[]"}, True, False, 99, None),
+        ("", {"verification.json": b'{"current": NaN}'}, True, False, 99, None),
         ("", {}, True, False, 99, None),
         ("", {"verification.json": b"{}"}, False, False, 99, None),
         ("", {"verification.json": b"{}"}, True, True, 99, False),
@@ -457,6 +458,7 @@ def test_workflow_restore_step_preserves_exit_status(
         "nested-metadata-only",
         "invalid-json",
         "invalid-protection-shape",
+        "non-json-number",
         "bad-zip",
         "unavailable-download",
         "expired",
@@ -531,3 +533,41 @@ def test_restore_snapshot_archive_preserves_usable_state(
         assert files == old_snapshots
         if expected is False:
             assert len(session.calls) == 1
+
+
+def test_restore_logs_each_committed_file_before_a_later_write_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    snapshot_dir = tmp_path / "gate"
+    previous = snapshot_dir / "previous"
+    previous.mkdir(parents=True)
+    (previous / "verification.json").write_bytes(b'{"old": true}')
+
+    archive_path = tmp_path / "artifact.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("enforcement.json", b'{"new": true}')
+        archive.writestr("verification.json", b'{"new": true}')
+
+    artifact = rbs.Artifact(5, "gate-99", "2026-01-01T00:00:00Z", False, 99)
+    monkeypatch.setattr(rbs, "_collect_artifacts", lambda *args: [artifact])
+    monkeypatch.setattr(
+        rbs, "_download_artifact", lambda *args: args[-1].write_bytes(archive_path.read_bytes())
+    )
+    replace = Path.replace
+
+    def fail_verification(source: Path, destination: Path) -> Path:
+        if destination == previous / "verification.json":
+            raise PermissionError("cannot replace verification")
+        return replace(source, destination)
+
+    monkeypatch.setattr(Path, "replace", fail_verification)
+    with pytest.raises(PermissionError, match="cannot replace verification"):
+        rbs.restore_previous_snapshots(
+            repo="owner/repo", token="token", snapshot_dir=snapshot_dir, run_id="101"
+        )
+
+    assert (previous / "enforcement.json").read_bytes() == b'{"new": true}'
+    assert (previous / "verification.json").read_bytes() == b'{"old": true}'
+    notice = capsys.readouterr().out
+    assert "artifact 5, run 99, file: enforcement.json" in notice
+    assert "file: verification.json" not in notice

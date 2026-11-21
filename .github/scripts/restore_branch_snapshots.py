@@ -12,6 +12,9 @@ from pathlib import Path
 
 import requests
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.api_client import GITHUB_API  # noqa: E402
+
 
 @dataclass(slots=True)
 class Artifact:
@@ -147,7 +150,7 @@ def _collect_artifacts(session: requests.Session, repo: str, token: str) -> list
         "Authorization": f"Bearer {token}",
         "User-Agent": "trend-model-scripts",
     }
-    url = f"https://api.github.com/repos/{repo}/actions/artifacts?per_page=100"
+    url = f"{GITHUB_API}/repos/{repo}/actions/artifacts?per_page=100"
     results: list[Artifact] = []
 
     while url:
@@ -192,7 +195,7 @@ def _download_artifact(
         "Authorization": f"Bearer {token}",
         "User-Agent": "trend-model-scripts",
     }
-    url = f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip"
+    url = f"{GITHUB_API}/repos/{repo}/actions/artifacts/{artifact_id}/zip"
     response = _request_with_retry(session, "GET", url, headers=headers, timeout=60, stream=True)
     if response.status_code != 200:
         raise RestoreError(
@@ -209,7 +212,11 @@ def _extract_zip(archive: Path, target_dir: Path) -> None:
         zf.extractall(target_dir)
 
 
-def _copy_json(source_dir: Path, destination_dir: Path) -> tuple[str, ...]:
+def _reject_non_json_constant(value: str) -> None:
+    raise ValueError(f"Invalid JSON constant: {value}")
+
+
+def _copy_json(source_dir: Path, destination_dir: Path) -> Iterator[str]:
     snapshot_names = ("enforcement.json", "verification.json")
     payloads: dict[str, bytes] = {}
     for name in (*snapshot_names, "health-summary.json"):
@@ -218,8 +225,8 @@ def _copy_json(source_dir: Path, destination_dir: Path) -> tuple[str, ...]:
             continue
         contents = path.read_bytes()
         try:
-            decoded = json.loads(contents)
-        except (UnicodeError, json.JSONDecodeError) as exc:
+            decoded = json.loads(contents, parse_constant=_reject_non_json_constant)
+        except ValueError as exc:
             raise RestoreError(f"Invalid JSON snapshot: {name}") from exc
         if name in snapshot_names and not isinstance(decoded, dict):
             raise RestoreError(f"Invalid branch protection snapshot: {name}")
@@ -233,13 +240,13 @@ def _copy_json(source_dir: Path, destination_dir: Path) -> tuple[str, ...]:
     # received bytes before atomically replacing each supplied file; an omitted
     # snapshot stays available from its earlier restore.
     destination_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=destination_dir.parent) as temporary:
+    with tempfile.TemporaryDirectory(dir=destination_dir.parent, prefix=".snapshot-") as temporary:
         staging = Path(temporary)
         for name, contents in payloads.items():
             (staging / name).write_bytes(contents)
         for name in payloads:
             (staging / name).replace(destination_dir / name)
-    return tuple(payloads)
+            yield name
 
 
 def restore_previous_snapshots(
@@ -269,12 +276,12 @@ def restore_previous_snapshots(
         source_dir = unpacked / snapshot_dir.name
         if not source_dir.is_dir():
             source_dir = unpacked
-        restored = _copy_json(source_dir, snapshot_dir / "previous")
-    print(
-        f"[summary] Snapshot restore source: artifact {candidate.id}, "
-        f"run {candidate.workflow_run_id or 'unknown'}, files: {', '.join(restored)}",
-        flush=True,
-    )
+        for name in _copy_json(source_dir, snapshot_dir / "previous"):
+            print(
+                f"[summary] Snapshot restore source: artifact {candidate.id}, "
+                f"run {candidate.workflow_run_id or 'unknown'}, file: {name}",
+                flush=True,
+            )
     return True
 
 
