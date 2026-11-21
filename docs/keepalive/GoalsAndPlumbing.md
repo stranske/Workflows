@@ -214,6 +214,21 @@ runs still skip the resolver. Recover the verified target and retry the
 reporter; do not guess a PR from a branch or display title that lacks the existing
 classification contract.
 
+[Issue #3839 reporter acceptance](../evidence/issue-3839-reporter/README.md)
+retains the named failure and restoration proofs. Run its historical replay
+from a disposable checkout at `1cefedd44b599645a78b7b1035fe57cf33345c67`
+so the script has the exact workflow guard it mutates.
+
+The [PR #3841 conflict-recovery receipts](https://github.com/stranske/Workflows/tree/1cefedd44b599645a78b7b1035fe57cf33345c67/docs/evidence/issue-3839/closer-conflicts-20261011)
+record the original YAML conflict-marker failure and recovery checks. Recover all
+seven original files, including the empty actionlint log, from a Workflows clone.
+
+```bash
+scratch=$(mktemp -d)
+git archive 1cefedd44b599645a78b7b1035fe57cf33345c67 docs/evidence/issue-3839/closer-conflicts-20261011 > "$scratch/receipts.tar" &&
+  tar -xf "$scratch/receipts.tar" -C "$scratch"
+```
+
 Reporter mutation is serialized by the resolved PR, including for unassociated
 `workflow_dispatch` runs. A read-only resolver job classifies the originating
 attempt and derives the PR lock before the reporter job can mint writer tokens,
