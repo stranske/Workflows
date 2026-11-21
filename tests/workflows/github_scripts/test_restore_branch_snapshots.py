@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import runpy
+import subprocess
 import sys
 import zipfile
 from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
+import yaml
 
 # Add script directory to path before importing restore_branch_snapshots
 SCRIPT_DIR = Path(__file__).resolve().parents[3] / ".github" / "scripts"
@@ -385,3 +387,43 @@ def test_module_entrypoint_triggers_main(monkeypatch: pytest.MonkeyPatch) -> Non
         runpy.run_path(SCRIPT_DIR / "restore_branch_snapshots.py", run_name="__main__")
 
     assert exc.value.code == 0
+
+
+@pytest.mark.parametrize(
+    ("restore_exit", "step_exit", "notice"),
+    [
+        (0, 0, ""),
+        (124, 0, "[summary] Snapshot restore timed out; continuing without previous snapshots\n"),
+        (42, 42, ""),
+    ],
+    ids=["success", "timeout", "unexpected-error"],
+)
+def test_workflow_restore_step_preserves_exit_status(
+    tmp_path: Path, restore_exit: int, step_exit: int, notice: str
+) -> None:
+    workflow = SCRIPT_DIR.parent / "workflows" / "health-44-gate-branch-protection.yml"
+    jobs = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]
+    restore = next(
+        step["run"]
+        for step in jobs["enforce"]["steps"]
+        if step.get("name") == "Restore previous branch protection snapshots"
+    )
+    timeout = tmp_path / "timeout"
+    timeout.write_text(
+        "#!/bin/sh\n"
+        '[ "$*" = "5m python .github/scripts/restore_branch_snapshots.py" ] || exit 99\n'
+        'exit "$FIXTURE_EXIT"\n',
+        encoding="utf-8",
+    )
+    timeout.chmod(0o755)
+    result = subprocess.run(
+        ["/bin/bash", "-e", "-c", restore],
+        env={"PATH": str(tmp_path), "FIXTURE_EXIT": str(restore_exit)},
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    assert result.returncode == step_exit
+    assert result.stdout == notice
+    assert result.stderr == ""
