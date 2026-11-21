@@ -559,6 +559,30 @@ def test_selftest_runner_publish_job_contract() -> None:
         assert snippet in comment_script, f"Comment finalizer guard should mention '{snippet}'."
 
 
+def test_selftest_publish_checkout_covers_local_actions_without_an_unused_mint() -> None:
+    steps = _read_workflow(SELFTEST_WORKFLOW)["jobs"]["publish"]["steps"]
+    assert not any(
+        step.get("uses", "").startswith("actions/create-github-app-token@") for step in steps
+    )
+
+    checkouts = [step for step in steps if step.get("uses", "").startswith("actions/checkout@")]
+    assert len(checkouts) == 1
+    checkout = checkouts[0]
+    history = "env.ENABLE_HISTORY == 'true' && env.RUN_ID != ''"
+    comment = "env.MODE == 'comment' && env.POST_TO == 'pr-number'"
+    assert history in checkout["if"] and comment in checkout["if"]
+    sparse = checkout["with"]["sparse-checkout"]
+    assert f"{history} && '.github/actions/artifact-cache'" in sparse
+    assert f"{comment} && '.github/actions/setup-api-client'" in sparse
+    assert f"{comment} && '.github/scripts'" in sparse
+    assert checkout["with"]["sparse-checkout-cone-mode"] is False
+
+    step_order = [step["name"] for step in steps]
+    assert step_order.index("Validate pull request target") < steps.index(checkout)
+    assert steps.index(checkout) < step_order.index("Restore self-test report cache")
+    assert steps.index(checkout) < step_order.index("Setup API client")
+
+
 def test_selftest_triggers_are_manual_only() -> None:
     """Self-test workflows must expose manual triggers (with optional
     workflow_call reuse). selftest-ci.yml is exempt as it's the CI workflow."""
