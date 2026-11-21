@@ -321,5 +321,7 @@ jobs:
         with:
           retention-days: 30
           name: health44-snapshot-pointer-v1
+          # A rerun with a fresh native upload can supersede its own pointer.
+          overwrite: true
           path: ${{ runner.temp }}/health44-snapshot-pointer.json
           if-no-files-found: error

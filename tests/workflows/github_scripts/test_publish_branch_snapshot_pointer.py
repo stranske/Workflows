@@ -122,3 +122,36 @@ def test_pointer_skips_unqualified_native_result(
     assert "Snapshot pointer skipped" in launch(runner)
     assert not Path(runner["GITHUB_OUTPUT"]).exists()
     assert not (tmp_path / publisher.POINTER_FILENAME).exists()
+
+
+def test_fresh_rerun_keeps_the_lookup_name_but_changes_source_identity(
+    runner: dict[str, str], tmp_path: Path
+) -> None:
+    snapshots = Path(runner["SNAPSHOT_DIR"])
+    snapshots.mkdir()
+    (snapshots / "verification.json").write_bytes(b'{"changes_applied": false}')
+    assert "prepared for artifact 14696966847" in launch(runner)
+    pointer_path = tmp_path / publisher.POINTER_FILENAME
+    first = json.loads(pointer_path.read_text())
+
+    runner.update(
+        GITHUB_RUN_ATTEMPT="2",
+        SNAPSHOT_ARTIFACT_ID="14696966848",
+        SNAPSHOT_ARTIFACT_DIGEST="b" * 64,
+        GITHUB_OUTPUT=str(tmp_path / "rerun-output"),
+    )
+    assert "prepared for artifact 14696966848" in launch(runner)
+    second = json.loads(pointer_path.read_text())
+    assert second["run_id"] == first["run_id"]
+    assert second["run_attempt"] == 2
+    assert second["artifact"]["name"] == first["artifact"]["name"]
+    assert second["artifact"]["id"] != first["artifact"]["id"]
+    assert second["artifact"]["sha256"] == "b" * 64
+
+    workflow = SCRIPT.parent.parent / "workflows/health-44-gate-branch-protection.yml"
+    old_upload, pointer_upload = workflow.read_text().split(
+        "      - name: Publish snapshot pointer\n"
+    )
+    assert "overwrite:" not in old_upload
+    assert "name: health44-snapshot-pointer-v1" in pointer_upload
+    assert "overwrite: true" in pointer_upload
