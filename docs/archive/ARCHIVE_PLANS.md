@@ -21,6 +21,10 @@ Historical snapshots from the December 2025–January 2026 audit cycle. Monthly 
 | `docs/WORKFLOW_AUDIT_2025-12-25.md` | [`audits/WORKFLOW_AUDIT_2025-12-25.md`](audits/WORKFLOW_AUDIT_2025-12-25.md) |
 | `docs/WORKFLOW_AUDIT_2026-01-09.md` | [`audits/WORKFLOW_AUDIT_2026-01-09.md`](audits/WORKFLOW_AUDIT_2026-01-09.md) |
 
+## January 2026 Template handoff
+
+- [Template repository evaluation](audits/TEMPLATE_REPO_EVALUATION.md) records the January 3 documentation handoff. The receiving issue is closed. For current setup and architecture, use the [consumer README](../../templates/consumer-repo/README.md) and [keepalive guide](../keepalive/GoalsAndPlumbing.md). [Workflows PR #493](https://github.com/stranske/Workflows/pull/493) · [Template issue #63](https://github.com/stranske/Template/issues/63)
+
 ## Documents kept active (not archived)
 
 | Path | Reason |
