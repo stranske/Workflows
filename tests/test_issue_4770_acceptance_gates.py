@@ -67,6 +67,19 @@ def test_issue_4770_api_wrapper_guard_criterion() -> None:
     assert result.returncode == 0, (result.stdout, result.stderr)
 
 
+def test_issue_4770_validate_workflow_yaml_criterion() -> None:
+    """Acceptance criterion 2: bare validate_workflow_yaml.py on PR-touched workflows."""
+    result = subprocess.run(
+        [sys.executable, "scripts/validate_workflow_yaml.py"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert "validated successfully" in result.stdout
+
+
 def test_issue_4770_archived_audit_report_criterion() -> None:
     """Acceptance criterion 3: archive report structure (also exercised in gate 2)."""
     from tests.docs import test_workflow_audit_2026_11_19 as audit_tests
