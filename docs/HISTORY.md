@@ -69,6 +69,21 @@ in Phase 2).
 
 **End-of-phase backlog**: 10 open issues, 0 open PRs.
 
+### Imported dependency validation rollout
+
+Workflows [copied the rollout report](https://github.com/stranske/Workflows/commit/1785424766b30b8860d2a6a2f8d8bf71c4847058) on December 16, 2025, during the initial documentation extraction. The report dates the Trend Analysis Project rollout to October 27, 2025 and describes a dependency validation suite, a local shell checker, and a reusable CI diagnostic. Its reported project test counts were:
+
+| Measure | Before | After |
+|---|---:|---:|
+| Tests collected | 2,086 | 2,099 |
+| Passed | 2,056 | 2,064 |
+| Skipped | 30 | 35 |
+| Failed | 0 | 0 |
+
+The original 30 skips included 19 Node.js cases, one uv case, and ten other cases. The 13 added checks returned eight passes and five skips with installation guidance. The report gives 90.31% coverage against an 85% baseline, a 5.31-percentage-point margin. It supplies no original run, JUnit file, coverage artifact, or coverage denominator. These are reported Trend Analysis results.
+
+The [original report](https://github.com/stranske/Workflows/blob/1785424766b30b8860d2a6a2f8d8bf71c4847058/docs/archive/plans/DEPENDENCY_MANAGEMENT_SUMMARY.md) describes a Python 3.11 minimum and shows 3.11.14 as sample output. [PR #1777](https://github.com/stranske/Workflows/pull/1777/files) updated those references to 3.12 and 3.12.14 in the [revised report](https://github.com/stranske/Workflows/blob/37d5956b38b8a976820ebaaf3229ff203fbc60cf/docs/archive/plans/DEPENDENCY_MANAGEMENT_SUMMARY.md). The reported test and coverage values stayed the same. The [archive recovery entry](archive/ARCHIVE_PLANS.md#historical-dependency-validation-rollout) records the exact checksums.
+
 ---
 
 ## Phase 2 — v1.1.x release & first Feb push (Jan 13 → Feb 10, 2026)
