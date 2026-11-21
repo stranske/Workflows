@@ -372,12 +372,12 @@ API calls in workflow:
 - `gh api` — [_repos/Workflows/.github/workflows/agents-verify-to-new-pr-autopilot.yml](_repos/Workflows/.github/workflows/agents-verify-to-new-pr-autopilot.yml#L50)
 
 ### Archived Maint 63 Ensure Environments
-Workflow: _repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml
+Workflow: [archived source at the time of this audit](https://github.com/stranske/Workflows/blob/50c9f77fe00b6f5a3aa86d3857b85e048748b59a/.github/workflows/archived/maint-63-ensure-environments.yml)
 
 API calls in workflow:
-- `github.rest.teams.getByName` — [_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml](_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml#L33)
-- `github.rest.users.getByUsername` — [_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml](_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml#L49)
-- `github.rest.repos.createOrUpdateEnvironment` — [_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml](_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml#L57)
+- `github.rest.teams.getByName` — [Archived Maint 63 source](https://github.com/stranske/Workflows/blob/50c9f77fe00b6f5a3aa86d3857b85e048748b59a/.github/workflows/archived/maint-63-ensure-environments.yml#L33)
+- `github.rest.users.getByUsername` — [Archived Maint 63 source](https://github.com/stranske/Workflows/blob/50c9f77fe00b6f5a3aa86d3857b85e048748b59a/.github/workflows/archived/maint-63-ensure-environments.yml#L49)
+- `github.rest.repos.createOrUpdateEnvironment` — [Archived Maint 63 source](https://github.com/stranske/Workflows/blob/50c9f77fe00b6f5a3aa86d3857b85e048748b59a/.github/workflows/archived/maint-63-ensure-environments.yml#L57)
 
 ### Selftest Reusable CI
 Workflow: _repos/Workflows/.github/workflows/selftest-reusable-ci.yml
@@ -1101,7 +1101,7 @@ Legend: **Yes** = verified present at call sites; **No** = verified absent; **Mi
 | REPO.COLLAB | `github.rest.repos.getCollaboratorPermissionLevel` | Yes | Mixed | Mixed | No | Used in [prompt_injection_guard.js](_repos/Workflows/.github/scripts/prompt_injection_guard.js#L146). |
 | REPO.DELETE_FILE | `github.rest.repos.deleteFile` | Yes | Yes | Mixed | No | Wrapped in [maint-72-fix-pr-body-conflicts.yml](_repos/Workflows/.github/workflows/maint-72-fix-pr-body-conflicts.yml#L213). |
 | REPO.PUT_FILE | `github.rest.repos.createOrUpdateFileContents` | Yes | Yes | Mixed | No | Wrapped in [maint-72-fix-pr-body-conflicts.yml](_repos/Workflows/.github/workflows/maint-72-fix-pr-body-conflicts.yml#L237). |
-| REPO.CREATE_ENV | `github.rest.repos.createOrUpdateEnvironment` | No | No | No | No | Only in [archived/maint-63-ensure-environments.yml](_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml#L57). |
+| REPO.CREATE_ENV | `github.rest.repos.createOrUpdateEnvironment` | No | No | No | No | Only in [archived/maint-63-ensure-environments.yml](https://github.com/stranske/Workflows/blob/50c9f77fe00b6f5a3aa86d3857b85e048748b59a/.github/workflows/archived/maint-63-ensure-environments.yml#L57). |
 | ACT.LIST_RUNS | `github.rest.actions.listWorkflowRuns` | Yes | Mixed | Mixed | No | Wrapped in [agents-autofix-loop.yml](_repos/Workflows/.github/workflows/agents-autofix-loop.yml#L281), direct in [agents_pr_meta_orchestrator.js](_repos/Workflows/.github/scripts/agents_pr_meta_orchestrator.js#L67). |
 | ACT.LIST_RUNS_REPO | `github.rest.actions.listWorkflowRunsForRepo` | Yes | Mixed | Mixed | No | Direct in [conflict_detector.js](_repos/Workflows/.github/scripts/conflict_detector.js#L170). |
 | ACT.LIST_JOBS | `github.rest.actions.listJobsForWorkflowRun` | Mixed | Mixed | Mixed | No | Wrapped in [agents-autofix-loop.yml](_repos/Workflows/.github/workflows/agents-autofix-loop.yml#L264), direct in [selftest-reusable-ci.yml](_repos/Workflows/.github/workflows/selftest-reusable-ci.yml#L281). |
@@ -1117,8 +1117,8 @@ Legend: **Yes** = verified present at call sites; **No** = verified absent; **Mi
 | REACT.LIST | `github.rest.reactions.listForIssueComment` | Yes | Yes | Mixed | No | Wrapped in [reusable-70-orchestrator-main.yml](_repos/Workflows/.github/workflows/reusable-70-orchestrator-main.yml#L791). |
 | REACT.CREATE | `github.rest.reactions.createForIssueComment` | Yes | Mixed | Mixed | No | Wrapped in [reusable-70-orchestrator-main.yml](_repos/Workflows/.github/workflows/reusable-70-orchestrator-main.yml#L1204), direct in [agents_pr_meta_orchestrator.js](_repos/Workflows/.github/scripts/agents_pr_meta_orchestrator.js#L42). |
 | USER.ME | `github.rest.users.getAuthenticated` | Yes | Yes | Mixed | No | Wrapped in [reusable-70-orchestrator-init.yml](_repos/Workflows/.github/workflows/reusable-70-orchestrator-init.yml#L361). |
-| USER.BYNAME | `github.rest.users.getByUsername` | No | No | No | No | Only in [archived/maint-63-ensure-environments.yml](_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml#L49). |
-| TEAM.BYNAME | `github.rest.teams.getByName` | No | No | No | No | Only in [archived/maint-63-ensure-environments.yml](_repos/Workflows/.github/workflows/archived/maint-63-ensure-environments.yml#L33). |
+| USER.BYNAME | `github.rest.users.getByUsername` | No | No | No | No | Only in [archived/maint-63-ensure-environments.yml](https://github.com/stranske/Workflows/blob/50c9f77fe00b6f5a3aa86d3857b85e048748b59a/.github/workflows/archived/maint-63-ensure-environments.yml#L49). |
+| TEAM.BYNAME | `github.rest.teams.getByName` | No | No | No | No | Only in [archived/maint-63-ensure-environments.yml](https://github.com/stranske/Workflows/blob/50c9f77fe00b6f5a3aa86d3857b85e048748b59a/.github/workflows/archived/maint-63-ensure-environments.yml#L33). |
 | GIT.DELETE_REF | `github.rest.git.deleteRef` | Yes | Yes | Mixed | No | Wrapped in [agents-73-codex-belt-conveyor.yml](_repos/Workflows/.github/workflows/agents-73-codex-belt-conveyor.yml#L424). |
 | GIT.LIST_MATCH | `github.rest.git.listMatchingRefs` | Yes | Yes | Mixed | No | Used in [agents-72-codex-belt-worker.yml](_repos/Workflows/.github/workflows/agents-72-codex-belt-worker.yml#L488). |
 

@@ -479,7 +479,7 @@ status updates:
 | Bucket | Where it runs | YAML entry points | Why it exists |
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
-| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-62-integration-consumer.yml`, `maint-63-ensure-environments.yml`, `maint-65-sync-label-docs.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
+| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-62-integration-consumer.yml`, `maint-65-sync-label-docs.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Orchestrator dispatch (`workflow_dispatch`, `workflow_call`, `issues`), belt conveyor (`repository_dispatch`, `workflow_run`) | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-model-profile-trial.yml`, `agents-moderate-connector.yml`, `agents-autofix-dispatcher.yml`, `agents-autofix-loop.yml`, `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`, `agents-keepalive-loop-reporter.yml`, `agents-keepalive-branch-sync.yml`, `agents-keepalive-dispatch-handler.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-issue-format-guard.yml`, `agents-issue-optimizer.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Autofix and manually dispatched CI callers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
@@ -555,9 +555,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   scenarios on a daily schedule (05:05 UTC), on release publication, or via
   manual dispatch, then reports the outcome in the job summary and manages the
   integration failure tracker issue when needed.
-- **Maint 63 Ensure Environments** – `.github/workflows/maint-63-ensure-environments.yml`
-  ensures agent environments (`agent-standard`, `agent-high-privilege`) exist
-  with appropriate protection rules for environment-gated workflows.
 - **Maint 65 Sync Label Docs** – `.github/workflows/maint-65-sync-label-docs.yml`
   synchronizes the consumer-specific `templates/consumer-repo/docs/LABELS.md`
   to consumer `docs/LABELS.md` files when the template changes or via manual
@@ -871,6 +868,15 @@ snapshots for audit trails.
 - **Retire.** `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
   removed Agents 61/62 consumer workflows, and the legacy `selftest-*` wrappers
   superseded by `selftest-reusable-ci.yml`.
+- **Retired environment provisioning.** Maint 63 was retired in December 2025
+  after environment-management requests returned HTTP 403.
+  [Original workflow](https://github.com/stranske/Workflows/blob/31cf87f533482e4a01937457e66a3ee62f3ec192/.github/workflows/maint-63-ensure-environments.yml) · [Final archived revision](https://github.com/stranske/Workflows/blob/0277001ab1894663ecd736faab52a8d827bd98fe/.github/workflows/archived/maint-63-ensure-environments.yml)
+  [Gate](../../.github/workflows/pr-00-gate.yml) selects `agent-high-privilege`
+  when it detects workflow changes and `agent-standard` otherwise.
+  [Keepalive](../../.github/workflows/agents-keepalive-loop.yml) and
+  [Autofix](../../.github/workflows/agents-autofix-loop.yml) also use these
+  environments. Check the repository's environment settings for the current
+  protection rules and required reviewers.
 
 ## How to change a workflow safely
 
