@@ -1723,6 +1723,20 @@ def test_agent_task_template_auto_labels_codex():
     ), "Agent task template must auto-apply agents + agent:codex labels"
 
 
+def test_issue_chooser_template_names_are_unique():
+    names = {}
+    paths = sorted(ISSUE_TEMPLATE_DIR.glob("*.md")) + sorted(ISSUE_TEMPLATE_DIR.glob("*.yml"))
+    for path in paths:
+        if path.name == "config.yml":
+            continue
+        content = path.read_text(encoding="utf-8")
+        if path.suffix == ".md":
+            content = content.split("---", 2)[1]
+        name = yaml.safe_load(content)["name"]
+        assert name not in names, f"{path.name} and {names.get(name)} share the name {name!r}"
+        names[name] = path.name
+
+
 def test_codex_issue_forms_require_scope_tasks_acceptance():
     for name in ("bug_report_codex.yml", "feature_request_codex.yml"):
         data = _load_issue_template_yaml(name)
