@@ -44,6 +44,10 @@ The Agents 72 worker was replayed on 52 closed Workflows issues. Moving the ledg
 
 The [Python CI starter](../../templates/workflow-templates/) now has a distribution directory under `templates/`. In its previous layout, publishing the bundle as shipped left the custom gallery icon unresolved. The starter retains the same reusable CI job and four input values. It now runs without inherited secrets and advertises supported dependency layouts. The [installation instructions](../../templates/README.md#python-ci-starter-for-the-github-actions-gallery) cover an individual project and an organization gallery. A clean copy resolved the icon and passed Actionlint. No organization gallery installation was observed.
 
+### Retired finalizer files
+
+The two former `pr-finalize` directories still lead readers to the guarded closer through their existing README and INSTALL pages. The duplicate prompts and descriptors have been retired. Claude Code offered no finalizer command from either layout before the removal. All four original files can be recovered byte-for-byte at the revision linked in the [retirement notice](../../skills/pr-finalize/README.md).
+
 ## Awaiting live verification
 
 - [ ] **Observe the next Maint 84 commit with eligible input.** The November 16 schedule selected 35 eligible files. GitHub rejected its direct push because main requires a PR and the `summary` check. The corrected workflow requested the PR step for the same 35 files in replay. Preview and a repeat on the cleaned tree requested zero writes. The November 20 default branch contained zero eligible filenames. Close when a scheduled run opens or updates a reviewed deletion PR and its changes land on main. The schedule runs Mondays at 08:00 UTC. [Failed delivery](https://github.com/stranske/Workflows/actions/runs/43830898674) · [Repair PR #4783](https://github.com/stranske/Workflows/pull/4783)
