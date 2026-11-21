@@ -91,9 +91,9 @@ def _process_function(node: ast.FunctionDef, lines: list[str], str_vars: set[str
 
 
 def _process_file(path: Path) -> bool:
-    text = path.read_text(encoding="utf-8")
-    module = ast.parse(text)
-    lines = text.splitlines()
+    with path.open(encoding="utf-8", newline="") as source:
+        lines = source.readlines()
+    module = ast.parse("".join(lines))
     changed = False
 
     for node in module.body:
@@ -102,7 +102,8 @@ def _process_file(path: Path) -> bool:
             changed |= _process_function(node, lines, string_vars | list_vars)
 
     if changed:
-        path.write_text("\n".join(lines), encoding="utf-8")
+        with path.open("w", encoding="utf-8", newline="") as source:
+            source.writelines(lines)
     return changed
 
 

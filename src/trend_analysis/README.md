@@ -23,17 +23,29 @@ This directory contains **sample Python modules used to test the CI autofix pipe
 | `selector.py` | Selector logic test fixture |
 | `weighting.py` | Weighting algorithm test fixture |
 
-## Used By
+## Readers and placement
 
-- `tests/workflows/test_autofix_pipeline_diverse.py` - Creates temporary copies of these patterns for autofix testing
-- CI autofix workflows that validate the repair pipeline works correctly
+The default [return-annotation repair](../../scripts/mypy_return_autofix.py)
+walks `src/` from the repository root. A move to `tests/fixtures/` puts the
+samples outside that scan. The [path classifier](../../.github/path-classification.yml)
+also treats a Python edit under `tests/` as test-only. A change to these
+source samples follows the Python source route.
 
-## Why Not in `tests/`?
+The [diverse-pipeline test](../../tests/workflows/test_autofix_pipeline_diverse.py)
+writes its own damaged modules into a temporary project. To exercise the
+[cosmetic repair](../../scripts/fix_cosmetic_aggregate.py) against the tracked
+`automation_multifailure.py`, run it from this directory in a disposable
+checkout with the repository's Python interpreter.
 
-These files need to be in a `src/` location because:
-1. The autofix pipeline specifically targets `src/` directories
-2. They simulate real project structure that autofix would encounter
-3. Some tests copy these patterns into temporary workspaces
+```sh
+cd src/trend_analysis
+python ../../scripts/fix_cosmetic_aggregate.py
+```
+
+The clean sample already joins with `" | "`. Changing the join separator to
+a comma in the disposable copy and repeating the command restores the pipe.
+The [developer guide](../../docs/metrics-developer-guide.md) also documents how
+to import `trend_analysis` explicitly from a full checkout.
 
 ## Coverage Exclusion
 
