@@ -206,7 +206,7 @@
       "pr": 2744,
       "expected_verdict": "PASS",
       "category": "clean-pass",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2744.json.gz"
     },
     {
@@ -215,7 +215,7 @@
       "pr": 2746,
       "expected_verdict": "PASS",
       "category": "clean-pass",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2746.json.gz"
     },
     {
@@ -614,7 +614,7 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-07-27",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "snapshot_ref": "config/model_eval_snapshots/workflows-2528.json.gz"
     },
     {
@@ -717,7 +717,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2528",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2528",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2528.json.gz",
@@ -733,7 +733,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2528",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2528",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2528.json.gz",
@@ -749,7 +749,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2528",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2528",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2528.json.gz",
@@ -868,7 +868,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2744",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2744",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2744.json.gz",
@@ -884,7 +884,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2744",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2744",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2744.json.gz",
@@ -900,7 +900,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2744",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2744",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2744.json.gz",
@@ -917,7 +917,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2746",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2746",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2746.json.gz",
@@ -933,7 +933,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2746",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2746",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2746.json.gz",
@@ -949,7 +949,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2746",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2746",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2746.json.gz",
@@ -1049,7 +1049,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2832",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2832",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2832.json.gz",
@@ -1065,7 +1065,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2832",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2832",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2832.json.gz",
@@ -1099,7 +1099,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2885",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2885",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2885.json.gz",
@@ -1115,7 +1115,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2885",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2885",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2885.json.gz",
@@ -1131,7 +1131,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2885",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2885",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2885.json.gz",
@@ -1264,7 +1264,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2898",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2898",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2898.json.gz",
@@ -1280,7 +1280,7 @@
       "category": "missing-acceptance-criterion",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2898",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2898",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2898.json.gz",
@@ -1296,7 +1296,7 @@
       "category": "ci-failure-disqualifier",
       "provenance": "controlled-mutation",
       "source_case_id": "workflows-2898",
-      "coverage_sufficient": true,
+      "coverage_sufficient": false,
       "mutation_recipe": {
         "source_case_id": "workflows-2898",
         "source_snapshot_ref": "config/model_eval_snapshots/workflows-2898.json.gz",

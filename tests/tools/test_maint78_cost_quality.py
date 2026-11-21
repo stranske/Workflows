@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from tools.create_model_eval_snapshot import create_case
+from tools.generate_mutation_cases import coverage_sufficient, load_case
 from tools.model_eval_snapshots import (
     coverage_blockers,
     is_complex_coverage,
@@ -172,17 +174,12 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     assert plan["real_non_pass_cases"] == 4
     assert plan["expected_non_pass_cases"] == 4 + mutants
     # only inputs the production prompt calls sufficient can score a judge fairly
+    assert 0 < plan["evaluable_pass_cases"] <= plan["expected_pass_cases"]
     assert 0 < plan["evaluable_non_pass_cases"] <= plan["expected_non_pass_cases"]
-    # Full Tasks expose missing evidence metadata in historical captures. Keep
-    # the statistical floor unchanged and surface the actual corpus shortfall.
-    assert plan["evaluable_pass_cases"] == 14
     assert plan["zero_error_false_fail_denominator"] == 16
     assert any("false-fail gate needs 16" in reason for reason in plan["approval_blockers"])
-    # Failed-CI mutants are diagnostic-only; 18 evaluable NON_PASS cases now
-    # stand against the unchanged 35-case floor of the 0.10 bound until the approval standard is
-    # re-decided (docs/ops/VERIFIER_STANDARDS_ANALYSIS.md)
+    # Failed-CI mutants are diagnostic-only; their inventory remains visible.
     assert plan["diagnostic_only_cases"] == 22
-    assert plan["evaluable_non_pass_cases"] == 18
     assert any("NON_PASS cases are evaluable" in reason for reason in plan["approval_blockers"])
     assert any("paired production API benchmark" in reason for reason in plan["approval_blockers"])
     assert plan["zero_error_false_pass_denominator"] == 35  # 0.10 bound at 95% confidence
@@ -193,6 +190,32 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     # and is supplied by controlled-mutation cases (policy update 2026-10-18, issue #4113)
     assert plan["category_shortfalls"] == {}
     assert plan["unpriced_openai_models"] == []
+
+
+def test_readiness_coverage_matches_current_prompt():
+    from tools.run_judge_backend_screen import corpus_cases_with_snapshots
+
+    corpus, registry, policy = _inputs()
+    stale = {}
+    for case in corpus["cases"]:
+        if not (case.get("snapshot_ref") or case.get("mutation_recipe")):
+            continue
+        current = coverage_sufficient(load_case(case, ROOT)["production_snapshot"])
+        if case.get("coverage_sufficient") is not current:
+            stale[case["case_id"]] = (case.get("coverage_sufficient"), current)
+    assert stale == {}, f"Historical prompt coverage flags have drifted (stored, current): {stale}"
+
+    approval = policy["profiles"]["verifier-balanced"]["approval_stage"]
+    stable_enabled = approval["stable_merge_pass"]["enabled"]
+    ordinary = corpus_cases_with_snapshots(corpus, ROOT, evaluable_only=True)
+    counts = Counter(
+        case["expected_verdict"]
+        for case in ordinary
+        if stable_enabled or case.get("provenance") != "stable-merge"
+    )
+    plan = build_plan(corpus, registry, policy)
+    assert plan["evaluable_pass_cases"] == counts["PASS"]
+    assert plan["evaluable_non_pass_cases"] == counts["NON_PASS"]
 
 
 def test_current_plan_surfaces_missing_complex_coverage_before_paid_confirmation():
