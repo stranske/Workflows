@@ -24,4 +24,3 @@ jobs:
       enable-soft-gate: true
       # Optional: set this if your project lives in a subdirectory
       # working-directory: backend
-    secrets: inherit

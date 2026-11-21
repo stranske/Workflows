@@ -31,6 +31,13 @@ root `workflow-templates/` directory of the organization's `.github` repository.
 Keep `python-ci.yml`, `python-ci.properties.json` and `python.svg` together.
 For organizations with different default branches, use GitHub’s `$default-branch`
 placeholder in both branch filters in the published copy.
+The shared CI installs project dependencies from `requirements.lock` or an
+installable Python project. A project with only `requirements.txt` must provide
+one of those before using this starter. The default invocation needs no caller
+secrets. For private dependencies or GitHub App authentication, map the
+corresponding [named reusable workflow secrets](../.github/workflows/reusable-10-ci-python.yml)
+explicitly in the installed caller.
+
 [GitHub's workflow template guide](https://docs.github.com/en/actions/how-tos/reuse-automations/create-workflow-templates)
 
 ## Required Secrets

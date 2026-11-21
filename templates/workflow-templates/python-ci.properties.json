@@ -9,7 +9,7 @@
   ],
   "filePatterns": [
     "pyproject\\.toml$",
-    "requirements(\\.txt|\\.lock)$",
+    "^requirements\\.lock$",
     "setup\\.(cfg|py)$"
   ]
 }
