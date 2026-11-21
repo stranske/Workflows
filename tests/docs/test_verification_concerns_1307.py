@@ -20,7 +20,7 @@ REQUIRED_SUBSECTIONS = (
     "#### Evidence",
 )
 
-LINK_RE = re.compile(r"(?<![\\!])\[[^\]]+\]\(([^)]+)\)")
+LINK_RE = re.compile(r"(?<![\\!])\[[^\]]+\]\(([^\s)]+)\)")
 NON_RENDERED_RE = re.compile(
     r"<!--.*?(?:-->|\Z)"
     r"|^ {0,3}(?P<fence>`{3,}|~{3,})[^\n]*\n.*?(?:^ {0,3}(?P=fence)[ \t]*$|\Z)"
