@@ -2,6 +2,7 @@ import ast
 import textwrap
 from pathlib import Path
 
+import pytest
 from scripts import mypy_return_autofix
 
 
@@ -84,6 +85,25 @@ def test_process_function_skips_bare_return() -> None:
     changed = mypy_return_autofix._process_function(func, lines, set())
 
     assert changed is False
+
+
+@pytest.mark.parametrize(
+    ("first_ending", "last_ending"),
+    [(b"\n", b"\n"), (b"\r\n", b"\r\n"), (b"\r\n", b"\n"), (b"\n", b"")],
+    ids=["lf", "crlf", "mixed", "no-final-newline"],
+)
+def test_annotation_repair_preserves_other_bytes(
+    tmp_path: Path, first_ending: bytes, last_ending: bytes
+) -> None:
+    target = tmp_path / "sample.py"
+    original = b"def label() -> int:" + first_ending + b'    return "ready"' + last_ending
+    expected = original.replace(b"-> int:", b"-> str:")
+    target.write_bytes(original)
+
+    assert mypy_return_autofix._process_file(target)
+    assert target.read_bytes() == expected
+    assert not mypy_return_autofix._process_file(target)
+    assert target.read_bytes() == expected
 
 
 def test_process_file_rewrites_annotation(tmp_path: Path) -> None:
