@@ -637,6 +637,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Run an offline self-smoke over bundled fixtures and exit.",
     )
     parser.add_argument(
+        "--require-bundled-fixtures",
+        action="store_true",
+        help="Fail self-smoke if any bundled case or its manifest is missing.",
+    )
+    parser.add_argument(
         "--evidence-objects",
         type=Path,
         nargs="+",
@@ -659,6 +664,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.require_bundled_fixtures and not args.self_smoke:
+        parser.error("--require-bundled-fixtures requires --self-smoke")
+
     modes = [args.self_smoke, args.evidence_objects, args.tracked_variables, args.mirror_manifest]
     if sum(bool(mode) for mode in modes) > 1:
         parser.error(
@@ -675,7 +683,9 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"the following arguments are required: {', '.join(missing)}")
 
     if args.self_smoke:
-        return _self_smoke(args.schema_dir, args.registry)
+        return _self_smoke(
+            args.schema_dir, args.registry, require_bundled_fixtures=args.require_bundled_fixtures
+        )
 
     if args.evidence_objects:
         report = validate_evidence_objects(
@@ -804,11 +814,12 @@ def main(argv: list[str] | None = None) -> int:
     return 0 if args.warn_only else 1
 
 
-def _self_smoke(schema_dir: Path, registry_path: Path) -> int:
-    """Offline self-check: schemas load + valid/invalid fixtures behave.
+def _self_smoke(
+    schema_dir: Path, registry_path: Path, *, require_bundled_fixtures: bool = False
+) -> int:
+    """Offline self-check: schemas load and the bundled fixtures behave.
 
-    Looks for fixtures next to the repo's tests/fixtures/backplane/. Prints a
-    PASS/FAIL line per case and returns non-zero if any case is unexpected.
+    Schema-only exports can omit fixtures. CI can require the full bundled set.
     """
     registry = _load_json(registry_path)
     # Load EVERY bundled schema (must be valid Draft 2020-12). Discovering them
@@ -832,45 +843,34 @@ def _self_smoke(schema_dir: Path, registry_path: Path) -> int:
         print(f"PASS schema loads + valid Draft202012: {name}")
 
     fx = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "backplane"
-    cases = []
-    if fx.is_dir():
-        valid_run = fx / "valid_run.json"
-        valid_manifest = fx / "valid_manifest.json"
-        if valid_run.is_file():
-            cases.append(
-                (
-                    valid_run,
-                    valid_manifest if valid_manifest.is_file() else None,
-                    "stranske/Pension-Data",
-                    True,
-                )
-            )
-        # Unsafe raw payload fixtures must fail without echoing sensitive values.
-        for inv in (
-            "missing_cost.json",
-            "unsafe_rows_inline.json",
-            "unsafe_prompt_inline.json",
-            "artifact_not_in_manifest.json",
-            "bad_identity_ref.json",
-        ):
-            p = fx / inv
-            if p.is_file():
-                mani = (
-                    valid_manifest
-                    if (inv == "artifact_not_in_manifest.json" and valid_manifest.is_file())
-                    else None
-                )
-                cases.append((p, mani, "stranske/Pension-Data", False))
+    valid_manifest = fx / "valid_manifest.json"
+    bundled_cases = (
+        (fx / "valid_run.json", valid_manifest, True),
+        (fx / "missing_cost.json", None, False),
+        (fx / "unsafe_rows_inline.json", None, False),
+        (fx / "unsafe_prompt_inline.json", None, False),
+        (fx / "artifact_not_in_manifest.json", valid_manifest, False),
+        (fx / "bad_identity_ref.json", None, False),
+    )
+    if require_bundled_fixtures:
+        required = [path for path, _, _ in bundled_cases] + [valid_manifest]
+        missing = [path.name for path in required if not path.is_file()]
+        if missing:
+            print(f"FAIL missing bundled fixtures: {', '.join(missing)}")
+            return 1
 
+    cases = [
+        (path, manifest, expected) for path, manifest, expected in bundled_cases if path.is_file()
+    ]
     ok = True
-    for path, mani_path, repo, expect_pass in cases:
+    for path, mani_path, expect_pass in cases:
         envelope = _load_json(path)
-        manifest = _load_json(mani_path) if mani_path else None
+        manifest = _load_json(mani_path) if mani_path and mani_path.is_file() else None
         report = validate_envelope(
             envelope=envelope,
             schema_dir=schema_dir,
             registry=registry,
-            repo=repo,
+            repo="stranske/Pension-Data",
             manifest=manifest,
         )
         passed = report.conformant or report.skipped
