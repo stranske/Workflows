@@ -247,3 +247,6 @@ test('shouldIncludeScopeBlock includes scope when PR body scope differs', () => 
 
   assert.equal(shouldIncludeScopeBlock({ scopeBlock, prBody }), true);
 });
+
+// Register the visible runner contract suite with the hosted test selection.
+require('../../../tests/keepalive-runner.test.js');
