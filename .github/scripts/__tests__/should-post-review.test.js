@@ -7,8 +7,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const scriptPath = path.join(__dirname, '..', '.github', 'scripts', 'should-post-review.js');
-const fixturesDir = path.join(__dirname, 'fixtures', 'review_result');
+const scriptPath = path.join(__dirname, '..', 'should-post-review.js');
+const fixturesDir = path.join(__dirname, '..', '..', '..', 'tests', 'fixtures', 'review_result');
 
 function runScript(filePath) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'should-post-review-'));
