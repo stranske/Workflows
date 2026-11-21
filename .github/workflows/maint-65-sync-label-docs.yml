@@ -72,6 +72,7 @@ jobs:
           echo "default_repos=${combined_repos}" >> "$GITHUB_OUTPUT"
 
       - name: Sync to consumer repos
+        id: sync
         if: steps.token.outputs.token_available == 'true'
         env:
           SYNC_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
@@ -93,15 +94,45 @@ jobs:
             --source templates/consumer-repo/docs/LABELS.md
 
       - name: Summary
+        if: ${{ !cancelled() }}
+        env:
+          TOKEN_AVAILABLE: ${{ steps.token.outputs.token_available }}
+          SYNC_OUTCOME: ${{ steps.sync.outcome }}
+          JOB_STATUS: ${{ job.status }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: |
+          case "$SYNC_OUTCOME" in
+            success)
+              if [ "$DRY_RUN" = "true" ]; then
+                outcome="Preview completed. No files were pushed."
+              else
+                outcome="Live sync completed. See the sync step log for per-repository results."
+              fi
+              ;;
+            failure)
+              if [ "$DRY_RUN" = "true" ]; then
+                outcome="Preview failed. No files were pushed. See the sync step log."
+              else
+                outcome="Live sync failed. Some repositories may have been updated. See the sync step log for per-repository results."
+              fi
+              ;;
+            skipped|'')
+              if [ "$TOKEN_AVAILABLE" = "false" ] && [ "$JOB_STATUS" = "success" ]; then
+                outcome="Skipped because no sync token was available. No files were pushed."
+              else
+                outcome="Sync did not run. See preceding job steps."
+              fi
+              ;;
+            *)
+              outcome="Sync did not complete. See preceding job steps."
+              ;;
+          esac
+
           {
             echo "## Label Documentation Sync"
             echo ""
-            echo "Synced \`templates/consumer-repo/docs/LABELS.md\` to consumer repositories as \`docs/LABELS.md\`."
+            echo 'Source: `templates/consumer-repo/docs/LABELS.md`'
+            echo 'Destination: `docs/LABELS.md`'
             echo ""
-            if [ "${{ inputs.dry_run }}" = "true" ]; then
-              echo "**Mode:** Dry run (no changes made)"
-            else
-              echo "**Mode:** Live sync"
-            fi
+            echo "**Outcome:** $outcome"
           } >> "$GITHUB_STEP_SUMMARY"
