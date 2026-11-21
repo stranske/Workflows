@@ -56,11 +56,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup API client
-        uses: ./.github/actions/setup-api-client
-        with:
-          github_token: ${{ github.token }}
-
       - name: Restore comparison timestamp marker
         if: github.event_name == 'workflow_run'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -104,6 +99,12 @@ jobs:
             exit 0
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Setup API client
+        if: steps.debounce.outputs.skip != 'true'
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
 
       - name: Setup Python
         if: steps.debounce.outputs.skip != 'true'
