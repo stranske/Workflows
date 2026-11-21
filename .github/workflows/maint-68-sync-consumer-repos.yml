@@ -1034,11 +1034,7 @@ jobs:
           plan_scope = os.environ.get('PLAN_SCOPE', '')
           if plan_scope == 'full':
               targets_path = Path('sync_targets.txt')
-              target_lines = (
-                  targets_path.read_text(encoding='utf-8').splitlines()
-                  if targets_path.is_file()
-                  else []
-              )
+              target_lines = targets_path.read_text(encoding='utf-8').splitlines()
               if '.gitignore' not in target_lines:
                   target_lines.append('.gitignore')
                   targets_path.write_text(
@@ -1187,6 +1183,10 @@ jobs:
           CHANGES_COUNT: ${{ steps.sync.outputs.changes_count || '0' }}
         run: |
           cd consumer
+          if [ ! -f "../sync_targets.txt" ] || [ ! -r "../sync_targets.txt" ]; then
+            echo "::error::Staging inventory ../sync_targets.txt must be a readable regular file."
+            exit 1
+          fi
 
           branch_name="$SYNC_BRANCH"
 
@@ -1402,30 +1402,21 @@ jobs:
 
           # Stage ONLY manifest-declared targets, to avoid accidentally committing
           # consumer-specific artifacts (e.g. requirements.lock, *.pyc, *.egg-info).
-          if [ -f "../sync_targets.txt" ]; then
-            while IFS= read -r path; do
-              [ -z "$path" ] && continue
-              if [ -e "$path" ]; then
-                # Use --force so consumer .gitignore rules cannot silently
-                # exclude files that the sync manifest declares.
-                git add --force -- "$path"
-              else
-                # Stage deletions for removal targets (or files removed by sync).
-                git add -u -- "$path" >/dev/null 2>&1 || true
-              fi
-            done < "../sync_targets.txt"
-          else
-            echo "::warning::sync_targets.txt missing; falling back to git add -A"
-            git add --force -A
-          fi
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            if [ -e "$path" ]; then
+              # Use --force so consumer .gitignore rules cannot silently
+              # exclude files that the sync manifest declares.
+              git add --force -- "$path"
+            else
+              # Stage deletions for removal targets (or files removed by sync).
+              git add -u -- "$path" >/dev/null 2>&1 || true
+            fi
+          done < "../sync_targets.txt"
 
           if [ "$PLAN_SCOPE" = "source-delta" ] \
             && [ -n "$existing_pr" ] \
             && [ "$existing_refreshable" = "true" ]; then
-            if [ ! -f "../sync_targets.txt" ]; then
-              echo "::error::Source-delta rotation lacks selected targets; use full scope."
-              exit 1
-            fi
             # The manifest target list includes files skipped for this consumer.
             # Only staged paths will survive when the stable branch is rebuilt.
             git diff --cached --name-only > ../staged_sync_targets.txt

@@ -76,6 +76,8 @@ const SOURCE_WORKFLOWS = new Set([
   // Adds the failure-alert resolve-alert and report-refusal jobs, which write only issue
   // comments/state and never consume the source or touch a consumer; prepare only records a selector refusal as an output.
   'e6f00c2e6835ebcf449a48bed2e84f24f04179914fa9199fd92168d1fbd00990',
+  // Missing staging inventory stops publication. Source resolution, checkout, and upload are unchanged.
+  '8ff84ede3c45b5d063c72058e9ce396031ae3fc862225d53980e6d1113000330',
 ]);
 
 async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {

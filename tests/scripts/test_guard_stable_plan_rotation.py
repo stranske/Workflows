@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 from scripts.guard_stable_plan_rotation import uncovered_pending_paths
 
 
@@ -238,3 +239,44 @@ def test_maint68_checks_rotation_before_rebuilding_stable_branch() -> None:
         < workflow.index("guard_stable_plan_rotation.py")
         < workflow.index("desired_tree_hash=$(git write-tree)")
     )
+
+
+@pytest.mark.parametrize("inventory", [None, "", "managed.txt\nobsolete.txt\n"])
+def test_maint68_stages_only_with_explicit_inventory(tmp_path: Path, inventory: str | None) -> None:
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.safe_load(
+        (root / ".github/workflows/maint-68-sync-consumer-repos.yml").read_text()
+    )
+    publish = next(
+        step["run"]
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("name") == "Create sync PR"
+    )
+    # Run the authored opening and staging block without any remote operations.
+    opening = publish.partition('branch_name="$SYNC_BRANCH"')[0]
+    staging = publish.split("# Stage ONLY manifest-declared targets", 1)[1]
+    staging = staging.split('\nif [ "$PLAN_SCOPE"', 1)[0].split("\n", 1)[1]
+
+    repo, _, _ = _repo_with_pending_delivery(tmp_path)
+    _write(repo, ".gitignore", "*.pyc\nmanaged.txt\n")
+    _write(repo, "obsolete.txt", "managed earlier\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "managed removal fixture")
+    _write(repo, "managed.txt", "next payload\n")
+    _write(repo, "local.pyc", "ignored fixture\n")
+    _write(repo, "README.md", "consumer-owned work\n")
+    (repo / "obsolete.txt").unlink()
+    if inventory is not None:
+        (tmp_path / "sync_targets.txt").write_text(inventory)
+
+    result = subprocess.run(
+        ["bash", "-ec", opening + staging], cwd=tmp_path, capture_output=True, text=True
+    )
+    if inventory is None:
+        assert result.returncode == 1
+        assert "sync_targets.txt" in result.stdout
+    else:
+        assert result.returncode == 0, result.stderr
+    expected = "managed.txt\nobsolete.txt" if inventory else ""
+    assert _git(repo, "diff", "--cached", "--name-only") == expected
