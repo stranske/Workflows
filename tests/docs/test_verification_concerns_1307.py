@@ -20,7 +20,20 @@ REQUIRED_SUBSECTIONS = (
     "#### Evidence",
 )
 
-LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+LINK_RE = re.compile(r"(?<![\\!])\[[^\]]+\]\(([^)]+)\)")
+NON_RENDERED_RE = re.compile(
+    r"<!--.*?(?:-->|\Z)"
+    r"|^ {0,3}(?P<fence>`{3,}|~{3,})[^\n]*\n.*?(?:^ {0,3}(?P=fence)[ \t]*$|\Z)"
+    r"|(?<!`)(?P<ticks>`+)(?!`).*?(?<!`)(?P=ticks)(?!`)",
+    re.M | re.S,
+)
+
+
+def _visible_markdown(path: Path) -> str:
+    """Mask Markdown comments and code before checking links and anchors."""
+    return NON_RENDERED_RE.sub(
+        lambda match: re.sub(r"[^\n]", " ", match[0]), path.read_text(encoding="utf-8")
+    )
 
 
 def _sections(text: str, heading_prefix: str) -> list[str]:
@@ -58,7 +71,7 @@ def _evidence_paths(source: Path, links: list[str]) -> set[Path]:
 
 
 def test_verification_concerns_have_required_subsections_and_evidence_links() -> None:
-    sections = _sections(DOC_PATH.read_text(encoding="utf-8"), "### ")
+    sections = _sections(_visible_markdown(DOC_PATH), "### ")
     assert sections, "Expected at least one verification concern section"
 
     for section in sections:
@@ -69,13 +82,13 @@ def test_verification_concerns_have_required_subsections_and_evidence_links() ->
 
 
 def test_verification_concerns_reference_decisions_entry() -> None:
-    sections = _sections(DOC_PATH.read_text(encoding="utf-8"), "### ")
+    sections = _sections(_visible_markdown(DOC_PATH), "### ")
     assert sections, "Expected at least one verification concern section"
     decision_entries = {
         re.sub(r"[^\w -]", "", entry.splitlines()[0].removeprefix("## ").lower()).replace(
             " ", "-"
         ): entry
-        for entry in _sections(DECISIONS_PATH.read_text(encoding="utf-8"), "## ")
+        for entry in _sections(_visible_markdown(DECISIONS_PATH), "## ")
     }
 
     assert any(section.splitlines()[0] == MISSING_ARTIFACTS_CONCERN for section in sections)
@@ -98,8 +111,6 @@ def test_verification_concerns_reference_decisions_entry() -> None:
 
 
 def test_reverification_index_links_to_decisions_and_preserves_auth_anchor() -> None:
-    links = LINK_RE.findall(INDEX_PATH.read_text(encoding="utf-8"))
+    links = LINK_RE.findall(_visible_markdown(INDEX_PATH))
     assert any(_local_path(INDEX_PATH, link) == DECISIONS_PATH for link in links)
-    assert '<a id="auth-coverage-artifact-2026-02-08"></a>' in DECISIONS_PATH.read_text(
-        encoding="utf-8"
-    )
+    assert '<a id="auth-coverage-artifact-2026-02-08"></a>' in _visible_markdown(DECISIONS_PATH)
