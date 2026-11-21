@@ -3,12 +3,12 @@ from __future__ import annotations
 import runpy
 import subprocess
 import sys
+import textwrap
 import zipfile
 from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
-import yaml
 
 # Add script directory to path before importing restore_branch_snapshots
 SCRIPT_DIR = Path(__file__).resolve().parents[3] / ".github" / "scripts"
@@ -402,12 +402,10 @@ def test_workflow_restore_step_preserves_exit_status(
     tmp_path: Path, restore_exit: int, step_exit: int, notice: str
 ) -> None:
     workflow = SCRIPT_DIR.parent / "workflows" / "health-44-gate-branch-protection.yml"
-    jobs = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]
-    restore = next(
-        step["run"]
-        for step in jobs["enforce"]["steps"]
-        if step.get("name") == "Restore previous branch protection snapshots"
-    )
+    source = workflow.read_text(encoding="utf-8")
+    name = "      - name: Restore previous branch protection snapshots\n"
+    step = source.split(name, 1)[1].split("\n      - name: ", 1)[0]
+    restore = textwrap.dedent(step.split("        run: |\n", 1)[1])
     timeout = tmp_path / "timeout"
     timeout.write_text(
         "#!/bin/sh\n"
