@@ -1,11 +1,13 @@
 # Short-Term Plan Summary (archived stub)
 
-> **Archived:** 2026-11-18 (Central). Summary of the superseded January 2026 short-term plan.
+The [historical short-term plan briefing](../archive/ARCHIVE_PLANS.md#historical-short-term-plan-briefing)
+in the archive ledger provides context and links to the full archived plan.
 
-This stub keeps older inbound links alive.
+Three revisions preserve the full briefing.
 
-**Canonical copy:** [`docs/archive/plans/SHORT_TERM_PLAN_SUMMARY.md`](../archive/plans/SHORT_TERM_PLAN_SUMMARY.md)
+- [Original briefing](https://github.com/stranske/Workflows/blob/c5ea6b7c16d3db1df85ce6d548b835e95b2cc850/docs/plans/SHORT_TERM_PLAN_SUMMARY.md)
+- [Last pre-archive briefing](https://github.com/stranske/Workflows/blob/af67be0bea530853d0dbe89e70ed2a6eb22a95fd/docs/plans/SHORT_TERM_PLAN_SUMMARY.md)
+- [Reviewed archived briefing](https://github.com/stranske/Workflows/blob/b55f502fdbbd8161eaf57b3ff4a7422520838897/docs/archive/plans/SHORT_TERM_PLAN_SUMMARY.md)
 
-**Archive ledger:** [`docs/archive/ARCHIVE_PLANS.md`](../archive/ARCHIVE_PLANS.md)
-
-**Current references:** [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md), [`docs/validation/overview.md`](../validation/overview.md)
+For current guidance, see the [workflow system guide](../ci/WORKFLOW_SYSTEM.md)
+and [validation overview](../validation/overview.md).
