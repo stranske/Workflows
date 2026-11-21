@@ -6,7 +6,13 @@ set -euo pipefail
 
 REPO_DIR="${1:-.}"
 
-cd "$REPO_DIR"
+CDPATH='' cd -- "$REPO_DIR"
+
+if [[ ! -f .github/workflows/notify-workflows.yml ]]; then
+    printf 'Use the Workflows-Integration-Tests checkout. %s has no integration notifier.\n' \
+        "$PWD" >&2
+    exit 1
+fi
 
 format_targets=(
     scripts/validate_dependency_test_setup.py
@@ -14,8 +20,8 @@ format_targets=(
 )
 
 for target in "${format_targets[@]}"; do
-    if [[ ! -f "$target" ]]; then
-        printf 'Use the Workflows-Integration-Tests checkout. Missing %s in %s.\n' \
+    if [[ ! -f "$target" || -L "$target" ]]; then
+        printf 'Expected a regular integration formatting input at %s in %s.\n' \
             "$target" "$PWD" >&2
         exit 1
     fi
