@@ -64,3 +64,23 @@ test('a publisher failure waits for active workers to drain', { timeout: 2000 },
   await rejected;
   assert.deepEqual(settled, [0, 1, 2]);
 });
+
+test('a fatal row error stops admission even while an earlier row is still active', { timeout: 2000 }, async () => {
+  const released = Promise.withResolvers();
+  const started = [];
+  const published = [];
+  const run = processInOrder([0, 1, 2, 3, 4], async (row) => {
+    started.push(row);
+    if (row === 1) throw new Error('could not prepare artifact directory');
+    await released.promise;
+    return row;
+  }, (row) => { published.push(row); });
+  const rejected = assert.rejects(run, /could not prepare artifact directory/);
+  await new Promise(setImmediate);
+  assert.deepEqual(started, [0, 1, 2]);
+  assert.deepEqual(published, []);
+  released.resolve();
+  await rejected;
+  assert.deepEqual(started, [0, 1, 2]);
+  assert.deepEqual(published, [0]);
+});

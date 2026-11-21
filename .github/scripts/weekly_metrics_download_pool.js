@@ -27,6 +27,7 @@ async function processInOrder(rows, processRow, publish) {
       try {
         results[index].resolve({ value: await processRow(rows[index]) });
       } catch (error) {
+        stopped = true;
         results[index].resolve({ error });
       }
     }
