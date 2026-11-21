@@ -146,7 +146,7 @@ def _records(total, conclusion="success", created_at=RECENT):
         ("205", 220, 205, [(100, 1), (100, 2), (100, 3)]),
         ("0", 220, 5, [(5, 1)]),
         ("invalid", 220, 5, [(5, 1)]),
-        ("0.5", 220, 0, []),
+        ("5.9", 220, 5, [(5, 1)]),
     ],
 )
 def test_history_selects_exact_recent_window(
@@ -199,11 +199,21 @@ def test_history_fails_before_publishing_partial_results(tmp_path, page):
     assert outputs == {}
 
 
-@pytest.mark.parametrize("lookback", ["-1", "Infinity", "9007199254740992"])
-def test_invalid_history_limit_cannot_start_unbounded_reads(tmp_path, lookback):
-    result, calls, selected, outputs = _run_history(tmp_path, _records(220), lookback)
-    assert result.returncode == 1
-    assert "lookback_runs" in result.stderr
-    assert calls == []
-    assert selected is None
-    assert outputs == {}
+@pytest.mark.parametrize(
+    ("lookback", "selected_count"),
+    [
+        ("-1", 219),
+        ("Infinity", 220),
+        ("-Infinity", 0),
+        ("9007199254740992", 220),
+        ("0.5", 0),
+        ("-0.5", 0),
+    ],
+)
+def test_unusual_history_limit_preserves_full_history_slice(tmp_path, lookback, selected_count):
+    runs = _records(220)
+    result, calls, selected, outputs = _run_history(tmp_path, runs, lookback)
+    assert result.returncode == 0, result.stderr
+    assert calls == [(100, 1), (100, 2), (100, 3)]
+    assert selected == runs[:selected_count]
+    assert outputs["status"] == ("healthy" if selected_count else "no_runs")
