@@ -7,6 +7,7 @@ Stubs for open issues (or names that don't match the pattern) are left alone.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -89,8 +90,8 @@ def main(argv: list[str] | None = None) -> int:
             if path.is_file() and _STUB_RE.fullmatch(path.name)
         ]
     elif (
-        not AGENTS_DIR.exists()
-        and not AGENTS_DIR.is_symlink()
+        not os.path.lexists(AGENTS_DIR)
+        and AGENTS_DIR.resolve() == Path(__file__).resolve().parents[1] / "agents"
         and (AGENTS_DIR.parent / ".git").exists()
     ):
         # Git omits the directory from a clean checkout after its last marker is removed.
