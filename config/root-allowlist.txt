@@ -17,3 +17,8 @@ renovate.json
 requirements.lock
 requirements.txt
 workloop-state.md
+verifier-4422-audit.md
+verifier_4422_audit.py
+verifier_4422_historical.json
+verifier_4422_live_pr.json
+verifier_4422_live_report.json
