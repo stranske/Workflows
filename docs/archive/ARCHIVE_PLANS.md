@@ -23,6 +23,21 @@ Use the [consumer maintenance guide](../ops/CONSUMER_REPO_MAINTENANCE.md) for cu
 git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/DEPENDENCY_WORKFLOW.md
 ```
 
+## Historical dependency validation rollout
+
+The [development history](../HISTORY.md) records the imported Trend Analysis
+Project test counts under **Imported dependency validation rollout**. Both
+13,700-byte versions of the former `plans/DEPENDENCY_MANAGEMENT_SUMMARY.md`
+are available through Git.
+
+| Version | Commit | SHA-256 |
+|---|---|---|
+| December 2025 import | `1785424766b30b8860d2a6a2f8d8bf71c4847058` | `1d539211b948a873ff831b8e0da3cb3859dd4a24df8182eeeb4165942ecb9316` |
+| Revised Python references | `37d5956b38b8a976820ebaaf3229ff203fbc60cf` | `23cf71277a9cbf6bd2e20c97f75ebee441d11849c0eea55c2c009350f849658d` |
+
+To recover either version, use its commit in
+`git show <commit>:docs/archive/plans/DEPENDENCY_MANAGEMENT_SUMMARY.md`.
+
 ## Archived January 2026 plans
 
 | Former path | Archive path | Superseded by |
