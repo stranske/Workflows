@@ -24,7 +24,11 @@ their own copy.
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -77,7 +81,7 @@ def _extract_yaml_run_block(path: Path, step_name: str) -> str:
 
 def _extract_heredoc(script: str, marker: str) -> str:
     heredoc = re.compile(
-        rf"python3 ?<< ?'{re.escape(marker)}'\n(.*?)\n{re.escape(marker)}",
+        rf"python3(?: -P)? ?<< ?'{re.escape(marker)}'\n(.*?)\n{re.escape(marker)}",
         re.S,
     )
     match = heredoc.search(script)
@@ -113,6 +117,85 @@ def test_shared_orchestrator_skill_action_heredoc_compiles() -> None:
             f"{REFPACK_ACTION}: Orchestrator skill heredoc does not compile: "
             f"{type(exc).__name__}: {exc}"
         )
+
+
+def test_orchestrator_skill_uses_selected_runtime(tmp_path: Path) -> None:
+    (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
+    # A receiver can own a scripts package independently of the selected runtime.
+    receiver_package = tmp_path / "scripts"
+    receiver_package.mkdir()
+    (receiver_package / "__init__.py").write_bytes((ROOT / "scripts/__init__.py").read_bytes())
+    export = tmp_path / "export"
+    export.mkdir()
+    (export / "SKILL.md").write_text("Local skill\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=export, check=True)
+    subprocess.run(["git", "add", "SKILL.md"], cwd=export, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=CI",
+            "-c",
+            "user.email=ci@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "Add skill",
+        ],
+        cwd=export,
+        check=True,
+    )
+    env_file = tmp_path / "github-env"
+    env = {
+        **os.environ,
+        "PATH": f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}",
+        "GITHUB_WORKSPACE": str(tmp_path),
+        "GITHUB_OUTPUT": str(tmp_path / "github-output"),
+        "GITHUB_ENV": str(env_file),
+        "GH_TOKEN": "",
+        "ORCHESTRATOR_SKILL_PACK": "",
+        "ORCHESTRATOR_SKILL_ENABLED": "",
+        "PYTHONSAFEPATH": "",
+        "GIT_ALLOW_PROTOCOL": "file",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": f"url.{export.as_uri()}.insteadOf",
+        "GIT_CONFIG_VALUE_0": "https://github.com/owner/export.git",
+    }
+    script = _extract_yaml_run_block(
+        ROOT / REFPACK_ACTION, "Validate and materialize reference packs"
+    )
+    # Give concurrent tests independent copies of the runner's temporary JSON.
+    script = script.replace("/tmp/orchestrator_skill_output.json", str(tmp_path / "plan.json"))
+    config = tmp_path / ".github/orchestrator_skill.json"
+    config.parent.mkdir()
+    summary = tmp_path / ".reference/ORCHESTRATOR_SKILL.md"
+    for requested in ("SKILL.md", "absent.md"):
+        config.write_text(
+            json.dumps(
+                {"enabled": True, "repo": "owner/export", "ref": "main", "paths": [requested]}
+            ),
+            encoding="utf-8",
+        )
+        env_file.write_text("", encoding="utf-8")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if requested == "SKILL.md":
+            assert result.returncode == 0, result.stderr
+            assert "SKILL.md" in summary.read_text(encoding="utf-8")
+            assert (
+                env_file.read_text(encoding="utf-8")
+                == f"ORCHESTRATOR_SKILL_SUMMARY_PATH={summary}\n"
+            )
+        else:
+            assert result.returncode != 0 and "No Orchestrator skill files" in result.stderr
+            assert not summary.exists() and not env_file.read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("workflow_rel", REUSABLE_RUN_WORKFLOWS)

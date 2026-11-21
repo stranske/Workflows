@@ -142,7 +142,9 @@ runs:
             exit 1
           }
 
-        PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" python3 <<'ORCHSKILL_EOF'
+        # Keep the receiver as the working directory for config and output.
+        # -P prevents stdin Python from adding it ahead of the runtime checkout.
+        PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib" python3 -P <<'ORCHSKILL_EOF'
         import json
         import os
 
