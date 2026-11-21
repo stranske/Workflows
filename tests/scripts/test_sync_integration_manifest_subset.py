@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from scripts import publish_integration_sync as publication
 from scripts import sync_integration_manifest_subset as subset
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -259,12 +260,12 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files() -> None:
     assert '--source-root "../workflows-delivery"' in apply_script
     assert "git status --porcelain" in changes_script
     assert "git diff --quiet" not in changes_script
-    assert ".github/scripts/" in commit_script
-    assert ".github/actions/" in commit_script
+    assert "scripts/publish_integration_sync.py" in commit_script
+    assert {".github/scripts", ".github/actions"} <= set(publication.DELIVERY_PATHS)
     # Everything the helper can write must be staged, or "changes detected" ends in
     # `git commit` finding nothing and failing the run (seen on the tools/ file).
     for path in subset.EXTRA_TOOL_SOURCES:
-        assert f"git add {path}" in commit_script
+        assert path in publication.DELIVERY_PATHS
     assert "scripts/sync_integration_manifest_subset.py" in sparse
     for needed in (
         ".github/sync-manifest.yml",
