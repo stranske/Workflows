@@ -12,7 +12,6 @@ DEPENDENCY_TESTING.md
 Issues.txt
 LICENSE
 README.md
-TEMPLATE_REPO_EVALUATION.md
 actionlint
 pyproject.toml
 release-please-config.json
