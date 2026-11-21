@@ -299,19 +299,23 @@ def test_maint68_stages_only_with_explicit_inventory(tmp_path: Path, inventory: 
 
 
 @pytest.mark.parametrize("plan_scope", ["full", "source-delta"])
+@pytest.mark.parametrize("alias", [False, True], ids=["direct", "tracked-alias"])
 def test_maint68_directory_hash_copy_and_staging_use_the_same_leaves(
-    tmp_path: Path, plan_scope: str
+    tmp_path: Path, plan_scope: str, alias: bool
 ) -> None:
     root = Path(__file__).resolve().parents[2]
     source = tmp_path / "workflows"
     source.mkdir()
     _git(source, "init", "-q", "-b", "main")
     directory = "scripts/runner_lib"
+    physical = "scripts/physical_runner" if alias else directory
     names = ["__init__.py", "__main__.py", "acceptance_gate.py", "core.py"]
     for name in names:
         original = root / directory / name
-        _write(source, f"{directory}/{name}", original.read_text())
-    _write(source, f"{directory}/.contract[spec].txt", "tracked dotfile\n")
+        _write(source, f"{physical}/{name}", original.read_text())
+    _write(source, f"{physical}/.contract[spec].txt", "tracked dotfile\n")
+    if alias:
+        (source / directory).symlink_to(Path(physical).name, target_is_directory=True)
     # The authored publisher supports an older payload without the new hasher.
     for path in ["scripts/sync_status_file_ignores.py", "templates/consumer-repo/.gitignore"]:
         _write(source, path, (root / path).read_text())
@@ -333,6 +337,7 @@ removals:
     _git(source, "add", ".")
     manifest = source / ".github/sync-manifest.yml"
     plan = compile_manifest(manifest).to_plan()
+    assert plan["entries"][0]["resolved_source"] == directory
     source_cache = source / directory / "__pycache__/core.pyc"
     py_compile.compile(str(source / directory / "core.py"), cfile=str(source_cache), doraise=True)
     assert compile_manifest(manifest).to_plan() == plan

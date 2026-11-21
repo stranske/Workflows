@@ -153,10 +153,18 @@ def _stable_hash(namespace: str, value: Any) -> str:
 def directory_source_files(path: Path, repo_root: Path) -> list[Path]:
     """Use tracked leaves when a directory is present in the source index."""
     if (repo_root / ".git").exists():
-        relative = path.relative_to(repo_root).as_posix()
+        relative = path.resolve().relative_to(repo_root.resolve())
         try:
             names = subprocess.check_output(
-                ["git", "--literal-pathspecs", "ls-files", "--cached", "-z", "--", relative + "/"],
+                [
+                    "git",
+                    "--literal-pathspecs",
+                    "ls-files",
+                    "--cached",
+                    "-z",
+                    "--",
+                    relative.as_posix() + "/",
+                ],
                 cwd=repo_root,
             )
         except subprocess.CalledProcessError as exc:
@@ -164,7 +172,12 @@ def directory_source_files(path: Path, repo_root: Path) -> list[Path]:
                 [f"cannot list tracked directory source {relative!r}"]
             ) from exc
         if names:
-            children = {repo_root / os.fsdecode(name) for name in names.split(b"\0") if name}
+            # Git indexes the physical directory. Keep the logical alias in the plan.
+            children = {
+                path / Path(os.fsdecode(name)).relative_to(relative)
+                for name in names.split(b"\0")
+                if name
+            }
             return sorted(child for child in children if child.is_file())
     return sorted(child for child in path.rglob("*") if child.is_file())
 
