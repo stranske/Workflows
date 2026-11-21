@@ -27,7 +27,7 @@ jobs:
   detect-and-fix:
     name: Detect and fix integration test failures
     runs-on: ubuntu-latest
-    # Only run on issues with specific titles
+    # Follow-ups use the owner-authenticated integration CI notifier's format.
     if: >-
       (
         github.event_name == 'issues'
@@ -36,6 +36,9 @@ jobs:
       || (
         github.event_name == 'issue_comment'
         && contains(github.event.issue.title, 'Integration CI failed')
+        && !github.event.issue.pull_request
+        && github.event.comment.author_association == 'OWNER'
+        && startsWith(github.event.comment.body, 'Another failure detected:')
       )
       || github.event_name == 'workflow_dispatch'
 
@@ -47,16 +50,19 @@ jobs:
       - name: Extract run information
         id: extract
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "run_id=${{ inputs.run_id }}" >> "$GITHUB_OUTPUT"
-          else
-            # Extract run ID from issue or comment body using jq on the event payload
-            RUN_ID=$(jq -r '
-              (.issue.body // .comment.body // "")
-              | capture("runs/(?<id>[0-9]+)") | .id // empty
-            ' "$GITHUB_EVENT_PATH")
-            echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-          fi
+          RUN_ID=$(jq -r --arg event "$GITHUB_EVENT_NAME" '
+            if $event == "workflow_dispatch" then
+              (.inputs.run_id // "") | if test("^[0-9]+$") then . else "" end
+            else
+              (if $event == "issue_comment" then .comment.body else .issue.body end)
+              // ""
+              | (capture(
+                  "https://github\\.com/stranske/Workflows-Integration-Tests/actions/runs/(?<id>[0-9]+)(?:[/?#)[:space:]]|$)";
+                  "i"
+                ).id // "")
+            end
+          ' "$GITHUB_EVENT_PATH")
+          printf 'run_id=%s\n' "$RUN_ID" >> "$GITHUB_OUTPUT"
 
       - name: Check Integration Test Status
         id: check_status
