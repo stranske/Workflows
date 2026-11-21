@@ -39,16 +39,26 @@ jobs:
           REPORTER_FROM_CALL: ${{ inputs.reporter || '' }}
           REPORTER_FROM_VAR: ${{ vars.HEALTH42_REPORTER || '' }}
           EVENT_NAME: ${{ github.event_name }}
+          FORK_PULL_REQUEST: >-
+            ${{ github.event_name == 'pull_request' &&
+                github.event.pull_request.head.repo.full_name != github.repository }}
         run: |
           if [ -n "${REPORTER_FROM_CALL}" ]; then
-            echo "reporter=${REPORTER_FROM_CALL}" >> "$GITHUB_OUTPUT"
+            reporter="${REPORTER_FROM_CALL}"
           elif [ -n "${REPORTER_FROM_VAR}" ]; then
-            echo "reporter=${REPORTER_FROM_VAR}" >> "$GITHUB_OUTPUT"
+            reporter="${REPORTER_FROM_VAR}"
           elif [ "${EVENT_NAME}" = "pull_request" ]; then
-            echo "reporter=github-pr-review" >> "$GITHUB_OUTPUT"
+            reporter="github-pr-review"
           else
-            echo "reporter=github-check" >> "$GITHUB_OUTPUT"
+            reporter="github-check"
           fi
+
+          # Fork PR tokens cannot write reviews. Reviewdog can emit runner
+          # annotations with read access to the PR diff.
+          if [ "${FORK_PULL_REQUEST}" = "true" ] && [ "$reporter" = "github-pr-review" ]; then
+            reporter="github-annotations"
+          fi
+          echo "reporter=${reporter}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
 
       - name: Compute actionlint allowlist
@@ -157,24 +167,21 @@ jobs:
           oneline_output="${tmpdir}/actionlint.oneline"
 
           lint_status=0
-          if ! actionlint "${extra_args[@]}" -oneline >"${oneline_output}"; then
-            lint_status=$?
+          actionlint "${extra_args[@]}" -oneline >"${oneline_output}" || lint_status=$?
+          if [ "$lint_status" -ne 0 ]; then
             echo '::group::actionlint (text output)'
             cat "${oneline_output}"
             echo '::endgroup::'
           fi
 
           rd_status=0
-          # The error format pattern below maps output fields as follows:
-          # %t: type, %f: file, %l: line, %c: column, %m: message
-          if ! reviewdog -efm="%t:%f:%l:%c: %m" \
+          # actionlint -oneline emits file:line:column: message.
+          reviewdog -efm="%f:%l:%c: %m" \
               -name="maint-36 actionlint" \
               -reporter="$REPORTER" \
               -filter-mode="nofilter" \
               -level="warning" \
-              -fail-level="error" <"${oneline_output}"; then
-            rd_status=$?
-          fi
+              -fail-level="error" <"${oneline_output}" || rd_status=$?
 
           rm -rf "${tmpdir}"
 
