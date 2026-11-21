@@ -45,6 +45,7 @@ BAND_50_80_WORKFLOWS = (
 
 
 def test_november_2026_audit_report_exists() -> None:
+    assert AUDIT_REPORT.name == "WORKFLOW_AUDIT_2026-11-19.md"
     assert AUDIT_REPORT.is_file()
 
 

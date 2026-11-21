@@ -32,12 +32,15 @@ GATE_VALIDATE_DOC_BUNDLE = (
 
 
 def _run_gate(command: str) -> subprocess.CompletedProcess[str]:
+    argv = shlex.split(command)
+    assert argv[0] == "pytest"
     return subprocess.run(
         [
-            *shlex.split(command),
+            sys.executable,
+            "-m",
+            "pytest",
+            *argv[1:],
             "-q",
-            "-o",
-            "asyncio_default_fixture_loop_scope=function",
             "-m",
             "not slow",
         ],
