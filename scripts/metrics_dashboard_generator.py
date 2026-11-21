@@ -11,6 +11,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+if __package__ is None:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from scripts import langsmith_fleet
 from scripts.aggregate_repo_metrics import summarize_values
 from scripts.metrics_format_utils import ascii_sparkline, format_markdown_table
