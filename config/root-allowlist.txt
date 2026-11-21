@@ -17,5 +17,4 @@ release-please-config.json
 renovate.json
 requirements.lock
 requirements.txt
-sitecustomize.py
 workloop-state.md
