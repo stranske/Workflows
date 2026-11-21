@@ -18,6 +18,13 @@ ARCHIVED_CANONICAL = [
     "docs/archive/audits/TEMPLATE_REPO_EVALUATION.md",
 ]
 
+ARCHIVED_KEEPALIVE = {
+    "keepalive/BranchSyncAutomationGaps.md",
+    "keepalive/GapAssessment.md",
+    "keepalive/ProgressLog.md",
+    "keepalive/SyncChecklist.md",
+}
+
 STUBS = [
     "docs/plans/SHORT_TERM_PLAN.md",
     "docs/plans/SHORT_TERM_PLAN_SUMMARY.md",
@@ -43,7 +50,9 @@ def _resolve_link(source: Path, target: str) -> Path:
 def test_archive_plans_ledger_links_resolve() -> None:
     text = ARCHIVE_LEDGER.read_text(encoding="utf-8")
     archive_links = {
-        target for target in MARKDOWN_LINK.findall(text) if target.startswith(("plans/", "audits/"))
+        target
+        for target in MARKDOWN_LINK.findall(text)
+        if target.startswith(("plans/", "audits/", "keepalive/"))
     }
     assert archive_links == {
         "plans/SHORT_TERM_PLAN.md",
@@ -52,6 +61,7 @@ def test_archive_plans_ledger_links_resolve() -> None:
         "audits/WORKFLOW_AUDIT_2025-12-25.md",
         "audits/WORKFLOW_AUDIT_2026-01-09.md",
         "audits/TEMPLATE_REPO_EVALUATION.md",
+        *ARCHIVED_KEEPALIVE,
     }
     for target in MARKDOWN_LINK.findall(text):
         if target.startswith("#"):
@@ -96,3 +106,19 @@ def test_workflow_audit_procedure_resolves_from_archive_ledger() -> None:
     assert "docs/ci/WORKFLOW_AUDIT_PROCEDURE.md" in text
     path = _resolve_link(ARCHIVE_LEDGER, "../ci/WORKFLOW_AUDIT_PROCEDURE.md")
     assert path.is_file()
+
+
+def test_operator_guide_links_current_branch_sync_recovery() -> None:
+    guide = REPO_ROOT / "docs/agent-automation.md"
+    links = MARKDOWN_LINK.findall(guide.read_text(encoding="utf-8"))
+    assert "keepalive/SyncChecklist.md" not in links
+    for target, heading in (
+        ("keepalive/GoalsAndPlumbing.md#9-branch-sync-gate", "## 9. Branch-Sync Gate"),
+        (
+            "keepalive/Observability_Contract.md#8-orchestrator-contract",
+            "## 8) Orchestrator Contract",
+        ),
+    ):
+        assert target in links
+        section = _resolve_link(guide, target.split("#")[0]).read_text(encoding="utf-8")
+        assert heading in section.splitlines()

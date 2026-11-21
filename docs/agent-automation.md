@@ -28,9 +28,12 @@ Gate workflow_run (PRs) ───────────────▶ agents-
   `workflow_dispatch`) or allow the 30-minute schedule to run readiness + watchdog checks.
 - Codex keepalive on PRs is driven by the Gate `workflow_run` loop. The orchestrator sweep is optional and can be
   disabled via `params_json` (e.g. `{ "enable_keepalive": false }`).
-- Keepalive contract guidance lives in [`docs/keepalive/GoalsAndPlumbing.md`](keepalive/GoalsAndPlumbing.md); review it before
-  adjusting any keepalive workflows or recovery logic. Follow the recovery playbook in
-  [`docs/keepalive/SyncChecklist.md`](keepalive/SyncChecklist.md) when branch-sync intervention is required.
+- Review the [keepalive contract](keepalive/GoalsAndPlumbing.md) before changing keepalive workflows or recovery logic.
+  If a worker reports completion and the PR head is unchanged, compare the current SHA with the SHA recorded before the round.
+  Check the `SYNC:` line for the update-branch attempt, fallback recovery PR and escalation in the
+  [branch-sync recovery procedure](keepalive/Observability_Contract.md#8-orchestrator-contract).
+  After intervention, verify the new PR head using the [branch-sync gate](keepalive/GoalsAndPlumbing.md#9-branch-sync-gate)
+  before resuming keepalive.
 - Bootstrap PR creation, diagnostics, and stale issue escalation now live entirely inside `agents-70-orchestrator.yml` and the
   `reusable-16-agents.yml` composite it calls. Historical wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, etc.) were
   deleted.
