@@ -2,6 +2,24 @@
 
 **26 of 28 checks complete** as of 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input.
 
+## November 21 test discovery and evidence archives
+
+**717 of 5,554 files, 88 of 487 folders and 56 of 198 workflows** have completed decisions against the November 19 inventory. The preceding checkpoint recorded 692 files, 83 folders and 54 workflows. The original cleanup checklist remains **26 of 28**. [Reviewed tree](https://github.com/stranske/Workflows/tree/40629c154cc2dc456c2c43d9ccb35cf65e471a63)
+
+### Historical evidence
+
+The existing expected-check operator guide now indexes four packets from the October validation work. That removed 15 files and four directories from the default tree. The recovery command reproduced all 25,555 bytes at their original paths and included the guide referenced by the historical README. All 421 reporter and recovery tests passed before and after. The two original reports retain their recorded `UNKNOWN` verdicts. [Archive and recovery command](../ops/EXPECTED_CHECK_RECEIPTS.md#historical-validation-for-issue-3757) · [Archive PR](https://github.com/stranske/Workflows/pull/4864)
+
+### Test discovery
+
+Gate and Selftest now collect four dismissal cases with their four byte-identical fixtures and all 22 Keepalive runner cases. The 26 names passed once each in the combined main Selftest. A separate 18-case dismissal suite remains outside hosted discovery. Six deliberate regressions escaped the existing hosted owner and failed seven distinct assertions in that suite. Its next change should preserve those behaviors. [Dismissal consolidation](https://github.com/stranske/Workflows/pull/4862) · [Runner relocation](https://github.com/stranske/Workflows/pull/4863) · [Combined main Selftest](https://github.com/stranske/Workflows/actions/runs/44923941213/job/136905905794)
+
+### Workflow decisions
+
+Keep the bot-comment caller and its reusable handler. The caller admitted or skipped PRs and recorded why. The reusable created an agent assignment, updated an existing controller comment on a repeat, and rejected a stale thread before assignment. A second dependency install cost 1–2 seconds in four sampled jobs and supplied a fallback when the pinned packages were missing. The install stays. [Assignment](https://github.com/stranske/Workflows/pull/3622#issuecomment-5892162738) · [Stale-thread control](https://github.com/stranske/Workflows/actions/runs/42825729688/job/129863081171)
+
+The four applicable primary Python jobs took 375–529 seconds against the 600-second per-job limit. The three agent routes, fresh reports and ten issue-intake cases passed. All 282 consumer entries and 17 removals matched the previous plan. Agents 64 still needs a real opted-in parent mismatch, and Health 42 awaits a live fork. The original stub-deletion and dependency-lock checks also await eligible events.
+
 ## November 21 evidence placement and validation
 
 The November 19 inventory now has **692 of 5,554 files, 83 of 487 folders and 54 of 198 workflows** with a placement or usefulness decision. The previous checkpoint recorded 612 files, 81 folders and 50 workflows. The original delivery checklist is **26 of 28**. [Reviewed revision](https://github.com/stranske/Workflows/tree/383305cc1d53abed8fd1a26c3e1ee9b601cf3dd4)
