@@ -15,6 +15,14 @@ The [workflow guide](../ci/WORKFLOW_SYSTEM.md) links to the manual for the Actio
 
 For example, `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/actionlint-checks-reference.md` prints the original checks reference.
 
+## Historical dependency enforcement workflow
+
+Use the [consumer maintenance guide](../ops/CONSUMER_REPO_MAINTENANCE.md) for current test dependency checks and lock regeneration. Recover the superseded `DEPENDENCY_WORKFLOW.md` from the original revision:
+
+```sh
+git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/DEPENDENCY_WORKFLOW.md
+```
+
 ## Archived January 2026 plans
 
 | Former path | Archive path | Superseded by |
