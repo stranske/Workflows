@@ -168,6 +168,9 @@ on:
       final-message-summary:
         description: 'First 500 chars of Codex output (safe for PR comments)'
         value: ${{ jobs.codex.outputs.final-message-summary }}
+      e2e-ping-reply-matched:
+        description: 'Whether the raw Codex reply matches the expected ping in e2e-test mode'
+        value: ${{ jobs.codex.outputs.e2e-ping-reply-matched }}
       error-summary:
         description: >-
           Failure summary message (prefers Codex output, falls back to preflight errors)
@@ -300,6 +303,7 @@ jobs:
     outputs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
       final-message-summary: ${{ steps.run_codex.outputs.final-message-summary }}
+      e2e-ping-reply-matched: ${{ steps.run_codex.outputs.e2e-ping-reply-matched }}
       exit-code: ${{ steps.run_codex.outputs.exit-code }}
       # A run that stops before the CLI step (an expired CODEX_AUTH_JSON at "Setup Codex auth") never sets
       # run_codex's output; the receipt still names the model the round was configured to request.
@@ -1334,6 +1338,26 @@ jobs:
 
                     echo "Codex completed with exit code ${CODEX_EXIT}. "\
                       "Model: ${selected_model:-unknown}. Output written to $OUTPUT_FILE"
+
+          # Check the raw E2E ping reply before the shared parser normalizes it.
+          if [ "${CODEX_MODE:-}" = "e2e-test" ]; then
+            ping_reply_matched=false
+            if [ -f "$OUTPUT_FILE" ] && python -I - "$OUTPUT_FILE" <<'PY'
+          import sys
+          from pathlib import Path
+
+          try:
+              reply = Path(sys.argv[1]).read_bytes()
+          except OSError:
+              sys.exit(1)
+
+          sys.exit(0 if reply.rstrip(b"\r\n") == b"keepalive-e2e-ping-ok" else 1)
+          PY
+            then
+              ping_reply_matched=true
+            fi
+            echo "e2e-ping-reply-matched=$ping_reply_matched" >> "$GITHUB_OUTPUT"
+          fi
 
           # Set outputs for downstream steps through the shared parser.  Codex
           # may fail before writing --output-last-message; in that case parse

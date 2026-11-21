@@ -80,6 +80,7 @@ reusable workflow in the no-output section.
 | `reusable-pr-context.yml` | `full_context_json` | string (JSON) | Full PR context as JSON (use sparingly - large) | `needs.context.outputs.full_context_json` |
 | `reusable-codex-run.yml` | `final-message` | string (base64) | Full Codex output message (base64 encoded) | `needs.codex.outputs.final-message` |
 | `reusable-codex-run.yml` | `final-message-summary` | string | First 500 chars of Codex output (safe for PR comments) | `needs.codex.outputs.final-message-summary` |
+| `reusable-codex-run.yml` | `e2e-ping-reply-matched` | string (boolean-like) | Whether the raw Codex reply matches the expected ping in e2e-test mode | `needs.codex.outputs.e2e-ping-reply-matched` |
 | `reusable-codex-run.yml` | `error-summary` | string | Failure summary message (prefers Codex output, falls back to preflight errors) | `needs.codex.outputs.error-summary` |
 | `reusable-codex-run.yml` | `exit-code` | string (number-like) | Codex CLI exit code (0=success) | `needs.codex.outputs.exit-code` |
 | `reusable-codex-run.yml` | `requested-model` | string | Model the runner asked the Codex CLI for (empty when unpinned) | `needs.codex.outputs.requested-model` |
