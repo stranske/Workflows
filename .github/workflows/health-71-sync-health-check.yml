@@ -79,22 +79,33 @@ jobs:
           const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
           const core = { info: () => {}, warning: console.warn, debug: () => {} };
           const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-          const lookback = Number(process.env.LOOKBACK) || 5;
           (async () => {
+            const lookback = Number(process.env.LOOKBACK) || 5;
+            const window = Math.trunc(lookback);
+            // Preserve the original full-history slice for bounds that are not positive windows.
+            const limit = Number.isSafeInteger(window) && window > 0 ? window : Infinity;
             const github = new Octokit({ auth: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
-            const { paginateWithRetry } = await createTokenAwareRetry({
+            const { withRetry } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
               task: 'health-71-sync-health-check',
               capabilities: ['actions:read']
             });
-            const runs = await paginateWithRetry(github.rest.actions.listWorkflowRuns, {
-              owner,
-              repo,
-              workflow_id: 'maint-68-sync-consumer-repos.yml',
-              per_page: 100
-            });
+            const runs = [];
+            const per_page = Math.min(limit, 100);
+            for (let page = 1; runs.length < limit; page += 1) {
+              const { data, headers } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: 'maint-68-sync-consumer-repos.yml',
+                per_page,
+                page,
+              }));
+              const batch = data.workflow_runs;
+              runs.push(...batch);
+              if (!batch.length || !headers?.link?.includes('rel="next"')) break;
+            }
             process.stdout.write(JSON.stringify(runs.slice(0, lookback)));
           })().catch((error) => {
             console.error(error);
