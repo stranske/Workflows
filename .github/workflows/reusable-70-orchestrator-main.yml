@@ -1348,12 +1348,12 @@ jobs:
           MATCHED: ${{ needs.verify-assignment.outputs.matched_assignee }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          cat <<-'EOF' >> "$GITHUB_STEP_SUMMARY"
-          ## Agent issue verification
-          * Issue: [#${ISSUE_NUMBER}](https://github.com/${REPOSITORY}/issues/${ISSUE_NUMBER})
-          * Status: ${STATUS}
-          * Matched assignee: ${MATCHED:-_none_}
-          EOF
+          {
+            printf '%s\n' '## Agent issue verification'
+            printf '* Issue: [#%s](https://github.com/%s/issues/%s)\n' "$ISSUE_NUMBER" "$REPOSITORY" "$ISSUE_NUMBER"
+            printf '* Status: %s\n' "$STATUS"
+            printf '* Matched assignee: %s\n' "${MATCHED:-_none_}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ -n "${MESSAGE}" ]; then
             echo "${MESSAGE}"
