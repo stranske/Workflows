@@ -8,7 +8,7 @@ const {
   collectDismissable,
   formatDismissLog,
   runCli,
-} = require('../bot-comment-dismiss');
+} = require('../.github/scripts/bot-comment-dismiss');
 
 describe('bot-comment-dismiss glob matching', () => {
   it('matches nested paths under .agents/**', () => {
