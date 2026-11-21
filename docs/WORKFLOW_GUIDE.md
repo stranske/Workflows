@@ -176,8 +176,8 @@ The following workflows were decommissioned during the CI consolidation effort. 
 - **`maint-47-check-failure-tracker.yml`** — Replaced by the consolidated post-CI summary embedded in the Gate workflow.
 - **Historical consumer wrappers** — Fully replaced by the orchestrator. Their retirement history now lives in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
 - **Legacy selftest wrappers** (`selftest-80-pr-comment.yml`, `selftest-82-pr-comment.yml`, `selftest-83-pr-comment.yml`, `selftest-84-reusable-ci.yml`, `selftest-88-reusable-ci.yml`, `selftest-81-reusable-ci.yml`) — Superseded by the consolidated `selftest-reusable-ci.yml`; these wrappers are now removed from `.github/workflows/` and live only in history.
-- **`health-claude-cli-auth-debug.yml`** — Archived manual Claude CLI auth harness in `archives/diagnostics/`. Run ad-hoc only when investigating Claude CLI regressions.
-- **`health-keepalive-auth-diagnostic.yml`** — Archived manual harness for verifying GitHub App push scopes plus Claude/Codex secrets across consumer repos (`archives/diagnostics/`).
+- **Claude CLI auth debug** — Retired temporary isolation harness. For a current Claude CLI failure, inspect the **Preflight auth** and **Run Claude** steps in the failing caller's run. [Historical YAML](https://github.com/stranske/Workflows/blob/67c2558643792c08e2063bbd0c4133c561fb009e/archives/diagnostics/health-claude-cli-auth-debug.yml) · [Reusable Claude workflow](../.github/workflows/reusable-claude-run.yml)
+- **Keepalive auth diagnostic** — Retired combined App, PAT and CLI harness. For a current failure, use the [keepalive triage routes](ci/WORKFLOW_SYSTEM.md#keepalive-and-cli-troubleshooting) to find the maintained logs for the affected component. [Historical YAML](https://github.com/stranske/Workflows/blob/67c2558643792c08e2063bbd0c4133c561fb009e/archives/diagnostics/health-keepalive-auth-diagnostic.yml)
 
 ## Import issues from a topic list
 

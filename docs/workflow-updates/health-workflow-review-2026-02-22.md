@@ -84,7 +84,7 @@ The goal of this pass was to catalogue every workflow under `.github/workflows` 
 
 ### `health-claude-cli-auth-debug.yml`
 - **Purpose**: Manual debugging harness for the Claude Code CLI auth path (explicitly labelled “delete after debugging”).
-- **Status (2026-02-22)**: Archived to `archives/diagnostics/health-claude-cli-auth-debug.yml` so the health namespace only lists automated monitors.
+- **Status (2026-02-22)**: Retired from Actions and moved to the archive to separate a temporary harness from the automated roster. [Historical YAML](https://github.com/stranske/Workflows/blob/67c2558643792c08e2063bbd0c4133c561fb009e/archives/diagnostics/health-claude-cli-auth-debug.yml) · [Current troubleshooting](../ci/WORKFLOW_SYSTEM.md#keepalive-and-cli-troubleshooting)
 
 ### `health-codex-auth-check.yml`
 - **Purpose**: Twice-daily guard that inspects `CODEX_AUTH_JSON` JWT expiry, filing `auth-expiring` issues before tokens lapse.
@@ -92,7 +92,7 @@ The goal of this pass was to catalogue every workflow under `.github/workflows` 
 
 ### `health-keepalive-auth-diagnostic.yml`
 - **Purpose**: Manual runner that validates GitHub App PATs (WORKFLOWS_APP/KEEPALIVE_APP) and Claude auth secrets end-to-end.
-- **Status (2026-02-22)**: Relocated to `archives/diagnostics/health-keepalive-auth-diagnostic.yml`; run it manually when troubleshooting keepalive auth, but keep it out of the automated health roster.
+- **Status (2026-02-22)**: Retired from Actions and moved to the archive. [Historical YAML](https://github.com/stranske/Workflows/blob/67c2558643792c08e2063bbd0c4133c561fb009e/archives/diagnostics/health-keepalive-auth-diagnostic.yml) · [Current troubleshooting](../ci/WORKFLOW_SYSTEM.md#keepalive-and-cli-troubleshooting)
 
 ### `health-keepalive-e2e.yml`
 - **Purpose**: Validates keepalive orchestration logic and (optionally) executes a real Codex CLI ping when labeled with `e2e:codex-ping`.
