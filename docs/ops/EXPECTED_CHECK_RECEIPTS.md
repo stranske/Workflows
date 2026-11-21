@@ -94,6 +94,30 @@ For an independent Core invocation, replace `--presence-reporter ...` with
 full-head context. Native transport failures also produce UNKNOWN receipts;
 there is no automatic fallback between permission channels.
 
+### Historical validation for issue 3757
+
+Four packets at the [merged revision](https://github.com/stranske/Workflows/commit/f3efbfc4d4ee95fb584057885c7cc985be0ca5c2) preserve the original directory layout, reports and test logs.
+
+| Packet | What the record establishes |
+| --- | --- |
+| [Collection context](https://github.com/stranske/Workflows/tree/f3efbfc4d4ee95fb584057885c7cc985be0ca5c2/docs/evidence/issue-3757-context-binding) | The two dated PR reports returned `UNKNOWN` when collection could not reach GitHub. The README records the commands and the heads used. |
+| [Required status provenance](https://github.com/stranske/Workflows/tree/f3efbfc4d4ee95fb584057885c7cc985be0ca5c2/docs/evidence/issue-3757-status-provenance) | Records the authenticated status, job and run for the receiving PR and the controls that rejected an unverified publisher. |
+| [Fork publisher](https://github.com/stranske/Workflows/tree/f3efbfc4d4ee95fb584057885c7cc985be0ca5c2/docs/evidence/issue-3757-fork-publisher) | Includes the manifest, the two failing assertions when publisher collection was disabled, and the passing result after restoration. |
+| [Publisher attempt](https://github.com/stranske/Workflows/tree/f3efbfc4d4ee95fb584057885c7cc985be0ca5c2/docs/evidence/issue-3757-publisher-attempt) | Records the separate correction for binding the publisher attempt, its three failing assertions, and the restored test run. |
+
+To recover all 15 files at their recorded paths, run this from a Workflows checkout. The command prints a temporary directory containing the four packets and the version of this guide linked from the collection-context README.
+
+```sh
+evidence_dir=$(mktemp -d) &&
+git archive --format=tar f3efbfc4d4ee95fb584057885c7cc985be0ca5c2 -- \
+  docs/evidence/issue-3757-context-binding \
+  docs/evidence/issue-3757-status-provenance \
+  docs/evidence/issue-3757-fork-publisher \
+  docs/evidence/issue-3757-publisher-attempt \
+  docs/ops/EXPECTED_CHECK_RECEIPTS.md | tar -x -C "$evidence_dir" &&
+printf '%s\n' "$evidence_dir"
+```
+
 ## Receipt and verdict
 
 An independently recomputed empty scenario selection is supported only after the
