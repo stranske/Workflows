@@ -8,12 +8,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this template when Codex should pick up a task. The issue bridge
-        watches for the `agent:codex` label and will prepare a branch/PR once
-        the issue is ready. This template automatically applies the `agents`
-        and `agent:codex` labels so the Codex issue bridge can hand the work
-        directly to `agents-70-orchestrator.yml`; no legacy consumer shims
-        remain in the repo.
+        This form applies the `agents` and `agent:codex` labels. When the issue
+        passes intake checks, the bridge prepares the work branch and posts
+        instructions for opening the PR. See the [issue format examples](https://github.com/stranske/Workflows/blob/main/docs/ci/ISSUE_FORMAT_GUIDE.md#examples).
   - type: textarea
     id: context
     attributes:
@@ -34,7 +31,7 @@ body:
     id: tasks
     attributes:
       label: Tasks
-      description: List the concrete tasks Codex should complete.
+      description: List the tasks as checkboxes and name a concrete file, symbol, or command in each item.
       placeholder: "- [ ] Task 1\n- [ ] Task 2"
     validations:
       required: true
@@ -42,7 +39,7 @@ body:
     id: goals
     attributes:
       label: Acceptance criteria
-      description: Describe what must be true for this work to be considered complete.
+      description: Name a test or runnable command and the result that shows the work is complete.
       placeholder: "- [ ] Criterion 1\n- [ ] Criterion 2"
     validations:
       required: true
@@ -56,8 +53,8 @@ body:
     id: target_branch
     attributes:
       label: Target base branch
-      description: Branch Codex should use when creating the PR (defaults to the repo default branch).
-      placeholder: main
+      description: Optional planning note. The bridge uses the repository default as its base. For a different base, prepare the work branch from that base before opening the PR.
+      placeholder: "Example: release/1.x"
   - type: textarea
     id: notes
     attributes:
