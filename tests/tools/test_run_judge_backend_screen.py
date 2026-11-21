@@ -1075,6 +1075,48 @@ def test_diagnostic_only_cases_are_left_out_unless_asked_for():
     assert len(everything) > len(default)
 
 
+def test_default_picker_does_not_open_unselected_diagnostic_recipe_source(monkeypatch):
+    import gzip
+
+    corpus = json.loads((screen.ROOT / "config/model_eval_pilot.json").read_text())
+    missing = screen.ROOT / "config/model_eval_snapshots/workflows-2765.json.gz"
+    original_open = gzip.open
+    expected = screen.corpus_cases_with_snapshots(corpus, screen.ROOT)
+    assert expected
+
+    def open_without_diagnostic_source(path, *args, **kwargs):
+        if path == missing:
+            raise FileNotFoundError(2, "No such file or directory", path)
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(gzip, "open", open_without_diagnostic_source)
+    assert screen.corpus_cases_with_snapshots(corpus, screen.ROOT) == expected
+    with pytest.raises(FileNotFoundError) as caught:
+        screen.corpus_cases_with_snapshots(corpus, screen.ROOT, include_diagnostic=True)
+    assert caught.value.filename == missing
+
+
+def test_snapshot_rows_keep_the_diagnostic_status_from_the_loaded_record(tmp_path):
+    import gzip
+
+    corpus = {"cases": []}
+    for case_id, row_marker, snapshot_marker in [
+        ("ordinary", True, False),
+        ("diagnostic", False, True),
+    ]:
+        ref = f"{case_id}.json.gz"
+        with gzip.open(tmp_path / ref, "wt") as handle:
+            json.dump({"case_id": case_id, "diagnostic_only": snapshot_marker}, handle)
+        corpus["cases"].append(
+            {"case_id": case_id, "diagnostic_only": row_marker, "snapshot_ref": ref}
+        )
+
+    default = screen.corpus_cases_with_snapshots(corpus, tmp_path)
+    full = screen.corpus_cases_with_snapshots(corpus, tmp_path, include_diagnostic=True)
+    assert [case["case_id"] for case in default] == ["ordinary"]
+    assert [case["case_id"] for case in full] == ["ordinary", "diagnostic"]
+
+
 def test_muse_api_returns_the_raw_answer_text_for_replay_and_keeps_it_when_invalid(monkeypatch):
     monkeypatch.setenv("MUSE_API_KEY", "fixture-not-a-credential")
 
