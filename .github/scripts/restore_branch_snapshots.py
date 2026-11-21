@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tempfile
@@ -208,16 +209,37 @@ def _extract_zip(archive: Path, target_dir: Path) -> None:
         zf.extractall(target_dir)
 
 
-def _copy_json(source_dir: Path, destination_dir: Path) -> None:
+def _copy_json(source_dir: Path, destination_dir: Path) -> tuple[str, ...]:
+    snapshot_names = ("enforcement.json", "verification.json")
+    payloads: dict[str, bytes] = {}
+    for name in (*snapshot_names, "health-summary.json"):
+        path = source_dir / name
+        if not path.is_file():
+            continue
+        contents = path.read_bytes()
+        try:
+            decoded = json.loads(contents)
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise RestoreError(f"Invalid JSON snapshot: {name}") from exc
+        if name in snapshot_names and not isinstance(decoded, dict):
+            raise RestoreError(f"Invalid branch protection snapshot: {name}")
+        payloads[name] = contents
+    if not any(name in payloads for name in snapshot_names):
+        raise RestoreError(
+            f"Artifact directory {source_dir} did not contain branch protection snapshots"
+        )
+
+    # PRs can publish verification without enforcement. Validate and stage all
+    # received bytes before atomically replacing each supplied file; an omitted
+    # snapshot stays available from its earlier restore.
     destination_dir.mkdir(parents=True, exist_ok=True)
-    copied = False
-    for path in source_dir.glob("*.json"):
-        if path.is_file():
-            target = destination_dir / path.name
-            target.write_bytes(path.read_bytes())
-            copied = True
-    if not copied:
-        raise RestoreError(f"Artifact directory {source_dir} did not contain JSON snapshots")
+    with tempfile.TemporaryDirectory(dir=destination_dir.parent) as temporary:
+        staging = Path(temporary)
+        for name, contents in payloads.items():
+            (staging / name).write_bytes(contents)
+        for name in payloads:
+            (staging / name).replace(destination_dir / name)
+    return tuple(payloads)
 
 
 def restore_previous_snapshots(
@@ -240,14 +262,19 @@ def restore_previous_snapshots(
         _download_artifact(session, repo, token, candidate.id, archive)
         unpacked = tmpdir / "unpacked"
         unpacked.mkdir(parents=True, exist_ok=True)
-        _extract_zip(archive, unpacked)
+        try:
+            _extract_zip(archive, unpacked)
+        except zipfile.BadZipFile as exc:
+            raise RestoreError(f"Invalid snapshot archive {candidate.id}") from exc
         source_dir = unpacked / snapshot_dir.name
-        if not source_dir.exists():
-            raise RestoreError(f"Artifact did not contain {snapshot_dir.name}")
-        previous_dir = snapshot_dir / "previous"
-        for old in previous_dir.glob("*.json"):
-            old.unlink(missing_ok=True)
-        _copy_json(source_dir, previous_dir)
+        if not source_dir.is_dir():
+            source_dir = unpacked
+        restored = _copy_json(source_dir, snapshot_dir / "previous")
+    print(
+        f"[summary] Snapshot restore source: artifact {candidate.id}, "
+        f"run {candidate.workflow_run_id or 'unknown'}, files: {', '.join(restored)}",
+        flush=True,
+    )
     return True
 
 

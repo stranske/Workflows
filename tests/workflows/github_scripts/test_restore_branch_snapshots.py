@@ -6,6 +6,7 @@ import sys
 import textwrap
 import zipfile
 from collections.abc import Iterable
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -179,11 +180,11 @@ def test_extract_zip_and_copy_json(tmp_path: Path) -> None:
     archive = tmp_path / "data.zip"
     inner = tmp_path / "inner"
     inner.mkdir()
-    (inner / "snap.json").write_text("{}", encoding="utf-8")
+    (inner / "verification.json").write_text("{}", encoding="utf-8")
     (inner / "ignore.txt").write_text("ignored", encoding="utf-8")
     (inner / "nested.json").mkdir()
     with zipfile.ZipFile(archive, "w") as zf:
-        zf.write(inner / "snap.json", arcname="bundle/snap.json")
+        zf.write(inner / "verification.json", arcname="bundle/verification.json")
         zf.write(inner / "ignore.txt", arcname="bundle/ignore.txt")
         zf.write(inner / "nested.json", arcname="bundle/nested.json")
 
@@ -191,12 +192,12 @@ def test_extract_zip_and_copy_json(tmp_path: Path) -> None:
     rbs._extract_zip(archive, target)
 
     extracted = target / "bundle"
-    assert (extracted / "snap.json").exists()
+    assert (extracted / "verification.json").exists()
     assert (extracted / "ignore.txt").exists()
 
     destination = tmp_path / "previous"
     rbs._copy_json(extracted, destination)
-    assert (destination / "snap.json").exists()
+    assert (destination / "verification.json").exists()
     assert not (destination / "ignore.txt").exists()
 
 
@@ -235,15 +236,10 @@ def test_restore_previous_snapshots_happy_path(
     def fake_extract(archive, target_dir):
         target = target_dir / snapshot_dir.name
         target.mkdir(parents=True, exist_ok=True)
-        (target / "snapshot.json").write_text("{}", encoding="utf-8")
-
-    def fake_copy(source, destination):
-        destination.mkdir(parents=True, exist_ok=True)
-        (destination / "snapshot.json").write_text("{}", encoding="utf-8")
+        (target / "verification.json").write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(rbs, "_download_artifact", fake_download)
     monkeypatch.setattr(rbs, "_extract_zip", fake_extract)
-    monkeypatch.setattr(rbs, "_copy_json", fake_copy)
 
     restored = rbs.restore_previous_snapshots(
         repo="owner/repo",
@@ -254,7 +250,7 @@ def test_restore_previous_snapshots_happy_path(
 
     assert restored is True
     previous_dir = snapshot_dir / "previous"
-    assert (previous_dir / "snapshot.json").exists()
+    assert (previous_dir / "verification.json").exists()
 
 
 def test_restore_previous_snapshots_no_candidate(
@@ -296,7 +292,6 @@ def test_restore_previous_snapshots_missing_source(
         (target_dir / "other").mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(rbs, "_extract_zip", fake_extract)
-    monkeypatch.setattr(rbs, "_copy_json", lambda source, dest: None)
 
     with pytest.raises(rbs.RestoreError):
         rbs.restore_previous_snapshots(
@@ -425,3 +420,114 @@ def test_workflow_restore_step_preserves_exit_status(
     assert result.returncode == step_exit
     assert result.stdout == notice
     assert result.stderr == ""
+
+
+@pytest.mark.parametrize(
+    ("layout", "archive_files", "available", "expired", "artifact_run", "expected"),
+    [
+        (
+            "",
+            {"verification.json": b'{"current": {}}', "health-summary.json": b"[]"},
+            True,
+            False,
+            99,
+            True,
+        ),
+        (
+            "gate-branch-protection/",
+            {"enforcement.json": b'{"current": {}}'},
+            True,
+            False,
+            99,
+            True,
+        ),
+        ("", {"health-summary.json": b"[]"}, True, False, 99, None),
+        ("gate-branch-protection/", {"metadata.json": b"{}"}, True, False, 99, None),
+        ("gate-branch-protection/", {"verification.json": b"{"}, True, False, 99, None),
+        ("", {"verification.json": b"[]"}, True, False, 99, None),
+        ("", {}, True, False, 99, None),
+        ("", {"verification.json": b"{}"}, False, False, 99, None),
+        ("", {"verification.json": b"{}"}, True, True, 99, False),
+        ("", {"verification.json": b"{}"}, True, False, 101, False),
+    ],
+    ids=[
+        "flat-verification",
+        "nested-enforcement",
+        "summary-only",
+        "nested-metadata-only",
+        "invalid-json",
+        "invalid-protection-shape",
+        "bad-zip",
+        "unavailable-download",
+        "expired",
+        "current-run",
+    ],
+)
+def test_restore_snapshot_archive_preserves_usable_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    layout: str,
+    archive_files: dict[str, bytes],
+    available: bool,
+    expired: bool,
+    artifact_run: int,
+    expected: bool | None,
+) -> None:
+    archive = BytesIO()
+    if archive_files:
+        with zipfile.ZipFile(archive, "w") as archive_writer:
+            for name, contents in archive_files.items():
+                archive_writer.writestr(layout + name, contents)
+            archive_writer.writestr(layout + "previous/must-not-restore.json", b"{}")
+    else:
+        archive.write(b"partial transfer")
+    response = DummyResponse(
+        json_data={
+            "artifacts": [
+                {
+                    "id": 5,
+                    "name": f"gate-branch-protection-{artifact_run}",
+                    "created_at": "2024-01-05T00:00:00Z",
+                    "expired": expired,
+                    "workflow_run": {"id": artifact_run},
+                }
+            ]
+        }
+    )
+    downloader = DummyResponse(status_code=200 if available else 410, chunks=[archive.getvalue()])
+    session = DummySession([response, downloader])
+    monkeypatch.setattr(rbs.requests, "Session", lambda: session)
+    snapshot_dir = tmp_path / "gate-branch-protection"
+    previous = snapshot_dir / "previous"
+    previous.mkdir(parents=True)
+    (snapshot_dir / "verification.json").write_bytes(b'{"current": "current-check"}')
+    old_snapshots = {
+        "enforcement.json": b'{"current": "prior-enforce"}',
+        "verification.json": b'{"current": "prior-check"}',
+    }
+    for name, contents in old_snapshots.items():
+        (previous / name).write_bytes(contents)
+    (previous / "keep.txt").write_bytes(b"notes")
+
+    if expected is None:
+        with pytest.raises(rbs.RestoreError):
+            rbs.restore_previous_snapshots(
+                repo="owner/repo", token="token", snapshot_dir=snapshot_dir, run_id="101"
+            )
+    else:
+        restored = rbs.restore_previous_snapshots(
+            repo="owner/repo", token="token", snapshot_dir=snapshot_dir, run_id="101"
+        )
+        assert restored is expected
+
+    assert (snapshot_dir / "verification.json").read_bytes() == b'{"current": "current-check"}'
+    assert (previous / "keep.txt").read_bytes() == b"notes"
+    files = {path.name: path.read_bytes() for path in previous.glob("*.json")}
+    if expected:
+        assert files == old_snapshots | archive_files
+        assert "Snapshot restore source: artifact 5, run 99" in capsys.readouterr().out
+    else:
+        assert files == old_snapshots
+        if expected is False:
+            assert len(session.calls) == 1
