@@ -33,7 +33,7 @@ Relationship: the coordinator produces the standing weekly queue from `config/re
 
 ## Supported repos (the fleet)
 
-`stranske/Workflows`, `Travel-Plan-Permission`, `Trend_Model_Project`, `Portable-Alpha-Extension-Model`, `Counter_Risk`, `Manager-Database`, `Inv-Man-Intake`, `Pension-Data`, `trip-planner`, `learning-management-system`. Authoritative roster: `config/repo_review_registry.json` (status `active`). Per-repo interpretation: `config/repo_review_profiles.json`.
+Read the roster from `config/repo_review_registry.json`. Apply `excluded_repo_names` and current owner exclusions before assigning reviewers. Select entries with `status: active`. For a requested subset, select only matching active entries. Use `config/repo_review_profiles.json` for per-repository guidance.
 
 ## The review recipe
 
