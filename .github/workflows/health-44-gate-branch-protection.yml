@@ -292,6 +292,7 @@ jobs:
             --write-json "${SNAPSHOT_DIR}/health-summary.json" \
             --write-summary "${GITHUB_STEP_SUMMARY}"
       - name: Upload branch protection snapshots
+        id: snapshot_upload
         if: always() && steps.fingerprint.outputs.should_run == 'true'
         uses: actions/upload-artifact@v7
         with:
@@ -299,3 +300,28 @@ jobs:
           name: gate-branch-protection-${{ github.run_id }}
           path: ${{ env.SNAPSHOT_DIR }}
           if-no-files-found: ignore
+
+      - name: Prepare snapshot publication pointer
+        id: snapshot_pointer
+        if: >-
+          ${{ !cancelled() && steps.snapshot_upload.outcome == 'success' &&
+            steps.snapshot_upload.outputs.artifact-id != '' &&
+            steps.snapshot_upload.outputs.artifact-digest != '' }}
+        continue-on-error: true
+        env:
+          SNAPSHOT_ARTIFACT_ID: ${{ steps.snapshot_upload.outputs.artifact-id }}
+          SNAPSHOT_ARTIFACT_DIGEST: ${{ steps.snapshot_upload.outputs.artifact-digest }}
+          SNAPSHOT_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: python .github/scripts/publish_branch_snapshot_pointer.py
+
+      - name: Publish snapshot pointer
+        if: ${{ !cancelled() && steps.snapshot_pointer.outcome == 'success' && steps.snapshot_pointer.outputs.ready == 'true' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          retention-days: 30
+          name: health44-snapshot-pointer-v1
+          # A rerun with a fresh native upload can supersede its own pointer.
+          overwrite: true
+          path: ${{ runner.temp }}/health44-snapshot-pointer.json
+          if-no-files-found: error
