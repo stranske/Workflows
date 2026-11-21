@@ -198,6 +198,7 @@ def read_allowlist(path: Path) -> TemplateDriftAllowlist:
 
 
 def read_manifest_workflow_names(repo_root: Path) -> set[str]:
+    """Return manifest workflow sources that require a template counterpart."""
     manifest_path = repo_root / ".github" / "sync-manifest.yml"
     if not manifest_path.exists():
         return set()
@@ -205,7 +206,7 @@ def read_manifest_workflow_names(repo_root: Path) -> set[str]:
     manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
     workflow_names: set[str] = set()
     for entry in manifest.get("workflows", []) or []:
-        if not isinstance(entry, dict):
+        if not isinstance(entry, dict) or entry.get("source_tree") == "root":
             continue
         source = str(entry.get("source", ""))
         if source.startswith(".github/workflows/"):
