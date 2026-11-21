@@ -12,7 +12,7 @@ The review was checked on [Workflows main at `37d5956b38b8`](https://github.com/
 | Folders | 36 of 487 | 24 decided, 12 verified | 19 |
 | Workflows | 37 of 198 | 29 decided, 8 verified | 32 |
 
-The default tree has 105 changed paths since November 19. All 143 GitHub workflow registry paths, IDs and states matched the recorded registry. The six latest product PRs matched their reviewed file contents on the combined default branch. All five root verifier files matched their original blobs. There are 22 tracked root files. The three README navigation routes resolved all 6, 7 and 8 local destinations, respectively. The four applicable primary Gate Python jobs for this set took 299 to 525 seconds, within the existing 600-second limit.
+The default tree has 105 changed paths since November 19. All 143 GitHub workflow registry paths, IDs and states matched the recorded registry. The six latest product PRs matched their reviewed file contents on the combined default branch. All five root verifier files matched their original blobs. There are 22 tracked root files. The three README navigation routes resolved all 6, 7 and 8 local destinations, respectively. The four primary Gate Python jobs on product PRs #4823 and #4824 took 299, 447, 459 and 525 seconds, within the existing 600-second limit. [PR #4823 Gate](https://github.com/stranske/Workflows/actions/runs/44891562470) · [PR #4824 Gate](https://github.com/stranske/Workflows/actions/runs/44892179850)
 
 | Area | Verified outcome | Remaining evidence or work |
 | --- | --- | --- |
