@@ -9,9 +9,8 @@ body:
     attributes:
       value: |
         This form applies the `agents` and `agent:codex` labels. When the issue
-        passes intake checks, the bridge posts an invitation with instructions
-        for opening the PR. See the [issue format guide](https://github.com/stranske/Workflows/blob/main/docs/ci/ISSUE_FORMAT_GUIDE.md#required-sections)
-        for examples of tasks and acceptance criteria.
+        passes intake checks, the bridge prepares the work branch and posts
+        instructions for opening the PR. See the [issue format examples](https://github.com/stranske/Workflows/blob/main/docs/ci/ISSUE_FORMAT_GUIDE.md#examples).
   - type: textarea
     id: context
     attributes:
@@ -54,7 +53,7 @@ body:
     id: target_branch
     attributes:
       label: Target base branch
-      description: Optional request for the person opening the PR. The bridge uses the repository default branch. Choose a different base when opening the PR if needed.
+      description: Optional planning note. The bridge uses the repository default as its base. For a different base, prepare the work branch from that base before opening the PR.
       placeholder: "Example: release/1.x"
   - type: textarea
     id: notes
