@@ -11,7 +11,6 @@ MARKDOWN_LINK = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
 ARCHIVED_CANONICAL = [
     "docs/archive/plans/SHORT_TERM_PLAN.md",
-    "docs/archive/plans/SHORT_TERM_PLAN_SUMMARY.md",
     "docs/archive/plans/LONG_TERM_PLAN.md",
     "docs/archive/audits/WORKFLOW_AUDIT_2025-12-25.md",
     "docs/archive/audits/WORKFLOW_AUDIT_2026-01-09.md",
@@ -57,7 +56,6 @@ def test_archive_plans_ledger_links_resolve() -> None:
     }
     assert archive_links == {
         "plans/SHORT_TERM_PLAN.md",
-        "plans/SHORT_TERM_PLAN_SUMMARY.md",
         "plans/LONG_TERM_PLAN.md",
         "audits/WORKFLOW_AUDIT_2025-12-25.md",
         "audits/WORKFLOW_AUDIT_2026-01-09.md",
@@ -101,6 +99,19 @@ def test_extended_autopilot_docs_remain_active() -> None:
         path = REPO_ROOT / relative
         assert path.is_file(), relative
         assert "archived stub" not in path.read_text(encoding="utf-8").lower()
+
+
+def test_short_term_plan_summary_points_to_archive_ledger_section() -> None:
+    stub = REPO_ROOT / "docs/plans/SHORT_TERM_PLAN_SUMMARY.md"
+    ledger_path = "../archive/ARCHIVE_PLANS.md"
+    section = "historical-short-term-plan-briefing"
+    assert f"{ledger_path}#{section}" in MARKDOWN_LINK.findall(stub.read_text(encoding="utf-8"))
+    ledger = _resolve_link(stub, ledger_path)
+    assert ledger == ARCHIVE_LEDGER
+    assert (
+        "## Historical short-term plan briefing" in ledger.read_text(encoding="utf-8").splitlines()
+    )
+    assert not (ledger.parent / "plans/SHORT_TERM_PLAN_SUMMARY.md").exists()
 
 
 def test_workflow_audit_procedure_resolves_from_archive_ledger() -> None:

@@ -43,8 +43,21 @@ To recover either version, use its commit in
 | Former path | Archive path | Superseded by |
 |-------------|--------------|---------------|
 | `docs/plans/SHORT_TERM_PLAN.md` | [`plans/SHORT_TERM_PLAN.md`](plans/SHORT_TERM_PLAN.md) | [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md), [`docs/validation/overview.md`](../validation/overview.md) |
-| `docs/plans/SHORT_TERM_PLAN_SUMMARY.md` | [`plans/SHORT_TERM_PLAN_SUMMARY.md`](plans/SHORT_TERM_PLAN_SUMMARY.md) | Same as short-term plan |
 | `docs/plans/LONG_TERM_PLAN.md` | [`plans/LONG_TERM_PLAN.md`](plans/LONG_TERM_PLAN.md) | [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md), keepalive docs |
+
+## Historical short-term plan briefing
+
+The January 2026 briefing reports that adding eight missing labels brought
+Workflows to 16 agent-related labels. It lists Manager-Database issues #227–230 as planned test
+deliverables, with 12 Phase 3 functional tests and one Phase 4E test. It
+reports 129 passing unit tests for the Phase 3 scripts at that point.
+
+The [full archived short-term plan](plans/SHORT_TERM_PLAN.md) records the
+eventual results, including the 12 Phase 3 tests executed on January 10 under
+Manager-Database issues #236–248. The [original summary page](../plans/SHORT_TERM_PLAN_SUMMARY.md)
+links to the full historical briefing at three revisions. For current
+navigation, see the [workflow system guide](../ci/WORKFLOW_SYSTEM.md) and
+[validation overview](../validation/overview.md).
 
 ## Workflow audit reports
 
