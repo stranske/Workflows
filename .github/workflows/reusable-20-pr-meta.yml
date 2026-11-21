@@ -535,7 +535,14 @@ jobs:
   pr_body_update:
     name: Update PR body sections
     runs-on: ubuntu-latest
-    if: inputs.event_name == 'pull_request'
+    # The existing renderer writes directly, so stop manual previews before the job.
+    if: >-
+      inputs.event_name == 'pull_request' ||
+      (inputs.event_name == 'workflow_dispatch' &&
+       github.event_name == 'workflow_dispatch' &&
+       github.event.inputs.handler == 'pr-meta' &&
+       inputs.dry_run == false &&
+       github.event.inputs.dry_run != 'true')
     steps:
       - name: Checkout Workflows scripts
         uses: actions/checkout@v7
