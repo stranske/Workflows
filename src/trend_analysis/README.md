@@ -19,9 +19,6 @@ This directory contains **sample Python modules used to test the CI autofix pipe
 | `_autofix_violation_case3.py` | Additional autofix violation test case |
 | `_ci_probe_faults.py` | Fault injection samples for CI testing |
 | `automation_multifailure.py` | Multi-failure scenario test fixture |
-| `constants.py` | Shared constants for trend analysis fixtures |
-| `selector.py` | Selector logic test fixture |
-| `weighting.py` | Weighting algorithm test fixture |
 
 ## Readers and placement
 
@@ -46,6 +43,51 @@ The clean sample already joins with `" | "`. Changing the join separator to
 a comma in the disposable copy and repeating the command restores the pipe.
 The [developer guide](../../docs/metrics-developer-guide.md) also documents how
 to import `trend_analysis` explicitly from a full checkout.
+
+## Archived portfolio fixtures
+
+The historical portfolio tests were retired in [PR #296](https://github.com/stranske/Workflows/pull/296).
+The checkout still supports `import trend_analysis`. Direct imports of
+`trend_analysis.constants`, `trend_analysis.selector`, and
+`trend_analysis.weighting` now require the archived files below.
+
+Run the following inside a Workflows checkout using its selected Python. Set
+`WORKFLOWS_PYTHON` to its absolute path if your checkout has no `.venv`. The
+recipes find the repository root even when run from this fixture directory.
+In a shallow Workflows checkout that lacks either pinned revision, fetch both
+before running the recipes:
+
+```sh
+git fetch --depth=1 origin 6f97a7bfd74d5b19f8d3765b75d08a0bb0113f0d a68b8585e295f9f74c36656871b8df19c2c17e97
+```
+
+The [introduction revision](https://github.com/stranske/Workflows/tree/6f97a7bfd74d5b19f8d3765b75d08a0bb0113f0d)
+contains the original source, score CSV, and four regression tests.
+
+```sh
+repo=$(git rev-parse --show-toplevel)
+py=${WORKFLOWS_PYTHON:-"$repo/.venv/bin/python"}
+scratch=$(mktemp -d)
+git -C "$repo" archive 6f97a7bfd74d5b19f8d3765b75d08a0bb0113f0d -- src/trend_analysis \
+  tests/fixtures/score_frame_2025-06-30.csv \
+  tests/workflows/test_autofix_repo_regressions.py > "$scratch/historical.tar" &&
+  tar -xf "$scratch/historical.tar" -C "$scratch" &&
+  (cd "$scratch" && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH="$scratch/src" \
+    "$py" -B -m pytest -q -p no:cacheprovider tests/workflows/test_autofix_repo_regressions.py)
+```
+
+The [merged #296 source](https://github.com/stranske/Workflows/tree/a68b8585e295f9f74c36656871b8df19c2c17e97/src/trend_analysis)
+contains the final versions formerly present here. From inside the Workflows checkout,
+recover those exact three files into a separate directory.
+
+```sh
+repo=$(git rev-parse --show-toplevel)
+scratch=$(mktemp -d)
+git -C "$repo" archive a68b8585e295f9f74c36656871b8df19c2c17e97 -- \
+  src/trend_analysis/constants.py src/trend_analysis/selector.py src/trend_analysis/weighting.py \
+  > "$scratch/portfolio.tar" &&
+  tar -xf "$scratch/portfolio.tar" -C "$scratch"
+```
 
 ## Coverage Exclusion
 
