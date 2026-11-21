@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from scripts import aggregate_repo_metrics, metrics_dashboard_generator
@@ -16,6 +18,7 @@ def _write_repo_metrics(metrics_dir: Path, fixture_path: Path) -> list[str]:
 
 
 def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
     fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "sample_metrics.json"
     metrics_dir = tmp_path / "repo-metrics"
     repos = _write_repo_metrics(metrics_dir, fixture_path)
@@ -23,8 +26,11 @@ def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
     combined_path = tmp_path / "combined-repo-metrics.ndjson"
     summary_path = tmp_path / "repo-metrics-summary.json"
 
-    exit_code = aggregate_repo_metrics.main(
+    subprocess.run(
         [
+            sys.executable,
+            "-I",
+            "scripts/aggregate_repo_metrics.py",
             "--repos",
             ",".join(repos),
             "--metrics-dir",
@@ -39,10 +45,11 @@ def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
             "success_rate",
             "--numeric-field",
             "failed_jobs",
-        ]
+        ],
+        cwd=repo_root,
+        check=True,
     )
 
-    assert exit_code == 0
     assert combined_path.exists()
     assert summary_path.exists()
 
@@ -60,8 +67,11 @@ def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
     assert any(entry.get("entry_type") == "aggregate" for entry in combined_entries)
 
     dashboard_path = tmp_path / "dashboard.md"
-    dashboard_exit = metrics_dashboard_generator.main(
+    subprocess.run(
         [
+            sys.executable,
+            "-I",
+            "scripts/metrics_dashboard_generator.py",
             "--path",
             str(combined_path),
             "--output",
@@ -70,10 +80,11 @@ def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
             "duration_ms",
             "success_rate",
             "failed_jobs",
-        ]
+        ],
+        cwd=repo_root,
+        check=True,
     )
 
-    assert dashboard_exit == 0
     content = dashboard_path.read_text(encoding="utf-8")
     assert "# Weekly Metrics Dashboard" in content
     assert "## Org Summary" in content
