@@ -536,7 +536,19 @@ jobs:
     defaults:
       run:
         working-directory: packages/app-baseline-kit
+    env:
+      GATE_PR_JSON: ${{ needs.resolve-pr.outputs.pull_request }}
     steps:
+      - name: Restore resolved PR event for Gate helpers
+        if: ${{ needs.resolve-pr.result == 'success' && needs.resolve-pr.outputs.pull_request != 'null' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require('fs');
+            const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            event.pull_request = JSON.parse(process.env.GATE_PR_JSON);
+            event.number = event.pull_request.number;
+            fs.writeFileSync(process.env.GITHUB_EVENT_PATH, JSON.stringify(event));
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ fromJSON(needs.resolve-pr.outputs.pull_request).head.repo.full_name || github.repository }}
@@ -955,13 +967,18 @@ jobs:
       - name: Install GitHub API dependencies
         run: npm install --no-save --no-package-lock @octokit/rest @octokit/auth-app
       - name: Handle docs-only change
-        if: needs.detect.outputs.doc_only == 'true' && needs.detect.outputs.app_baseline_kit_required != 'true'
+        if: needs.detect.outputs.doc_only == 'true'
         id: docs_only
         uses: actions/github-script@v9
         env:
+          APP_BASELINE_KIT_REQUIRED: ${{ needs.detect.outputs.app_baseline_kit_required }}
           REASON: ${{ needs.detect.outputs.reason || 'docs_only' }}
         with:
           script: |
+            // A selected package verdict must come from the required summary.
+            if (process.env.APP_BASELINE_KIT_REQUIRED === 'true') {
+              return;
+            }
             const { handleDocsOnlyFastPass } = require('./.github/scripts/gate-docs-only.js');
             await handleDocsOnlyFastPass({ core, reason: process.env.REASON });
 

@@ -176,3 +176,43 @@ def test_baseline_kit_uses_the_existing_required_gate_verdict(
     )
     receipt = dict(line.split("=", 1) for line in output.read_text().splitlines())
     assert receipt["state"] == expected
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Gate script replay requires Node")
+@pytest.mark.parametrize("selected", ["false", "true"])
+def test_docs_fast_pass_does_not_publish_before_selected_package(
+    selected: str,
+) -> None:
+    workflow = yaml.safe_load(GATES[0].read_text(encoding="utf-8"))
+    step = next(
+        step for step in workflow["jobs"]["summary"]["steps"] if step.get("id") == "docs_only"
+    )
+    assert step["env"]["APP_BASELINE_KIT_REQUIRED"] == (
+        "${{ needs.detect.outputs.app_baseline_kit_required }}"
+    )
+    harness = """
+      const execute = new (Object.getPrototypeOf(async function () {}).constructor)(
+        'core', 'require', SCRIPT
+      );
+      const output = {};
+      execute({setOutput: (key, value) => { output[key] = value; }}, require)
+        .then(() => { process.stdout.write(JSON.stringify(output)); })
+        .catch(error => { console.error(error); process.exitCode = 1; });
+    """
+    output = json.loads(
+        subprocess.check_output(
+            [
+                "node",
+                "-e",
+                "const SCRIPT = " + json.dumps(step["with"]["script"]) + ";\n" + harness,
+            ],
+            cwd=ROOT,
+            env={**os.environ, "APP_BASELINE_KIT_REQUIRED": selected, "REASON": "docs_only"},
+            text=True,
+        )
+    )
+    if selected == "true":
+        assert output == {}
+    else:
+        assert output["state"] == "success"
+        assert "docs-only change" in output["comment_body"]
