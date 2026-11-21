@@ -1602,7 +1602,8 @@ sync-core handoff appears: last Portable-Alpha recurrence is comment 6649911684,
 Artifact IDs, original archive SHA-256 digests, members and targeted projection
 rules are in [artifact provenance](runtime-4550/4557-artifact-provenance.json).
 
-The archive table links both historical restricted-runner logs at `b2949e496`.
+Both historical restricted-runner logs were captured while testing `b2949e496`.
+The archive table links their first publication at `d17b088aa5`.
 The Node log records nine failing files. The Python log ends during progress
 without a terminal summary. The supported-runner suites did not reproduce
 these failures, and no test or source symbol was changed in response.
