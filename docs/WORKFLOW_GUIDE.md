@@ -195,14 +195,16 @@ gh workflow run agents-63-issue-intake.yml --ref "$ref" -f intake_mode=chatgpt_s
 
 The former root draft is preserved at its [last committed revision](https://github.com/stranske/Workflows/blob/5fbda473e4b542449d8027709a884f2a6c8fb912/Issues.txt) and records the completed [reference-pack issue](https://github.com/stranske/Workflows/issues/1465).
 
-To preview locally without creating issues, use the Workflows Python environment and copy your file or the [sample input](../tests/workflows/fixtures/issue_intake_chatgpt/lowercase_enumeration/input.txt) to a fresh directory as `input.txt`. The parser writes `topics.json`.
+To preview locally without creating issues, use the Workflows Python environment and set `source_file` to your file or the [sample input](../tests/workflows/fixtures/issue_intake_chatgpt/lowercase_enumeration/input.txt). The decoder prepares `input.txt` the same way as the workflow. The parser writes `topics.json`.
 
 ```sh
 repo=$(git rev-parse --show-toplevel)
 source_file=/path/to/your/topics.txt
 preview=$(mktemp -d)
-cp "$source_file" "$preview/input.txt"
-(cd "$preview" && python "$repo/.github/scripts/parse_chatgpt_topics.py")
+cp "$source_file" "$preview/source.txt"
+(cd "$preview" &&
+  python "$repo/.github/scripts/decode_raw_input.py" --passthrough --in source.txt --source repo_file &&
+  python "$repo/.github/scripts/parse_chatgpt_topics.py")
 cat "$preview/topics.json"
 ```
 
