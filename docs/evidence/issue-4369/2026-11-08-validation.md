@@ -1815,6 +1815,18 @@ The checkout guard and fixture-PR read passed before either command.
 steps, immutable identities, selected Python configuration blob, and artifact
 **13634718948**, `issue-4557-exact-main-acceptance`.
 
+The hosted artifact's [original fixture PR snapshot](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-exact-main/fixture-pr.json)
+records PR #4551 at acceptance time. Its SHA-256 is
+`574b698059e37a0698c3153d70e4085a833e5e641ae23f1ed93bf42f5d102d21`.
+The [fixture snapshot used by the current replay](runtime-4550/4558-fixture-pr.json)
+records the same head and merge, with later comment-count and update-time metadata.
+If the original revision is missing from a shallow checkout, fetch it before reading the file:
+
+```sh
+git fetch --no-tags --depth=1 origin d17b088aa5c97e6b024101c39252480c622e8395
+git show d17b088aa5c97e6b024101c39252480c622e8395:docs/evidence/issue-4369/runtime-4550/4557-exact-main/fixture-pr.json
+```
+
 | Exact command | Exit | External bound | Wall seconds | Complete result |
 | --- | --- | --- | --- | --- |
 | `node --test .github/scripts/__tests__/*.test.js` | **0** | 600s | 27.735 | 3,789 passed, 1 skipped, 0 failed |
