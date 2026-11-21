@@ -521,6 +521,7 @@ const previousFirstIteration = '2026-01-10T19:00:00.000Z';
 
 for (const [name, id, trace, iteration, storedFirst, expectedFirst] of [
   ['sets first_iteration_at on the first iteration', 124, '', 1, undefined, nowIso],
+  ['sets first_iteration_at with a matching explicit trace', 11, 'trace-x', 1, undefined, nowIso],
   ['sets current_iteration_at on the second iteration', 123, '', 2, undefined, undefined],
   ['preserves stored first_iteration_at on a later iteration', 125, '', 2, previousFirstIteration, previousFirstIteration],
   ['leaves first_iteration_at unset after the first iteration', 12, 'trace-x', 3, undefined, undefined],
