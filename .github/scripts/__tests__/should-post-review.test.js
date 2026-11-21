@@ -73,3 +73,11 @@ test('should-post-review returns true when review has populated fields', () => {
   const line = runScript(filePath);
   assert.equal(line, 'should_post_review=true');
 });
+
+test('should-post-review returns false for a raw empty review object', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'empty-review-result-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const filePath = path.join(dir, 'review-result.json');
+  fs.writeFileSync(filePath, '{}');
+  assert.equal(runScript(filePath), 'should_post_review=false');
+});
