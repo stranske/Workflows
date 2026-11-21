@@ -2,6 +2,32 @@
 
 **26 of 28 checks complete** as of 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input.
 
+## November 21 evidence placement and validation
+
+The November 19 inventory now has **692 of 5,554 files, 83 of 487 folders and 54 of 198 workflows** with a placement or usefulness decision. The previous checkpoint recorded 612 files, 81 folders and 50 workflows. The original delivery checklist is **26 of 28**. [Reviewed revision](https://github.com/stranske/Workflows/tree/383305cc1d53abed8fd1a26c3e1ee9b601cf3dd4)
+
+### 1A workflow review
+
+Four of the five original assignments have decisions. Agents 64 still needs an opted-in parent run with an actual assignment mismatch. Health 42 now rejects the bad action reference and reports its line. All 100 recent Health 40 PR runs sampled came from the same repository. The restricted fork case has a local replay and awaits a live fork event. Health 70 now identifies the failed check in its PR comment. Replaying real schema, missing-template and pin failures produced distinct comments. The ordinary passing PR preserved the 36-file, 298-reference pin report. Health 73 ran the same strict completeness command on the same checkout across 12 PR revisions. Its jobs used 128 seconds in total. A trial that simply skipped overlap hid an orphan-template failure whenever a schema error stopped Health 70 first. Keep both workflows. Across the 12 revisions, Health 70 never produced the result before Health 73 started. [Health 42](https://github.com/stranske/Workflows/pull/4785) · [Health 70](https://github.com/stranske/Workflows/pull/4860)
+
+Gate and Guard fork-status publishers also stay. One reports the CI verdict. The other reconciles routing-policy status. On the same PR head, each downstream reader distinguished its own status. The latest 200 PRs had no cross-repository head, so a live fork write remains unverified. [Paired PR](https://github.com/stranske/Workflows/pull/4852)
+
+### Retained evidence
+
+All 46 files under `artifacts/issue-3988` have identified readers. Moving the packet preserved its 17-of-51 routing result at the new path and broke the original documented command. Removing each saved history separately failed on that exact file. The [repository map](../STRUCTURE.md) now points to the acceptance, recovery and routing readers. Keep the 30 historical verifier inputs beside the other 20 snapshots. Moving them required 44 reference edits. The incremental writer then created duplicates and a clean rebuild left 30 stale files. A ZIP preserving the original bytes was 5,178 bytes larger. [Routing packet](../../artifacts/issue-3988/acceptance.md) · [Verifier inputs](../../config/model_eval_snapshots)
+
+### CI changes
+
+The selected baseline-kit job ran 19 tests in 16 seconds. The PDF job passed separately in 23 seconds. Four previously failing Gate contracts passed after repair. Ordinary Gate, PR Selftest and [main Selftest](https://github.com/stranske/Workflows/actions/runs/44918728894/job/136890026860) now check the actual review-posting CLI for missing, malformed and empty JSON. The redundant 36-line test file retired. Four receiver installs used none of the PDF package’s three optional groups under review. Keep those advertised groups for installation compatibility. Two other direct Node suites retain unique coverage. The proposed dismissal-suite move includes four JSON fixtures, so their prior keep decisions have been reopened. [Package Gate](https://github.com/stranske/Workflows/actions/runs/44917018436/job/136884794654) · [Review CLI consolidation](https://github.com/stranske/Workflows/pull/4859)
+
+### Regression checkpoint
+
+The three agent routes resolved six, seven and eight destinations. The saved evidence passed 33 acceptance/recovery tests and ten routing tests. Fresh coverage and collection reports and all ten issue-intake scenarios passed. The primary Python jobs took 302–513 seconds against the 600-second per-job limit. Of 282 consumer plan entries, only the distributed change detector’s content hash and effect fingerprint changed. All 17 removals matched.
+
+### Next work
+
+Move the dismissal cases and fixtures together, verify the 22 Keepalive runner cases through ordinary CI, and continue reviewing the high-volume hosted workflows. Retain the Maint 68 proposal for a performance decision. The two original open checks still require an ordinary reviewed stub deletion and eligible dependency-lock delivery. [Maint 68 measurements](https://github.com/stranske/Workflows/pull/4849)
+
 ## November 21 evaluation and package checks
 
 Checked on [Workflows main at `7631c230f`](https://github.com/stranske/Workflows/tree/7631c230fef22c5f4481ed74d5c6371b92d78e87). The original delivery checklist is **26 of 28**. These separate counts use the [November 19 inventory](https://github.com/stranske/Workflows/tree/e8156ba8483532729b2adae78027936d94775bf1).
