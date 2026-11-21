@@ -1549,6 +1549,23 @@ API actor fields alone cannot identify whether a human or local automation
 initiated them. This initiating-process provenance remains **UNKNOWN**; the
 following Maint 71 bot dispatch and payload lineage are independently retained.
 
+The original run and job metadata remains available at its publication revision.
+
+| Archived receipt | SHA-256 |
+| --- | --- |
+| [Maint 68 run 42499084007](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-run-42499084007.json) | `557964e18168667b574e9685f4fa45b8121f34fd6fc4225fc8cda2688eb11dab` |
+| [Maint 71 run 42521606142](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-run-42521606142.json) | `55acf933f1b3c5ec3812344e4254b57241a2515e834c8c2d4cb5741b6d8557a8` |
+| [Maint 71 job and step receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-jobs-42521606142.json) | `21204a08e086b2982de84e282bb7d69568bb3c01ed8170c630af533705cde972` |
+
+Choose the filename from the archive link. If the revision is missing from a shallow checkout, run the fetch before reading the receipt:
+
+```sh
+revision=d17b088aa5c97e6b024101c39252480c622e8395
+git fetch --no-tags --depth=1 origin "$revision"
+receipt=4557-run-42499084007.json
+git show "$revision:docs/evidence/issue-4369/runtime-4550/$receipt"
+```
+
 The complete [source bytes](runtime-4550/4557-source-subscription_llm.py.txt) at
 source `bbfc6ae604c8e8c4021138c5efe964a368482957` and
 [consumer bytes](runtime-4550/4557-consumer-subscription_llm.py.txt) at actual
