@@ -274,7 +274,9 @@ def _run_maint68_staging(workspace: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-@pytest.mark.parametrize("inventory", [None, "", "managed.txt\nobsolete.txt\n"])
+@pytest.mark.parametrize(
+    "inventory", [None, "", "managed.txt\nobsolete.txt\nuntracked-absent.txt\n"]
+)
 def test_maint68_stages_only_with_explicit_inventory(tmp_path: Path, inventory: str | None) -> None:
     repo, _, _ = _repo_with_pending_delivery(tmp_path)
     _write(repo, ".gitignore", "*.pyc\nmanaged.txt\n")

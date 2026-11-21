@@ -1459,17 +1459,22 @@ jobs:
 
           # Stage ONLY manifest-declared targets, to avoid accidentally committing
           # consumer-specific artifacts (e.g. requirements.lock, *.pyc, *.egg-info).
+          existing_paths=()
           while IFS= read -r path; do
             [ -z "$path" ] && continue
             if [ -e "$path" ]; then
-              # Use --force so consumer .gitignore rules cannot silently
-              # exclude files that the sync manifest declares.
-              git --literal-pathspecs add --force -- "$path"
+              existing_paths+=("$path")
             else
-              # Stage deletions for removal targets (or files removed by sync).
+              # Try each missing target separately so an untracked path
+              # cannot prevent staging other planned paths.
               git --literal-pathspecs add -u -- "$path" >/dev/null 2>&1 || true
             fi
           done < "../sync_targets.txt"
+          if [ "${#existing_paths[@]}" -gt 0 ]; then
+            # Force only the declared paths, including any that .gitignore excludes.
+            printf '%s\0' "${existing_paths[@]}" |
+              git --literal-pathspecs add --force --pathspec-from-file=- --pathspec-file-nul
+          fi
 
           if [ "$PLAN_SCOPE" = "source-delta" ] \
             && [ -n "$existing_pr" ] \

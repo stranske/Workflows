@@ -112,17 +112,28 @@ removals:""",
     cache.parent.mkdir()
     cache.write_bytes(b"local generated file")
     indexed = []
+    child_reads = []
     check_output = subprocess.check_output
+    read_bytes = Path.read_bytes
+    child = source / "scripts/directory/child.js"
 
     def count_inventory(args, **kwargs):
         if args[:2] == ["git", "ls-files"]:
             indexed.append(kwargs["cwd"])
         return check_output(args, **kwargs)
 
+    def count_child_reads(path):
+        if path == child:
+            child_reads.append(path)
+        return read_bytes(path)
+
     monkeypatch.setattr(subprocess, "check_output", count_inventory)
+    monkeypatch.setattr(Path, "read_bytes", count_child_reads)
     assert digest.render_payload(source, list(rendered["files"])) == rendered
     assert indexed == [source]
-    (source / "scripts/directory/child.js").write_text("changed child\n")
+    # One compile read and one render read shared across all three receivers.
+    assert child_reads == [child, child]
+    child.write_text("changed child\n")
     assert digest.render_payload(source, list(rendered["files"]))["digest"] != rendered["digest"]
 
 
