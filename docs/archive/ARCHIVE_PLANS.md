@@ -47,8 +47,8 @@ To recover either version, use its commit in
 
 ## Historical short-term plan briefing
 
-The January 2026 briefing records the addition of eight missing agent labels
-in Workflows. It lists Manager-Database issues #227–230 as planned test
+The January 2026 briefing reports that adding eight missing labels brought
+Workflows to 16 agent-related labels. It lists Manager-Database issues #227–230 as planned test
 deliverables, with 12 Phase 3 functional tests and one Phase 4E test. It
 reports 129 passing unit tests for the Phase 3 scripts at that point.
 
