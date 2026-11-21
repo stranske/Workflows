@@ -6,12 +6,12 @@ const assert = require('node:assert/strict');
 const {
   cascadeParentCheckboxes,
   countCheckboxes,
-} = require('../.github/scripts/keepalive_loop.js');
+} = require('../keepalive_loop.js');
 
 const {
   cascadeParentCheckboxes: runnerCascade,
   countCheckboxes: runnerCountCheckboxes,
-} = require('../scripts/keepalive-runner.js');
+} = require('../../../scripts/keepalive-runner.js');
 
 // ─── cascadeParentCheckboxes (keepalive_loop.js) ────────────────────────────
 
