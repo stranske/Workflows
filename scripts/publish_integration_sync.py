@@ -115,6 +115,12 @@ def publish(repo: Path, apply_script: Path, messages: list[str]) -> bool:
             ):
                 raise PublicationError(f"Concurrent managed change preserved: {path!r}")
 
+    # Push from a depth-one boundary at the verified parent. An ordinary push
+    # must reject a later rewind instead of treating it as an ancestor to restore.
+    git(repo, "fetch", "--no-tags", "--depth=1", "origin", branch)
+    if revision(repo, "FETCH_HEAD") != advanced:
+        raise PublicationError("Receiver default moved again before recomputation")
+
     print("Receiver default advanced; recomputing the delivery once", flush=True)
     git(repo, "checkout", "--detach", advanced, capture=False)
     subprocess.run(["bash", str(apply_script)], cwd=repo.parent, check=True)

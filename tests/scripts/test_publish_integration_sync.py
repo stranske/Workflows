@@ -168,3 +168,28 @@ def test_initial_publication_only_requires_the_configured_upstream(tmp_path):
     assert delivery.publish(receiver, apply_script, ["Delivery"])
     assert not (tmp_path / "replay-count").exists()
     assert git(remote, "show", f"main:{MANAGED}") == "canonical content"
+
+
+def test_retry_refuses_to_restore_withdrawn_receiver_history(tmp_path, monkeypatch):
+    remote, receiver, competitor, apply_script = seed_receiver(tmp_path)
+    original = git(receiver, "rev-parse", "HEAD")
+    actual_push = delivery.push
+    push_attempts = []
+
+    def race_push(repo, ref):
+        push_attempts.append(ref)
+        if len(push_attempts) == 1:
+            install(competitor, UNRELATED, "concurrent change later withdrawn\n")
+            commit(competitor, "Receiver advanced")
+            git(competitor, "push", "origin", "main")
+        else:
+            git(remote, "update-ref", ref, original)
+        return actual_push(repo, ref)
+
+    monkeypatch.setattr(delivery, "push", race_push)
+    install(receiver, MANAGED, "canonical content\n")
+    with pytest.raises(delivery.PublicationError, match="after one fresh recomputation"):
+        delivery.publish(receiver, apply_script, ["Delivery"])
+    assert len(push_attempts) == 2
+    assert git(remote, "rev-parse", "main") == original
+    assert git(remote, "show", f"main:{MANAGED}") == "old content"
