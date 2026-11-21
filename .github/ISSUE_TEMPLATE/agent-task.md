@@ -31,19 +31,7 @@ assignees: ''
 <!-- List guardrails Codex must respect (files to avoid, technologies to use, time limits, dependencies, etc.). -->
 
 ## Tasks
-<!-- 
-Actionable checklist of work items. Each line with a bullet (-) will be converted to a checkbox.
-DO NOT use bullets for instructions or explanations - only for actual tasks.
-Each task should be a concrete, verifiable action item.
-
-CORRECT:
-- [ ] Add unit tests for feature X
-- [ ] Update documentation
-
-INCORRECT:
-- Before implementing, review the codebase  (This is an instruction, not a task)
-- Each test must cover edge cases  (This is guidance, not a task)
--->
+<!-- Replace the placeholders with your own tasks. See the format guide above. -->
 - [ ] Task 1
 - [ ] Task 2
 
@@ -51,18 +39,4 @@ INCORRECT:
 <!-- Enumerate the artifacts Codex should produce (code changes, tests, docs, dashboards, reports, etc.). -->
 
 ## Acceptance criteria
-<!-- 
-Define how success will be evaluated. Each line with a bullet (-) will be converted to a checkbox.
-DO NOT use bullets for instructions on how to verify - only for actual criteria.
-Each criterion should be a verifiable condition that must be met.
-
-CORRECT:
-- [ ] All tests pass
-- [ ] Code coverage ≥95%
-- [ ] Documentation is updated
-
-INCORRECT:
-- Before marking complete, run pytest  (This is an instruction, not a criterion)
-- To verify, check the output  (This is guidance, not a criterion)
-- 1. Run tests  (Numbered lists are not criteria)
--->
+<!-- Add your own criteria here. See the format guide above. -->

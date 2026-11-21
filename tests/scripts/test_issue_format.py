@@ -22,6 +22,26 @@ def _validator(path: Path = Path(".github/scripts/issue_format.py")):
     return module
 
 
+@pytest.mark.parametrize(
+    "acceptance",
+    ("", "- [ ] Run `python -m pytest tests/scripts/test_issue_format.py -q`."),
+    ids=("missing-acceptance", "filled-acceptance"),
+)
+def test_agent_task_markdown_template_requires_authored_criteria(acceptance: str) -> None:
+    template = Path(".github/ISSUE_TEMPLATE/agent-task.md").read_text(encoding="utf-8")
+    body = template.split("---", 2)[2].replace(
+        "- [ ] Task 1\n- [ ] Task 2",
+        "- [ ] Update `.github/scripts/issue_format.py` to validate the request.",
+    )
+    report = _validator().validate(f"{body}\n{acceptance}\n", repo_root=Path.cwd())
+
+    if acceptance:
+        assert report.ok, report.problems
+    else:
+        assert not report.ok
+        assert any("`Acceptance Criteria` names no test" in problem for problem in report.problems)
+
+
 def test_fenced_headings_do_not_satisfy_required_sections() -> None:
     validator = _validator()
     report = validator.validate(
