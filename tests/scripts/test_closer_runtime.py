@@ -501,7 +501,7 @@ def test_runtime_ac_guard_matches_js_semantics() -> None:
 
 
 def test_validate_minimal_fixture() -> None:
-    path = REPO_ROOT / "fixtures/closer-operation/v1/minimal-operation.json"
+    path = REPO_ROOT / "tests/fixtures/closer-operation/v1/minimal-operation.json"
     record = json.loads(path.read_text(encoding="utf-8"))
     spec = cr.OperationSpec(
         repository=record["repository"],

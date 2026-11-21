@@ -10,12 +10,16 @@ production verifier. Neither repository is renamed.
 Distribute a pinned Workflows source revision containing `scripts/closer_runtime.py`,
 `scripts/closer_operation_github.py`, `scripts/check_checks_reported.py`,
 `scripts/api_client.py`, `scripts/reusable_ci_scope.py`, the producer's supported
-workflow definitions, and `fixtures/closer-operation/v1/`. Dependencies are Python
+workflow definitions, and `fixtures/closer-operation/v1/operation.schema.json`.
+Dependencies are Python
 3.12+, jsonschema, PyYAML, requests, and authenticated `gh` for topology reads.
 The new Core contract/store files are not fleet-synced: there is no entry for
 them in the consumer sync manifest. Existing shared dependencies retain their
 current distribution entries.
 A source-only checkout is not evidence of deployment or a live closer canary.
+
+The [minimal example](../../tests/fixtures/closer-operation/v1/minimal-operation.json)
+is a conformance test input. The sealed Core package ships the schema.
 
 ## Authority and record boundaries
 

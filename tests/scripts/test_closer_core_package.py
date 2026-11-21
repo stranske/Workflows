@@ -59,7 +59,7 @@ def test_relocate_and_run_validate(source_commit: str) -> None:
         core_pkg.materialize_package_tree(ROOT, pkg_a, descriptor)
         pkg_b = Path(tmp) / "b"
         shutil.move(str(pkg_a), str(pkg_b))
-        record = ROOT / "fixtures/closer-operation/v1/minimal-operation.json"
+        record = ROOT / "tests/fixtures/closer-operation/v1/minimal-operation.json"
         proc = core_pkg.run_sealed_entrypoint(
             pkg_b,
             descriptor,
@@ -99,7 +99,7 @@ def test_decoy_api_client_not_used(source_commit, monkeypatch, tmp_path):
     result = core_pkg.run_sealed_entrypoint(
         root,
         descriptor,
-        ["validate", str(ROOT / "fixtures/closer-operation/v1/minimal-operation.json")],
+        ["validate", str(ROOT / "tests/fixtures/closer-operation/v1/minimal-operation.json")],
     )
     assert result.returncode == 0, result.stderr
     assert not marker.exists(), "inherited path executed an unsealed api_client"
