@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
+from pathlib import Path
+
 from scripts.runner_lib.acceptance_gate import Command, extract_commands
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 ISSUE_4770_ACCEPTANCE_CRITERIA = """
 ## Acceptance Criteria
@@ -29,3 +35,26 @@ def test_issue_4770_acceptance_exposes_two_pytest_gates() -> None:
         Command(1, GATE_ISSUE_DEDUP_BUNDLE),
         Command(2, GATE_VALIDATE_DOC_BUNDLE),
     ]
+
+
+def test_issue_4770_api_wrapper_guard_criterion() -> None:
+    """Acceptance criterion 0: check_api_wrapper_guard --all exits 0 with no violations."""
+    result = subprocess.run(
+        [sys.executable, "scripts/check_api_wrapper_guard.py", "--all"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (result.stdout, result.stderr)
+
+
+def test_issue_4770_archived_audit_report_criterion() -> None:
+    """Acceptance criterion 3: archive report structure (also exercised in gate 2)."""
+    from tests.docs import test_workflow_audit_2026_11_19 as audit_tests
+
+    audit_tests.test_november_2026_audit_report_exists()
+    audit_tests.test_november_2026_audit_report_sections()
+    audit_tests.test_november_2026_audit_covers_below_50_workflows()
+    audit_tests.test_november_2026_audit_covers_50_80_band()
+    audit_tests.test_november_2026_audit_records_not_run_inventory()

@@ -146,6 +146,9 @@ pytest tests/scripts/test_validate_workflow_yaml.py \
   tests/workflows/test_workflows_doc_links_resolve.py -q -m "not slow"
 → 8 passed (includes bare `validate_workflow_yaml.py` + archive audit via doc link gate)
 
+pytest tests/test_issue_4770_acceptance_gates.py -q -m "not slow"
+→ 3 passed (API guard + archive audit criteria bundled with gate contract tests)
+
 pytest tests/docs/test_workflow_audit_2026_11_19.py -q -m "not slow"
 → 5 passed
 
