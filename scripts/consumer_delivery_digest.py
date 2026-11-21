@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from sync_manifest_compiler import compile_manifest, directory_source_files
+from sync_manifest_compiler import DirectorySourceInventory, compile_manifest
 from sync_status_file_ignores import load_template_block
 
 
@@ -29,7 +29,10 @@ def render_payload(root: Path, repositories: list[str]) -> dict:
     Consumer-local content is deliberately absent: this is delivery intent, not
     an authorization to overwrite local files or to carry a seal to a new head.
     """
-    plan = compile_manifest(root / ".github/sync-manifest.yml", repo_root=root).to_plan()
+    directories = DirectorySourceInventory(root)
+    plan = compile_manifest(
+        root / ".github/sync-manifest.yml", repo_root=root, directories=directories
+    ).to_plan()
     files = {}
     for repository in sorted(set(repositories)):
         rows = {}
@@ -39,7 +42,7 @@ def render_payload(root: Path, repositories: list[str]) -> dict:
             if repository in entry["skip_repos"]:
                 continue
             source = root / entry["resolved_source"]
-            children = directory_source_files(source, root) if entry["is_directory"] else [source]
+            children = directories.files(source) if entry["is_directory"] else [source]
             for child in children:
                 if not child.is_file():
                     continue

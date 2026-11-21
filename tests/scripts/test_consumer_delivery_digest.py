@@ -75,7 +75,7 @@ def test_descriptive_manifest_metadata_does_not_change_payload(source):
     assert digest.render_payload(source, ["owner/repo"]) == before
 
 
-def test_scopes_create_only_directory_and_removal_change_identity(source):
+def test_scopes_create_only_directory_and_removal_change_identity(source, monkeypatch):
     manifest = source / ".github/sync-manifest.yml"
     manifest.write_text(
         manifest.read_text().replace(
@@ -111,7 +111,17 @@ removals:""",
     cache = source / "scripts/directory/__pycache__/child.pyc"
     cache.parent.mkdir()
     cache.write_bytes(b"local generated file")
+    indexed = []
+    check_output = subprocess.check_output
+
+    def count_inventory(args, **kwargs):
+        if args[:2] == ["git", "ls-files"]:
+            indexed.append(kwargs["cwd"])
+        return check_output(args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "check_output", count_inventory)
     assert digest.render_payload(source, list(rendered["files"])) == rendered
+    assert indexed == [source]
     (source / "scripts/directory/child.js").write_text("changed child\n")
     assert digest.render_payload(source, list(rendered["files"]))["digest"] != rendered["digest"]
 

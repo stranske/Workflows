@@ -685,6 +685,7 @@ jobs:
           import os
           import shutil
           import subprocess
+          from bisect import bisect_left
           from pathlib import Path
 
           # Load manifest
@@ -716,21 +717,27 @@ jobs:
                   return str(reasons.get(repo) or 'Manifest skip for repo')
               return ''
 
+          tracked_files = None
+
           def verified_directory_files(item):
               # The workflow owns this selection even for older payload checkouts.
               # Compare its tracked leaves with the existing v1 directory hash.
+              global tracked_files
               source = Path(item['resolved_source'])
               root = Path('workflows')
               tracked_source = (root / source).resolve().relative_to(root.resolve())
-              names = subprocess.check_output(
-                  ['git', '--literal-pathspecs', 'ls-files', '--cached', '-z', '--',
-                   tracked_source.as_posix() + '/'],
-                  cwd=root,
-              )
-              paths = {Path(os.fsdecode(name)) for name in names.split(b'\0') if name}
-              files = [
-                  path.relative_to(tracked_source) for path in sorted(paths) if (root / path).is_file()
-              ]
+              if tracked_files is None:
+                  names = subprocess.check_output(['git', 'ls-files', '--cached', '-z'], cwd=root)
+                  tracked_files = sorted({os.fsdecode(name) for name in names.split(b'\0') if name})
+              prefix = '' if tracked_source == Path('.') else tracked_source.as_posix() + '/'
+              files = []
+              for index in range(bisect_left(tracked_files, prefix), len(tracked_files)):
+                  name = tracked_files[index]
+                  if not name.startswith(prefix):
+                      break
+                  if (root / name).is_file():
+                      files.append(Path(name).relative_to(tracked_source))
+              files.sort()
               rows = [
                   {'path': path.as_posix(), 'sha256': hashlib.sha256(
                       (root / source / path).read_bytes()).hexdigest()}

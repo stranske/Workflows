@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+from bisect import bisect_left
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -150,39 +151,38 @@ def _stable_hash(namespace: str, value: Any) -> str:
     return "sha256:" + hashlib.sha256(namespace.encode() + b"\0" + encoded).hexdigest()
 
 
-def directory_source_files(path: Path, repo_root: Path) -> list[Path]:
-    """Use tracked leaves when a directory is present in the source index."""
-    if (repo_root / ".git").exists():
-        relative = path.resolve().relative_to(repo_root.resolve())
-        try:
-            names = subprocess.check_output(
-                [
-                    "git",
-                    "--literal-pathspecs",
-                    "ls-files",
-                    "--cached",
-                    "-z",
-                    "--",
-                    relative.as_posix() + "/",
-                ],
-                cwd=repo_root,
-            )
-        except subprocess.CalledProcessError as exc:
-            raise ManifestCompileError(
-                [f"cannot list tracked directory source {relative!r}"]
-            ) from exc
-        if names:
+class DirectorySourceInventory:
+    """Share one tracked-source inventory within a compilation or delivery render."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root.resolve()
+        self.tracked: list[str] | None = None
+
+    def files(self, path: Path) -> list[Path]:
+        if (self.root / ".git").exists():
+            if self.tracked is None:
+                try:
+                    names = subprocess.check_output(
+                        ["git", "ls-files", "--cached", "-z"], cwd=self.root
+                    )
+                except subprocess.CalledProcessError as exc:
+                    raise ManifestCompileError(["cannot list tracked directory sources"]) from exc
+                self.tracked = sorted({os.fsdecode(name) for name in names.split(b"\0") if name})
             # Git indexes the physical directory. Keep the logical alias in the plan.
-            children = {
-                path / Path(os.fsdecode(name)).relative_to(relative)
-                for name in names.split(b"\0")
-                if name
-            }
-            return sorted(child for child in children if child.is_file())
-    return sorted(child for child in path.rglob("*") if child.is_file())
+            relative = path.resolve().relative_to(self.root)
+            prefix = "" if relative == Path(".") else relative.as_posix() + "/"
+            children: list[Path] = []
+            for index in range(bisect_left(self.tracked, prefix), len(self.tracked)):
+                name = self.tracked[index]
+                if not name.startswith(prefix):
+                    break
+                children.append(path / Path(name).relative_to(relative))
+            if children:
+                return sorted(child for child in children if child.is_file())
+        return sorted(child for child in path.rglob("*") if child.is_file())
 
 
-def _content_hash(path: Path, repo_root: Path) -> str:
+def _content_hash(path: Path, directories: DirectorySourceInventory) -> str:
     if path.is_file():
         return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
     rows = [
@@ -190,7 +190,7 @@ def _content_hash(path: Path, repo_root: Path) -> str:
             "path": child.relative_to(path).as_posix(),
             "sha256": hashlib.sha256(child.read_bytes()).hexdigest(),
         }
-        for child in directory_source_files(path, repo_root)
+        for child in directories.files(path)
     ]
     return _stable_hash("consumer-sync-directory", rows)
 
@@ -358,6 +358,7 @@ def _compile_entry(
     section: str,
     index: int,
     repo_root: Path,
+    directories: DirectorySourceInventory,
 ) -> tuple[ManifestEntry | None, list[str]]:
     context = f"section '{section}', entry {index}"
     errors: list[str] = []
@@ -464,7 +465,7 @@ def _compile_entry(
         if is_directory != resolved_path.is_dir():
             expected = "directory" if is_directory else "file"
             errors.append(f"{context}: resolved source must be a {expected}")
-        content_sha256 = _content_hash(resolved_path, repo_root)
+        content_sha256 = _content_hash(resolved_path, directories)
     else:
         content_sha256 = ""
     if errors:
@@ -531,9 +532,15 @@ def _compile_removal(raw: Any, *, index: int) -> tuple[RemovalEntry | None, list
     )
 
 
-def compile_manifest(path: Path, *, repo_root: Path | None = None) -> CompiledManifest:
+def compile_manifest(
+    path: Path,
+    *,
+    repo_root: Path | None = None,
+    directories: DirectorySourceInventory | None = None,
+) -> CompiledManifest:
     path = path.resolve()
     root = repo_root.resolve() if repo_root is not None else path.parent.parent.resolve()
+    directories = directories or DirectorySourceInventory(root)
     raw_bytes = path.read_bytes()
     data = yaml.safe_load(raw_bytes) or {}
     if not isinstance(data, dict):
@@ -559,6 +566,7 @@ def compile_manifest(path: Path, *, repo_root: Path | None = None) -> CompiledMa
                 section=section,
                 index=index,
                 repo_root=root,
+                directories=directories,
             )
             problems.extend(errors)
             if entry is None:
