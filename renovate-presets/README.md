@@ -1,24 +1,20 @@
 # Fleet Renovate preset
 
-`fleet.json` is the single source of truth for Renovate intake across Workflows and
-the registered consumer repositories. It opens routine dependency work only in the
-Monday 01:00–05:00 America/Chicago maintenance window, permits at most three routine
-branches and PRs, and limits commits to two per hour.
+See the [Fleet Renovate intake policy](../docs/ops/CONSUMER_REPO_MAINTENANCE.md#fleet-renovate-intake-policy)
+for schedules, limits, grouping, and exceptions.
 
-Routine releases must be at least three days old and wait until their update-branch
-checks are not pending. Vulnerability alerts bypass the window, release-age delay,
-and update-branch check gate so security remediation is never held by the routine
-budget.
+The [fleet preset](fleet.json) extends the [generated consumer managed-path preset](consumer-managed-paths.json).
 
-Trusted GitHub Actions digest, pin, minor, and patch updates share one green-automerge
-lane. Major updates remain visible in the Dependency Dashboard and create a PR only
-after an explicit dashboard approval. Lock-file maintenance is a separate, grouped
-weekly lane in the same window.
+## Validate local configuration
 
-Validate the repository config before review:
+From the repository root, use Node.js 24.11.0 or a later 24.x release to validate
+the Workflows config, both presets, and the create-only consumer config:
 
 ```bash
 npx --yes --package renovate@43.285.3 -- renovate-config-validator --no-global \
-  renovate.json renovate-presets/fleet.json \
+  renovate.json renovate-presets/fleet.json renovate-presets/consumer-managed-paths.json \
   templates/consumer-repo/.github/renovate.json
 ```
+
+This checks the four local files. Verify published GitHub preset references
+separately to confirm that the top-level `extends` targets are available.
