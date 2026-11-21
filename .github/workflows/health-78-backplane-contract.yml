@@ -97,9 +97,11 @@ jobs:
 
       - name: Validator self-smoke (schemas load + fixtures behave)
         run: |
+          set -o pipefail
           mkdir -p artifacts/backplane-contract
           python scripts/validate_run_contract.py \
             --self-smoke \
+            --require-bundled-fixtures \
             --registry config/backplane_participants.json \
             --schema-dir docs/contracts/schemas \
             --repo stranske/Workflows \
@@ -144,6 +146,7 @@ jobs:
 
       - name: Contract test suite
         run: |
+          set -o pipefail
           python -m pytest tests/contracts/ -q \
             | tee artifacts/backplane-contract/pytest.txt
 
