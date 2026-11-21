@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-TEMPLATE_DIR = Path(".github/workflow-templates")
+TEMPLATE_DIR = Path("templates/workflow-templates")
 
 TEMPLATES = {
     "python-ci": {
@@ -22,7 +22,7 @@ def _read_json(path: Path) -> dict:
 
 
 def test_templates_present_with_metadata_files():
-    assert TEMPLATE_DIR.exists(), "Missing .github/workflow-templates directory"
+    assert TEMPLATE_DIR.exists(), "Missing templates/workflow-templates directory"
 
     for slug in TEMPLATES:
         workflow = TEMPLATE_DIR / f"{slug}.yml"
@@ -52,10 +52,20 @@ def test_starter_template_metadata_matches_yaml():
         ), f"Starter workflow should call the reusable workflow for {slug}"
 
 
-def test_properties_files_include_required_keys_and_icon():
-    icons_dir = TEMPLATE_DIR / "icons"
-    assert icons_dir.exists(), "Icons directory missing for workflow templates"
+def test_python_ci_starter_inputs_match_reusable_workflow():
+    caller = _read_yaml(TEMPLATE_DIR / "python-ci.yml")["jobs"]["python-ci"]
+    assert caller["with"]["coverage-min"] == "70"
+    assert "secrets" not in caller
+    target = caller["uses"].removeprefix("stranske/Workflows/").split("@")[0]
+    contract = yaml.load(Path(target).read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    inputs = contract["on"]["workflow_call"]["inputs"]
+    value_types = {"string": (str,), "boolean": (bool,), "number": (int, float)}
+    for name, value in caller["with"].items():
+        assert name in inputs, f"Unknown reusable workflow input: {name}"
+        assert type(value) in value_types[inputs[name]["type"]], f"Wrong type for {name}"
 
+
+def test_properties_files_include_required_keys_and_icon():
     for slug in TEMPLATES:
         props = _read_json(TEMPLATE_DIR / f"{slug}.properties.json")
 
@@ -69,7 +79,7 @@ def test_properties_files_include_required_keys_and_icon():
             isinstance(props["filePatterns"], list) and props["filePatterns"]
         ), f"filePatterns should be a non-empty list for {slug}"
 
-        icon_path = icons_dir / f"{props['iconName']}.svg"
+        icon_path = TEMPLATE_DIR / f"{props['iconName']}.svg"
         assert icon_path.exists(), f"Icon referenced by {slug} is missing: {icon_path}"
 
 

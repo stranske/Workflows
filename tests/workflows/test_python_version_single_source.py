@@ -101,6 +101,7 @@ def test_python_runtime_literals_follow_shared_env() -> None:
             set(base.glob(".github/workflows/*.yml"))
             | set(base.glob(".github/actions/**/action.yml"))
             | set(base.glob(".github/workflow-templates/*.yml"))
+            | set(base.glob("templates/workflow-templates/*.yml"))
         )
         assert paths, f"No workflow/action surfaces found under {base}"
         for path in paths:
