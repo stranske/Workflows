@@ -179,6 +179,39 @@ def test_cli_fails_when_agent_template_counterpart_is_missing(tmp_path: Path) ->
     assert "templates/consumer-repo/.github/workflows/agents-demo.yml" in result.stdout
 
 
+@pytest.mark.parametrize(
+    ("has_template", "expected_status", "expected_message"),
+    [
+        (False, 0, "- unallowlisted drift: 0"),
+        (True, 1, "unallowlisted content differs"),
+    ],
+    ids=["root-only-source", "existing-divergent-counterpart"],
+)
+def test_cli_respects_root_owned_workflow_source(
+    tmp_path: Path, has_template: bool, expected_status: int, expected_message: str
+) -> None:
+    main_path = tmp_path / ".github" / "workflows" / "agents-demo.yml"
+    main_path.parent.mkdir(parents=True)
+    main_path.write_text("name: demo\n", encoding="utf-8")
+    (tmp_path / ".github" / "sync-manifest.yml").write_text(
+        "version: 1\n"
+        "workflows:\n"
+        "  - source: .github/workflows/agents-demo.yml\n"
+        "    source_tree: root\n"
+        "    description: Demo workflow\n",
+        encoding="utf-8",
+    )
+    if has_template:
+        template = tmp_path / "templates" / "consumer-repo" / ".github" / "workflows"
+        template.mkdir(parents=True)
+        (template / main_path.name).write_text("name: different consumer\n", encoding="utf-8")
+
+    result = _run_checker(tmp_path)
+
+    assert result.returncode == expected_status
+    assert expected_message in result.stdout
+
+
 def test_cli_passes_on_allowlisted_agent_template_drift(tmp_path: Path) -> None:
     main = "one\n"
     template = "two\n"
