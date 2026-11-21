@@ -24,7 +24,7 @@ After reading CLAUDE.md, these are the key architectural points:
 |-----------|----------|---------|
 | Main workflows | `.github/workflows/` | Run in this repo |
 | Consumer templates | `templates/consumer-repo/` | Synced to consumer repos |
-| Rate limiting | See "Rate Limiting Architecture" in CLAUDE.md | Token rotation system |
+| Rate limiting | [Recommended Architecture](../docs/ops/api-rate-limit-management.md#recommended-architecture) | Token rotation system |
 | Sync mechanism | `maint-68-sync-consumer-repos.yml` | Pushes templates to consumers |
 
 ## When User Points to Files
