@@ -219,6 +219,8 @@ test('opt-in app-baseline-kit detection preserves normal paths and includes eith
     [[{ filename: 'docs/golden.yml', previous_filename: 'packages/app-baseline-kit/tests/golden.yml' }], 'true'],
     [[{ filename: '.github/workflows/pr-00-gate.yml' }], 'true'],
     [[{ filename: 'packages/app-baseline-kit/README.md' }], 'false'],
+    [[{ filename: 'packages/app-baseline-kit/README.md' }, { filename: '.github/path-classification.yml' }], 'false'],
+    [[{ filename: 'packages/app-baseline-kit/README.md' }, { filename: '.github/workflows/pr-00-gate.yml' }], 'true'],
     [[{ filename: 'packages/stranske_pdf_extract/pyproject.toml' }], 'false'],
     [[{ filename: 'scripts/unrelated.py' }], 'false'],
   ];

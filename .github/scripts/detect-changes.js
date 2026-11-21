@@ -189,7 +189,7 @@ function isNonFatalListFilesError(error) {
   );
 }
 
-async function listChangedFiles({ github, context }) {
+async function listChangedFiles({ github, context, onFile }) {
   const pull = context?.payload?.pull_request;
   const number = pull?.number;
   if (!github || !context || !number) {
@@ -209,7 +209,8 @@ async function listChangedFiles({ github, context }) {
         if (Array.isArray(page.data)) {
           for (const item of page.data) {
             if (item && typeof item.filename === 'string') {
-              files.push(item);
+              files.push(item.filename);
+              onFile?.(item);
             }
           }
         }
@@ -222,7 +223,8 @@ async function listChangedFiles({ github, context }) {
       if (Array.isArray(items)) {
         for (const item of items) {
           if (item && typeof item.filename === 'string') {
-            files.push(item);
+            files.push(item.filename);
+            onFile?.(item);
           }
         }
       }
@@ -286,11 +288,20 @@ async function detectChanges({ github, context, core, files, fetchFiles, checkAp
   }
 
   let changedFiles = Array.isArray(files) ? files : null;
+  let renamedFromKit = false;
   if (!changedFiles) {
     if (typeof fetchFiles === 'function') {
       changedFiles = await fetchFiles();
     } else {
-      changedFiles = await listChangedFiles({ github, context });
+      changedFiles = await listChangedFiles({
+        github,
+        context,
+        onFile: checkAppBaselineKit
+          ? item => {
+            renamedFromKit ||= isAppBaselineKitInput(item.previous_filename);
+          }
+          : undefined,
+      });
     }
   }
 
@@ -313,11 +324,7 @@ async function detectChanges({ github, context, core, files, fetchFiles, checkAp
     return { outputs, details: null };
   }
 
-  const entries = Array.isArray(changedFiles) ? changedFiles : [changedFiles];
-  const filenames = Array.isArray(changedFiles)
-    ? entries.map(file => typeof file === 'object' && file ? file.filename : file)
-    : changedFiles;
-  const { docOnly, dockerChanged, workflowChanged, reason } = classifyChanges(filenames);
+  const { docOnly, dockerChanged, workflowChanged, reason } = classifyChanges(changedFiles);
   const outputs = {
     doc_only: docOnly ? 'true' : 'false',
     run_core: docOnly ? 'false' : 'true',
@@ -328,18 +335,15 @@ async function detectChanges({ github, context, core, files, fetchFiles, checkAp
   if (checkAppBaselineKit) {
     const expected = context?.payload?.pull_request?.changed_files;
     // GitHub lists at most 3,000 files. A truncated response cannot prove irrelevance.
+    const entries = Array.isArray(changedFiles) ? changedFiles : [];
     const incomplete =
       !Array.isArray(changedFiles) ||
       entries.length >= 3_000 ||
       (typeof expected === 'number' && entries.length < expected) ||
       (entries.length === 0 && expected !== 0 &&
         !Array.isArray(files) && typeof fetchFiles !== 'function');
-    const appBaselineKitChanged = incomplete || entries.some(file =>
-      typeof file !== 'object' || !file
-        ? isAppBaselineKitInput(file)
-        : isAppBaselineKitInput(file.filename) || isAppBaselineKitInput(file.previous_filename),
-    );
-    outputs.app_baseline_kit_changed = appBaselineKitChanged ? 'true' : 'false';
+    const selected = incomplete || renamedFromKit || entries.some(isAppBaselineKitInput);
+    outputs.app_baseline_kit_changed = selected ? 'true' : 'false';
   }
 
   if (core) {
@@ -351,7 +355,7 @@ async function detectChanges({ github, context, core, files, fetchFiles, checkAp
   return {
     outputs,
     details: {
-      changedFiles: filenames,
+      changedFiles,
       docOnly,
       dockerChanged,
       workflowChanged,

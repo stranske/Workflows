@@ -1097,8 +1097,14 @@ jobs:
         if: ${{ always() && needs.resolve-pr.result == 'success' }}
         id: summarize
         env:
-          DOC_ONLY: ${{ needs.detect.outputs.doc_only || 'false' }}
-          RUN_CORE: ${{ needs.detect.outputs.run_core || 'true' }}
+          # A selected package result needs the existing full verdict path even
+          # when Git classified the new side of a rename as docs-only.
+          DOC_ONLY: >-
+            ${{ needs.detect.outputs.app_baseline_kit_required == 'true' && 'false' ||
+                needs.detect.outputs.doc_only || 'false' }}
+          RUN_CORE: >-
+            ${{ needs.detect.outputs.app_baseline_kit_required == 'true' && 'true' ||
+                needs.detect.outputs.run_core || 'true' }}
           REASON: ${{ needs.detect.outputs.reason }}
           # Python passes only when both python-ci calls pass: a failure or a
           # cancellation in either one decides the combined result.
@@ -1116,15 +1122,23 @@ jobs:
               || 'skipped'
             }}
           DOCS_GUARD_RESULT: ${{ needs.docs-guard.result || 'success' }}
-          APP_BASELINE_KIT_REQUIRED: ${{ needs.detect.outputs.app_baseline_kit_required }}
-          APP_BASELINE_KIT_RESULT: ${{ needs.packages-app-baseline-kit.result }}
           PYTHON_REQUIRED: >-
             ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' }}
           DOCKER_RESULT: ${{ needs.docker-smoke.result || 'skipped' }}
-          # A failed runtime-AC label write counts as a test-quality failure (it ran inside test-quality before).
+          # Keep the older summary renderer's test-quality contract. A selected
+          # package must pass. A deliberately unselected package is ignored.
           TEST_QUALITY_RESULT: >-
-            ${{ (needs.acceptance-criteria-label.result == 'failure' && 'failure') ||
-                needs.test-quality.result || 'skipped' }}
+            ${{
+              (needs.acceptance-criteria-label.result == 'failure' ||
+               needs.test-quality.result == 'failure' ||
+               (needs.detect.outputs.app_baseline_kit_required == 'true' &&
+                needs.packages-app-baseline-kit.result != 'success' &&
+                needs.packages-app-baseline-kit.result != 'cancelled')) && 'failure' ||
+              (needs.test-quality.result == 'cancelled' ||
+               (needs.detect.outputs.app_baseline_kit_required == 'true' &&
+                needs.packages-app-baseline-kit.result == 'cancelled')) && 'cancelled' ||
+              needs.test-quality.result || 'skipped'
+            }}
           DELIVERY_SEAL_RESULT: ${{ needs.generated-delivery-seal.result || 'success' }}
           DOCKER_CHANGED: ${{ needs.detect.outputs.docker_changed || 'false' }}
           COVERAGE_ENABLED: ${{ needs.detect.outputs.coverage || 'true' }}
@@ -1151,28 +1165,7 @@ jobs:
               event["number"] = resolved["number"]
               path.write_text(json.dumps(event), encoding="utf-8")
           PY
-          if [ "${APP_BASELINE_KIT_REQUIRED:-false}" != 'true' ]; then
-            python .github/scripts/gate_summary.py
-          else
-            gate_output=$(mktemp)
-            trap 'rm -f "$gate_output"' EXIT
-            GITHUB_OUTPUT="$gate_output" python .github/scripts/gate_summary.py
-            IFS= read -r gate_state < "$gate_output"
-            package_result=${APP_BASELINE_KIT_RESULT:-skipped}
-            printf '\n- app-baseline-kit package tests: %s\n' "$package_result" >> "$GITHUB_STEP_SUMMARY"
-            if [ "$gate_state" = 'state=success' ] && [ "$package_result" != 'success' ]; then
-              gate_state=failure
-              if [ "$package_result" = 'cancelled' ]; then
-                gate_state=pending
-              fi
-              {
-                printf 'state=%s\n' "$gate_state"
-                printf 'description=app-baseline-kit package tests: %s.\n' "$package_result"
-              } >> "$GITHUB_OUTPUT"
-            else
-              cat "$gate_output" >> "$GITHUB_OUTPUT"
-            fi
-          fi
+          python .github/scripts/gate_summary.py
 
       - name: Auto-apply autofix label for cosmetic failures
         id: autofix_label
