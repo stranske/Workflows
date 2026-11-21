@@ -245,6 +245,9 @@ def test_maint68_checks_rotation_before_rebuilding_stable_branch() -> None:
         < workflow.index("guard_stable_plan_rotation.py")
         < workflow.index("desired_tree_hash=$(git write-tree)")
     )
+    assert workflow.index("Staging file target is a directory") < workflow.index(
+        'git checkout -B "$branch_name"'
+    )
 
 
 def _maint68_step(name: str) -> str:
@@ -397,6 +400,31 @@ removals:
     assert not (tmp_path / "sync_targets.txt").exists()
     _git(consumer, "--literal-pathspecs", "rm", "-q", "--cached", "--", child)
     _git(consumer, "commit", "-qm", "remove tracked collision fixture")
+
+    if plan_scope == "full":
+        ignore_path = consumer / ".gitignore"
+        ignore_contents = ignore_path.read_bytes()
+        ignore_path.unlink()
+        ignore_child = ".gitignore/consumer-owned.txt"
+        _write(consumer, ignore_child, "consumer directory contents\n")
+        rejected = apply()
+        assert rejected.returncode == 1
+        assert "Sync file target is a directory: .gitignore" in rejected.stderr
+        assert (consumer / ignore_child).is_file()
+        assert not (consumer / directory / "core.py").exists()
+        assert not (tmp_path / "sync_targets.txt").exists()
+        _git(consumer, "add", "-A", "--", ".gitignore")
+        _git(consumer, "commit", "-qm", "managed ignore path collision fixture")
+        (consumer / ignore_child).unlink()
+        ignore_path.rmdir()
+        rejected = apply()
+        assert rejected.returncode == 1
+        assert f"Sync file target has a tracked consumer child: {ignore_child}" in rejected.stderr
+        assert not (consumer / directory / "core.py").exists()
+        assert not (tmp_path / "sync_targets.txt").exists()
+        ignore_path.write_bytes(ignore_contents)
+        _git(consumer, "add", "-A", "--", ".gitignore")
+        _git(consumer, "commit", "-qm", "restore ignore fixture")
 
     actual = apply()
     assert actual.returncode == 0, actual.stderr

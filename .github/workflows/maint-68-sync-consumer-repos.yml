@@ -753,6 +753,9 @@ jobs:
                   targets.update((Path(target) / path).as_posix() for path in files)
               else:
                   targets.add(target)
+          plan_scope = os.environ.get('PLAN_SCOPE', '')
+          if plan_scope == 'full':
+              targets.add('.gitignore')
           for target in sorted(targets):
               if (Path('consumer') / target).is_dir():
                   raise ValueError(f'Sync file target is a directory: {target}')
@@ -1078,17 +1081,7 @@ jobs:
           sys.path.insert(0, str(Path('workflows')))
           from scripts.sync_status_file_ignores import apply_block_to_file
 
-          plan_scope = os.environ.get('PLAN_SCOPE', '')
           if plan_scope == 'full':
-              targets_path = Path('sync_targets.txt')
-              target_lines = targets_path.read_text(encoding='utf-8').splitlines()
-              if '.gitignore' not in target_lines:
-                  target_lines.append('.gitignore')
-                  targets_path.write_text(
-                      ''.join(f"{line}\n" for line in sorted(set(filter(None, target_lines)))),
-                      encoding='utf-8',
-                  )
-
               gitignore_result = apply_block_to_file(
                   Path('consumer/.gitignore'),
                   dry_run=dry_run,
@@ -1234,6 +1227,13 @@ jobs:
             echo "::error::Staging inventory ../sync_targets.txt must be a readable regular file."
             exit 1
           fi
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            if [ -d "$path" ]; then
+              echo "::error::Staging file target is a directory: $path"
+              exit 1
+            fi
+          done < "../sync_targets.txt"
 
           branch_name="$SYNC_BRANCH"
 
@@ -1449,13 +1449,6 @@ jobs:
 
           # Stage ONLY manifest-declared targets, to avoid accidentally committing
           # consumer-specific artifacts (e.g. requirements.lock, *.pyc, *.egg-info).
-          while IFS= read -r path; do
-            [ -z "$path" ] && continue
-            if [ -d "$path" ]; then
-              echo "::error::Staging file target is a directory: $path"
-              exit 1
-            fi
-          done < "../sync_targets.txt"
           while IFS= read -r path; do
             [ -z "$path" ] && continue
             if [ -e "$path" ]; then
