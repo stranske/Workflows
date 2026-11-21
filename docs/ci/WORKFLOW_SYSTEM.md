@@ -239,8 +239,9 @@ explain why a particular status appears in the Checks tab.
 - **When it runs.** Manual dispatch or via `workflow_call` when the sweep needs
   the Actionlint leg.
 - **What it does.** Runs Actionlint with the repository allowlist and sends its
-  diagnostics to Reviewdog. The job fails on an Actionlint error or a reporter
-  error. If both fail, the job preserves the Actionlint exit code.
+  diagnostics to Reviewdog. Fork PRs use runner annotations in place of inline
+  review comments. The job fails on an Actionlint error or a reporter error.
+  If both fail, the job preserves the Actionlint exit code.
 - **Merge impact.** Informational; use the annotations to fix workflow schema
   errors before Gate runs.
 

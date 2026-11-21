@@ -12,6 +12,45 @@ DIAGNOSTIC = '.github/workflows/input.yml:6:15: invalid action reference "$/.git
 
 
 @pytest.mark.parametrize(
+    ("event", "fork", "caller", "variable", "expected"),
+    [
+        ("pull_request", "true", "github-pr-review", "", "github-annotations"),
+        ("pull_request", "true", "", "", "github-annotations"),
+        ("pull_request", "true", "local", "github-pr-review", "local"),
+        ("pull_request", "false", "github-pr-review", "", "github-pr-review"),
+        ("schedule", "false", "github-check", "", "github-check"),
+        ("workflow_dispatch", "false", "", "", "github-check"),
+        ("workflow_dispatch", "false", "", "local", "local"),
+    ],
+)
+def test_health_actionlint_selects_reporter(tmp_path, event, fork, caller, variable, expected):
+    workflow = yaml.load(
+        (ROOT / ".github/workflows/health-42-actionlint.yml").read_text(),
+        Loader=yaml.BaseLoader,
+    )
+    step = next(
+        item for item in workflow["jobs"]["lint"]["steps"] if item.get("id") == "set-reporter"
+    )
+    output = tmp_path / "outputs"
+
+    subprocess.run(
+        ["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", step["run"]],
+        env={
+            **os.environ,
+            "GITHUB_OUTPUT": str(output),
+            "EVENT_NAME": event,
+            "FORK_PULL_REQUEST": fork,
+            "REPORTER_FROM_CALL": caller,
+            "REPORTER_FROM_VAR": variable,
+        },
+        check=True,
+        timeout=10,
+    )
+
+    assert output.read_text() == f"reporter={expected}\n"
+
+
+@pytest.mark.parametrize(
     ("lint_status", "reporter_status", "expected_status"),
     [(0, 0, 0), (0, 7, 7), (1, 0, 1), (1, 7, 1)],
     ids=["clean", "reporter-failure", "lint-failure", "both-fail"],
