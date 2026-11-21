@@ -201,39 +201,39 @@ test('loadKeepaliveState returns stored payload when present', async () => {
   assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
 });
 
-test('loadKeepaliveState ignores a later untrusted marker and recovers trusted state', async () => {
-  const trustedBody = formatStateComment({
-    trace: 'trace-x',
-    iteration: 2,
-    recovery_lease: { status: 'issued' },
-  });
-  const forgedBody = formatStateComment({
-    trace: 'trace-x',
-    iteration: 99,
-    recovery_lease: { status: 'consumed' },
-  });
-  const github = buildGithubStub({
-    comments: [
-      { id: 99, body: trustedBody, html_url: 'https://example.com/99' },
-      {
-        id: 100,
-        body: forgedBody,
-        html_url: 'https://example.com/100',
-        user: { login: 'untrusted-reviewer', type: 'User' },
-      },
-    ],
-  });
-  const result = await loadKeepaliveState({
-    github,
-    context: { repo: { owner: 'o', repo: 'r' } },
-    prNumber: 99,
-    trace: 'trace-x',
-  });
+for (const [author, user] of [
+  ['untrusted', { login: 'untrusted-reviewer', type: 'User' }],
+  ['unattributed', undefined],
+]) {
+  test(`loadKeepaliveState ignores a later ${author} marker and recovers trusted state`, async () => {
+    const trustedBody = formatStateComment({
+      trace: 'trace-x',
+      iteration: 2,
+      recovery_lease: { status: 'issued' },
+    });
+    const forgedBody = formatStateComment({
+      trace: 'trace-x',
+      iteration: 99,
+      recovery_lease: { status: 'consumed' },
+    });
+    const github = buildGithubStub({
+      comments: [
+        { id: 99, body: trustedBody, html_url: 'https://example.com/99' },
+        { id: 100, body: forgedBody, html_url: 'https://example.com/100', user },
+      ],
+    });
+    const result = await loadKeepaliveState({
+      github,
+      context: { repo: { owner: 'o', repo: 'r' } },
+      prNumber: 99,
+      trace: 'trace-x',
+    });
 
-  assert.equal(result.commentId, 99);
-  assert.equal(result.state.iteration, 2);
-  assert.equal(result.state.recovery_lease.status, 'issued');
-});
+    assert.equal(result.commentId, 99);
+    assert.equal(result.state.iteration, 2);
+    assert.equal(result.state.recovery_lease.status, 'issued');
+  });
+}
 
 test('trusted keepalive state writers include identity-checked PAT fallbacks', () => {
   assert.equal(isTrustedKeepaliveStateComment({
@@ -513,50 +513,49 @@ test('deepMerge ignores undefined values', () => {
   assert.deepEqual(merged, { a: 1, nested: { x: 1, y: 2 } });
 });
 
-test('loadKeepaliveState sets first_iteration_at on first iteration', async () => {
-  const storedBody = formatStateComment({ trace: 'trace-x', iteration: 1, version: 'v1' });
-  const github = buildGithubStub({ comments: [{ id: 11, body: storedBody, html_url: 'https://example.com/11' }] });
-  const result = await loadKeepaliveState({
-    github,
-    context: { repo: { owner: 'o', repo: 'r' } },
-    prNumber: 11,
-    trace: 'trace-x',
-  });
-  assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
-  assert.ok(Number.isFinite(Date.parse(result.state.first_iteration_at)));
-});
+const documentedStart = '2026-01-10T20:00:00Z';
+const documentedNow = '2026-01-10T20:05:23Z';
+const now = Date.parse(documentedNow);
+const nowIso = new Date(now).toISOString();
+const previousFirstIteration = '2026-01-10T19:00:00.000Z';
 
-test('loadKeepaliveState does not set first_iteration_at after first iteration', async () => {
-  const storedBody = formatStateComment({ trace: 'trace-x', iteration: 3, version: 'v1' });
-  const github = buildGithubStub({ comments: [{ id: 12, body: storedBody, html_url: 'https://example.com/12' }] });
-  const result = await loadKeepaliveState({
-    github,
-    context: { repo: { owner: 'o', repo: 'r' } },
-    prNumber: 12,
-    trace: 'trace-x',
-  });
-  assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
-  assert.equal(result.state.first_iteration_at, undefined);
-});
+for (const [name, id, trace, iteration, storedFirst, expectedFirst] of [
+  ['sets first_iteration_at on the first iteration', 124, '', 1, undefined, nowIso],
+  ['sets current_iteration_at on the second iteration', 123, '', 2, undefined, undefined],
+  ['preserves stored first_iteration_at on a later iteration', 125, '', 2, previousFirstIteration, previousFirstIteration],
+  ['leaves first_iteration_at unset after the first iteration', 12, 'trace-x', 3, undefined, undefined],
+  ['leaves first_iteration_at unset before the first iteration', 13, 'trace-x', 0, undefined, undefined],
+]) {
+  test(`loadKeepaliveState ${name}`, async (t) => {
+    t.mock.method(Date, 'now', () => now);
+    const body = formatStateComment({
+      trace: 'trace-x',
+      iteration,
+      first_iteration_at: storedFirst,
+      current_iteration_at: storedFirst && documentedStart,
+    });
+    const github = buildGithubStub({ comments: [{ id, body }] });
+    const result = await loadKeepaliveState({
+      github,
+      context: { repo: { owner: 'o', repo: 'r' } },
+      prNumber: 42,
+      trace,
+    });
 
-test('loadKeepaliveState does not set first_iteration_at before first iteration', async () => {
-  const storedBody = formatStateComment({ trace: 'trace-x', iteration: 0, version: 'v1' });
-  const github = buildGithubStub({ comments: [{ id: 13, body: storedBody, html_url: 'https://example.com/13' }] });
-  const result = await loadKeepaliveState({
-    github,
-    context: { repo: { owner: 'o', repo: 'r' } },
-    prNumber: 13,
-    trace: 'trace-x',
+    assert.equal(result.commentId, id);
+    assert.equal(result.state.iteration, iteration);
+    assert.equal(result.state.first_iteration_at, expectedFirst);
+    assert.equal(result.state.current_iteration_at, nowIso);
   });
-  assert.ok(Number.isFinite(Date.parse(result.state.current_iteration_at)));
-  assert.equal(result.state.first_iteration_at, undefined);
-});
+}
 
-test('createKeepaliveStateManager stores iteration_duration on save', async () => {
-  const realNow = Date.now;
-  let now = 1700000000000;
-  Date.now = () => now;
-  try {
+for (const [name, elapsedMs, updates, expectedDuration] of [
+  ['without updates', 65_000, {}, '1m 5s'],
+  ['with an iteration update', 125_000, { iteration: 2 }, '2m 5s'],
+]) {
+  test(`createKeepaliveStateManager saves iteration_duration from current_iteration_at ${name}`, async (t) => {
+    let clock = now;
+    t.mock.method(Date, 'now', () => clock);
     const github = buildGithubStub();
     const manager = await createKeepaliveStateManager({
       github,
@@ -565,39 +564,71 @@ test('createKeepaliveStateManager stores iteration_duration on save', async () =
       trace: 'trace-1',
       round: '3',
     });
-    now += 65_000;
-    const saved = await manager.save({});
-    assert.equal(saved.state.iteration_duration, '1m 5s');
-  } finally {
-    Date.now = realNow;
-  }
-});
+    clock += elapsedMs;
+    const saved = await manager.save(updates);
 
-test('calculateElapsedTime returns 0s for null and invalid values', () => {
-  assert.equal(calculateElapsedTime(null), '0s');
-  assert.equal(calculateElapsedTime('invalid'), '0s');
-});
+    assert.equal(saved.state.iteration_duration, expectedDuration);
+    assert.equal(saved.state.current_iteration_at, nowIso);
+    assert.equal(saved.state.iteration, updates.iteration);
+    assert.deepEqual(parseStateComment(github.actions[0].body).data, saved.state);
+  });
+}
 
-test('calculateElapsedTime formats elapsed time', () => {
-  const realNow = Date.now;
-  const now = 1700000000000;
-  Date.now = () => now;
-  try {
-    const start = new Date(now - (5 * 60 * 1000 + 23 * 1000)).toISOString();
-    assert.equal(calculateElapsedTime(start), '5m 23s');
-  } finally {
-    Date.now = realNow;
-  }
-});
+for (const [name, start, end] of [
+  ['null start', null],
+  ['undefined start', undefined],
+  ['invalid start string', 'invalid'],
+  ['invalid start string with a valid now', 'invalid', now],
+  ['blank start string', '  '],
+  ['invalid Date start', new Date(NaN)],
+  ['NaN start', Number.NaN],
+]) {
+  test(`calculateElapsedTime returns 0s for ${name}`, () => {
+    assert.equal(calculateElapsedTime(start, end), '0s');
+  });
+}
 
-test('calculateElapsedTime matches the documented example with Date.now', () => {
-  const realNow = Date.now;
-  const now = Date.parse('2026-01-10T20:05:23Z');
-  Date.now = () => now;
-  try {
-    const start = '2026-01-10T20:00:00Z';
-    assert.equal(calculateElapsedTime(start), '5m 23s');
-  } finally {
-    Date.now = realNow;
-  }
-});
+const isoBeforeNow = (elapsedMs) => new Date(now - elapsedMs).toISOString();
+
+for (const [name, start, end, expected] of [
+  ['formats minutes and seconds for the documented example with numeric now', documentedStart, now, '5m 23s'],
+  ['accepts numeric string now', isoBeforeNow(12_000), String(now), '12s'],
+  ['accepts Date now', isoBeforeNow(18_000), new Date(now), '18s'],
+  ['trims ISO string now', documentedStart, `  ${documentedNow}  `, '5m 23s'],
+  ['trims numeric string now', isoBeforeNow(45_000), `  ${now}  `, '45s'],
+  ['accepts Date start with numeric string now', new Date(now - 30_000), String(now), '30s'],
+]) {
+  test(`calculateElapsedTime ${name}`, () => {
+    assert.equal(calculateElapsedTime(start, end), expected);
+  });
+}
+
+for (const [name, start, expected] of [
+  ['trims ISO string start', `  ${isoBeforeNow(4_000)}  `, '4s'],
+  ['formats whole minutes', isoBeforeNow(60_000), '1m 0s'],
+  ['returns 0s for zero duration', nowIso, '0s'],
+  ['matches the documented example with Date.now', documentedStart, '5m 23s'],
+  ['truncates fractional seconds', isoBeforeNow(1_999), '1s'],
+  ['returns 0s for a future start', isoBeforeNow(-60_000), '0s'],
+  ['formats hours, minutes and seconds', isoBeforeNow(7_384_000), '2h 3m 4s'],
+  ['accepts Date start', new Date(now - 9_000), '9s'],
+  ['accepts numeric start', now - 12_000, '12s'],
+  ['accepts numeric string start', String(now - 15_000), '15s'],
+  ['trims numeric string start', `  ${now - 8_000}  `, '8s'],
+  ['accepts decimal numeric string start', String(now - 1_500.5), '1s'],
+]) {
+  test(`calculateElapsedTime ${name}`, (t) => {
+    t.mock.method(Date, 'now', () => now);
+    assert.equal(calculateElapsedTime(start), expected);
+  });
+}
+
+for (const [name, end, elapsedMs, expected] of [
+  ['invalid string now', 'invalid', 7_000, '7s'],
+  ['invalid Date now', new Date(NaN), 11_000, '11s'],
+]) {
+  test(`calculateElapsedTime falls back to Date.now for ${name}`, (t) => {
+    t.mock.method(Date, 'now', () => now);
+    assert.equal(calculateElapsedTime(isoBeforeNow(elapsedMs), end), expected);
+  });
+}
