@@ -678,6 +678,7 @@ HEAD_DRIFT_MARKERS = (
     "exact-head mismatch",
     "exact head mismatch",
     "source commit mismatch",
+    "round-1 source commit does not match reviewed repo head",
     "source_commit mismatch",
 )
 
@@ -1108,6 +1109,7 @@ def coordinate_repo(
         repo=repo,
         output_dir=output_dir,
         repair_attempts=repair_attempts,
+        stop_retry_when=log_indicates_head_drift,
     )
     report["round2"] = {
         "succeeded": r2_result.succeeded,
