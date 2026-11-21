@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import argparse
-import re
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 from scripts.workflow_concurrency_audit import normalize_triggers
+
+
+class WorkflowInventoryError(Exception):
+    """Workflow inventory could not be loaded or classified."""
 
 
 class _WorkflowLoader(yaml.SafeLoader):
@@ -22,21 +26,20 @@ _WorkflowLoader.yaml_implicit_resolvers = {
 }
 
 
-def load_workflow_document(path: Path) -> dict | None:
+def load_workflow_document(path: Path, *, text: str | None = None) -> dict:
     """Load a workflow dict, preserving the `on` trigger block."""
+    if text is None:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise WorkflowInventoryError(f"cannot read {path}: {exc}") from exc
     try:
-        payload = path.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    try:
-        data = yaml.load(payload, Loader=_WorkflowLoader)
-    except yaml.YAMLError:
-        return None
-    return data if isinstance(data, dict) else None
-
-
-# Mirrors the grep in `.github/workflows/maint-66-monthly-audit.yml` (attention step).
-_INDEPENDENT_TRIGGER_RE = re.compile(r"workflow_dispatch:|schedule:|push:|pull_request")
+        data = yaml.load(text, Loader=_WorkflowLoader)
+    except yaml.YAMLError as exc:
+        raise WorkflowInventoryError(f"invalid YAML in {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise WorkflowInventoryError(f"workflow root must be a mapping: {path}")
+    return data
 
 AUDIT_CATEGORIES = (
     "reusable_call_only",
@@ -61,21 +64,11 @@ class WorkflowInventoryRow:
     has_run_name: bool
 
 
-def _on_section_text(workflow_text: str) -> str:
-    """Return the YAML block under `on:` (not whole-file grep)."""
-    match = re.search(r"^on:\s*\n(.*?)(?=^\S|\Z)", workflow_text, re.M | re.S)
-    if match:
-        return match.group(1)
-    match = re.search(r"^on:\s*(.+)$", workflow_text, re.M)
-    return match.group(1) if match else workflow_text
-
-
-def excluded_from_not_run_inventory(workflow_text: str) -> bool:
+def excluded_from_not_run_inventory(triggers: tuple[str, ...]) -> bool:
     """Return True when Maint 66 should skip a workflow in the not-run section."""
-    section = _on_section_text(workflow_text)
-    if "workflow_call:" not in section:
+    if "workflow_call" not in triggers:
         return False
-    return _INDEPENDENT_TRIGGER_RE.search(section) is None
+    return all(trigger == "workflow_call" for trigger in triggers)
 
 
 def _display_name(data: dict, stem: str) -> str:
@@ -102,18 +95,16 @@ def classify_audit_category(triggers: tuple[str, ...], *, excluded_from_not_run:
     return "event_driven"
 
 
-def inspect_workflow_file(path: Path) -> WorkflowInventoryRow | None:
-    """Load one workflow and return its inventory row, or None when unreadable."""
+def inspect_workflow_file(path: Path) -> WorkflowInventoryRow:
+    """Load one workflow and return its inventory row."""
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    data = load_workflow_document(path)
-    if data is None:
-        return None
+    except OSError as exc:
+        raise WorkflowInventoryError(f"cannot read {path}: {exc}") from exc
+    data = load_workflow_document(path, text=text)
     stem = path.stem
     triggers = normalize_triggers(data.get("on"))
-    excluded = excluded_from_not_run_inventory(text)
+    excluded = excluded_from_not_run_inventory(triggers)
     return WorkflowInventoryRow(
         stem=stem,
         display_name=_display_name(data, stem),
@@ -128,10 +119,14 @@ def inspect_workflow_file(path: Path) -> WorkflowInventoryRow | None:
 def iter_workflow_inventory(workflows_dir: Path) -> list[WorkflowInventoryRow]:
     """Return sorted inventory rows for every `*.yml` file in the workflows directory."""
     rows: list[WorkflowInventoryRow] = []
+    errors: list[str] = []
     for path in sorted(workflows_dir.glob("*.yml")):
-        row = inspect_workflow_file(path)
-        if row is not None:
-            rows.append(row)
+        try:
+            rows.append(inspect_workflow_file(path))
+        except WorkflowInventoryError as exc:
+            errors.append(str(exc))
+    if errors:
+        raise WorkflowInventoryError("\n".join(errors))
     return rows
 
 
@@ -165,8 +160,8 @@ def render_markdown_summary(rows: list[WorkflowInventoryRow]) -> str:
             "Maint 66 omits these from **Workflows Not Run**; zero direct runs is expected."
         ),
         "reusable_with_independent_trigger": (
-            "Callable workflows that also declare `workflow_dispatch`, `schedule`, "
-            "`push`, or `pull_request` (per Maint 66 grep)."
+            "Callable workflows that also declare an independent `on:` trigger "
+            "(for example `workflow_dispatch`, `schedule`, `push`, or `issues`)."
         ),
         "scheduled": ("Cron-driven; may show as not-run in a quiet 30-day window."),
         "manual_utility": ("On-demand `workflow_dispatch` utilities."),
@@ -206,12 +201,29 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print a Markdown appendix suitable for audit documentation",
     )
+    parser.add_argument(
+        "--check-call-only-skip",
+        metavar="STEM",
+        help="Exit 0 when Maint 66 should omit STEM from not-run inventory",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = _parse_args()
-    rows = iter_workflow_inventory(args.workflows_dir.resolve())
+    if args.check_call_only_skip:
+        path = args.workflows_dir.resolve() / f"{args.check_call_only_skip}.yml"
+        try:
+            row = inspect_workflow_file(path)
+        except WorkflowInventoryError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        return 0 if row.excluded_from_not_run else 1
+    try:
+        rows = iter_workflow_inventory(args.workflows_dir.resolve())
+    except WorkflowInventoryError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     if args.markdown:
         print(render_markdown_summary(rows), end="")
         return 0

@@ -35,9 +35,9 @@ The November audit issue mixed **per-run display names** with **stable workflow 
 | `docs/WORKFLOW_GUIDE.md` | No operator procedure changes beyond Maint 47 retirement (already in #4771) |
 | Consumer sync | Not required for this audit; ranking fix is Workflows-repo Maint 66 only |
 
-## Non-dynamic workflows below 50% decisive failure rate
+## Non-dynamic workflows below 50% decisive failure rate (corrected policy)
 
-Rates below use the **corrected** Maint 66 policy: decisive outcomes = success + failure + timed_out + startup_failure + action_required; attention thresholds apply only when ≥5 decisive outcomes exist. Rows marked *volume noise* were false positives under the pre-fix `success/total` rule with zero literal failures.
+Rates below use the **corrected** Maint 66 policy: decisive outcomes = success + failure + timed_out + startup_failure + action_required; attention thresholds apply only when ≥5 decisive outcomes exist. The **Issue rate (old)** column is the **baseline success band** from the pre-fix Maint 66 ranking (`success / all runs`, including skipped and neutral in the denominator). Do not treat those percentages as decisive-failure rates; rows marked *volume noise* were false positives under that baseline with zero literal failures.
 
 | Workflow file | Display name | Issue rate (old) | Root cause / disposition |
 |---------------|--------------|------------------|---------------------------|
@@ -76,9 +76,9 @@ Rates below use the **corrected** Maint 66 policy: decisive outcomes = success +
 | `maint-52-sync-dev-versions.yml` | 78% — periodic version sync |
 | `health-85-ci-time-budget.yml` | 65% — advisory timing; delivery evidence tracked separately (#4284, #4769) |
 | `agents-71-codex-belt-dispatcher.yml` | 72% — reusable dispatch surface |
-| `maint-66-monthly-audit.yml` | 50% (1/4) | Small sample; ranking fix in this cycle |
-| `maint-84-prune-agent-stubs.yml` | 50% (2/4) | Scheduled pruner; needs eligible input for full verification (tracker) |
-| `agents-weekly-metrics.yml` | 50% (2/4) | Weekly metrics; low volume |
+| `maint-66-monthly-audit.yml` | 50% (1/4) — small sample; ranking fix in this cycle |
+| `maint-84-prune-agent-stubs.yml` | 50% (2/4) — scheduled pruner; needs eligible input for full verification (tracker) |
+| `agents-weekly-metrics.yml` | 50% (2/4) — weekly metrics; low volume |
 
 ## “Workflows not run” classification
 

@@ -211,12 +211,10 @@ jobs:
 
           not_run=""
           for wf in ${workflow_files}; do
-            # Skip reusable workflows
-            if grep -q "workflow_call:" ".github/workflows/${wf}.yml" 2>/dev/null; then
-                trigger_regex='workflow_dispatch:|schedule:|push:|pull_request'
-                if ! grep -q "$trigger_regex" ".github/workflows/${wf}.yml" 2>/dev/null; then
-                continue
-              fi
+            # Skip callable-only workflows (parsed `on:` triggers via inventory helper).
+            if PYTHONPATH=. python3 scripts/workflow_inventory_audit.py \
+              --check-call-only-skip "${wf}"; then
+              continue
             fi
             # Check if workflow ran
               wf_name=$(

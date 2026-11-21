@@ -150,18 +150,23 @@ def _attention(tmp_path, runs):
     stats = tmp_path / "workflow_stats.json"
     stats.write_text(json.dumps(_stats(runs)))
     workflows = tmp_path / ".github/workflows"
-    workflows.mkdir(parents=True)
+    workflows.mkdir(parents=True, exist_ok=True)
     (workflows / "a.yml").write_text("name: Renamed local name\non: push\n")
     (workflows / "a-extra.yml").write_text("name: Renamed local name\non: push\n")
     steps = yaml.safe_load(WORKFLOW_PATH.read_text())["jobs"]["audit"]["steps"]
     script = next(step["run"] for step in steps if step.get("id") == "attention")
     script = script.replace("/tmp/workflow_stats.json", str(stats))
     script = script.replace("/tmp/monthly-audit-details", str(tmp_path / "details"))
+    script = script.replace(
+        "scripts/workflow_inventory_audit.py",
+        str(REPO_ROOT / "scripts/workflow_inventory_audit.py"),
+    )
+    script = script.replace("PYTHONPATH=.", f"PYTHONPATH={REPO_ROOT}")
     output = tmp_path / "outputs"
     result = subprocess.run(
         ["bash", "-e", "-c", script],
         cwd=tmp_path,
-        env={**os.environ, "GITHUB_OUTPUT": str(output)},
+        env={**os.environ, "GITHUB_OUTPUT": str(output), "PYTHONPATH": str(REPO_ROOT)},
         capture_output=True,
         text=True,
         timeout=15,
@@ -337,6 +342,29 @@ def test_large_fleet_bounds_output_without_losing_artifact_rankings(tmp_path):
     assert "id:999" in complete
     kept = outputs["failing"].count("100% failed outcomes")
     assert f"{1000 - kept} additional lines omitted" in outputs["failing"]
+
+
+def test_call_only_reusable_omitted_from_not_run_despite_pull_request_in_jobs(tmp_path):
+    """Attention skip must follow parsed triggers, not whole-file `pull_request` text."""
+    runs = _runs("Some workflow", "success", 1)
+    workflows = tmp_path / ".github/workflows"
+    workflows.mkdir(parents=True, exist_ok=True)
+    (workflows / "reusable-sample.yml").write_text(
+    "name: Reusable sample\n"
+    "on:\n"
+    "  workflow_call:\n"
+    "    inputs:\n"
+    "      x:\n"
+    "        type: string\n"
+    "jobs:\n"
+    "  j:\n"
+    "    runs-on: ubuntu-latest\n"
+    "    steps:\n"
+    "      - run: echo pull_request types path filter\n",
+        encoding="utf-8",
+    )
+    outputs = _attention(tmp_path, runs)
+    assert "reusable-sample.yml" not in outputs["not_run"]
 
 
 def test_ranking_aggregate_matches_summary_expressions():
