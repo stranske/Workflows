@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -102,47 +103,74 @@ def test_summary_refresh_and_helper_share_actual_runner_action(
     assert result.returncode == expected, result.stderr
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason="Gate expression replay requires Node")
 @pytest.mark.parametrize(
-    ("doc_only", "quality", "docs_guard", "expected"),
+    ("selected", "package", "old_quality", "docs_guard", "expected"),
     [
-        ("true", "skipped", "success", "success"),
-        ("false", "skipped", "success", "success"),
-        ("false", "failure", "success", "failure"),
-        ("false", "cancelled", "success", "pending"),
-        ("false", "cancelled", "failure", "failure"),
+        ("false", "skipped", "skipped", "success", "success"),
+        ("false", "failure", "skipped", "success", "success"),
+        ("true", "success", "skipped", "success", "success"),
+        ("true", "failure", "skipped", "success", "failure"),
+        ("true", "cancelled", "skipped", "success", "pending"),
+        ("true", "skipped", "skipped", "success", "failure"),
+        ("true", "success", "failure", "success", "failure"),
+        ("true", "cancelled", "skipped", "failure", "failure"),
     ],
 )
 def test_baseline_kit_uses_the_existing_required_gate_verdict(
-    tmp_path: Path, doc_only: str, quality: str, docs_guard: str, expected: str
+    tmp_path: Path, selected: str, package: str, old_quality: str, docs_guard: str, expected: str
 ) -> None:
     workflow = yaml.safe_load(GATES[0].read_text(encoding="utf-8"))
     job = workflow["jobs"]["summary"]
     assert "packages-app-baseline-kit" in job["needs"]
     step = next(step for step in job["steps"] if step.get("id") == "summarize")
-    routing = step["env"]
-    assert "needs.packages-app-baseline-kit.result" in routing["TEST_QUALITY_RESULT"]
-    assert "app_baseline_kit_required" in routing["DOC_ONLY"]
-    assert "app_baseline_kit_required" in routing["RUN_CORE"]
-    assert "app_baseline_kit_required" not in routing["PYTHON_REQUIRED"]
-
+    keys = ("DOC_ONLY", "RUN_CORE", "PYTHON_REQUIRED", "TEST_QUALITY_RESULT")
+    expressions = {key: step["env"][key].strip()[3:-2].strip() for key in keys}
+    needs = {
+        "detect": {
+            "outputs": {
+                "doc_only": "true",
+                "run_core": "false",
+                "app_baseline_kit_required": selected,
+            }
+        },
+        "packages-app-baseline-kit": {"result": package},
+        "acceptance-criteria-label": {"result": "skipped"},
+        "test-quality": {"result": old_quality},
+    }
+    # This narrow expression subset uses only string comparisons and short-circuit logic.
+    expression_replay = r"""
+      const { needs, expressions } = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+      const results = Object.entries(expressions).map(([key, text]) => {
+        const expression = text.replace(/needs\.([\w-]+)/g, (_, job) => 'needs[' + JSON.stringify(job) + ']');
+        if (!/^[\w"' .()\[\]|!=&\s-]+$/.test(expression)) throw Error(expression);
+        return [key, String(new Function('needs', 'return (' + expression + ')')(needs))];
+      });
+      process.stdout.write(JSON.stringify(Object.fromEntries(results)));
+    """
+    resolved = json.loads(
+        subprocess.check_output(
+            ["node", "-e", expression_replay],
+            input=json.dumps({"needs": needs, "expressions": expressions}),
+            text=True,
+        )
+    )
+    assert resolved["DOC_ONLY"] == ("false" if selected == "true" else "true")
+    assert resolved["PYTHON_REQUIRED"] == "false"
     output = tmp_path / "outputs"
     subprocess.run(
         ["bash", "-e", "-o", "pipefail", "-c", step["run"]],
         cwd=ROOT,
         env={
             **os.environ,
+            **resolved,
             "GATE_PR_JSON": "",
             "GITHUB_EVENT_PATH": "",
             "GITHUB_OUTPUT": str(output),
             "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
             "GATE_ARTIFACTS_ROOT": str(tmp_path / "artifacts"),
-            "DOC_ONLY": doc_only,
-            "RUN_CORE": "true",
-            "REASON": "docs_only" if doc_only == "true" else "code_changes",
             "PYTHON_RESULT": "skipped",
-            "PYTHON_REQUIRED": "false",
             "DOCS_GUARD_RESULT": docs_guard,
-            "TEST_QUALITY_RESULT": quality,
         },
         check=True,
     )
