@@ -157,24 +157,21 @@ jobs:
           oneline_output="${tmpdir}/actionlint.oneline"
 
           lint_status=0
-          if ! actionlint "${extra_args[@]}" -oneline >"${oneline_output}"; then
-            lint_status=$?
+          actionlint "${extra_args[@]}" -oneline >"${oneline_output}" || lint_status=$?
+          if [ "$lint_status" -ne 0 ]; then
             echo '::group::actionlint (text output)'
             cat "${oneline_output}"
             echo '::endgroup::'
           fi
 
           rd_status=0
-          # The error format pattern below maps output fields as follows:
-          # %t: type, %f: file, %l: line, %c: column, %m: message
-          if ! reviewdog -efm="%t:%f:%l:%c: %m" \
+          # actionlint -oneline emits file:line:column: message.
+          reviewdog -efm="%f:%l:%c: %m" \
               -name="maint-36 actionlint" \
               -reporter="$REPORTER" \
               -filter-mode="nofilter" \
               -level="warning" \
-              -fail-level="error" <"${oneline_output}"; then
-            rd_status=$?
-          fi
+              -fail-level="error" <"${oneline_output}" || rd_status=$?
 
           rm -rf "${tmpdir}"
 
