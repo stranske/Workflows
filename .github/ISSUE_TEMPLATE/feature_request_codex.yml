@@ -1,16 +1,17 @@
 name: Feature request
-description: Small, single-scope feature for the Streamlit app or sim layer
-labels: ["type:feature","risk:low","agent:codex","automerge","codex-ready"]
+description: Propose a focused change to Workflows or its consumer templates.
+labels: ["enhancement","risk:low","agent:codex","automerge","codex-ready"]
 body:
   - type: markdown
     attributes:
       value: |
-        **Agent routing:** This request queues Codex by default. Change the label to `agent:copilot` before submitting if you need the Copilot team instead, and clear the other agent label so only one agent is selected.
+        **Agent routing:** This form requests Codex. If you can edit issue labels,
+        replace `agent:codex` with `agent:copilot` to request Copilot. Keep one agent label.
   - type: checkboxes
     id: agent_label
     attributes:
       label: Agent label confirmation
-      description: Confirm the issue shows the correct agent label so assignment automation runs without delay and that no second agent label remains.
+      description: Confirm the issue has the label for the agent you want.
       options:
         - label: I confirmed the labels sidebar shows the appropriate agent (`agent:codex` or `agent:copilot`).
           required: true
@@ -19,7 +20,7 @@ body:
     attributes:
       label: Summary
       description: One-sentence description of the feature.
-      placeholder: e.g., "Add preview of score frame before selection"
+      placeholder: "Example: Add run status to the weekly metrics report"
     validations:
       required: true
   - type: textarea
@@ -34,7 +35,7 @@ body:
     id: tasks
     attributes:
       label: Tasks
-      description: Checklist of concrete work items for Codex to complete.
+      description: List concrete tasks for the selected agent and name a file, symbol, or command in each item.
       placeholder: "- [ ] Task 1\n- [ ] Task 2"
     validations:
       required: true
@@ -42,10 +43,6 @@ body:
     id: acceptance
     attributes:
       label: Acceptance criteria
-      description: Bullet list of verifiable outcomes.
-      value: |
-        - [ ] A
-        - [ ] B
-        - [ ] C
+      description: Name a test or runnable command and the result that confirms the feature works.
     validations:
       required: true

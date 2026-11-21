@@ -1737,6 +1737,20 @@ def test_codex_issue_forms_require_scope_tasks_acceptance():
             ), f"Issue template {name} must require {required_label} section"
 
 
+def test_workflows_bug_and_feature_forms_use_local_classification_labels():
+    assert "bug" in _load_issue_template_yaml("bug_report_codex.yml")["labels"]
+    assert "enhancement" in _load_issue_template_yaml("feature_request_codex.yml")["labels"]
+
+
+def test_workflows_bug_and_feature_forms_leave_required_responses_blank():
+    bug = _issue_form_entries_by_label(_load_issue_template_yaml("bug_report_codex.yml"))
+    feature = _issue_form_entries_by_label(_load_issue_template_yaml("feature_request_codex.yml"))
+
+    assert "value" not in bug["steps to reproduce"]["attributes"]
+    assert "value" not in bug["acceptance criteria"]["attributes"]
+    assert "value" not in feature["acceptance criteria"]["attributes"]
+
+
 def test_issue_intake_guard_checks_agent_label():
     text = (WORKFLOWS_DIR / "agents-63-issue-intake.yml").read_text(encoding="utf-8")
     # The workflow must check for agent:* prefix in the issue's labels array
