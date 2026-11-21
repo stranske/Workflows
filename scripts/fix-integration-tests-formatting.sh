@@ -8,6 +8,19 @@ REPO_DIR="${1:-.}"
 
 cd "$REPO_DIR"
 
+format_targets=(
+    scripts/validate_dependency_test_setup.py
+    tests/test_dependency_version_alignment.py
+)
+
+for target in "${format_targets[@]}"; do
+    if [[ ! -f "$target" ]]; then
+        printf 'Use the Workflows-Integration-Tests checkout. Missing %s in %s.\n' \
+            "$target" "$PWD" >&2
+        exit 1
+    fi
+done
+
 echo "Fixing formatting issues in Integration-Tests repository..."
 
 # Install black if not available
@@ -17,11 +30,7 @@ if ! command -v black &> /dev/null; then
 fi
 
 # Format the problematic files
-echo "Running black on scripts/validate_dependency_test_setup.py..."
-black scripts/validate_dependency_test_setup.py
-
-echo "Running black on tests/test_dependency_version_alignment.py..."
-black tests/test_dependency_version_alignment.py
+black "${format_targets[@]}"
 
 echo "✅ Formatting complete!"
 echo ""
