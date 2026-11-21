@@ -1,5 +1,12 @@
 # Workflows cleanup tracker
 
+## November 2026 monthly workflow audit (#4770)
+
+- [x] **Maint 66 ranking and false-positive inventory.** Workflow-definition grouping, decisive failure rates, path-based not-run detection, and bounded issue sections landed on `orch/issue-4770` (cherry-picked from [draft #4781](https://github.com/stranske/Workflows/pull/4781)). Regression evidence: [`docs/evidence/monthly-audit-ranking/README.md`](../evidence/monthly-audit-ranking/README.md).
+- [x] **API wrapper guard.** `python scripts/check_api_wrapper_guard.py --all` reports zero violations on current `main` ([#4811](https://github.com/stranske/Workflows/pull/4811) for `restore_branch_snapshots.py`).
+- [x] **Duplicate Detection import path.** `agents-dedup.yml` sparse checkout now includes `tools/embedding_provider.py` so `semantic_matcher` imports succeed in hosted runs.
+- [x] **Archive report.** [`docs/archive/audits/WORKFLOW_AUDIT_2026-11-19.md`](../archive/audits/WORKFLOW_AUDIT_2026-11-19.md) records dispositions for sub-50% and 50–80% non-dynamic workflows, not-run classification, and parallelism/caching notes.
+
 **26 of 28 checks complete** as of 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input.
 
 ## November 21 source fixtures and test coverage

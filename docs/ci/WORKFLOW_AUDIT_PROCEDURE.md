@@ -36,6 +36,7 @@ Point-in-time reports from the 2025–2026 audit cycle are archived:
 - Ledger: [`docs/archive/ARCHIVE_PLANS.md`](../archive/ARCHIVE_PLANS.md)
 - December 2025 snapshot: [`docs/archive/audits/WORKFLOW_AUDIT_2025-12-25.md`](../archive/audits/WORKFLOW_AUDIT_2025-12-25.md)
 - January 2026 follow-up: [`docs/archive/audits/WORKFLOW_AUDIT_2026-01-09.md`](../archive/audits/WORKFLOW_AUDIT_2026-01-09.md)
+- November 2026 monthly audit: [`docs/archive/audits/WORKFLOW_AUDIT_2026-11-19.md`](../archive/audits/WORKFLOW_AUDIT_2026-11-19.md)
 
 Stubs at the former `docs/WORKFLOW_AUDIT_*.md` paths redirect to these archives.
 
