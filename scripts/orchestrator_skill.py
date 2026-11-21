@@ -277,9 +277,15 @@ def build_orchestrator_skill_summary(
         for path in checkout_path.rglob("*")
         if path.is_file()
     )
-    primary = files[0] if files else "(no files materialized)"
+    if not files:
+        source = f" for reference pack {pack_name!r}" if pack_name else ""
+        raise OrchestratorSkillConfigError(
+            f"No Orchestrator skill files materialized in {checkout_path}{source}. "
+            "Check that the configured paths exist at the selected ref."
+        )
+    primary = files[0]
     pack_line = f"- **Reference pack:** `{pack_name}`\n" if pack_name else ""
-    file_lines = "\n".join(f"- `{rel}`" for rel in files) or "- `(empty)`"
+    file_lines = "\n".join(f"- `{rel}`" for rel in files)
     return (
         "\n".join(
             [
@@ -309,11 +315,13 @@ def write_orchestrator_skill_summary(
 ) -> Path:
     workspace_path = Path(workspace).resolve()
     summary_path = workspace_path / SUMMARY_RELPATH
+    try:
+        summary = build_orchestrator_skill_summary(Path(checkout_path), pack_name=pack_name)
+    except OrchestratorSkillConfigError:
+        summary_path.unlink(missing_ok=True)
+        raise
     summary_path.parent.mkdir(parents=True, exist_ok=True)
-    summary_path.write_text(
-        build_orchestrator_skill_summary(Path(checkout_path), pack_name=pack_name),
-        encoding="utf-8",
-    )
+    summary_path.write_text(summary, encoding="utf-8")
     return summary_path
 
 

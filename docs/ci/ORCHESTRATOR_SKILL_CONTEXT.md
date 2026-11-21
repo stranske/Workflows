@@ -57,6 +57,13 @@ Requires a matching pack in `.github/reference_packs.json`:
 
 Set `"enabled": false` to disable without deleting the file.
 
+An enabled inline checkout or named skill pack must materialize at least one
+file. If none of the configured paths produce a file, prompt assembly fails
+and removes any stale `.reference/ORCHESTRATOR_SKILL.md`. Check the checkout
+warnings for the missing paths and their repository and ref. A partial checkout
+still supplies the files it found, with warnings for missing paths. Generic
+reference packs remain optional.
+
 ## Workflow overrides
 
 `reusable-codex-run.yml` accepts optional inputs:
