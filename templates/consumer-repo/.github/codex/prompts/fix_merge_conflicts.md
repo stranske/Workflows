@@ -1,155 +1,46 @@
 # Fix Merge Conflicts
 
-This PR has **merge conflicts** that must be resolved before CI can run or the PR can be merged.
+Integrate the PR's actual base into its head branch. Preserve the intent of both sides and limit changes to the merge and any fixes it requires.
 
-## Your Task
+## Inspect the merge state first
 
-Resolve all merge conflicts by integrating changes from the base branch with this PR's changes.
-
-## CRITICAL: You MUST attempt the merge
-
-**Do NOT check `git status` first and exit if clean!** The conflicts only appear DURING the merge operation.
-
-You must ALWAYS run `git merge origin/{{base_branch}}` to surface the conflicts, even if the working tree appears clean initially.
-After the merge attempt, you can use `git status` to confirm the conflict state.
-
-## Conflict Detection
-
-{{#if conflict_files}}
-**Potentially conflicting files:**
-{{#each conflict_files}}
-- `{{this}}`
-{{/each}}
-{{else}}
-Check `git status` to identify files with conflicts.
-{{/if}}
-
-## Resolution Steps
-
-1. **Fetch latest base branch:**
-   ```bash
-   git fetch origin {{base_branch}}
-   ```
-   > Note: Replace `{{base_branch}}` with the actual base branch name (e.g., `main` or `master`)
-
-2. **Attempt merge:**
-   ```bash
-   git merge origin/{{base_branch}}
-   ```
-   
-   If this succeeds without conflicts, you're done - just push the merge commit.
-
-3. **For each conflicting file:**
-   - Look for conflict markers: `<<<<<<<`, `=======`, `>>>>>>>`
-   - Understand what each side (HEAD vs incoming) intended
-   - Combine the changes intelligently:
-     - If changes are to different parts: keep both
-     - If changes conflict: prefer the newer/more complete version
-     - If changes are incompatible: adapt the PR's code to work with new base
-   - Remove all conflict markers
-
-4. **Verify resolution:**
-   ```bash
-   # Check no conflict markers remain
-   git diff --check
-   
-   # Run the project's test suite (language-specific)
-   # For Python: pytest
-   # For JavaScript: npm test
-   # For other: check the project's README or CI config
-   ```
-
-5. **Commit the resolution:**
-   ```bash
-   git add .
-   git commit -m "fix: resolve merge conflicts with {{base_branch}}"
-   ```
-
-## Resolution Guidelines
-
-### When to prefer PR changes:
-- PR adds new functionality not in main
-- PR fixes a bug that main doesn't address
-- PR has more complete implementation
-
-### When to prefer main changes:
-- Base branch has breaking API changes PR must adapt to
-- Base branch has bug fixes PR should incorporate
-- Base branch renamed/moved files PR still references
-
-### When to combine:
-- Both sides add different functions/methods
-- Both sides add different imports
-- Both sides modify different parts of the same function
-
-## Common Conflict Patterns
-
-### Special Files - Auto-Resolve with "Ours"
-
-These files have `.gitattributes` merge=ours strategy and should keep the PR branch version:
-
-- **`pr_body.md`** - PR-specific content, always keep ours:
-  ```bash
-  git checkout --ours pr_body.md
-  git add pr_body.md
-  ```
-
-- **`ci/autofix/history.json`** - Branch-specific history:
-  ```bash
-  git checkout --ours ci/autofix/history.json
-  git add ci/autofix/history.json
-  ```
-
-These files are .gitignored and should be resolved by keeping the current branch's version.
-
-### Import conflicts (Python example):
-```python
-from module import foo, bar
-from module import foo, baz
-```
-**Resolution:** Combine imports: `from module import foo, bar, baz`
-
-### Type annotation conflicts (Python):
-```python
-def process(data: dict[str, Any]) -> Result:
-def process(data: dict[str, Any], config: Config) -> Result:
-```
-**Resolution:** Keep the signature with more parameters (main's version) and ensure caller sites are updated.
-
-### Dependency conflicts (pyproject.toml / package.json):
-Keep both dependencies unless they're duplicate versions of the same package.
-For version conflicts, prefer the newer/higher version.
-
-### Function modification conflicts:
-Keep the more complete/correct version, or merge logic if both changes are needed.
-
-### Test file conflicts:
-Usually keep both sets of tests unless they're duplicates. Ensure test names don't collide.
-
-### Documentation conflicts:
-Combine content from both sides, ensuring accurate and up-to-date information.
-
-## Exit Criteria
-
-- All conflict markers removed from all files
-- Code compiles/parses without syntax errors
-- Tests pass (at least the ones that were passing before)
-- Changes committed with descriptive message
-
-## Verification Commands
-
-After resolving conflicts, verify:
 ```bash
-# Ensure no conflict markers remain
-grep -rn "<<<<<<< HEAD\|=======\|>>>>>>>" . --include="*.py" --include="*.js" --include="*.ts" || echo "No conflict markers found"
-
-# For Python projects
-python -m py_compile $(find . -name "*.py" -not -path "./.venv/*") 2>&1 | head -20
-
-# Run tests
-pytest -x -q 2>&1 | tail -20 || npm test 2>&1 | tail -20
+git ls-files --unmerged
+git rev-parse -q --verify MERGE_HEAD
 ```
 
----
+- If `MERGE_HEAD` exists, identify the original PR head and the incoming commit. Compare the incoming commit with the prepared PR base recorded by the runner or with the base ref captured for a standalone merge. Confirm the base branch against the PR target. If the checkout or incoming commit cannot be attributed to this PR, preserve the pending state and report what is missing. Otherwise continue the existing merge and preserve its staged changes. Do not merge again, abort, reset or rebase. With unmerged entries, resolve those paths. With an empty unmerged index, proceed directly to verification and finalization, even if the index matches `HEAD`.
+- If there are unmerged entries without `MERGE_HEAD`, identify the operation in progress with `git status` and report it. Preserve that state and do not start a merge.
+- Only if both checks show no pending merge or unmerged paths, follow the base check below. An inspection error is a blocker.
 
-**Focus solely on resolving conflicts. Do not add new features or refactor code beyond what's needed for resolution.**
+## Check the base when no merge is pending
+
+Verify the checkout is the intended PR head and check `git status` for other operations or edits that a merge could disturb. Select the first available base from this order.
+
+1. `GITHUB_BASE_REF` from the PR workflow.
+2. `WORKFLOW_BASE_REF` from the runner's `base_ref` input or PR event when exposed to the session.
+3. The base explicitly supplied by the standalone caller, then verified metadata for the current PR.
+4. The branch named by `git symbolic-ref --short refs/remotes/origin/HEAD`, only when confirmed as the intended target. A standalone caller can explicitly request the default branch.
+
+If the selected base conflicts with known PR metadata or the target cannot be established, report the blocker. Use the remote that serves the verified base repository, typically `origin`. Set `base_remote` to that remote and `base_branch` to the selected branch name without a `refs/heads/` prefix.
+
+```bash
+git fetch --no-tags -- "$base_remote" "refs/heads/$base_branch" || exit 2
+git merge-base --is-ancestor FETCH_HEAD HEAD
+```
+
+Exit 0 from the ancestry check means the fetched base is already integrated. Report that no merge is required. Ensure the relevant history is available before relying on exit 1 in a shallow checkout. With exit 1 and sufficient history, run `git merge --no-commit --no-ff FETCH_HEAD` once. Reinspect the index and `MERGE_HEAD`. Continue a pending merge and report any other merge failure with its diagnostics. Report fetch or ancestry errors and stop before merging.
+
+## Resolve and verify
+
+- Read the conflicting hunks and the surrounding code. Combine compatible changes and adapt PR code, tests and documentation to any changed base contracts. Preserve coverage contributed by either side.
+- Respect repository merge attributes. In standalone sessions, keep the PR version of `pr_body.md` and `ci/autofix/history.json` for their branch-specific rules. In reusable sessions, report a conflict refused by the staging helper, including an unmerged `pr_body.md`.
+- Resolve the working files, including intended deletions. Inspect the resulting content for conflict markers and whitespace errors. In a reusable runner, leave the original index entries in place for its staging helper to validate. Report any path the helper refuses.
+- Run the relevant project tests using the repository's documented commands. Preserve test output and exit status. Report failures or any tests you could not run.
+
+## Finalize the verified merge
+
+- **Reusable runner:** Leave the resolved working files and `MERGE_HEAD` for the runner, including a clean merge with no staged diff. Its shared staging helper validates and stages the resolutions. Leave any commit and push to the runner. Report a published merge only after checking that the receiving PR head contains both the original PR work and the prepared incoming commit.
+- **Standalone:** Stage the intended resolutions. Check that `git ls-files --unmerged` is empty and `git diff --cached --check` succeeds. Complete the verified pending merge with a descriptive merge commit, even with no staged diff. Confirm the commit has the original PR head and the pending incoming commit as parents. Publish only when the caller has authorized it, through the normal fast-forward update to the verified PR head branch.
+
+Report the base or incoming commit, the resolution and test results, and whether the merge was unnecessary, left for runner finalization, or committed locally. Never force-push.
