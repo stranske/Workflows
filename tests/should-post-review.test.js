@@ -30,38 +30,46 @@ function runScript(filePath) {
   return lines[0];
 }
 
-test('should-post-review returns false when file is missing', () => {
-  const missingPath = path.join(os.tmpdir(), 'missing-review-result.json');
+function requireFixture(name) {
+  const filePath = path.join(fixturesDir, name);
+  assert.ok(fs.statSync(filePath, { throwIfNoEntry: false })?.isFile(), `Missing review fixture: ${name}`);
+  return filePath;
+}
+
+test('should-post-review returns false when file is missing', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'missing-review-result-'));
+  t.after(() => fs.rmdirSync(dir));
+  const missingPath = path.join(dir, 'review-result.json');
   const line = runScript(missingPath);
   assert.equal(line, 'should_post_review=false');
 });
 
 test('should-post-review returns false when review is null', () => {
-  const filePath = path.join(fixturesDir, 'review-null.json');
+  const filePath = requireFixture('review-null.json');
   const line = runScript(filePath);
   assert.equal(line, 'should_post_review=false');
 });
 
 test('should-post-review returns false when review JSON is invalid', () => {
-  const filePath = path.join(fixturesDir, 'review-invalid.json');
+  const filePath = requireFixture('review-invalid.json');
   const line = runScript(filePath);
   assert.equal(line, 'should_post_review=false');
 });
 
 test('should-post-review returns false when review is empty string', () => {
-  const filePath = path.join(fixturesDir, 'review-empty-string.json');
+  const filePath = requireFixture('review-empty-string.json');
   const line = runScript(filePath);
   assert.equal(line, 'should_post_review=false');
 });
 
 test('should-post-review returns false when review has only empty fields', () => {
-  const filePath = path.join(fixturesDir, 'review-all-empty.json');
+  const filePath = requireFixture('review-all-empty.json');
   const line = runScript(filePath);
   assert.equal(line, 'should_post_review=false');
 });
 
 test('should-post-review returns true when review has populated fields', () => {
-  const filePath = path.join(fixturesDir, 'review-populated.json');
+  const filePath = requireFixture('review-populated.json');
   const line = runScript(filePath);
   assert.equal(line, 'should_post_review=true');
 });
