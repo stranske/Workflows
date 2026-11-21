@@ -102,3 +102,33 @@ def test_legacy_workflow_is_skipped_unless_no_skip_is_set(
     failed_output = capsys.readouterr().out
     assert "Length: Line exceeds 100 characters" in failed_output
     assert "Validation failed" in failed_output
+
+
+def test_main_validates_git_changed_workflows_when_no_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workflow = _write_workflow(
+        tmp_path / "sample.yml",
+        [
+            "name: Sample",
+            "on: workflow_dispatch",
+            "jobs:",
+            "  build:",
+            "    runs-on: ubuntu-latest",
+            "    steps:",
+            "      - run: echo ok",
+        ],
+    )
+    monkeypatch.setattr(
+        validator,
+        "discover_changed_workflows",
+        lambda _base="origin/main": [workflow],
+    )
+    monkeypatch.setattr(sys, "argv", ["validate_workflow_yaml.py"])
+    with pytest.raises(SystemExit) as ok:
+        validator.main()
+
+    assert ok.value.code == 0
+    assert "validated successfully" in capsys.readouterr().out
