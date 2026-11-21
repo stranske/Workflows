@@ -154,11 +154,38 @@ jobs:
             echo "✅ Job structure matches" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          # Check for artifact-prefix in all jobs (required fix from PR #2)
-          if ! grep -q "artifact-prefix:" "$TEMPLATE"; then
+          # Compare each job's artifact routing, ignoring jobs without a prefix.
+          artifact_prefixes() {
+            yq -o=json -I=0 '.jobs' "$1" | jq -ces '
+              if length != 1 or (.[0] | type) != "object" then
+                error("Expected one jobs mapping")
+              else
+                .[0] | to_entries | map([.key, .value.with["artifact-prefix"]]) |
+                map(select(.[1] != null and .[1] != "")) |
+                if all(.[]; .[1] | type == "string") then sort_by(.[0])
+                else error("Expected string artifact prefixes") end
+              end
+            '
+          }
+
+          template_prefixes=$(artifact_prefixes "$TEMPLATE")
+          actual_prefixes=$(artifact_prefixes "$ACTUAL")
+          if [ "$template_prefixes" = "[]" ]; then
             echo "::error::Template missing artifact-prefix (required for multi-job configs)"
             echo "❌ Template missing artifact-prefix" >> "$GITHUB_STEP_SUMMARY"
             echo "drift=true" >> "$GITHUB_OUTPUT"
+          elif [ "$template_prefixes" != "$actual_prefixes" ]; then
+            echo "::warning::Artifact prefixes differ by job"
+            {
+              echo "❌ Artifact prefixes differ by job"
+              printf '\nExpected [job, prefix] pairs:\n\n'
+              printf '%s\n' "$template_prefixes" | sed 's/^/    /'
+              printf '\nActual [job, prefix] pairs:\n\n'
+              printf '%s\n' "$actual_prefixes" | sed 's/^/    /'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "✅ Artifact prefixes match by job" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Compare autofix-versions.env
