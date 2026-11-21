@@ -16,6 +16,7 @@ ARCHIVED_CANONICAL = [
     "docs/archive/audits/WORKFLOW_AUDIT_2025-12-25.md",
     "docs/archive/audits/WORKFLOW_AUDIT_2026-01-09.md",
     "docs/archive/audits/TEMPLATE_REPO_EVALUATION.md",
+    "docs/archive/audits/issue-3060-verifier-evidence.md",
 ]
 
 ARCHIVED_KEEPALIVE = {
@@ -61,6 +62,7 @@ def test_archive_plans_ledger_links_resolve() -> None:
         "audits/WORKFLOW_AUDIT_2025-12-25.md",
         "audits/WORKFLOW_AUDIT_2026-01-09.md",
         "audits/TEMPLATE_REPO_EVALUATION.md",
+        "audits/issue-3060-verifier-evidence.md",
         *ARCHIVED_KEEPALIVE,
     }
     for target in MARKDOWN_LINK.findall(text):
