@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -48,9 +49,69 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
 
     # ...and no longer selects purely on the run conclusion. The old jq selector is
     # pinned as ABSENT so restoring it is a test failure, not a silent regression.
-    assert (
-        "--argjson current" not in text
-    ), "the bare-conclusion jq selector is back; it counts debounced no-ops as runs"
+    assert "--argjson current" not in text, (
+        "the bare-conclusion jq selector is back; it counts debounced no-ops as runs"
+    )
+
+
+def test_api_client_setup_follows_and_respects_debounce() -> None:
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = data["jobs"]["check-drift"]["steps"]
+    debounce = next(i for i, step in enumerate(steps) if step.get("id") == "debounce")
+    setup = next(i for i, step in enumerate(steps) if step["name"] == "Setup API client")
+    compare = next(i for i, step in enumerate(steps) if step.get("id") == "compare")
+
+    assert debounce < setup < compare
+    assert steps[setup]["if"] == steps[compare]["if"] == "steps.debounce.outputs.skip != 'true'"
+
+
+@pytest.mark.parametrize(
+    ("marker", "expected"),
+    [
+        ("2026-11-19T18:30:58Z", "true"),  # hosted debounce run 44590964852
+        ("2026-11-19T18:14:45Z", "false"),  # exactly at the 30-minute threshold
+        (None, "false"),
+        ("not a timestamp", "false"),
+    ],
+)
+def test_exact_debounce_script_selects_fresh_and_full_paths(tmp_path, marker, expected) -> None:
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = data["jobs"]["check-drift"]["steps"]
+    debounce = next(step for step in steps if step.get("id") == "debounce")
+    if marker is not None:
+        path = tmp_path / ".cache/health-68-last-compared/timestamp"
+        path.parent.mkdir(parents=True)
+        path.write_text(marker + "\n", encoding="utf-8")
+
+    # Hold the runner clock fixed and parse the UTC timestamp without depending on GNU date.
+    fixed_clock = """
+    date() {
+      if [ "$1" = "-u" ]; then shift; fi
+      if [ "$1" = "+%s" ]; then
+        printf '%s\n' "$REPLAY_NOW"
+      else
+        "$REPLAY_PYTHON" -c 'import datetime, sys; print(int(datetime.datetime.fromisoformat(sys.argv[1]).timestamp()))' "$2"
+      fi
+    }
+    """
+    now = datetime(2026, 11, 19, 18, 44, 45, tzinfo=UTC)
+    output = tmp_path / "github-output"
+    result = subprocess.run(
+        ["bash", "-c", fixed_clock + debounce["run"]],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            **debounce["env"],
+            "REPLAY_NOW": str(int(now.timestamp())),
+            "REPLAY_PYTHON": sys.executable,
+            "GITHUB_OUTPUT": str(output),
+        },
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert output.read_text(encoding="utf-8") == f"skip={expected}\n"
 
 
 def test_liveness_config_names_the_compare_step() -> None:
@@ -179,9 +240,9 @@ def test_consumer_drift_detector_executed_recently() -> None:
     )
     created = datetime.fromisoformat(latest_comparing.replace("Z", "+00:00"))
     hours = (datetime.now(UTC) - created).total_seconds() / 3600.0
-    assert (
-        hours <= 48
-    ), f"newest Health 68 run that COMPARED is {latest_comparing} ({hours:.1f}h old)"
+    assert hours <= 48, (
+        f"newest Health 68 run that COMPARED is {latest_comparing} ({hours:.1f}h old)"
+    )
 
 
 def test_live_probe_skips_only_on_a_missing_token() -> None:
@@ -194,9 +255,9 @@ def test_live_probe_skips_only_on_a_missing_token() -> None:
     # and it does. The literal is split so the needle cannot match its own line.
     source = Path(__file__).read_text(encoding="utf-8")
     needle = 'environ.get("RUN_LIVE' + '_HEALTH_68_PROBE")'
-    assert (
-        needle not in source
-    ), "the opt-in flag is being read again; the live probe will never run in CI"
+    assert needle not in source, (
+        "the opt-in flag is being read again; the live probe will never run in CI"
+    )
 
     assert "GH_TOKEN" in LIVE_PROBE_SKIP_REASON
     assert "GITHUB_TOKEN" in LIVE_PROBE_SKIP_REASON
