@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
+from scripts import publish_integration_sync as publication
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SYNC_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "maint-69-sync-integration-repo.yml"
@@ -68,9 +69,14 @@ def test_integration_repo_sync_aligns_dev_tool_pins() -> None:
     assert '--pyproject "pyproject.toml"' in apply_script
     assert 'python "../workflows/scripts/sync_integration_coverage_omit.py"' in apply_script
     assert '--template "../workflows/templates/integration-repo/pyproject.toml"' in apply_script
-    assert "git add .github/workflows/ pyproject.toml requirements.lock scripts/" in commit_script
-    assert commit_script.count("if [ -f .pre-commit-config.yaml ]; then") == 1
-    assert commit_script.count("git add .pre-commit-config.yaml") == 1
+    assert "scripts/publish_integration_sync.py" in sparse_checkout
+    assert "scripts/publish_integration_sync.py" in commit_script
+    assert 'bash "$RUNNER_TEMP/apply-integration-templates.sh"' in apply_script
+    assert '--apply-script "$RUNNER_TEMP/apply-integration-templates.sh"' in commit_script
+    assert {".github/workflows", "pyproject.toml", "requirements.lock", "scripts"} <= set(
+        publication.DELIVERY_PATHS
+    )
+    assert publication.OPTIONAL_DELIVERY_PATH == ".pre-commit-config.yaml"
 
 
 def test_sync_manifest_removes_stale_consumer_local_workflow_syncer() -> None:
@@ -175,3 +181,10 @@ def test_integration_sync_api_setup_preserves_vendored_dependencies(tmp_path: Pa
     assert (install_dir / "node_modules/minimatch/package.json").is_file()
     assert (install_dir / "package.json").read_bytes() == original_package
     assert json.loads(original_package)["dependencies"]["minimatch"].startswith("file:")
+
+
+def test_integration_sync_summary_passes_the_publication_result_as_data() -> None:
+    step = next(step for step in _workflow()["jobs"]["sync"]["steps"] if step["name"] == "Summary")
+    assert step["env"]["PUBLISHED"] == "${{ steps.publish.outputs.published }}"
+    assert 'elif [ "$PUBLISHED" = "false" ]' in step["run"]
+    assert "steps.publish.outputs" not in step["run"]

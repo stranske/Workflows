@@ -63,6 +63,7 @@ jobs:
             scripts/sync_dev_dependencies.py
             scripts/sync_integration_coverage_omit.py
             scripts/sync_integration_manifest_subset.py
+            scripts/publish_integration_sync.py
           sparse-checkout-cone-mode: false
 
       # The delivery tree is separate from `workflows/`: Setup API client runs `npm install` in
@@ -126,6 +127,8 @@ jobs:
       - name: Apply template updates
         if: steps.token.outputs.token_available == 'true'
         run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/apply-integration-templates.sh" <<'APPLY'
           set -euo pipefail
 
           cd integration-tests
@@ -210,6 +213,8 @@ jobs:
               --output-file requirements.lock
             echo "✅ Updated requirements.lock"
           fi
+          APPLY
+          bash "$RUNNER_TEMP/apply-integration-templates.sh"
 
       - name: Check for changes
         if: steps.token.outputs.token_available == 'true'
@@ -240,24 +245,20 @@ jobs:
           echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit and push changes
+        id: publish
         if: |
           steps.token.outputs.token_available == 'true' &&
           steps.changes.outputs.has_changes == 'true' &&
           inputs.dry_run != true
         run: |
+          set -euo pipefail
           cd integration-tests
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add .github/workflows/ pyproject.toml requirements.lock scripts/
-          git add .github/actions/
-          git add tools/coverage_guard.py
-          git add .github/scripts/
-          if [ -f .pre-commit-config.yaml ]; then
-            git add .pre-commit-config.yaml
-          fi
-          git commit \
+          python ../workflows/scripts/publish_integration_sync.py \
+            --apply-script "$RUNNER_TEMP/apply-integration-templates.sh" \
             -m "sync: Update workflow templates from stranske/Workflows" \
             -m "" \
             -m "This sync updates integration-repo templates to match the source" \
@@ -278,16 +279,9 @@ jobs:
             -m "https://github.com/stranske/Workflows/actions/workflows/" \
             -m "maint-69-sync-integration-repo.yml"
 
-          if git push; then
-            echo "✅ Successfully pushed changes to ${INTEGRATION_REPO}"
-            echo "## Sync Successful" >> "$GITHUB_STEP_SUMMARY"
-            echo "Changes pushed to ${INTEGRATION_REPO}" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::error::Failed to push changes"
-            exit 1
-          fi
-
       - name: Summary
+        env:
+          PUBLISHED: ${{ steps.publish.outputs.published }}
         run: |
           {
             echo "## Integration Repo Sync"
@@ -300,6 +294,8 @@ jobs:
               echo "✅ No changes needed - already in sync"
             elif [ "${{ inputs.dry_run }}" = "true" ]; then
               echo "✅ Dry run complete - see diff above"
+            elif [ "$PUBLISHED" = "false" ]; then
+              echo "✅ No changes needed after recomputing from the current receiver default"
             else
               echo "✅ Sync complete - templates pushed to Integration-Tests"
             fi
