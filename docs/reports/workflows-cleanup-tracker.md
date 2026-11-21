@@ -38,6 +38,12 @@ The [dependency testing instructions](../ops/CONSUMER_REPO_MAINTENANCE.md#verify
 
 The completed [reference-pack draft](https://github.com/stranske/Workflows/blob/5fbda473e4b542449d8027709a884f2a6c8fb912/Issues.txt) now lives in Git history. The [intake guide](../WORKFLOW_GUIDE.md#import-issues-from-a-topic-list) explains how to supply a new `Issues.txt` on the selected ref or use raw input. Local replay of the actual intake steps accepted a fresh named file, rejected the missing path before parsing, and produced zero issue calls for empty input.
 
+### November 21 package and ledger review
+
+The Agents 72 worker was replayed on 52 closed Workflows issues. Moving the ledger changed the selected task or its prior status or title for 50 issues. On another, the same task was selected but a note was lost. Keep those 51 records at their worker paths. For [issue 1073](https://github.com/stranske/Workflows/issues/1073), all 88 tasks regenerated identically from the issue. Its [belt PR](https://github.com/stranske/Workflows/pull/1074) merged and the task branch is gone. Check the worker's creation and commit steps and historical recovery before retiring that seed. The earlier eleven completed-ledger cases are a separate cohort.
+
+The [Python CI starter](../../templates/workflow-templates/) now has a distribution directory under `templates/`. In its previous layout, publishing the bundle as shipped left the custom gallery icon unresolved. The three file contents are preserved, and the [installation instructions](../../templates/README.md#python-ci-starter-for-the-github-actions-gallery) cover an individual project and an organization gallery. A clean copy resolved the icon and passed Actionlint. No organization gallery installation was observed.
+
 ## Awaiting live verification
 
 - [ ] **Observe the next Maint 84 commit with eligible input.** The November 16 schedule selected 35 eligible files. GitHub rejected its direct push because main requires a PR and the `summary` check. The corrected workflow requested the PR step for the same 35 files in replay. Preview and a repeat on the cleaned tree requested zero writes. The November 20 default branch contained zero eligible filenames. Close when a scheduled run opens or updates a reviewed deletion PR and its changes land on main. The schedule runs Mondays at 08:00 UTC. [Failed delivery](https://github.com/stranske/Workflows/actions/runs/43830898674) · [Repair PR #4783](https://github.com/stranske/Workflows/pull/4783)

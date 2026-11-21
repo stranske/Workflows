@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-TEMPLATE_DIR = Path(".github/workflow-templates")
+TEMPLATE_DIR = Path("templates/workflow-templates")
 
 TEMPLATES = {
     "python-ci": {
@@ -22,7 +22,7 @@ def _read_json(path: Path) -> dict:
 
 
 def test_templates_present_with_metadata_files():
-    assert TEMPLATE_DIR.exists(), "Missing .github/workflow-templates directory"
+    assert TEMPLATE_DIR.exists(), "Missing templates/workflow-templates directory"
 
     for slug in TEMPLATES:
         workflow = TEMPLATE_DIR / f"{slug}.yml"
@@ -53,9 +53,6 @@ def test_starter_template_metadata_matches_yaml():
 
 
 def test_properties_files_include_required_keys_and_icon():
-    icons_dir = TEMPLATE_DIR / "icons"
-    assert icons_dir.exists(), "Icons directory missing for workflow templates"
-
     for slug in TEMPLATES:
         props = _read_json(TEMPLATE_DIR / f"{slug}.properties.json")
 
@@ -69,7 +66,7 @@ def test_properties_files_include_required_keys_and_icon():
             isinstance(props["filePatterns"], list) and props["filePatterns"]
         ), f"filePatterns should be a non-empty list for {slug}"
 
-        icon_path = icons_dir / f"{props['iconName']}.svg"
+        icon_path = TEMPLATE_DIR / f"{props['iconName']}.svg"
         assert icon_path.exists(), f"Icon referenced by {slug} is missing: {icon_path}"
 
 

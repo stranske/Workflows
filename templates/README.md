@@ -18,6 +18,21 @@ This directory contains workflow templates that consumer repositories can copy a
 | [dependency-refresh.yml](dependency-refresh.yml) | Scheduled `requirements.lock` refresh | Simple |
 | [cosmetic-repair.yml](cosmetic-repair.yml) | Auto-fix formatting/cosmetic issues | Medium |
 
+### Python CI starter for the GitHub Actions gallery
+
+To run the shared Python CI workflow in one project, copy
+[python-ci.yml](workflow-templates/python-ci.yml) to the project’s
+`.github/workflows/` directory. The starter targets `main` on pushes and pull
+requests. Set both branch filters to the project's default branch if it differs.
+
+To publish the starter in an organization's **Actions → New workflow** gallery,
+copy the three files in [workflow-templates](workflow-templates/) into the
+root `workflow-templates/` directory of the organization's `.github` repository.
+Keep `python-ci.yml`, `python-ci.properties.json` and `python.svg` together.
+For organizations with different default branches, use GitHub’s `$default-branch`
+placeholder in both branch filters in the published copy.
+[GitHub's workflow template guide](https://docs.github.com/en/actions/how-tos/reuse-automations/create-workflow-templates)
+
 ## Required Secrets
 
 Most templates use only `GITHUB_TOKEN` (automatically provided). Some advanced features need:
