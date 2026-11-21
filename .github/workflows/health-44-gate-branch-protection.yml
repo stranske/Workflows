@@ -317,7 +317,7 @@ jobs:
       - name: Publish snapshot pointer
         if: ${{ !cancelled() && steps.snapshot_pointer.outcome == 'success' && steps.snapshot_pointer.outputs.ready == 'true' }}
         continue-on-error: true
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           retention-days: 30
           name: health44-snapshot-pointer-v1
