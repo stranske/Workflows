@@ -2,6 +2,24 @@
 
 **26 of 28 checks complete** as of 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input.
 
+## November 21 workflow routing and default test discovery
+
+At [the reviewed revision](https://github.com/stranske/Workflows/tree/67c50f472934b3be89de9ec7dbfdc9433c1e8197), the structure review has decisions for **781 of 5,554 files, 96 of 487 folders and 59 of 198 workflows**. This replaces the earlier November 21 checkpoint of 717 files, 88 folders and 56 workflows. The original cleanup checklist is **26 of 28**. Its remaining inputs are a scheduled reviewed stub deletion and an eligible dependency lock repair.
+
+### Workflow behavior
+
+Replaying Auto-Pilot’s explicit PR-summary request through the installed event hub showed that the old route skipped the writer. The shared correction admits the live request and suppresses previews. A replay on a real receiver PR and issue produced the same body as an ordinary PR event, then made zero repeat writes. After deployment, an ordinary receiving run on trip-planner PR 2055 selected the updated reusable and correctly found the PR body already current. The first genuine manual receiver call is still pending. Keep the hosted and installed entry points. They share a renderer and have different event responsibilities. Keep the issue labeler as well. Eight recent eligible jobs took 43–57 seconds. A duplicate suggestion comment can avoid one API write. [Manual route correction](https://github.com/stranske/Workflows/pull/4869) · [Post-change receiver run](https://github.com/stranske/trip-planner/actions/runs/44932614282/job/136932446759) · [Hosted metadata write](https://github.com/stranske/Workflows/actions/runs/43736763680/job/132880974057) · [Issue suggestion](https://github.com/stranske/Workflows/actions/runs/44866108196/job/136730011882)
+
+### Default and hosted test discovery
+
+The original November 19 bare Node run selected 176 cases, with 162 passes and 14 earlier failures. Comparing names found that 84 previously passing cases had disappeared from default discovery. The combined main run grew from 78 to 127 passing cases. That restored 48 original passing cases and included one newer negative control. Five alternating offline measurements per tree gave medians of 460 ms and 506 ms. The review guard’s three replacement cases now pass through both routes. Three file decisions remain open. Their 48 current assertions for bot comments, keepalive state and persisted counters pass via the explicit command and are absent from bare discovery. The hourly check now compares both local and hosted discovery by case identity. [Dismissal suite](https://github.com/stranske/Workflows/pull/4866) · [Runner and dismissal cases](https://github.com/stranske/Workflows/pull/4871) · [Cascade and review cases](https://github.com/stranske/Workflows/pull/4870)
+
+### Evidence and regression checks
+
+The operator guides recover seven conflict-recovery receipts and nine historical publication notes at their original bytes. The 43-file reporter acceptance packet and three publication records named by machine-readable receipts retain their paths. All three agent navigation routes resolved (6, 7 and 8). Fresh reports, issue intake and the consumer plan passed. Primary Python jobs took 327–514 seconds against the 600-second per-job checkpoint. The complete Gate workflows took 79–624 seconds. Four of the original five workflow decisions are complete. An opted-in Agents 64 mismatch and a live fork event for Health 42 remain open. [Conflict recovery](https://github.com/stranske/Workflows/pull/4867) · [Publication notes](https://github.com/stranske/Workflows/pull/4868)
+
+The next hourly batch will verify the three remaining local test owners, trial skipping an identical issue-label suggestion update, and trace the delivery tests that read the remaining evidence files. The installed Linux Actionlint assertion is the last open decision among the original 27 root files.
+
 ## November 21 test discovery and evidence archives
 
 **717 of 5,554 files, 88 of 487 folders and 56 of 198 workflows** have completed decisions against the November 19 inventory. The preceding checkpoint recorded 692 files, 83 folders and 54 workflows. The original cleanup checklist remains **26 of 28**. [Reviewed tree](https://github.com/stranske/Workflows/tree/40629c154cc2dc456c2c43d9ccb35cf65e471a63)
