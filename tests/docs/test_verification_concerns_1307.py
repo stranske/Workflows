@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
-DOC_PATH = Path("docs/verification-concerns-1307.md")
+DOC_PATH = Path("docs/verification-concerns-1307.md").resolve()
+EVIDENCE_DIR = DOC_PATH.parent / "reverification"
+DECISIONS_PATH = EVIDENCE_DIR / "DECISIONS.md"
+INDEX_PATH = EVIDENCE_DIR / "README.md"
+MISSING_ARTIFACTS_CONCERN = "### Missing verification concerns/artifacts (Severity: High)"
+MISSING_ARTIFACTS_DECISION = "2026-02-07---pr-1307-missing-verification-artifacts"
 
 REQUIRED_SUBSECTIONS = (
     "#### Resolution summary",
@@ -17,56 +23,83 @@ REQUIRED_SUBSECTIONS = (
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
 
-def _concern_sections(text: str) -> list[str]:
+def _sections(text: str, heading_prefix: str) -> list[str]:
     lines = text.splitlines()
-    indices = [i for i, line in enumerate(lines) if line.startswith("### ")]
-    sections: list[str] = []
-    for idx, start in enumerate(indices):
-        end = indices[idx + 1] if idx + 1 < len(indices) else len(lines)
-        sections.append("\n".join(lines[start:end]))
-    return sections
+    starts = [i for i, line in enumerate(lines) if line.startswith(heading_prefix)]
+    ends = [*starts[1:], len(lines)]
+    return ["\n".join(lines[start:end]) for start, end in zip(starts, ends, strict=False)]
 
 
-def _resolve_evidence_path(link: str) -> Path | None:
-    if "reverification/" not in link:
+def _subsection_links(section: str, heading: str) -> list[str]:
+    match = re.search(rf"^{re.escape(heading)}\n(.*?)(?=^#{{1,4}} |\Z)", section, re.M | re.S)
+    assert match is not None, f"Missing subsection {heading}"
+    return LINK_RE.findall(match[1])
+
+
+def _local_path(source: Path, link: str) -> Path | None:
+    url = urlsplit(link)
+    if url.scheme or url.netloc or not url.path:
         return None
+    return (source.parent / unquote(url.path)).resolve()
 
-    if link.startswith("docs/reverification/"):
-        return Path(link)
-    if link.startswith("reverification/"):
-        return Path("docs") / link
-    if link.startswith("../docs/reverification/"):
-        return Path(link.removeprefix("../"))
-    if link.startswith("./reverification/"):
-        return Path("docs") / link.removeprefix("./")
-    return Path(link)
+
+def _evidence_paths(source: Path, links: list[str]) -> set[Path]:
+    evidence = {
+        path
+        for link in links
+        if (path := _local_path(source, link)) is not None
+        and path.is_relative_to(EVIDENCE_DIR)
+        and path not in {DECISIONS_PATH, INDEX_PATH}
+    }
+    assert evidence, "Expected evidence link under docs/reverification/"
+    for path in evidence:
+        assert path.is_file(), f"Evidence path missing: {path}"
+    return evidence
 
 
 def test_verification_concerns_have_required_subsections_and_evidence_links() -> None:
-    text = DOC_PATH.read_text(encoding="utf-8")
-    sections = _concern_sections(text)
-
+    sections = _sections(DOC_PATH.read_text(encoding="utf-8"), "### ")
     assert sections, "Expected at least one verification concern section"
 
     for section in sections:
         for subsection in REQUIRED_SUBSECTIONS:
-            assert subsection in section, f"Missing subsection {subsection}"
-
-        links = LINK_RE.findall(section)
-        evidence_paths = [
-            path for link in links if (path := _resolve_evidence_path(link)) is not None
-        ]
-
-        assert evidence_paths, "Expected evidence link under docs/reverification/"
-
-        for path in evidence_paths:
-            assert path.exists(), f"Evidence path missing: {path}"
+            assert subsection in section.splitlines(), f"Missing subsection {subsection}"
+        _evidence_paths(DOC_PATH, LINK_RE.findall(section))
+        _evidence_paths(DOC_PATH, _subsection_links(section, "#### Evidence"))
 
 
 def test_verification_concerns_reference_decisions_entry() -> None:
-    text = DOC_PATH.read_text(encoding="utf-8")
-    sections = _concern_sections(text)
+    sections = _sections(DOC_PATH.read_text(encoding="utf-8"), "### ")
+    assert sections, "Expected at least one verification concern section"
+    decision_entries = {
+        re.sub(r"[^\w -]", "", entry.splitlines()[0].removeprefix("## ").lower()).replace(
+            " ", "-"
+        ): entry
+        for entry in _sections(DECISIONS_PATH.read_text(encoding="utf-8"), "## ")
+    }
 
+    assert any(section.splitlines()[0] == MISSING_ARTIFACTS_CONCERN for section in sections)
     for section in sections:
-        assert "DECISIONS.md" in section
-        assert "DECISIONS.md#" in section
+        links = _subsection_links(section, "#### DECISIONS.md reference")
+        assert links, "Expected a decision link"
+        for link in links:
+            assert _local_path(DOC_PATH, link) == DECISIONS_PATH, f"Wrong decision path: {link}"
+            anchor = unquote(urlsplit(link).fragment)
+            assert anchor in decision_entries, f"Decision anchor missing: {link}"
+            if section.splitlines()[0] == MISSING_ARTIFACTS_CONCERN:
+                assert anchor == MISSING_ARTIFACTS_DECISION, f"Wrong decision anchor: {link}"
+                decision_evidence = _evidence_paths(
+                    DECISIONS_PATH, LINK_RE.findall(decision_entries[anchor])
+                )
+                concern_evidence = _evidence_paths(
+                    DOC_PATH, _subsection_links(section, "#### Evidence")
+                )
+                assert decision_evidence & concern_evidence, "Decision and concern evidence differ"
+
+
+def test_reverification_index_links_to_decisions_and_preserves_auth_anchor() -> None:
+    links = LINK_RE.findall(INDEX_PATH.read_text(encoding="utf-8"))
+    assert any(_local_path(INDEX_PATH, link) == DECISIONS_PATH for link in links)
+    assert '<a id="auth-coverage-artifact-2026-02-08"></a>' in DECISIONS_PATH.read_text(
+        encoding="utf-8"
+    )

@@ -7,7 +7,6 @@
 AGENTS.md
 CHANGELOG.md
 CLAUDE.md
-DECISIONS.md
 Issues.txt
 LICENSE
 README.md
