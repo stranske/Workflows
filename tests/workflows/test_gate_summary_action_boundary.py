@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -100,3 +101,118 @@ def test_summary_refresh_and_helper_share_actual_runner_action(
         check=False,
     )
     assert result.returncode == expected, result.stderr
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Gate expression replay requires Node")
+@pytest.mark.parametrize(
+    ("selected", "package", "old_quality", "docs_guard", "expected"),
+    [
+        ("false", "skipped", "skipped", "success", "success"),
+        ("false", "failure", "skipped", "success", "success"),
+        ("true", "success", "skipped", "success", "success"),
+        ("true", "failure", "skipped", "success", "failure"),
+        ("true", "cancelled", "skipped", "success", "pending"),
+        ("true", "skipped", "skipped", "success", "failure"),
+        ("true", "success", "failure", "success", "failure"),
+        ("true", "cancelled", "skipped", "failure", "failure"),
+    ],
+)
+def test_baseline_kit_uses_the_existing_required_gate_verdict(
+    tmp_path: Path, selected: str, package: str, old_quality: str, docs_guard: str, expected: str
+) -> None:
+    workflow = yaml.safe_load(GATES[0].read_text(encoding="utf-8"))
+    job = workflow["jobs"]["summary"]
+    assert "packages-app-baseline-kit" in job["needs"]
+    step = next(step for step in job["steps"] if step.get("id") == "summarize")
+    keys = ("DOC_ONLY", "RUN_CORE", "PYTHON_REQUIRED", "TEST_QUALITY_RESULT")
+    expressions = {key: step["env"][key].strip()[3:-2].strip() for key in keys}
+    needs = {
+        "detect": {
+            "outputs": {
+                "doc_only": "true",
+                "run_core": "false",
+                "app_baseline_kit_required": selected,
+            }
+        },
+        "packages-app-baseline-kit": {"result": package},
+        "acceptance-criteria-label": {"result": "skipped"},
+        "test-quality": {"result": old_quality},
+    }
+    # This narrow expression subset uses only string comparisons and short-circuit logic.
+    expression_replay = r"""
+      const { needs, expressions } = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+      const results = Object.entries(expressions).map(([key, text]) => {
+        const expression = text.replace(/needs\.([\w-]+)/g, (_, job) => 'needs[' + JSON.stringify(job) + ']');
+        if (!/^[\w"' .()\[\]|!=&\s-]+$/.test(expression)) throw Error(expression);
+        return [key, String(new Function('needs', 'return (' + expression + ')')(needs))];
+      });
+      process.stdout.write(JSON.stringify(Object.fromEntries(results)));
+    """
+    resolved = json.loads(
+        subprocess.check_output(
+            ["node", "-e", expression_replay],
+            input=json.dumps({"needs": needs, "expressions": expressions}),
+            text=True,
+        )
+    )
+    assert resolved["DOC_ONLY"] == ("false" if selected == "true" else "true")
+    assert resolved["PYTHON_REQUIRED"] == "false"
+    output = tmp_path / "outputs"
+    subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", step["run"]],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            **resolved,
+            "GATE_PR_JSON": "",
+            "GITHUB_EVENT_PATH": "",
+            "GITHUB_OUTPUT": str(output),
+            "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
+            "GATE_ARTIFACTS_ROOT": str(tmp_path / "artifacts"),
+            "PYTHON_RESULT": "skipped",
+            "DOCS_GUARD_RESULT": docs_guard,
+        },
+        check=True,
+    )
+    receipt = dict(line.split("=", 1) for line in output.read_text().splitlines())
+    assert receipt["state"] == expected
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Gate script replay requires Node")
+@pytest.mark.parametrize("selected", ["false", "true"])
+def test_docs_fast_pass_does_not_publish_before_selected_package(
+    selected: str,
+) -> None:
+    workflow = yaml.safe_load(GATES[0].read_text(encoding="utf-8"))
+    step = next(
+        step for step in workflow["jobs"]["summary"]["steps"] if step.get("id") == "docs_only"
+    )
+    assert step["env"]["APP_BASELINE_KIT_REQUIRED"] == (
+        "${{ needs.detect.outputs.app_baseline_kit_required }}"
+    )
+    harness = """
+      const execute = new (Object.getPrototypeOf(async function () {}).constructor)(
+        'core', 'require', SCRIPT
+      );
+      const output = {};
+      execute({setOutput: (key, value) => { output[key] = value; }}, require)
+        .then(() => { process.stdout.write(JSON.stringify(output)); })
+        .catch(error => { console.error(error); process.exitCode = 1; });
+    """
+    output = json.loads(
+        subprocess.check_output(
+            [
+                "node",
+                "-e",
+                "const SCRIPT = " + json.dumps(step["with"]["script"]) + ";\n" + harness,
+            ],
+            cwd=ROOT,
+            env={**os.environ, "APP_BASELINE_KIT_REQUIRED": selected, "REASON": "docs_only"},
+            text=True,
+        )
+    )
+    if selected == "true":
+        assert output == {}
+    else:
+        assert output["state"] == "success"
+        assert "docs-only change" in output["comment_body"]

@@ -209,3 +209,56 @@ test('detectChanges preserves non-error wrapper initialization failures', async 
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /string boom/);
 });
+
+
+test('opt-in app-baseline-kit detection preserves normal paths and includes either rename side', async () => {
+  const inputCases = [
+    [[{ filename: 'packages/app-baseline-kit/baseline_kit/manifest.py' }], 'true'],
+    [[{ filename: 'packages/app-baseline-kit/tests/test_snapshot/golden.yml', status: 'removed' }], 'true'],
+    [[{ filename: 'packages/app-baseline-kit/pyproject.toml' }], 'true'],
+    [[{ filename: 'docs/golden.yml', previous_filename: 'packages/app-baseline-kit/tests/golden.yml' }], 'true'],
+    [[{ filename: '.github/workflows/pr-00-gate.yml' }], 'true'],
+    [[{ filename: 'packages/app-baseline-kit/README.md' }], 'false'],
+    [[{ filename: 'packages/app-baseline-kit/README.md' }, { filename: '.github/path-classification.yml' }], 'false'],
+    [[{ filename: 'packages/app-baseline-kit/README.md' }, { filename: '.github/workflows/pr-00-gate.yml' }], 'true'],
+    [[{ filename: 'packages/stranske_pdf_extract/pyproject.toml' }], 'false'],
+    [[{ filename: 'scripts/unrelated.py' }], 'false'],
+  ];
+  for (const [records, expected] of inputCases) {
+    const result = await detectChanges({
+      checkAppBaselineKit: true,
+      context: {
+        eventName: 'pull_request',
+        repo: { owner: 'octo', repo: 'demo' },
+        payload: { pull_request: { number: 1, changed_files: records.length } },
+      },
+      github: {
+        rest: { pulls: { listFiles: async () => ({ data: records }) } },
+        paginate: { iterator: async function* () { yield { data: records }; } },
+      },
+    });
+    assert.equal(result.outputs.app_baseline_kit_changed, expected, records[0].filename);
+    assert.deepEqual(result.details.changedFiles, records.map(file => file.filename));
+  }
+});
+
+test('opt-in app-baseline-kit detection selects unknown, partial and deliberate full runs', async () => {
+  const unavailable = await detectChanges({
+    checkAppBaselineKit: true,
+    context: { eventName: 'pull_request' },
+    fetchFiles: async () => null,
+    core: { warning() {}, setOutput() {} },
+  });
+  const incomplete = await detectChanges({
+    checkAppBaselineKit: true,
+    context: { eventName: 'pull_request', payload: { pull_request: { changed_files: 2 } } },
+    files: ['docs/README.md'],
+  });
+  const dispatch = await detectChanges({
+    checkAppBaselineKit: true,
+    context: { eventName: 'workflow_dispatch' },
+  });
+  for (const result of [unavailable, incomplete, dispatch]) {
+    assert.equal(result.outputs.app_baseline_kit_changed, 'true');
+  }
+});
