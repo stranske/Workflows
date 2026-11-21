@@ -876,3 +876,105 @@ def test_followup_collectors_reject_forged_terminal_reports(
         assert result.returncode != 0
         assert "No verification comment found" in result.stderr
         assert not history.exists()
+
+
+@pytest.mark.parametrize(
+    "workflow_path",
+    [
+        ".github/workflows/agents-verify-to-new-pr.yml",
+        "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml",
+    ],
+)
+@_needs_node
+def test_legacy_continuation_reuses_only_matching_issue(tmp_path: Path, workflow_path: str) -> None:
+    steps = _load_yaml(ROOT / workflow_path)["jobs"]["create-new-pr"]["steps"]
+    create = next(step["with"]["script"] for step in steps if step.get("id") == "create-issue")
+    program = """
+      const create = Object.getPrototypeOf(async function() {}).constructor(
+        'require', 'github', 'core', 'context', process.env.TEST_SCRIPT);
+      const context = {repo:{owner:'test',repo:'test'}, payload:{pull_request:{number:3376}}};
+      const source = {number:42, title:'Retitled follow-up',
+        body:'<!-- follow-up-depth: 2 -->\\n## Source\\n- Original PR: #3376',
+        labels:[{name:'agents:auto-pilot'}]};
+      const exact = {number:43,title:'Follow-up for PR #3376',body:'From PR #3376'};
+      const prefix = {number:1,title:'Follow-up for PR #33760',body:'From PR #33760'};
+      const titleOnly = {number:2,title:exact.title,body:'Different source'};
+      const pullRequest = {...exact,number:3,pull_request:{}};
+      async function run(issues) {
+        let writes = 0;
+        const outputs = {};
+        const github = {rest:{issues:{listForRepo:'list',create:async()=>{
+          writes++;
+          return {data:{number:99}};
+        }}},paginate:async()=>issues};
+        const core = {info(){},warning(){},setFailed(message){throw Error(message);},
+          setOutput(key,value){outputs[key]=value;}};
+        await create(require,github,core,context);
+        return [outputs.issue_number,writes];
+      }
+      (async()=>console.log(JSON.stringify(await Promise.all([
+        run([prefix,titleOnly,pullRequest,exact]), run([source]),
+        run([{...source,labels:[]}]), run([]),
+      ]))))().catch(error=>{console.error(error);process.exitCode=1;});
+    """
+    result = subprocess.run(
+        ["node", "-e", program],
+        cwd=tmp_path,
+        env={**os.environ, "TEST_SCRIPT": create, "ISSUE_TITLE": "Test", "ISSUE_BODY": "Test"},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert json.loads(result.stdout) == [[43, 0], [42, 0], [99, 1], [99, 1]]
+
+
+@_needs_node
+def test_issue_only_disposition_retains_returned_backlink(tmp_path: Path) -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/agents-verify-to-issue-v2.yml")
+    steps = {step["name"]: step for step in workflow["jobs"]["create-issue"]["steps"]}
+    comment = steps["Comment on original PR"]
+    receipt = steps["Record terminal disposition"]
+    assert receipt["env"]["FOLLOWUP_COMMENT_URL"] == (
+        "${{ steps." + comment["id"] + ".outputs.comment_url }}"
+    )
+    program = """
+      const fs = require('fs');
+      const Fn = Object.getPrototypeOf(async function() {}).constructor;
+      const output = {};
+      const summary = {addHeading(){return this;},addRaw(){return this;},async write(){}};
+      const core = {setOutput(k,v){output[k]=v;},summary};
+      const context = {repo:{owner:'test',repo:'test'},workflow:'Follow-up',runId:123,
+        payload:{pull_request:{number:7,title:'Merged PR'}}};
+      const resolve = name => name.startsWith('./')
+        ? require(require('path').join(process.env.TEST_ROOT,name)) : require(name);
+      const permalink='https://github.com/test/test/pull/7#issuecomment-1';
+      let calls = 0;
+      const github = {rest:{issues:{createComment:async ()=>{
+        calls++;
+        return {data:{html_url:permalink}};
+      }}}};
+      (async()=>{
+        await new Fn('require','github','core','context',process.env.TEST_COMMENT)(
+          resolve,github,core,context);
+        process.env.FOLLOWUP_COMMENT_URL=output.comment_url;
+        await new Fn('require','core','context',process.env.TEST_RECEIPT)(resolve,core,context);
+        const record=JSON.parse(fs.readFileSync('agent-metrics/verifier-terminal-disposition.ndjson'));
+        console.log(JSON.stringify([record.comment_url,calls]));
+      })().catch(error=>{console.error(error);process.exitCode=1;});
+    """
+    result = subprocess.run(
+        ["node", "-e", program],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "TEST_COMMENT": comment["with"]["script"],
+            "TEST_RECEIPT": receipt["with"]["script"],
+            "TEST_ROOT": str(ROOT),
+            "ISSUE_NUMBER": "99",
+            "FOLLOWUP_ISSUE_NUMBER": "99",
+        },
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert json.loads(result.stdout) == ["https://github.com/test/test/pull/7#issuecomment-1", 1]

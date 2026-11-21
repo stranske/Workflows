@@ -897,17 +897,23 @@ jobs:
                 per_page: 100
               }
             );
-            const hasDuplicate = existing.some(issue =>
-              issue.title.includes(`PR #${prNumber}`) &&
-              issue.body && issue.body.includes(`PR #${prNumber}`)
-            );
-            if (hasDuplicate) {
+            const prReference = new RegExp(`PR #${prNumber}(?![0-9])`);
+            const originalPr = `- Original PR: #${prNumber}`;
+            const depthMarker = /^<!-- follow-up-depth: [12] -->[ \t]*\r?$/m;
+            const dup = existing.find(issue => {
+              if (issue.pull_request || !issue.body) return false;
+              if (prReference.test(issue.title) && prReference.test(issue.body)) return true;
+
+              // The legacy continuation's body still identifies its source after a title edit.
+              const autoPilot = issue.labels?.some(label =>
+                (label?.name ?? label) === 'agents:auto-pilot'
+              );
+              return autoPilot && depthMarker.test(issue.body) &&
+                issue.body.split('\n').some(line => line.trimEnd() === originalPr);
+            });
+            if (dup) {
               core.info(
                 `Follow-up issue for PR #${prNumber} already exists, skipping`
-              );
-              // Set outputs so downstream steps don't fail
-              const dup = existing.find(i =>
-                i.title.includes(`PR #${prNumber}`)
               );
               core.setOutput('issue_number', dup.number);
               core.setOutput('issue_url', dup.html_url);

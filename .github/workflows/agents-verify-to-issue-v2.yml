@@ -465,6 +465,7 @@ jobs:
             core.setOutput('issue_url', issue.data.html_url);
 
       - name: Comment on original PR
+        id: comment-on-pr
         if: >-
           steps.check-merged.outputs.merged == 'true' &&
           steps.terminal-artifact.outputs.terminal == 'true'
@@ -502,12 +503,13 @@ jobs:
               '> Or work on it manually - the choice is yours!'
             ].join('\n');
 
-            await withRetry(() => github.rest.issues.createComment({
+            const response = await withRetry(() => github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
               body: body
             }));
+            core.setOutput('comment_url', response?.data?.html_url || '');
 
       - name: Record terminal disposition
         if: always() && steps.check-merged.outputs.merged == 'true'
@@ -516,6 +518,7 @@ jobs:
           ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
           FOLLOWUP_ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           FOLLOWUP_ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
+          FOLLOWUP_COMMENT_URL: ${{ steps.comment-on-pr.outputs.comment_url }}
         uses: actions/github-script@v9
         with:
           github-token: ${{ steps.select-token.outputs.token }}
@@ -544,6 +547,7 @@ jobs:
                 : 'Workflow completed without a follow-up issue output.',
               followup_issue_number: followupIssue || undefined,
               followup_issue_url: process.env.FOLLOWUP_ISSUE_URL || undefined,
+              comment_url: process.env.FOLLOWUP_COMMENT_URL || undefined,
               workflow: context.workflow,
               run_id: context.runId,
               run_attempt: context.runAttempt,
