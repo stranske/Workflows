@@ -1,4 +1,4 @@
-name: Agent task
+name: Agent task (structured Codex form)
 description: Plan a Codex automation task and trigger the issue bridge.
 title: "[Agent task] <summary>"
 labels:
