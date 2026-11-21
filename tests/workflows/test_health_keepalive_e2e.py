@@ -82,7 +82,9 @@ def test_select_mode(tmp_path, labels, mode):
             id="extra-base64-padding",
         ),
         pytest.param({"CHANGES_MADE": "true"}, "expected changes-made=false", id="changes-made"),
-        pytest.param({"CHANGES_MADE": "unknown"}, "expected changes-made=false", id="invalid-change"),
+        pytest.param(
+            {"CHANGES_MADE": "unknown"}, "expected changes-made=false", id="invalid-change"
+        ),
         pytest.param({"CHANGES_MADE": ""}, "expected changes-made=false", id="missing-change"),
         pytest.param({"EXIT_CODE": "1"}, "expected exit-code=0", id="nonzero-exit"),
         pytest.param({"EXIT_CODE": "success"}, "expected exit-code=0", id="invalid-exit"),
