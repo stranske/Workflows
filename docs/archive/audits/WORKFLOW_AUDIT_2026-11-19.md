@@ -144,10 +144,10 @@ pytest tests/scripts/test_issue_dedup.py tests/scripts/test_check_api_wrapper_gu
 
 pytest tests/scripts/test_validate_workflow_yaml.py \
   tests/workflows/test_workflows_doc_links_resolve.py -q -m "not slow"
-→ 5 passed
+→ 7 passed (includes archive audit acceptance via `test_november_2026_archived_workflow_audit_report`)
 
 pytest tests/docs/test_workflow_audit_2026_11_19.py -q -m "not slow"
-→ passed
+→ 5 passed
 
 pytest tests/scripts/test_workflow_inventory_audit.py -q -m "not slow"
 → passed
