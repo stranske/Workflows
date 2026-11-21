@@ -37,7 +37,7 @@ jobs:
         run: |
           # Default: orchestration-only (fast, no real Codex)
           # With e2e:codex-ping label: minimal real Codex run
-          if echo "$LABELS" | grep -q 'e2e:codex-ping'; then
+          if jq -e 'type == "array" and index("e2e:codex-ping") != null' <<< "$LABELS" >/dev/null; then
             echo "mode=codex-ping" >> "$GITHUB_OUTPUT"
             echo "::notice::Running with REAL Codex (minimal ping prompt)"
           else
@@ -278,14 +278,36 @@ jobs:
         env:
           EXIT_CODE: ${{ needs.codex-ping-run.outputs.exit-code }}
           CHANGES_MADE: ${{ needs.codex-ping-run.outputs.changes-made }}
+          FINAL_MESSAGE: ${{ needs.codex-ping-run.outputs.final-message }}
         run: |
-          echo "Exit code: $EXIT_CODE"
-          echo "Changes made: $CHANGES_MADE"
-
-          if [ "$CHANGES_MADE" = "true" ]; then
-            echo "::error::Codex made unexpected changes in read-only ping test"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Codex ping expected exit-code=0"
             exit 1
           fi
+
+          if [ "$CHANGES_MADE" != "false" ]; then
+            echo "::error::Codex ping expected changes-made=false"
+            exit 1
+          fi
+
+          python3 -I - <<'PY'
+          import base64
+          import binascii
+          import os
+
+          encoded = os.environ["FINAL_MESSAGE"]
+          if not encoded:
+              raise SystemExit("::error::Codex ping missing final message")
+          try:
+              reply = base64.b64decode(encoded, validate=True)
+          except (binascii.Error, ValueError):
+              raise SystemExit("::error::Codex ping final message has invalid base64") from None
+          if base64.b64encode(reply).decode("ascii") != encoded:
+              raise SystemExit("::error::Codex ping final message has invalid base64")
+
+          if reply.rstrip(b"\r\n") != b"keepalive-e2e-ping-ok":
+              raise SystemExit("::error::Codex ping returned an unexpected reply")
+          PY
 
           echo "✅ Codex ping E2E passed"
 
