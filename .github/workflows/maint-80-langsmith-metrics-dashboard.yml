@@ -195,9 +195,14 @@ jobs:
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "/repos/$repo/actions/artifacts" -F per_page=100 -f name="$artifact_name" \
               2>> .metrics-tmp/fleet/fleet_errors.log | jq -er --arg artifact_name "$artifact_name" \
-                '[.[].artifacts[]? | select(.expired == false and .name == $artifact_name)]
+                '[.[].artifacts[]] as $rows
+                 | ($rows | length) as $count
+                 | select($count > 0 and all(.[]; .total_count == $count))
+                 | select(($rows | unique_by(.id) | length) == $count)
+                 | select(all($rows[]; .name == $artifact_name))
+                 | [$rows[] | select(.expired == false)]
                  | group_by(.created_at) | last | select(length == 1) | .[0].id' \
-                2>> .metrics-tmp/fleet/fleet_errors.log); then
+                2>> .metrics-tmp/fleet/fleet_errors.log) || [ -z "$artifact_id" ]; then
               artifacts_json=$(gh api --paginate --slurp --method GET \
                 -H "Accept: application/vnd.github+json" \
                 -H "X-GitHub-Api-Version: 2022-11-28" \

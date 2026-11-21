@@ -77,11 +77,22 @@ def test_exact_artifact_lookup_uses_full_inventory_only_when_needed(tmp_path):
     newest = artifact(2, timestamp="2026-11-05")
     expired = artifact(3, timestamp="2026-11-06", expired=True)
     full = [{"artifacts": [older, newest, expired]}]
-    pages = [{"artifacts": [newest]}, {"artifacts": [older, expired]}]
+    pages = [
+        {"artifacts": [newest], "total_count": 3},
+        {"artifacts": [older, expired], "total_count": 3},
+    ]
     assert lookup(pages, full) == (["selected=2"], ["filtered"])
     assert lookup(pages, full, exit_code=1) == (["selected=2"], ["filtered", "full"])
+    for incomplete in (
+        [{"artifacts": [older], "total_count": 2}],
+        [{"artifacts": [older], "total_count": 2}, {"artifacts": [older], "total_count": 2}],
+        [{"artifacts": [older], "total_count": 2}, {"artifacts": [expired], "total_count": 3}],
+    ):
+        assert lookup(incomplete, full) == (["selected=2"], ["filtered", "full"])
     tied = artifact(4, timestamp="2026-11-05")
-    assert lookup([{"artifacts": [tied, newest]}], [{"artifacts": [newest, tied]}]) == (
+    assert lookup(
+        [{"artifacts": [tied, newest], "total_count": 2}], [{"artifacts": [newest, tied]}]
+    ) == (
         ["selected=4"],
         ["filtered", "full"],
     )
@@ -89,7 +100,7 @@ def test_exact_artifact_lookup_uses_full_inventory_only_when_needed(tmp_path):
         artifact(5, prefix="old-"),
         artifact(6, prefix="new-", timestamp="2026-11-07", run=9),
     ]
-    assert lookup([{"artifacts": [expired]}], [{"artifacts": prefixed}]) == (
+    assert lookup([{"artifacts": [expired], "total_count": 1}], [{"artifacts": prefixed}]) == (
         ["selected=5"],
         ["filtered", "full"],
     )
