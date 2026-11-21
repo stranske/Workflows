@@ -51,17 +51,24 @@ The checkout still supports `import trend_analysis`. Direct imports of
 `trend_analysis.constants`, `trend_analysis.selector`, and
 `trend_analysis.weighting` now require the archived files below.
 
-Run the following from a Workflows checkout using its selected Python. Set
-`WORKFLOWS_PYTHON` to its absolute path if your
-checkout has no `.venv`. The
-[introduction revision](https://github.com/stranske/Workflows/tree/6f97a7bfd74d5b19f8d3765b75d08a0bb0113f0d)
+Run the following inside a Workflows checkout using its selected Python. Set
+`WORKFLOWS_PYTHON` to its absolute path if your checkout has no `.venv`. The
+recipes find the repository root even when run from this fixture directory.
+In a shallow Workflows checkout that lacks either pinned revision, fetch both
+before running the recipes:
+
+```sh
+git fetch --depth=1 origin 6f97a7bfd74d5b19f8d3765b75d08a0bb0113f0d a68b8585e295f9f74c36656871b8df19c2c17e97
+```
+
+The [introduction revision](https://github.com/stranske/Workflows/tree/6f97a7bfd74d5b19f8d3765b75d08a0bb0113f0d)
 contains the original source, score CSV, and four regression tests.
 
 ```sh
-repo=$(pwd)
+repo=$(git rev-parse --show-toplevel)
 py=${WORKFLOWS_PYTHON:-"$repo/.venv/bin/python"}
 scratch=$(mktemp -d)
-git archive 6f97a7bfd74d5b19f8d3765b75d08a0bb0113f0d -- src/trend_analysis \
+git -C "$repo" archive 6f97a7bfd74d5b19f8d3765b75d08a0bb0113f0d -- src/trend_analysis \
   tests/fixtures/score_frame_2025-06-30.csv \
   tests/workflows/test_autofix_repo_regressions.py > "$scratch/historical.tar" &&
   tar -xf "$scratch/historical.tar" -C "$scratch" &&
@@ -70,12 +77,13 @@ git archive 6f97a7bfd74d5b19f8d3765b75d08a0bb0113f0d -- src/trend_analysis \
 ```
 
 The [merged #296 source](https://github.com/stranske/Workflows/tree/a68b8585e295f9f74c36656871b8df19c2c17e97/src/trend_analysis)
-contains the final versions formerly present here. From the Workflows checkout,
+contains the final versions formerly present here. From inside the Workflows checkout,
 recover those exact three files into a separate directory.
 
 ```sh
+repo=$(git rev-parse --show-toplevel)
 scratch=$(mktemp -d)
-git archive a68b8585e295f9f74c36656871b8df19c2c17e97 -- \
+git -C "$repo" archive a68b8585e295f9f74c36656871b8df19c2c17e97 -- \
   src/trend_analysis/constants.py src/trend_analysis/selector.py src/trend_analysis/weighting.py \
   > "$scratch/portfolio.tar" &&
   tar -xf "$scratch/portfolio.tar" -C "$scratch"
