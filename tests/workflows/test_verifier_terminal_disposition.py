@@ -876,3 +876,64 @@ def test_followup_collectors_reject_forged_terminal_reports(
         assert result.returncode != 0
         assert "No verification comment found" in result.stderr
         assert not history.exists()
+
+
+@pytest.mark.parametrize("denied", [False, True])
+@_needs_node
+def test_issue_only_disposition_retains_returned_backlink(tmp_path: Path, denied: bool) -> None:
+    workflow = _load_yaml(ROOT / ".github/workflows/agents-verify-to-issue-v2.yml")
+    steps = {step["name"]: step for step in workflow["jobs"]["create-issue"]["steps"]}
+    comment = steps["Comment on original PR"]
+    receipt = steps["Record terminal disposition"]
+    assert receipt["env"]["FOLLOWUP_COMMENT_URL"] == (
+        "${{ steps." + comment["id"] + ".outputs.comment_url }}"
+    )
+    program = """
+      const fs = require('fs');
+      const Fn = Object.getPrototypeOf(async function() {}).constructor;
+      const output = {};
+      const summary = {addHeading(){return this;},addRaw(){return this;},async write(){}};
+      const core = {setOutput(k,v){output[k]=v;},summary};
+      const context = {repo:{owner:'test',repo:'test'},workflow:'Follow-up',runId:123,
+        payload:{pull_request:{number:7,title:'Merged PR'}}};
+      const resolve = name => name.startsWith('./')
+        ? require(require('path').join(process.env.TEST_ROOT,name)) : require(name);
+      const permalink='https://github.com/test/test/pull/7#issuecomment-1';
+      const denied = process.env.TEST_DENIED === 'true';
+      let calls = 0;
+      const github = {rest:{issues:{createComment:async ()=>{
+        calls++;
+        if (denied) throw Object.assign(Error('denied'),{status:403});
+        return {data:{html_url:permalink}};
+      }}}};
+      (async()=>{
+        try {
+          await new Fn('require','github','core','context',process.env.TEST_COMMENT)(
+            resolve,github,core,context);
+        } catch (error) {
+          if (!denied || error.status !== 403) throw error;
+        }
+        process.env.FOLLOWUP_COMMENT_URL=output.comment_url || '';
+        await new Fn('require','core','context',process.env.TEST_RECEIPT)(resolve,core,context);
+        const record=JSON.parse(fs.readFileSync('agent-metrics/verifier-terminal-disposition.ndjson'));
+        console.log(JSON.stringify([record.comment_url || null,calls,record.followup_issue_number]));
+      })().catch(error=>{console.error(error);process.exitCode=1;});
+    """
+    result = subprocess.run(
+        ["node", "-e", program],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "TEST_COMMENT": comment["with"]["script"],
+            "TEST_RECEIPT": receipt["with"]["script"],
+            "TEST_ROOT": str(ROOT),
+            "TEST_DENIED": str(denied).lower(),
+            "ISSUE_NUMBER": "99",
+            "FOLLOWUP_ISSUE_NUMBER": "99",
+        },
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    permalink = None if denied else "https://github.com/test/test/pull/7#issuecomment-1"
+    assert json.loads(result.stdout) == [permalink, 1, 99]
