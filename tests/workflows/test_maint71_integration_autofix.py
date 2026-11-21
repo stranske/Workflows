@@ -18,8 +18,13 @@ FOLLOWUP = (
 
 
 @pytest.fixture
-def job():
-    return yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["detect-and-fix"]
+def workflow():
+    return yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+
+
+@pytest.fixture
+def job(workflow):
+    return workflow["jobs"]["detect-and-fix"]
 
 
 def test_comment_job_admits_only_owner_notifier_reports(job):
@@ -27,6 +32,14 @@ def test_comment_job_admits_only_owner_notifier_reports(job):
     assert "github.event.comment.author_association == 'OWNER'" in comment_gate
     assert "startsWith(github.event.comment.body, 'Another failure detected:')" in comment_gate
     assert "!github.event.issue.pull_request" in comment_gate
+
+
+def test_only_admitted_job_can_enter_writer_concurrency(workflow, job):
+    assert "concurrency" not in workflow
+    assert job["concurrency"] == {
+        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "cancel-in-progress": True,
+    }
 
 
 @pytest.mark.parametrize(
@@ -46,6 +59,7 @@ def test_comment_job_admits_only_owner_notifier_reports(job):
         ("workflow_dispatch", {"inputs": {"run_id": "41115999467"}}, "41115999467"),
         ("workflow_dispatch", {"inputs": {}}, ""),
         ("workflow_dispatch", {"inputs": {"run_id": "41115999467 extra"}}, ""),
+        ("workflow_dispatch", {"inputs": {"run_id": "41115999467\n"}}, ""),
     ],
 )
 def test_extracts_only_the_event_integration_run(job, tmp_path, event, payload, expected):

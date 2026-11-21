@@ -19,10 +19,6 @@ permissions:
   issues: write   # For commenting on issues
   # Note: SERVICE_BOT_PAT is used for write access to Integration-Tests repository
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   detect-and-fix:
     name: Detect and fix integration test failures
@@ -41,6 +37,9 @@ jobs:
         && startsWith(github.event.comment.body, 'Another failure detected:')
       )
       || github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
@@ -52,7 +51,7 @@ jobs:
         run: |
           RUN_ID=$(jq -r --arg event "$GITHUB_EVENT_NAME" '
             if $event == "workflow_dispatch" then
-              (.inputs.run_id // "") | if test("^[0-9]+$") then . else "" end
+              (.inputs.run_id // "") | if test("\\A[0-9]+\\z") then . else "" end
             else
               (if $event == "issue_comment" then .comment.body else .issue.body end)
               // ""
