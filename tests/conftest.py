@@ -1,3 +1,5 @@
+"""Shared pytest fixtures for the Workflows repository."""
+
 import importlib.util
 import os
 import sys
