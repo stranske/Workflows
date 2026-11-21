@@ -2,7 +2,8 @@ name: Health 76 Codex CLI Freshness
 
 on:
   schedule:
-    - cron: "35 7 * * 1"
+    # Monday 03:35 UTC, 145 minutes before the weekly metrics report.
+    - cron: "35 3 * * 1"
   workflow_dispatch: {}
 
 permissions:
