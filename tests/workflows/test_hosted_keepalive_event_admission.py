@@ -19,6 +19,9 @@ def _evaluate_job():
     ("pr_number", "actor", "sweep", "challenge", "should_run", "reason"),
     [
         ("4711", "stranske", "false", "", "true", "ordinary-event"),
+        ("004711", "stranske", "false", "", "true", "ordinary-event"),
+        ("not-a-number", "stranske", "false", "", None, "Expected a positive PR number"),
+        ("0", "stranske", "false", "", None, "Expected a positive PR number"),
         ("4711", "github-actions[bot]", "true", "", "true", "scheduled-sweep-recheck"),
         ("4711", "github-actions[bot]", "true", "present", "true", "due-authority-challenge"),
         ("4372", "renovate[bot]", "false", "", "false", "dependency-bot-pr"),
@@ -49,6 +52,11 @@ def test_admission_runs_without_external_commands(
         text=True,
         capture_output=True,
     )
+    if should_run is None:
+        assert result.returncode == 1
+        assert reason in result.stdout
+        assert not output.exists()
+        return
     assert result.returncode == 0, result.stderr
     assert output.read_text(encoding="utf-8") == f"should_run={should_run}\nreason={reason}\n"
 
