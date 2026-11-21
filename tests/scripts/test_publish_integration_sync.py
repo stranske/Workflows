@@ -156,3 +156,15 @@ def test_initial_publication_stages_add_remove_and_optional_path(tmp_path):
     assert git(remote, "show", f"main:{delivery.OPTIONAL_DELIVERY_PATH}") == (
         "published optional config"
     )
+
+
+def test_initial_publication_only_requires_the_configured_upstream(tmp_path):
+    remote, receiver, _, apply_script = seed_receiver(tmp_path)
+    git(receiver, "symbolic-ref", "--delete", "refs/remotes/origin/HEAD")
+    assert git(receiver, "rev-parse", "--symbolic-full-name", "@{upstream}") == (
+        "refs/remotes/origin/main"
+    )
+    install(receiver, MANAGED, "canonical content\n")
+    assert delivery.publish(receiver, apply_script, ["Delivery"])
+    assert not (tmp_path / "replay-count").exists()
+    assert git(remote, "show", f"main:{MANAGED}") == "canonical content"

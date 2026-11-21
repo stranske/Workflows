@@ -76,10 +76,10 @@ def commit_delivery(repo: Path, messages: list[str]) -> None:
 
 
 def publish(repo: Path, apply_script: Path, messages: list[str]) -> bool:
-    default = git(repo, "symbolic-ref", "refs/remotes/origin/HEAD").stdout.decode().strip()
     branch = git(repo, "symbolic-ref", "HEAD").stdout.decode().strip()
-    if default != "refs/remotes/origin/" + branch.removeprefix("refs/heads/"):
-        raise PublicationError("The receiver checkout is not on its cloned default branch")
+    upstream = git(repo, "rev-parse", "--symbolic-full-name", "@{upstream}").stdout.decode().strip()
+    if upstream != "refs/remotes/origin/" + branch.removeprefix("refs/heads/"):
+        raise PublicationError("The receiver checkout does not track its cloned branch on origin")
 
     base = revision(repo, "HEAD")
     stage_delivery(repo)
