@@ -17,7 +17,8 @@ SUPERSEDED_WORKFLOWS: dict[str, tuple[str, ...]] = {
     "check-failure-tracker.yml": ("pr-00-gate.yml",),
     "repo-health-self-check.yml": ("health-40-repo-selfcheck.yml",),
     "repo-health-nightly.yml": ("health-41-repo-health.yml",),
-    "ci-signature-guard.yml": ("health-43-ci-signature-guard.yml",),
+    "ci-signature-guard.yml": ("pr-00-gate.yml", "selftest-ci.yml"),
+    "health-43-ci-signature-guard.yml": ("pr-00-gate.yml", "selftest-ci.yml"),
     "agents-47-verify-codex-bootstrap-matrix.yml": ("agents-70-orchestrator.yml",),
     "assign-to-agents.yml": (
         "agents-63-issue-intake.yml",

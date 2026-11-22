@@ -245,7 +245,6 @@ EXPECTED_NAMES = {
     "health-40-sweep.yml": "Health 40 Sweep",
     "health-41-repo-health.yml": "Health 41 Repo Health",
     "health-42-actionlint.yml": "Health 42 Actionlint",
-    "health-43-ci-signature-guard.yml": "Health 43 CI Signature Guard",
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "health-codex-auth-check.yml": "Health 46 Codex Auth Check",
     "health-cursor-auth-check.yml": "Health 77 Cursor Auth Check",

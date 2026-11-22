@@ -956,18 +956,11 @@ The Workflows repository includes maintenance workflows that handle sync, update
 
 ---
 
-### `health-43-ci-signature-guard.yml` - CI Integrity Check
-**Purpose:** Ensures CI workflows haven't been tampered with
+### CI signature fixtures in Workflows
 
-**Trigger:** On CI workflow changes
-
-**What It Does:**
-- Computes checksums of CI workflows
-- Compares against known good signatures
-- Blocks PRs with unauthorized changes
-- Requires maintainer review
-
-**Security:** Prevents malicious CI modifications
+Workflows tests its own static jobs JSON and expected hash through its Gate
+scripts job and main Selftest. See the [Workflows signature fixture check](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures).
+Consumer Gate and branch rules govern pull requests in this repository.
 
 ---
 

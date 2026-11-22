@@ -39,7 +39,6 @@ concurrency groups and set cancel-in-progress: true (see docs/ops/debouncing-run
 | `.github/workflows/agents-verify-to-issue-v2.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
 | `.github/workflows/autofix.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
 | `.github/workflows/health-40-sweep.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
-| `.github/workflows/health-43-ci-signature-guard.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
 | `.github/workflows/health-44-gate-branch-protection.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
 | `.github/workflows/health-50-security-scan.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
 | `.github/workflows/health-70-validate-sync-manifest.yml` | `${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}` |
