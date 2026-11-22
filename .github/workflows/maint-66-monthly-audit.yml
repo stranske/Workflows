@@ -31,6 +31,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.14'
+      - name: Install inventory helper dependencies
+        run: |
+          set -euo pipefail
+          pyyaml_pin=$(grep -m1 -E '^pyyaml==' requirements.lock || true)
+          if [ -z "${pyyaml_pin}" ]; then
+            echo "::error::no pyyaml== pin found in requirements.lock"
+            exit 1
+          fi
+          python -m pip install --quiet "${pyyaml_pin}"
       - name: Export load-balancer tokens
         uses: ./.github/actions/setup-api-client
 
@@ -211,17 +224,30 @@ jobs:
 
           not_run=""
           for wf in ${workflow_files}; do
-            # Skip callable-only workflows (parsed `on:` triggers via inventory helper).
-            if PYTHONPATH=. python3 scripts/workflow_inventory_audit.py \
-              --check-call-only-skip "${wf}"; then
-              continue
-            fi
+            # Classify parsed `on:` triggers via inventory helper:
+            # 0 = callable-only (omit from not-run), 10 = independently triggered,
+            # any other exit code = inspection or helper failure (abort).
+            helper_status=0
+            PYTHONPATH=. python3 scripts/workflow_inventory_audit.py \
+              --check-call-only-skip "${wf}" || helper_status=$?
+            case "${helper_status}" in
+              0)
+                continue
+                ;;
+              10)
+                ;;
+              *)
+                printf 'Workflow inventory inspection failed for %s (exit %s)\n' \
+                  ".github/workflows/${wf}.yml" "${helper_status}" >&2
+                exit "${helper_status}"
+                ;;
+            esac
             # Check if workflow ran
-              wf_name=$(
-                grep -m1 "^name:" ".github/workflows/${wf}.yml" 2>/dev/null \
-                  | sed 's/name: *//' \
-                  || echo "$wf"
-              )
+            wf_name=$(
+              grep -m1 "^name:" ".github/workflows/${wf}.yml" 2>/dev/null \
+                | sed 's/name: *//' \
+                || echo "$wf"
+            )
             if ! echo "$ran_workflows" | grep -qxF ".github/workflows/${wf}.yml"; then
               not_run="${not_run}\n- ${wf}.yml (${wf_name})"
             fi
@@ -318,7 +344,10 @@ jobs:
             SUCCESS_RATE=0
           fi
           TOTAL_OTHER=$(( total_runs - total_success - ${TOTAL_FAILURE:-0} ))
-          export SUCCESS_RATE TOTAL_OTHER
+          DOCS_BASE="https://github.com/stranske/Workflows/blob/main/docs"
+          AUDIT_PROCEDURE_URL="${DOCS_BASE}/ci/WORKFLOW_AUDIT_PROCEDURE.md"
+          AUDIT_ARCHIVE_URL="${DOCS_BASE}/archive/ARCHIVE_PLANS.md#workflow-audit-reports"
+          export SUCCESS_RATE TOTAL_OTHER AUDIT_PROCEDURE_URL AUDIT_ARCHIVE_URL
 
           cat > /tmp/audit_body.md << 'AUDIT_EOF'
           ## Monthly Workflow Audit - ${AUDIT_MONTH}
@@ -406,9 +435,9 @@ jobs:
 
           **Previous audit:** Check for issues with label `workflow-audit`
           **Documentation:** See
-          [Monthly workflow audit procedure](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOW_AUDIT_PROCEDURE.md)
+          [Monthly workflow audit procedure](${AUDIT_PROCEDURE_URL})
           and
-          [archived audit reports](https://github.com/stranske/Workflows/blob/main/docs/archive/ARCHIVE_PLANS.md#workflow-audit-reports)
+          [archived audit reports](${AUDIT_ARCHIVE_URL})
           AUDIT_EOF
 
           # Substitute environment variables
@@ -416,6 +445,7 @@ jobs:
           envsubst '${AUDIT_MONTH} ${LOOKBACK} ${GENERATED_AT} ${TOTAL_RUNS}
             ${TOTAL_SUCCESS} ${TOTAL_FAILURE} ${TOTAL_FAILED_OUTCOMES} ${TOTAL_DECISIVE}
             ${DETAIL_URL} ${TOTAL_OTHER} ${SUCCESS_RATE}
+            ${AUDIT_PROCEDURE_URL} ${AUDIT_ARCHIVE_URL}
             ${FAILING} ${WARNING} ${SMALL_SAMPLE} ${CONCLUSION_MIX} ${NOT_RUN} ${API_GUARD}' \
             < /tmp/audit_body.md > /tmp/audit_final.md
 

@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from scripts.workflow_inventory_audit import EXIT_INSPECTION_ERROR
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_PATH = REPO_ROOT / ".github/workflows/maint-66-monthly-audit.yml"
@@ -146,33 +147,50 @@ def _runs(name, conclusion, count, workflow_id=1, path=".github/workflows/a.yml"
     ]
 
 
-def _attention(tmp_path, runs):
+def _run_attention(
+    tmp_path: Path,
+    runs: list[dict],
+    *,
+    helper_script: Path | None = None,
+    extra_workflows: dict[str, str] | None = None,
+    pythonpath: str | None = None,
+) -> tuple[subprocess.CompletedProcess[str], Path]:
     stats = tmp_path / "workflow_stats.json"
-    stats.write_text(json.dumps(_stats(runs)))
+    stats.write_text(json.dumps(_stats(runs)), encoding="utf-8")
     workflows = tmp_path / ".github/workflows"
     workflows.mkdir(parents=True, exist_ok=True)
-    (workflows / "a.yml").write_text("name: Renamed local name\non: push\n")
-    (workflows / "a-extra.yml").write_text("name: Renamed local name\non: push\n")
-    steps = yaml.safe_load(WORKFLOW_PATH.read_text())["jobs"]["audit"]["steps"]
+    (workflows / "a.yml").write_text("name: Renamed local name\non: push\n", encoding="utf-8")
+    (workflows / "a-extra.yml").write_text("name: Renamed local name\non: push\n", encoding="utf-8")
+    for filename, content in (extra_workflows or {}).items():
+        (workflows / filename).write_text(content, encoding="utf-8")
+    steps = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))["jobs"]["audit"]["steps"]
     script = next(step["run"] for step in steps if step.get("id") == "attention")
     script = script.replace("/tmp/workflow_stats.json", str(stats))
     script = script.replace("/tmp/monthly-audit-details", str(tmp_path / "details"))
-    script = script.replace(
-        "scripts/workflow_inventory_audit.py",
-        str(REPO_ROOT / "scripts/workflow_inventory_audit.py"),
-    )
-    script = script.replace("PYTHONPATH=.", f"PYTHONPATH={REPO_ROOT}")
+    target_helper = helper_script or (REPO_ROOT / "scripts/workflow_inventory_audit.py")
+    script = script.replace("scripts/workflow_inventory_audit.py", str(target_helper))
+    effective_pythonpath = pythonpath or str(REPO_ROOT)
+    script = script.replace("PYTHONPATH=.", f"PYTHONPATH={effective_pythonpath}")
     output = tmp_path / "outputs"
     result = subprocess.run(
         ["bash", "-e", "-c", script],
         cwd=tmp_path,
-        env={**os.environ, "GITHUB_OUTPUT": str(output), "PYTHONPATH": str(REPO_ROOT)},
+        env={
+            **os.environ,
+            "GITHUB_OUTPUT": str(output),
+            "PYTHONPATH": effective_pythonpath,
+        },
         capture_output=True,
         text=True,
         timeout=15,
     )
+    return result, output
+
+
+def _attention(tmp_path: Path, runs: list[dict]) -> dict[str, str]:
+    result, output = _run_attention(tmp_path, runs)
     assert result.returncode == 0, result.stderr
-    return dict(re.findall(r"(\w+)<<EOF\n(.*?)\nEOF", output.read_text(), re.S))
+    return dict(re.findall(r"(\w+)<<EOF\n(.*?)\nEOF", output.read_text(encoding="utf-8"), re.S))
 
 
 def test_november_zero_failure_regression(tmp_path):
@@ -347,24 +365,118 @@ def test_large_fleet_bounds_output_without_losing_artifact_rankings(tmp_path):
 def test_call_only_reusable_omitted_from_not_run_despite_pull_request_in_jobs(tmp_path):
     """Attention skip must follow parsed triggers, not whole-file `pull_request` text."""
     runs = _runs("Some workflow", "success", 1)
-    workflows = tmp_path / ".github/workflows"
-    workflows.mkdir(parents=True, exist_ok=True)
-    (workflows / "reusable-sample.yml").write_text(
-        "name: Reusable sample\n"
-        "on:\n"
-        "  workflow_call:\n"
-        "    inputs:\n"
-        "      x:\n"
-        "        type: string\n"
-        "jobs:\n"
-        "  j:\n"
-        "    runs-on: ubuntu-latest\n"
-        "    steps:\n"
-        "      - run: echo pull_request types path filter\n",
+    result, output = _run_attention(
+        tmp_path,
+        runs,
+        extra_workflows={
+            "reusable-sample.yml": (
+                "name: Reusable sample\n"
+                "on:\n"
+                "  workflow_call:\n"
+                "    inputs:\n"
+                "      x:\n"
+                "        type: string\n"
+                "jobs:\n"
+                "  j:\n"
+                "    runs-on: ubuntu-latest\n"
+                "    steps:\n"
+                "      - run: echo pull_request types path filter\n"
+            ),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    outputs = dict(re.findall(r"(\w+)<<EOF\n(.*?)\nEOF", output.read_text(encoding="utf-8"), re.S))
+    assert "reusable-sample.yml" not in outputs["not_run"]
+
+
+def test_mixed_trigger_reusable_is_retained_in_not_run(tmp_path: Path) -> None:
+    """Callable workflows with an independent trigger must stay eligible for not-run."""
+    runs = _runs("Some workflow", "success", 1)
+    result, output = _run_attention(
+        tmp_path,
+        runs,
+        extra_workflows={
+            "reusable-mixed.yml": (
+                "name: Reusable mixed\n"
+                "on:\n"
+                "  workflow_call:\n"
+                "  workflow_dispatch:\n"
+                "jobs:\n"
+                "  j:\n"
+                "    runs-on: ubuntu-latest\n"
+                "    steps:\n"
+                "      - run: echo ok\n"
+            ),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    outputs = dict(re.findall(r"(\w+)<<EOF\n(.*?)\nEOF", output.read_text(encoding="utf-8"), re.S))
+    assert "- reusable-mixed.yml (Reusable mixed)" in outputs["not_run"]
+
+
+def test_malformed_workflow_yaml_fails_attention_before_publication(tmp_path: Path) -> None:
+    """An inventory inspection error must fail the attention step and identify the path."""
+    runs = _runs("Some workflow", "success", 1)
+    result, output = _run_attention(
+        tmp_path,
+        runs,
+        extra_workflows={"broken.yml": "name: Broken\non: [\n"},
+    )
+    assert result.returncode == EXIT_INSPECTION_ERROR
+    assert ".github/workflows/broken.yml" in result.stderr
+    assert f"exit {EXIT_INSPECTION_ERROR}" in result.stderr
+    assert not output.exists()
+
+
+def test_unexpected_inventory_helper_failure_fails_attention_before_publication(
+    tmp_path: Path,
+) -> None:
+    """Unexpected helper failures (e.g. missing PyYAML / exit 1) must abort before publication."""
+    runs = _runs("Some workflow", "success", 1)
+    blocker = tmp_path / "blocker"
+    blocker.mkdir()
+    (blocker / "yaml.py").write_text(
+        "raise ModuleNotFoundError(\"No module named 'yaml'\")\n",
         encoding="utf-8",
     )
-    outputs = _attention(tmp_path, runs)
-    assert "reusable-sample.yml" not in outputs["not_run"]
+    result, output = _run_attention(
+        tmp_path,
+        runs,
+        pythonpath=f"{blocker}{os.pathsep}{REPO_ROOT}",
+    )
+    assert result.returncode != 0
+    assert "Workflow inventory inspection failed for .github/workflows/" in result.stderr
+    assert "No module named 'yaml'" in result.stderr
+    assert not output.exists()
+
+
+def test_maint66_provisions_pinned_pyyaml_before_attention() -> None:
+    """Maint 66 must provision Python and the pinned PyYAML from requirements.lock."""
+    steps = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))["jobs"]["audit"]["steps"]
+    setup_idx = next(
+        (
+            idx
+            for idx, step in enumerate(steps)
+            if str(step.get("uses", "")).startswith("actions/setup-python@")
+        ),
+        None,
+    )
+    install_idx = next(
+        (
+            idx
+            for idx, step in enumerate(steps)
+            if "requirements.lock" in str(step.get("run", ""))
+            and "pyyaml==" in str(step.get("run", ""))
+        ),
+        None,
+    )
+    attention_idx = next(idx for idx, step in enumerate(steps) if step.get("id") == "attention")
+    assert setup_idx is not None, "Maint 66 must configure actions/setup-python"
+    assert install_idx is not None, "Maint 66 must install pinned pyyaml from requirements.lock"
+    assert setup_idx < install_idx < attention_idx
+
+    lock_text = (REPO_ROOT / "requirements.lock").read_text(encoding="utf-8")
+    assert re.search(r"^pyyaml==\S+$", lock_text, re.M)
 
 
 def test_ranking_aggregate_matches_summary_expressions():

@@ -21,9 +21,11 @@ except ImportError:
 LINE_LENGTH_EXEMPTIONS = (
     "stranske/Workflows/.github/actions/setup-api-client@",
     "stranske/Workflows/.github/workflows/reusable-model-profile-trial.yml@",
-    "docs/ci/WORKFLOW_AUDIT_PROCEDURE.md",
-    "docs/archive/ARCHIVE_PLANS.md#workflow-audit-reports",
 )
+
+
+class WorkflowDiscoveryError(RuntimeError):
+    """Changed workflow discovery could not complete a Git comparison."""
 
 
 def check_line_length(file_path: Path, max_length: int = 100) -> list[tuple[int, str]]:
@@ -142,33 +144,48 @@ LEGACY_SKIP_WORKFLOWS = {
 }
 
 
-def discover_changed_workflows(base_ref: str = "origin/main") -> list[Path]:
-    """Return workflow paths changed on this branch relative to a merge base ref."""
-    candidates = [base_ref, "origin/main", "main"]
-    seen: set[str] = set()
+def discover_changed_workflows(base_ref: str | None = None) -> list[Path]:
+    """Return workflow paths changed on this branch relative to a merge base ref.
+
+    When ``base_ref`` is explicitly given, only that ref is queried. Otherwise
+    ``origin/main`` is tried before ``main``. Stops on the first successful Git
+    comparison even when the diff is empty, and raises
+    :class:`WorkflowDiscoveryError` if no permitted comparison succeeds.
+    """
+    candidates = [base_ref] if base_ref is not None else ["origin/main", "main"]
+    errors: list[str] = []
     for ref in candidates:
-        if ref in seen:
-            continue
-        seen.add(ref)
         try:
             proc = subprocess.run(
-                ["git", "diff", "--name-only", f"{ref}...HEAD", "--", ".github/workflows"],
+                [
+                    "git",
+                    "diff",
+                    "--name-only",
+                    "--diff-filter=d",
+                    f"{ref}...HEAD",
+                    "--",
+                    ".github/workflows",
+                ],
                 capture_output=True,
                 text=True,
                 check=False,
             )
-        except OSError:
+        except OSError as exc:
+            errors.append(f"{ref}: {exc}")
             continue
-        if proc.returncode != 0 or not proc.stdout.strip():
+        if proc.returncode != 0:
+            detail = (proc.stderr or "").strip() or f"git diff exited {proc.returncode}"
+            errors.append(f"{ref}: {detail}")
             continue
         paths = []
         for line in proc.stdout.splitlines():
             path = Path(line.strip())
             if path.suffix in {".yml", ".yaml"}:
                 paths.append(path)
-        if paths:
-            return paths
-    return []
+        return paths
+    raise WorkflowDiscoveryError(
+        "Failed to discover changed workflow files via git diff (" + "; ".join(errors) + ")"
+    )
 
 
 def main():
@@ -192,14 +209,21 @@ def main():
     )
     parser.add_argument(
         "--base-ref",
-        default="origin/main",
-        help="Merge base for discovering changed workflows when no files are listed",
+        default=None,
+        help=(
+            "Explicit merge base for discovering changed workflows when no files are "
+            "listed (defaults to origin/main, then main)"
+        ),
     )
     args = parser.parse_args()
 
     files = list(args.files)
     if not files:
-        files = discover_changed_workflows(args.base_ref)
+        try:
+            files = discover_changed_workflows(args.base_ref)
+        except WorkflowDiscoveryError as exc:
+            print(f"❌ {exc}", file=sys.stderr)
+            sys.exit(1)
         if not files:
             print("No changed workflow files to validate")
             sys.exit(0)

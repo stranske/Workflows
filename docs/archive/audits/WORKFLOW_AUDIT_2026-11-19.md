@@ -42,25 +42,25 @@ Rates below use the **corrected** Maint 66 policy: decisive outcomes = success +
 | Workflow file | Display name | Issue rate (old) | Root cause / disposition |
 |---------------|--------------|------------------|---------------------------|
 | `agents-dedup.yml` | Duplicate Detection | 0% (149/149 failures) | **Fixed:** sparse checkout missing `tools/embedding_provider.py` → `ModuleNotFoundError` for `semantic_matcher` |
-| `agents-keepalive-loop-reporter.yml` | Keepalive Loop Reporter | 6% | Mostly non-failure conclusions and branch-protection noise; monitor after Maint 66 fix — no repo-local script bug reproduced |
-| `maint-46-post-ci.yml` | Maint 46 Post CI | 26% | High volume of real `failure` conclusions on post-Gate housekeeping; transient external/API — document, no code change this PR |
-| `health-68-consumer-sync-drift.yml` | Health 68 Consumer Sync Drift | 34% | Consumer drift signal; fix via Maint 68 sync path, not ad hoc consumer patches |
-| `agents-63-issue-intake.yml` | Agents 63 Issue Intake | 13% | Event-shape skips and provider routing; failures correlate with held/suspicious-workflow era — monitor |
-| `maint-sync-env-from-pyproject.yml` | Maint - Sync pyproject from versions.env | 7% (12/13 failures) | Small sample; manual/version-sync utility — keep, re-check after next scheduled run |
-| `pr-46-dependency-repair-contract.yml` | PR 46 Dependency Repair Contract | 4% (7 failures / 4364 runs) | Mostly skipped/cancelled runs; low decisive failure rate — *volume noise* under old rule |
-| `health-40-repo-selfcheck.yml` | Health 40 Repo Selfcheck | 25% (3/4) | PAT/admin limits on branch-protection enforcement (same class as prior audits) — external permissions |
-| `health-41-repo-health.yml` | Health 41 Repo Health | 25% (3/4) | Same as Health 40 |
+| `agents-keepalive-loop-reporter.yml` | Keepalive Loop Reporter | 6% (1,378/4,383 failures) | Mostly non-failure conclusions and transient GitHub installation rate limits; monitor after Maint 66 fix — no repo-local script bug reproduced |
+| `maint-46-post-ci.yml` | Maint 46 Post CI | 26% (1,380/1,883 failures) | High volume of real `failure` conclusions on post-Gate housekeeping; transient external/API rate limit — document, no code change this PR |
+| `health-68-consumer-sync-drift.yml` | Health 68 Consumer Sync Drift Check | 34% (557/5,817 failures) | Consumer drift signal; fix via Maint 68 sync path, not ad hoc consumer patches |
+| `agents-63-issue-intake.yml` | Agents 63 Issue Intake | 13% (107/1,020 failures) | Event-shape skips and intentional intake guard on unrouted manual dispatch; monitor |
+| `maint-sync-env-from-pyproject.yml` | Maint - Sync pyproject from versions.env | 7% (12/13 failures) | Branch-protection rejection (`GH013`) on direct push to `main`; succeeds when already aligned — keep PR-based landing for pin drift |
+| `pr-46-dependency-repair-contract.yml` | PR 46 Dependency Repair Contract | 4% (7/4,364 failures) | Mostly skipped/cancelled runs; low decisive failure rate — *volume noise* under old rule |
+| `health-40-repo-selfcheck.yml` | Health 40 Repo Selfcheck | 25% (3/4 failures) | PAT/admin limits on branch-protection enforcement (same class as prior audits) — external permissions |
+| `health-41-repo-health.yml` | Health 41 Repo Health | 25% (3/4 failures) | Advisory branch-protection drift signal; newer runs succeed after policy stabilized |
 | `maint-65-sync-label-docs.yml` | Maint 65 Sync Label Docs | 0% (4/4 failures) | **Fixed** in #4842 |
-| `agents-verifier.yml` | Agents Verifier | 14% (1/597) | Single failure in window; keep |
-| `agents-auto-label.yml` | Auto-Label Issues | 2% (0 failures) | Skipped-heavy — *volume noise* |
-| `maint-71-auto-fix-integration.yml` | Auto-Fix Integration Test Failures | 0% (0 failures) | Skipped-heavy — *volume noise* |
-| `agents-verify-to-issue-v2.yml` | Create Issue from Verification (Enhanced) | 0% | Skipped — *volume noise* |
-| `agents-verify-to-new-pr.yml` | Create New PR from Verification | 0% | Skipped — *volume noise* |
-| `agents-debug-issue-event.yml` | Agents Debug Issue Event | 0% | On-demand diagnostic — *volume noise* |
-| `agents-capability-check.yml` | Capability Check | 14% (0 failures) | Skipped — *volume noise* |
-| `agents-decompose.yml` | Task Decomposition | 0% | Skipped — *volume noise* |
-| `maint-auto-label-dep-prs.yml` | Auto-label dependency PRs | 0% | Skipped — *volume noise* |
-| `health-83-dependency-sync-efficiency.yml` | Health 83 Dependency Sync Efficiency | 0% (1 failure) | Campaign-scoped display names — monitor |
+| `agents-verifier.yml` | Agents Verifier | 14% (1/597 failures) | Single failure in window; keep |
+| `agents-auto-label.yml` | Auto-Label Issues | 2% (0/8,050 failures) | Skipped-heavy — *volume noise* |
+| `maint-71-auto-fix-integration.yml` | Auto-Fix Integration Test Failures | 0% (0/4,866 failures) | Skipped-heavy — *volume noise* |
+| `agents-verify-to-issue-v2.yml` | Create Issue from Verification (Enhanced) | 0% (0/1,048 failures) | Skipped — *volume noise* |
+| `agents-verify-to-new-pr.yml` | Create New PR from Verification | 0% (0/1,048 failures) | Skipped — *volume noise* |
+| `agents-debug-issue-event.yml` | Agents Debug Issue Event | 0% (0/619 failures) | On-demand diagnostic — *volume noise* |
+| `agents-capability-check.yml` | Capability Check | 14% (0/619 failures) | Skipped — *volume noise* |
+| `agents-decompose.yml` | Task Decomposition | 0% (0/619 failures) | Skipped — *volume noise* |
+| `maint-auto-label-dep-prs.yml` | Auto-label dependency PRs | 0% (0/414 failures) | Skipped — *volume noise* |
+| `health-83-dependency-sync-efficiency.yml` | Health 83 Dependency Sync Efficiency | 0% (1/1 failure; dynamic `[sha256:…]` name in #4770) | Campaign-scoped dynamic `run-name` row in #4770; monitor |
 
 **Dynamic display names** (`Merge Sync PRs [campaign]`, `Verifier PR #…`, `keepalive-dispatch/…`, `Agents Issue Optimizer #…`, `Maint 68 canary …`, `npm_and_yarn …`) are not separate workflows. They must not receive independent disposition rows; Maint 66 now aggregates them under their workflow definition.
 
@@ -86,17 +86,23 @@ Inspected 2026-11-21 via `gh run list` (last 5–30 runs per file) and `gh run v
 
 ## Workflows in the 50–80% band (non-dynamic)
 
-| Workflow file | Notes |
-|---------------|-------|
-| `pr-00-gate.yml` | 62% success / 304 failures — expected mix of cancellations and matrix variance; Gate remains primary CI orchestrator |
-| `health-74-template-drift.yml` | 73% — template drift signal; continue via sync/Maint 68 |
-| `health-78-backplane-contract.yml` | 66% — contract checks on smaller sample |
-| `maint-52-sync-dev-versions.yml` | 78% — periodic version sync |
-| `health-85-ci-time-budget.yml` | 65% — advisory timing; delivery evidence tracked separately (#4284, #4769) |
-| `agents-71-codex-belt-dispatcher.yml` | 72% — reusable dispatch surface |
-| `maint-66-monthly-audit.yml` | 50% (1/4) — small sample; ranking fix in this cycle |
-| `maint-84-prune-agent-stubs.yml` | 50% (2/4) — scheduled pruner; needs eligible input for full verification (tracker) |
-| `agents-weekly-metrics.yml` | 50% (2/4) — weekly metrics; low volume |
+Reconciled against all 13 non-dynamic workflow entries published under **Workflows Requiring Review (50-80% success)** in [#4770](https://github.com/stranske/Workflows/issues/4770):
+
+| Workflow file | Display name | Issue #4770 baseline | Evidence & disposition |
+|---------------|--------------|----------------------|------------------------|
+| `agents-moderate-connector.yml` | Agents Moderate Connector Comments | 71% (0/4,694 failures) | **Volume noise (keep):** zero failures across all 4,694 baseline runs and 0 failures in the latest 150 runs (`gh run list`: 140 `success`, 8 `skipped`, 1 `cancelled`, 1 in-progress). Non-success runs are expected skip/cancel filters; no workflow defect. |
+| `agents-keepalive-loop.yml` | Agents Keepalive Loop | 73% (120/2,908 failures) | **Keep; monitor:** latest 100 runs show 88 `success`, 9 `skipped`, 2 `failure`, 1 in-progress (~2.2% decisive failure rate). Failed-log samples reflect transient GitHub installation rate limits (`Check target PR before pushing` in [44950515966](https://github.com/stranske/Workflows/actions/runs/44950515966)) and external agent CLI exit code 1 (`Run Claude` in [44942221029](https://github.com/stranske/Workflows/actions/runs/44942221029)), not a repo-local workflow defect. |
+| `selftest-ci.yml` | Selftest CI | 74% (403/2,229 failures) | **Keep (working as intended):** latest 100 runs show 89 `success`, 7 `cancelled` (`cancel-in-progress: true` on superseded PR pushes), and 4 `failure`. Failed-log samples are genuine PR check catches (`Check Black formatting` in [44968781532](https://github.com/stranske/Workflows/actions/runs/44968781532) and [44934735017](https://github.com/stranske/Workflows/actions/runs/44934735017); `Run JavaScript tests` in [44965411641](https://github.com/stranske/Workflows/actions/runs/44965411641)). |
+| `pr-00-gate.yml` | Gate | 62% (304/1,878 failures) | **Keep:** expected mix of PR-push cancellations and legitimate PR test/lint failures; Gate remains primary CI orchestrator. |
+| `health-74-template-drift.yml` | Health 74 Template Drift | 73% (358/1,347 failures) | **Keep:** template drift signal; continue via sync/Maint 68. |
+| `health-78-backplane-contract.yml` | Backplane Contract Integrity | 66% (52/157 failures) | **Keep:** contract checks on smaller sample; last 15 sampled runs had 0 failures. |
+| `maint-52-sync-dev-versions.yml` | Maint 52 Sync Dev Versions | 78% (7/33 failures) | **Keep:** periodic version sync. |
+| `health-85-ci-time-budget.yml` | Health 85 CI Time Budget | 65% (5/32 failures) | **Keep:** advisory timing; external measurement dependency tracked separately (#4284, #4769). |
+| `agents-71-codex-belt-dispatcher.yml` | Agents 71 Codex Belt Dispatcher | 72% (0/22 failures) | **Volume noise (keep):** reusable dispatch surface with 0 failures in window. |
+| `maint-66-monthly-audit.yml` | Maint 66 Monthly Audit | 50% (1/4 failures) | **Fixed in this cycle:** small sample; ranking, dependency provisioning, and inventory-error guards delivered in PR #4884. |
+| `maint-84-prune-agent-stubs.yml` | Maint 84 Prune Agent Stubs | 50% (2/4 failures) | **Already fixed on `main`:** scheduled pruner migrated to `create-pull-request` ([44668751200](https://github.com/stranske/Workflows/actions/runs/44668751200) success). |
+| `agents-weekly-metrics.yml` | agents-weekly-metrics | 50% (2/4 failures) | **Keep; monitor:** low-volume weekly metrics; transient API retries succeeded in newer run ([43815934471](https://github.com/stranske/Workflows/actions/runs/43815934471)). |
+| `maint-88-verifier-runtime-comparison.yml` | Maint 88 Verifier Runtime Comparison | 66% (0/3 failures) | **Volume noise / small sample (keep):** manual `workflow_dispatch` #3904 benchmark; `gh run list` shows 3 `success` ([42421935858](https://github.com/stranske/Workflows/actions/runs/42421935858), [42401537967](https://github.com/stranske/Workflows/actions/runs/42401537967), [39004506855](https://github.com/stranske/Workflows/actions/runs/39004506855)) and 1 manual `cancelled` ([42421695302](https://github.com/stranske/Workflows/actions/runs/42421695302)), 0 failures. |
 
 ## “Workflows not run” classification
 
@@ -155,23 +161,23 @@ Confirmed **retirement** this cycle: `maint-47-disable-legacy-workflows.yml` ([#
 python scripts/check_api_wrapper_guard.py --all
 → exit 0, no violations
 
-pytest tests/scripts/test_issue_dedup.py tests/scripts/test_check_api_wrapper_guard.py \
+python scripts/validate_workflow_yaml.py
+→ All 2 workflow file(s) validated successfully
+
+python scripts/validate_workflow_yaml.py \
+  .github/workflows/agents-dedup.yml .github/workflows/maint-66-monthly-audit.yml
+→ All 2 workflow file(s) validated successfully
+
+pytest -ra tests/scripts/test_issue_dedup.py \
+  tests/scripts/test_check_api_wrapper_guard.py \
   tests/workflows/test_maint66_monthly_audit_stats.py \
-  tests/workflows/test_maint66_monthly_audit_issue_body.py -q -m "not slow"
-→ 94 passed
-
-pytest tests/scripts/test_validate_workflow_yaml.py \
-  tests/workflows/test_workflows_doc_links_resolve.py -q -m "not slow"
-→ 8 passed (includes bare `validate_workflow_yaml.py` + archive audit via doc link gate)
-
-pytest tests/test_issue_4770_acceptance_gates.py -q -m "not slow"
-→ 5 passed (two pytest gates + API guard + validate_workflow_yaml + archive audit)
-
-pytest tests/docs/test_workflow_audit_2026_11_19.py -q -m "not slow"
-→ 5 passed
-
-pytest tests/scripts/test_workflow_inventory_audit.py -q -m "not slow"
-→ passed
+  tests/workflows/test_maint66_monthly_audit_issue_body.py \
+  tests/scripts/test_validate_workflow_yaml.py \
+  tests/workflows/test_workflows_doc_links_resolve.py \
+  tests/scripts/test_workflow_inventory_audit.py \
+  tests/docs/test_workflow_audit_2026_11_19.py \
+  tests/test_issue_4770_acceptance_gates.py
+→ 139 passed, 0 skipped
 ```
 
 ---

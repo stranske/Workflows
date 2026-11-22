@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 from scripts.workflow_concurrency_audit import normalize_triggers
 from scripts.workflow_inventory_audit import (
+    EXIT_CALL_ONLY_SKIP,
+    EXIT_INDEPENDENT_TRIGGER,
+    EXIT_INSPECTION_ERROR,
     WorkflowInventoryError,
     classify_audit_category,
     excluded_from_not_run_inventory,
@@ -88,7 +93,30 @@ def test_invalid_yaml_raises_and_main_exits_nonzero(
     assert main() == 1
 
 
-def test_check_call_only_skip_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_check_call_only_skip_distinct_exit_codes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workflows = tmp_path / ".github/workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "call-only.yml").write_text(
+        "name: Call only\non:\n  workflow_call:\njobs:\n  j:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
+    (workflows / "mixed-trigger.yml").write_text(
+        "name: Mixed trigger\n"
+        "on:\n"
+        "  workflow_call:\n"
+        "  workflow_dispatch:\n"
+        "jobs:\n"
+        "  j:\n"
+        "    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
+    (workflows / "broken.yml").write_text("on: [\n", encoding="utf-8")
+
+    # Callable-only (repo file and fixture) -> EXIT_CALL_ONLY_SKIP (0)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -100,7 +128,21 @@ def test_check_call_only_skip_exit_code(monkeypatch: pytest.MonkeyPatch) -> None
             "agents-72-codex-belt-worker",
         ],
     )
-    assert main() == 0
+    assert main() == EXIT_CALL_ONLY_SKIP
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "workflow_inventory_audit.py",
+            "--workflows-dir",
+            str(workflows),
+            "--check-call-only-skip",
+            "call-only",
+        ],
+    )
+    assert main() == EXIT_CALL_ONLY_SKIP
+
+    # Mixed trigger (workflow_call + independent trigger) -> EXIT_INDEPENDENT_TRIGGER
     monkeypatch.setattr(
         sys,
         "argv",
@@ -112,7 +154,67 @@ def test_check_call_only_skip_exit_code(monkeypatch: pytest.MonkeyPatch) -> None
             "health-42-actionlint",
         ],
     )
-    assert main() == 1
+    assert main() == EXIT_INDEPENDENT_TRIGGER
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "workflow_inventory_audit.py",
+            "--workflows-dir",
+            str(workflows),
+            "--check-call-only-skip",
+            "mixed-trigger",
+        ],
+    )
+    assert main() == EXIT_INDEPENDENT_TRIGGER
+
+    # Malformed YAML -> EXIT_INSPECTION_ERROR (distinct from 0 and EXIT_INDEPENDENT_TRIGGER)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "workflow_inventory_audit.py",
+            "--workflows-dir",
+            str(workflows),
+            "--check-call-only-skip",
+            "broken",
+        ],
+    )
+    status = main()
+    assert status == EXIT_INSPECTION_ERROR
+    assert status not in {EXIT_CALL_ONLY_SKIP, EXIT_INDEPENDENT_TRIGGER}
+    assert "broken.yml" in capsys.readouterr().err
+
+
+def test_check_call_only_skip_unexpected_helper_failure_is_distinct(tmp_path: Path) -> None:
+    """An uncaught failure (e.g. missing PyYAML) must not match valid independent-trigger code."""
+    blocker = tmp_path / "blocker"
+    blocker.mkdir()
+    (blocker / "yaml.py").write_text(
+        "raise ModuleNotFoundError(\"No module named 'yaml'\")\n",
+        encoding="utf-8",
+    )
+    env = {
+        **os.environ,
+        "PYTHONPATH": f"{blocker}{os.pathsep}{REPO_ROOT}",
+    }
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts/workflow_inventory_audit.py"),
+            "--workflows-dir",
+            str(WORKFLOWS),
+            "--check-call-only-skip",
+            "pr-00-gate",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode != 0
+    assert proc.returncode not in {EXIT_CALL_ONLY_SKIP, EXIT_INDEPENDENT_TRIGGER}
+    assert "No module named 'yaml'" in proc.stderr
 
 
 @pytest.mark.parametrize(

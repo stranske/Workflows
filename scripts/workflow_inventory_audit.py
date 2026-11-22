@@ -16,6 +16,11 @@ class WorkflowInventoryError(Exception):
     """Workflow inventory could not be loaded or classified."""
 
 
+EXIT_CALL_ONLY_SKIP = 0
+EXIT_INDEPENDENT_TRIGGER = 10
+EXIT_INSPECTION_ERROR = 3
+
+
 class _WorkflowLoader(yaml.SafeLoader):
     """Parse workflow YAML without coercing GitHub's `on` key to boolean True."""
 
@@ -205,7 +210,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--check-call-only-skip",
         metavar="STEM",
-        help="Exit 0 when Maint 66 should omit STEM from not-run inventory",
+        help=(
+            f"Exit {EXIT_CALL_ONLY_SKIP} for callable-only skip, "
+            f"{EXIT_INDEPENDENT_TRIGGER} for independently triggered, "
+            f"{EXIT_INSPECTION_ERROR} on inspection error"
+        ),
     )
     return parser.parse_args()
 
@@ -218,8 +227,8 @@ def main() -> int:
             row = inspect_workflow_file(path)
         except WorkflowInventoryError as exc:
             print(str(exc), file=sys.stderr)
-            return 1
-        return 0 if row.excluded_from_not_run else 1
+            return EXIT_INSPECTION_ERROR
+        return EXIT_CALL_ONLY_SKIP if row.excluded_from_not_run else EXIT_INDEPENDENT_TRIGGER
     try:
         rows = iter_workflow_inventory(args.workflows_dir.resolve())
     except WorkflowInventoryError as exc:

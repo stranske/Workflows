@@ -26,24 +26,54 @@ def _extract_audit_heredoc(workflow_text: str) -> str:
     return match.group(1)
 
 
-def test_audit_issue_body_documentation_links_resolve() -> None:
+def test_audit_issue_body_documentation_links_resolve(tmp_path: Path) -> None:
     workflow_text = WORKFLOW_PATH.read_text(encoding="utf-8")
-    body = _extract_audit_heredoc(workflow_text)
-    github_routes = {
-        target
-        for target in MARKDOWN_LINK.findall(body)
-        if target.startswith("https://github.com/stranske/Workflows/blob/main/")
+    heredoc = _extract_audit_heredoc(workflow_text)
+    assert "WORKFLOW_AUDIT_2025-12-25.md" not in heredoc
+
+    workflow = yaml.safe_load(workflow_text)
+    steps = workflow["jobs"]["audit"]["steps"]
+    script = next(step["run"] for step in steps if step.get("id") == "checklist")
+    script = script.replace("/tmp/audit_", "audit_")
+    output = tmp_path / "github-output"
+    env = {
+        **os.environ,
+        "GITHUB_OUTPUT": str(output),
+        "AUDIT_MONTH": "November 2026",
+        "GENERATED_AT": "2026-11-30T23:59:59Z",
+        "TOTAL_RUNS": "4",
+        "TOTAL_SUCCESS": "3",
+        "TOTAL_FAILURE": "1",
+        "TOTAL_FAILED_OUTCOMES": "1",
+        "TOTAL_DECISIVE": "4",
+        "DETAIL_URL": "https://github.com/stranske/Workflows/actions/runs/123",
+        "LOOKBACK": "30",
+        "FAILING": "None",
+        "WARNING": "None",
+        "SMALL_SAMPLE": "None",
+        "CONCLUSION_MIX": "success=3, failure=1",
+        "NOT_RUN": "None",
+        "API_GUARD": "All clear",
     }
+    subprocess.run(["bash", "-e", "-c", script], env=env, cwd=tmp_path, check=True, timeout=15)
+    body = output.read_text(encoding="utf-8")
+
+    prefix = "https://github.com/stranske/Workflows/blob/main/"
+    github_routes = {target for target in MARKDOWN_LINK.findall(body) if target.startswith(prefix)}
     assert github_routes == {
-        "https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOW_AUDIT_PROCEDURE.md",
-        "https://github.com/stranske/Workflows/blob/main/docs/archive/ARCHIVE_PLANS.md#workflow-audit-reports",
+        f"{prefix}docs/ci/WORKFLOW_AUDIT_PROCEDURE.md",
+        f"{prefix}docs/archive/ARCHIVE_PLANS.md#workflow-audit-reports",
     }
     assert "WORKFLOW_AUDIT_2025-12-25.md" not in body
+
+    for target in github_routes:
+        rel_target = target.removeprefix(prefix).split("#", 1)[0]
+        assert (REPO_ROOT / rel_target).is_file(), f"missing repo target for {target!r}"
 
     for target in MARKDOWN_LINK.findall(body):
         if target.startswith("http://") or target.startswith("https://"):
             continue
-        if target.startswith("#") or target == "${DETAIL_URL}":
+        if target.startswith("#"):
             continue
         file_target = target.split("#", 1)[0]
         path = REPO_ROOT / file_target

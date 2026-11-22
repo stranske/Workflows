@@ -47,6 +47,9 @@ T4_FAILURE_INSPECTION_WORKFLOWS = (
 )
 
 BAND_50_80_WORKFLOWS = (
+    "agents-moderate-connector.yml",
+    "agents-keepalive-loop.yml",
+    "selftest-ci.yml",
     "pr-00-gate.yml",
     "health-74-template-drift.yml",
     "health-78-backplane-contract.yml",
@@ -56,7 +59,15 @@ BAND_50_80_WORKFLOWS = (
     "maint-66-monthly-audit.yml",
     "maint-84-prune-agent-stubs.yml",
     "agents-weekly-metrics.yml",
+    "maint-88-verifier-runtime-comparison.yml",
 )
+
+
+def _section_text(text: str, heading_prefix: str) -> str:
+    start = text.index(heading_prefix)
+    rest = text[start + len(heading_prefix) :]
+    next_heading = rest.find("\n## ")
+    return rest if next_heading == -1 else rest[:next_heading]
 
 
 def test_november_2026_audit_report_exists() -> None:
@@ -81,14 +92,16 @@ def test_november_2026_audit_report_sections() -> None:
 
 def test_november_2026_audit_covers_below_50_workflows() -> None:
     text = AUDIT_REPORT.read_text(encoding="utf-8")
-    missing = [name for name in BELOW_50_WORKFLOWS if name not in text]
-    assert not missing, f"audit omits below-50% workflows: {missing}"
+    section = _section_text(text, "## Non-dynamic workflows below 50%")
+    missing = [name for name in BELOW_50_WORKFLOWS if f"| `{name}` |" not in section]
+    assert not missing, f"audit omits below-50% workflow disposition rows: {missing}"
 
 
 def test_november_2026_audit_covers_50_80_band() -> None:
     text = AUDIT_REPORT.read_text(encoding="utf-8")
-    missing = [name for name in BAND_50_80_WORKFLOWS if name not in text]
-    assert not missing, f"audit omits 50-80% band workflows: {missing}"
+    section = _section_text(text, "## Workflows in the 50–80% band")
+    missing = [name for name in BAND_50_80_WORKFLOWS if f"| `{name}` |" not in section]
+    assert not missing, f"audit omits 50-80% band workflow disposition rows: {missing}"
 
 
 def test_november_2026_audit_records_not_run_inventory() -> None:
