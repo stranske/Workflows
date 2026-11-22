@@ -1060,6 +1060,90 @@ def test_classify_entry_prefers_explicit_type() -> None:
     assert aggregate_agent_metrics._classify_entry({"other": "value"}) == "unknown"
 
 
+def test_classify_autofix_outcomes_without_overriding_keepalive_or_explicit_types() -> None:
+    modern_row = {"attempt_number": 1, "autofix_result": "success", "stop_reason": ""}
+    assert aggregate_agent_metrics._classify_entry(modern_row) == "autofix"
+    assert (
+        aggregate_agent_metrics._classify_entry({**modern_row, "metric_type": "Verifier"})
+        == "verifier"
+    )
+    assert (
+        aggregate_agent_metrics._classify_entry({**modern_row, "iteration_count": 2}) == "keepalive"
+    )
+    assert (
+        aggregate_agent_metrics._classify_entry({**modern_row, "autofix_result": ["success"]})
+        == "keepalive"
+    )
+    assert aggregate_agent_metrics._classify_entry({**modern_row, "attempt_number": True}) == (
+        "keepalive"
+    )
+    assert (
+        aggregate_agent_metrics._classify_entry(
+            {"artifact_family": "agents-autofix-metrics", "stop_reason": "tasks-complete"}
+        )
+        == "keepalive"
+    )
+
+
+def test_weekly_autofix_separates_attempts_skips_and_reported_fixes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "artifacts" / "agents-autofix-metrics" / "42" / "autofix-metrics.ndjson"
+    path.parent.mkdir(parents=True)
+    base = {"attempt_number": 1, "stop_reason": "", "pr_number": 2035}
+    _write_ndjson(
+        path,
+        [
+            {**base, "autofix_result": "success", "fix_applied": True},
+            {**base, "autofix_result": "failure", "fix_applied": True},
+            {**base, "autofix_result": "cancelled", "fix_applied": False},
+            {
+                **base,
+                "metric_type": "autofix",
+                "autofix_result": "skipped",
+                "fix_applied": True,
+                "stop_reason": "unsupported_agent",
+            },
+            {**base, "autofix_result": "unknown", "fix_applied": True},
+            {**base, "metric_type": "autofix", "autofix_result": None, "fix_applied": True},
+            {"metric_type": "autofix", "trigger_reason": "pytest", "fix_applied": "1"},
+            {"iteration_count": 1, "stop_reason": "tasks-complete"},
+        ],
+    )
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write("{invalid json}\n")
+    report = tmp_path / "weekly.md"
+    contract_path = tmp_path / "weekly.json"
+    monkeypatch.setenv("METRICS_DIR", str(tmp_path / "artifacts"))
+    monkeypatch.setenv("OUTPUT_PATH", str(report))
+    monkeypatch.setenv("OUTPUT_JSON_PATH", str(contract_path))
+
+    assert aggregate_agent_metrics.main() == 0
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    assert contract["schema"] == "workflows-agent-metrics-summary/v1"
+    assert contract["record_count"] == 8
+    assert contract["record_buckets"] == {"autofix": 7, "keepalive": 1}
+    assert contract["parse_errors"]["count"] == 1
+    assert contract["summaries"]["autofix"] == {
+        "attempts": 7,
+        "worker_attempts": 3,
+        "skipped": 1,
+        "unresolved_outcomes": 3,
+        "prs": 1,
+        "fixes_applied": 6,
+        "successful_attempts_reporting_fix": 1,
+        "triggers": {"pytest": 1},
+        "gate_results": {},
+        "stop_reasons": {"unsupported_agent": 1},
+    }
+    markdown = report.read_text(encoding="utf-8")
+    assert "keepalive 1, autofix 7" in markdown
+    assert "Worker attempts: 3" in markdown
+    assert "Skipped evaluations: 1" in markdown
+    assert "Fixes applied: 85.7% (6/7) (reported by telemetry across all records)" in markdown
+    assert "Successful attempts reporting a fix: 1" in markdown
+
+
 def test_artifact_family_classifies_pr_source_context() -> None:
     assert aggregate_agent_metrics._artifact_family("pr-source-context") == "pr-source-context"
 
