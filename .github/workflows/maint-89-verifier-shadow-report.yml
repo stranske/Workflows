@@ -110,6 +110,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install the verifier's Python requirements (same file production uses)
+        if: ${{ needs.daily-switch.outputs.enabled == 'true' }}
         run: |
           python -m pip install --disable-pip-version-check --upgrade pip
           pip install --disable-pip-version-check -r tools/requirements-llm.txt
