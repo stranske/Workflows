@@ -8,6 +8,8 @@
 
 The keepalive automation now uses LLM-powered task completion detection to determine if a Codex session has completed its assigned task. This replaces simple regex-based heuristics with intelligent analysis of session transcripts.
 
+The standalone heuristic analyzer and its tests are retained in Git history at revision `a5126c655597da7234616061c452b80f4ce8960f`. To replay the [original analyzer](https://github.com/stranske/Workflows/blob/a5126c655597da7234616061c452b80f4ce8960f/tools/codex_log_analyzer.py) and [its tests](https://github.com/stranske/Workflows/blob/a5126c655597da7234616061c452b80f4ce8960f/tests/tools/test_codex_log_analyzer.py), run `git worktree add --detach /tmp/workflows-heuristic-replay a5126c655597da7234616061c452b80f4ce8960f` from Workflows, then run the repository-selected Python with `-m pytest -q tests/tools/test_codex_log_analyzer.py` from that checkout. The session CLI still provides its own regex fallback.
+
 ## Architecture
 
 ### Provider Chain
