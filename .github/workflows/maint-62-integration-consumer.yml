@@ -233,7 +233,7 @@ jobs:
 
 
       - name: Open or update failure issue
-        if: ${{ needs.scenarios.result != 'success' }}
+        if: ${{ needs.scenarios.result == 'failure' || needs.select-scenarios.result == 'failure' }}
         uses: actions/github-script@v9
         with:
           script: |
