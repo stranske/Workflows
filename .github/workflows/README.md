@@ -9,11 +9,11 @@ and naming rules in the [routing guide](../../docs/WORKFLOW_GUIDE.md).
 Core layers:
 - [Gate and its summary job](../../docs/ci/WORKFLOWS.md#gate-job-map) own PR testing and the required `summary` check.
 - [Minimal invariant CI](../../docs/ci/WORKFLOWS.md#minimal-invariant-ci) owns the supplemental syntax check and PR source-context report.
-- Agents orchestration (`agents-70-orchestrator.yml` + `reusable-16-agents.yml`): single entry point for Codex readiness, bootstrap, diagnostics, and watchdog sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the issue bridge listens for `agent:codex` and hands issues to the orchestrator. Legacy consumer shims remain removed following Issue #2650.
+- Agents 70 calls `reusable-70-orchestrator-init.yml` and `reusable-70-orchestrator-main.yml` for its scheduled and manual runs. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the issue bridge listens for `agent:codex` and hands issues to the orchestrator. Legacy consumer shims remain removed following Issue #2650.
 - Model-profile trial (`agents-model-profile-trial.yml` + `reusable-model-profile-trial.yml`): Workflows-only manual transport for one immutable, read-only Sol/Terra/Luna instrumentation arm. A separately pinned helper requires the target to equal current remote `main` before auth and uploads v2 quarantine telemetry with source-manifest and GitHub provenance. It has no commit, push, comment, auth-refresh, evaluator, provider-resolution, or ordinary Keepalive path.
 - PR metadata management (`agents-pr-meta.yml`): serializes Codex activation commands and PR body decoration through dedicated jobs that share a concurrency group keyed by PR number. This prevents marker thrash while keeping activation dispatch responsive.
-- Agents intake + orchestration (`agents-63-issue-intake.yml`, `agents-70-orchestrator.yml`, `reusable-16-agents.yml`): unified entry point for ChatGPT topic imports and Codex readiness/bridge sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the intake workflow handles both label-triggered bridges and manual dispatch while keeping parsing and bridge logic centralised.
-- Codex belt automation (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`): hands-off conveyor for labelled issues—dispatcher selects `agent:codex` + `status:ready` issues and prepares a `codex/issue-*` branch, worker opens or refreshes the PR with labels/assignees, and conveyor merges after Gate success before re-queuing the dispatcher.
+- Agents intake and orchestration use `agents-63-issue-intake.yml` for ChatGPT topic imports and `agents-70-orchestrator.yml` for readiness and bridge sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the intake workflow handles both label-triggered bridges and manual dispatch while keeping parsing and bridge logic centralised.
+- Codex belt automation claims a ready issue, opens or refreshes its PR, and promotes eligible PRs after their head passes the status check. The workflow table below lists the dispatcher, worker, manual dispatch wrapper and conveyor.
 - Cosmetic repair (`maint-45-cosmetic-repair.yml`): manual pytest run plus guardrail fixer that opens labelled repair PRs when drift is detected.
 - Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml`, `health-51-zizmor.yml`, `health-52-semgrep.yml`, `health-53-scorecard.yml`, labelers, dependency review, CodeQL.
 - Semgrep CE scan (`health-52-semgrep.yml`): report-only SAST using Semgrep Community Edition with `p/default`, `p/python`, `p/github-actions`, and `p/secrets` rulesets; uploads SARIF to GitHub Security for defence-in-depth alongside CodeQL.
@@ -86,10 +86,11 @@ workflow files.
 | `health-43-ci-signature-guard.yml` | pull_request/push (`main`) | Validates the signed job manifest for `pr-00-gate.yml`.
 | `agents-63-issue-intake.yml` | issues, workflow_dispatch, workflow_call | Canonical intake workflow that normalizes ChatGPT topic lists and bridges `agent:codex` issues into the orchestrator. |
 | `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift. |
-| `agents-71-codex-belt-dispatcher.yml` | schedule (*/30), workflow_dispatch | Picks the next `agent:codex` + `status:ready` issue, prepares the `codex/issue-*` branch, and dispatches the worker. |
-| `agents-72-codex-belt-worker.yml` | repository_dispatch (`codex-belt.work`), workflow_dispatch | Validates the queued issue, updates labels/assignees, and opens or refreshes the Codex automation PR. |
-| `agents-73-codex-belt-conveyor.yml` | workflow_run (`Gate`, completed) | Squash-merges successful `codex/issue-*` PRs after Gate, deletes the branch, closes the source issue, and re-triggers the dispatcher. |
-| `agents-70-orchestrator.yml` | schedule (*/20), workflow_dispatch | Unified agents toolkit entry point delegating to `reusable-16-agents.yml`. |
+| `agents-71-codex-belt-dispatcher.yml` | workflow_call, workflow_dispatch | Picks the next `agent:codex` + `status:ready` issue, creates the `codex/issue-*` branch and marks the issue in progress. Its callers arrange the worker (`reusable-70-orchestrator-main.yml`, `agents-auto-pilot.yml`). |
+| `agents-72-codex-belt-worker.yml` | workflow_call | Validates the queued issue/branch, ensures divergence from base, and opens or refreshes the Codex automation PR with labels, assignees, and activation. |
+| `agents-72-codex-belt-worker-dispatch.yml` | workflow_dispatch | Forwards manual or Auto-Pilot dispatches to the reusable worker. |
+| `agents-73-codex-belt-conveyor.yml` | workflow_call | Checks the combined status of the supplied head, merges eligible PRs, removes the branch, closes the issue and requests the next dispatch. |
+| `agents-70-orchestrator.yml` | schedule (*/30), workflow_dispatch | Calls `reusable-70-orchestrator-init.yml` and `reusable-70-orchestrator-main.yml`. The eligibility job skips execution on the declared Gate completion and repository dispatch events. |
 | `reusable-16-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs. |
 | `reusable-10-ci-python.yml` | workflow_call | Unified CI executor for the Python stack. |
 | `reusable-12-ci-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-00-gate.yml`. |
@@ -158,7 +159,7 @@ The lifecycle is:
    opens or refreshes the automation branch/PR and posts the boilerplate
    `@codex start` comment when configured.
 3. `agents-70-orchestrator.yml` (cron or manual dispatch) runs the readiness /
-   bootstrap pipeline through `reusable-16-agents.yml`, honouring the PR and
+   bootstrap pipeline through its reusable init and main workflows, honouring the PR and
    verification settings returned by the bridge.
 
 Manual dispatches pass their toggles directly to the orchestrator. Use the
@@ -354,7 +355,7 @@ Note: The gate job will become the only required status after successful observa
 4. Rerun as needed; Gate summary jobs will echo failing runs in the `ci-failure`
    rollup when Gate is affected.
 
-`reusable-16-agents.yml` remains the single implementation surface for readiness
+`reusable-16-agents.yml` provides a callable implementation for readiness
 probes, diagnostics, bootstrap, keepalive, and watchdog jobs. `reuse-agents.yml`
 exists for workflow-call reuse so downstream repositories can adopt the same
 inputs without duplicating JSON parsing.
