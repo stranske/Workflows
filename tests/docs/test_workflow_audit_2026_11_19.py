@@ -41,6 +41,10 @@ BAND_50_80_WORKFLOWS = (
     "maint-66-monthly-audit.yml",
     "maint-84-prune-agent-stubs.yml",
     "agents-weekly-metrics.yml",
+    "agents-moderate-connector.yml",
+    "agents-keepalive-loop.yml",
+    "selftest-ci.yml",
+    "maint-88-verifier-runtime-comparison.yml",
 )
 
 

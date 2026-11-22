@@ -45,6 +45,7 @@ Stubs at the former `docs/WORKFLOW_AUDIT_*.md` paths redirect to these archives.
 - Workflow catalog: [`docs/ci/WORKFLOWS.md`](WORKFLOWS.md)
 - System overview: [`docs/ci/WORKFLOW_SYSTEM.md`](WORKFLOW_SYSTEM.md)
 - Maintainer review log: [`docs/workflow-updates/maint-workflow-review-2026-02-22.md`](../workflow-updates/maint-workflow-review-2026-02-22.md) (Maint 66 section)
+
 ## Conclusion classification and ranking
 
 Maint 66 groups by stable `workflow_id`, falling back to normalized workflow path,

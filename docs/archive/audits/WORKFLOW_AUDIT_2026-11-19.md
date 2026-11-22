@@ -42,8 +42,8 @@ Rates below use the **corrected** Maint 66 policy: decisive outcomes = success +
 | Workflow file | Display name | Issue rate (old) | Root cause / disposition |
 |---------------|--------------|------------------|---------------------------|
 | `agents-dedup.yml` | Duplicate Detection | 0% (149/149 failures) | **Fixed:** sparse checkout missing `tools/embedding_provider.py` → `ModuleNotFoundError` for `semantic_matcher` |
-| `agents-keepalive-loop-reporter.yml` | Keepalive Loop Reporter | 6% | Mostly non-failure conclusions and branch-protection noise; monitor after Maint 66 fix — no repo-local script bug reproduced |
-| `maint-46-post-ci.yml` | Maint 46 Post CI | 26% | High volume of real `failure` conclusions on post-Gate housekeeping; transient external/API — document, no code change this PR |
+| `agents-keepalive-loop-reporter.yml` | Keepalive Loop Reporter | 6% | Mostly non-failure conclusions and branch-protection noise; sample failed run [44951017026](https://github.com/stranske/Workflows/actions/runs/44951017026): `Resolve reporter target` HTTP 403 `API rate limit exceeded for installation` — external API budget, no repo-local script bug reproduced |
+| `maint-46-post-ci.yml` | Maint 46 Post CI | 26% | High volume of real `failure` conclusions on post-Gate housekeeping; sample failed run [44951684191](https://github.com/stranske/Workflows/actions/runs/44951684191): `Gate failure issue and snapshot` HTTP 403 `API rate limit exceeded for installation` — transient external API budget, no code change this PR |
 | `health-68-consumer-sync-drift.yml` | Health 68 Consumer Sync Drift | 34% | Consumer drift signal; fix via Maint 68 sync path, not ad hoc consumer patches |
 | `agents-63-issue-intake.yml` | Agents 63 Issue Intake | 13% | Event-shape skips and provider routing; failures correlate with held/suspicious-workflow era — monitor |
 | `maint-sync-env-from-pyproject.yml` | Maint - Sync pyproject from versions.env | 7% (12/13 failures) | Small sample; manual/version-sync utility — keep, re-check after next scheduled run |
@@ -79,6 +79,10 @@ Rates below use the **corrected** Maint 66 policy: decisive outcomes = success +
 | `maint-66-monthly-audit.yml` | 50% (1/4) | Small sample; ranking fix in this cycle |
 | `maint-84-prune-agent-stubs.yml` | 50% (2/4) | Scheduled pruner; needs eligible input for full verification (tracker) |
 | `agents-weekly-metrics.yml` | 50% (2/4) | Weekly metrics; low volume |
+| `agents-moderate-connector.yml` | 71% (0 failures / 4694 runs) | `issue_comment` trigger fires on every comment; the remainder is skipped/cancelled (latest 200 runs: 185 success, 9 skipped, 6 cancelled) — *volume noise*, keep |
+| `agents-keepalive-loop.yml` | 73% (120 failures / 2908 runs) | Sampled failed runs [44950515966](https://github.com/stranske/Workflows/actions/runs/44950515966) (Cursor keepalive: HTTP 403 `API rate limit exceeded for installation`), [44942221029](https://github.com/stranske/Workflows/actions/runs/44942221029) and [44032661429](https://github.com/stranske/Workflows/actions/runs/44032661429) (Claude keepalive agent step exit 1) — external API budget plus agent-run failures; no shared repo-local bug reproduced, monitor |
+| `selftest-ci.yml` | 74% (403 failures / 2229 runs) | PR CI catching real PR defects: [44968781532](https://github.com/stranske/Workflows/actions/runs/44968781532) and [44934735017](https://github.com/stranske/Workflows/actions/runs/44934735017) failed Black format check on PR files; [44965411641](https://github.com/stranske/Workflows/actions/runs/44965411641) failed a JavaScript test assertion (plus artifact-list 403) — expected signal, keep |
+| `maint-88-verifier-runtime-comparison.yml` | 66% (0 failures / 3 runs) | `workflow_dispatch`-only comparison utility; runs are success or cancelled (3 success, 1 cancelled) — small-sample *volume noise*, keep |
 
 ## “Workflows not run” classification
 
