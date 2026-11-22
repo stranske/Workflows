@@ -1518,6 +1518,7 @@ jobs:
               if _spec is None or _spec.loader is None:
                   raise ImportError(f"Cannot load spec from {_parser_path}")
               _mod = importlib.util.module_from_spec(_spec)
+              sys.modules[_spec.name] = _mod
               _spec.loader.exec_module(_mod)
               parse_codex_jsonl_file = _mod.parse_codex_jsonl_file
 
