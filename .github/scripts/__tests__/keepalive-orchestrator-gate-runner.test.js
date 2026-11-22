@@ -603,3 +603,49 @@ test('finaliseSkip posts a skip-count marker comment that analyseSkipComments re
 
   restore();
 });
+
+test('dry-run guard records decisions without label repairs, draft mutations or retry comments', async () => {
+  const sha = '8fa2a0247fa0c27d4d5193303606bdbacc144e06';
+  const { runKeepaliveGate, restore } = loadRunnerWithGate(async () => createGateResult({
+    headSha: sha, lastGreenSha: sha,
+  }));
+
+  try {
+    for (const draft of [false, true]) {
+      for (const dryRun of ['true', 'false']) {
+        const { core, outputs, summary } = createCore();
+        const github = createGithub({
+          pull: makePullRequest({
+            number: 4937,
+            head: { sha, ref: 'codex/defer-action-version-api-setup' },
+            body: '- [x] Completed task',
+            draft,
+            labels: ['codex-automation'],
+          }),
+          runsByWorkflow: {
+            'pr-00-gate.yml': [{ head_sha: sha, status: 'completed', conclusion: 'success' }],
+          },
+        });
+        await runKeepaliveGate({
+          core,
+          github,
+          context: { repo: { owner: 'stranske', repo: 'Workflows' } },
+          env: makeEnv({ DRY_RUN: dryRun, KEEPALIVE_PR: '4937' }),
+        });
+        assert.equal(summary.written, true);
+        if (dryRun === 'true') {
+          assert.deepEqual(github.__calls, { labelAdds: [], commentsCreated: [], graphql: [] });
+          assert.equal(outputs.proceed, 'false');
+          assert.match(outputs.reason, /missing-label:agents:keepalive/);
+          if (draft) assert.match(outputs.reason, /pr-draft/);
+        } else {
+          assert.equal(outputs.proceed, 'true');
+          assert.equal(github.__calls.labelAdds.length, 1);
+          assert.equal(github.__calls.graphql.length, draft ? 1 : 0);
+        }
+      }
+    }
+  } finally {
+    restore();
+  }
+});
