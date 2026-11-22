@@ -69,12 +69,39 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
         check=True,
     )
     report = tmp_path / "pytest-report.xml"
-    if case in {"empty", "malformed", "no-cases"}:
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env.update(
+        PYTHONDONTWRITEBYTECODE="1",
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
+        RUNNER_TEMP=str(tmp_path),
+    )
+    if case == "cosmetic":
+        (checkout / "pytest.ini").write_text("[pytest]\nfilterwarnings = error\n")
+        message = "COSMETIC_TOLERANCE " + json.dumps(
+            {"path": TARGET, "guard": "float", "key": "EXPECTED", "value": "1.23456"}
+        )
+        (checkout / "test_cosmetic.py").write_text(
+            "def test_guarded_drift(record_property):\n"
+            "    record_property('markers', 'cosmetic')\n"
+            f"    assert False, {message!r}\n"
+        )
+        pytest_outputs = tmp_path / "pytest-outputs"
+        subprocess.run(
+            ["bash", "-eo", "pipefail", "-c", steps["Run pytest (allow failures)"]["run"]],
+            cwd=checkout,
+            env={**env, "GITHUB_OUTPUT": str(pytest_outputs)},
+            check=True,
+            capture_output=True,
+        )
+        assert pytest_outputs.read_text().strip() == "exit_code=1"
+        assert ElementTree.parse(report).find(".//testcase/failure") is not None
+    elif case in {"empty", "malformed", "no-cases"}:
         report.write_text({"empty": "", "malformed": "<bad", "no-cases": "<testsuite/>"}[case])
     elif case != "missing":
         suite = ElementTree.Element("testsuite")
         test = ElementTree.SubElement(suite, "testcase", name="original")
-        if case in {"cosmetic", "already-applied", "mixed"}:
+        if case in {"already-applied", "mixed"}:
             properties = ElementTree.SubElement(test, "properties")
             ElementTree.SubElement(properties, "property", name="markers", value="cosmetic")
             instruction = {"path": TARGET, "guard": "float", "key": "EXPECTED", "value": "1.23456"}
@@ -88,15 +115,11 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
 
     original = report.read_bytes() if report.exists() else None
     output = tmp_path / "outputs"
-    env = os.environ.copy()
-    env.pop("PYTHONPATH", None)
     result = subprocess.run(
         ["bash", "-eo", "pipefail", "-c", steps["Run cosmetic repair on original report"]["run"]],
         cwd=checkout,
         env={
             **env,
-            "PYTHONDONTWRITEBYTECODE": "1",
-            "RUNNER_TEMP": str(tmp_path),
             "GITHUB_OUTPUT": str(output),
             "PYTEST_EXIT_CODE": "0" if case == "clean" else "1",
             "DRY_RUN": str(dry_run).lower(),
