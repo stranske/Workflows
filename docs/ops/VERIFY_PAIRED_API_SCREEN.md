@@ -7,6 +7,13 @@ The historical square policy remains disabled. The active representative policy
 and its 600-second bounds are documented in that proposal; this historical
 document does not authorize a dispatch.
 
+The [historical packet](../../config/verify_paired/historical-square) contains its selector, policy and both square cases. From the repository root, run these offline tests with the project interpreter to check the held policy and the two expected verdicts.
+
+```sh
+python -m pytest -q tests/tools/test_run_verify_paired.py::test_source_proposed_policy_holds_before_subprocess \
+  tests/tools/test_run_verify_paired.py::test_actual_two_case_cli_four_generations_eight_counts_six_metadata
+```
+
 MAINT-78 has a separate `verify-paired` mode for the independently reviewed
 public `square-pass` / `square-nonpass` packet. The old `assess` job is excluded
 only for that mode. The new job runs only from the repository default branch,
@@ -19,7 +26,7 @@ unchanged `requirements.lock`, without provider secrets in that setup step.
 The key-bearing step then invokes that environment's Python directly, avoiding
 an unlocked dependency resolution. This repository does not contain `uv.lock`.
 
-**Source preparation only:** `config/verify_paired/trial-policy.json` currently
+**Source preparation only:** `config/verify_paired/historical-square/trial-policy.json` currently
 has `execution_enabled: false` and `review_status: proposed_source_only`.
 The command writes a held receipt before any client construction or provider
 request. Core and the executor must review the exact code and caps before a
