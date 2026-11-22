@@ -26,12 +26,12 @@ standard fix PR instead.
 2. The job installs the selected base's locked dependencies in one virtual
    environment and runs pytest once. It retains `pytest-report.xml` and the
    original exit code.
-3. `python -m scripts.ci_cosmetic_repair --report ...` parses that same report,
-   looks for failure messages
-   containing `COSMETIC_TOLERANCE` or `COSMETIC_SNAPSHOT`, and validates that
-   each target line opts-in via a `# cosmetic-repair:` guard.
-4. A preview lists the eligible instructions without editing files. Apply mode
-   edits only the guarded targets and keeps their guard comments.
+3. The repair helper parses that same report with `--require-all`. Every
+   originally failed case must supply a `COSMETIC_TOLERANCE` or
+   `COSMETIC_SNAPSHOT` instruction. Both modes check the corresponding
+   `# cosmetic-repair:` guard.
+4. A preview lists the validated instructions without editing files. Apply
+   mode edits the guarded targets and keeps their guard comments.
 5. One writer opens a pull request against the selected base from
    `cosmetic-repair/<run-id>` (plus any suffix), staging only those exact
    changed files. The PR is labelled `testing` and `autofix:applied`.

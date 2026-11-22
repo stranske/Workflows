@@ -21,6 +21,8 @@ TARGET = "baseline[approved].py"
         ("cosmetic", True, "dry-run", False),
         ("cosmetic", False, "applied-no-pr", True),
         ("already-applied", False, "no-changes", False),
+        ("missing-guard", True, None, False),
+        ("partial-cosmetic", False, None, False),
         ("ordinary", False, None, False),
         ("mixed", False, None, False),
         ("missing", False, None, False),
@@ -49,9 +51,8 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
         shutil.copyfile(ROOT / "scripts" / name, checkout / "scripts" / name)
     target = checkout / TARGET
     initial = "1.23456" if case == "already-applied" else "1.23450"
-    target.write_text(
-        f"EXPECTED = {initial}  # cosmetic-repair: float EXPECTED\n", encoding="utf-8"
-    )
+    guard = "" if case == "missing-guard" else "  # cosmetic-repair: float EXPECTED"
+    target.write_text(f"EXPECTED = {initial}{guard}\n", encoding="utf-8")
     subprocess.run(["git", "init", "-q", "-b", "selected-base"], cwd=checkout, check=True)
     subprocess.run(["git", "add", "--", TARGET], cwd=checkout, check=True)
     subprocess.run(
@@ -101,7 +102,7 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
     elif case != "missing":
         suite = ElementTree.Element("testsuite")
         test = ElementTree.SubElement(suite, "testcase", name="original")
-        if case in {"already-applied", "mixed"}:
+        if case in {"already-applied", "mixed", "missing-guard", "partial-cosmetic"}:
             properties = ElementTree.SubElement(test, "properties")
             ElementTree.SubElement(properties, "property", name="markers", value="cosmetic")
             instruction = {"path": TARGET, "guard": "float", "key": "EXPECTED", "value": "1.23456"}
@@ -111,6 +112,11 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
         if case in {"ordinary", "mixed"}:
             ordinary = ElementTree.SubElement(suite, "testcase", name="ordinary")
             ElementTree.SubElement(ordinary, "failure").text = "Runtime regression"
+        if case == "partial-cosmetic":
+            missing = ElementTree.SubElement(suite, "testcase", name="missing-instruction")
+            properties = ElementTree.SubElement(missing, "properties")
+            ElementTree.SubElement(properties, "property", name="markers", value="cosmetic")
+            ElementTree.SubElement(missing, "failure").text = "No repair instructions"
         ElementTree.ElementTree(suite).write(report)
 
     original = report.read_bytes() if report.exists() else None

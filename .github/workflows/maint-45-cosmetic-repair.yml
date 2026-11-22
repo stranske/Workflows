@@ -91,7 +91,7 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             mode=--dry-run
           fi
-          .venv/bin/python -m scripts.ci_cosmetic_repair "$mode" --skip-pr \
+          .venv/bin/python -m scripts.ci_cosmetic_repair "$mode" --skip-pr --require-all \
             --report "$report" --base "$BASE_BRANCH"
 
           .venv/bin/python - <<'PYCODE'
