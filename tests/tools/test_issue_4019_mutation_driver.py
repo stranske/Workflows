@@ -404,9 +404,9 @@ def test_verified_mutation_receipts_inventory():
             assert receipt["sha256_before"] == receipt["sha256_restored"]
             for kind in ("red", "green"):
                 name = f"{mid}-{kind}.txt"
-                assert transcripts[name].startswith(f"# revision: {expected_rev}\n"), (
-                    f"{packet}: {name} revision mismatch"
-                )
+                assert transcripts[name].startswith(
+                    f"# revision: {expected_rev}\n"
+                ), f"{packet}: {name} revision mismatch"
             live_bytes = (ROOT / rel_path).read_bytes()
             assert live_bytes.decode("utf-8").count(old) == count
             if rel_path == METRICS_READER_PATH:
@@ -414,9 +414,9 @@ def test_verified_mutation_receipts_inventory():
             elif verify_live_digest:
                 assert hashlib.sha256(live_bytes).hexdigest() == receipt["sha256_before"]
         assert expected_04_line in transcripts["04-red.txt"]
-        assert hashlib.sha256(packet.read_bytes()).hexdigest() == archive_sha256, (
-            f"{packet}: archive digest differs from the original transcripts"
-        )
+        assert (
+            hashlib.sha256(packet.read_bytes()).hexdigest() == archive_sha256
+        ), f"{packet}: archive digest differs from the original transcripts"
 
 
 @pytest.mark.parametrize(

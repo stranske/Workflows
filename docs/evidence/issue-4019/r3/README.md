@@ -119,10 +119,10 @@ for separately identified raw runtime coverage or explicit residual lists.
 The actual mutation-table function count is 24 (3 aggregate, 21 provider);
 this corrects the historical 21/18 wording while retaining the candidate
 receipt digests and output bodies described above. Review dispositions and bounded follow-ups are recorded in
-`integration-rerun/review-dispositions.md`. The final immutable head, hosted
-runs/raw artifact identities, merge SHA, and main ancestry are maintained in
-the [#4523 verification section](acceptance-integration.md#4523-cherry-pick-integration-and-verification-2026-11-12-utc).
-[PR #4674](https://github.com/stranske/Workflows/pull/4674) delivered the integration to main.
+`integration-rerun/review-dispositions.md`. The [#4523 verification section](acceptance-integration.md#4523-cherry-pick-integration-and-verification-2026-11-12-utc)
+records the pre-final hosted checkpoints and coverage artifacts.
+[PR #4674](https://github.com/stranske/Workflows/pull/4674) delivered the integration to main
+as `c26979fcab67d1c9d79437ad0a9a84082c9aadec`.
 [PR #4516](https://github.com/stranske/Workflows/pull/4516) closed without merging.
 
 
@@ -131,5 +131,4 @@ The integrated-tree hosted checkpoint now measures TARGET_MISSING=3 on
 runtimes passed; 3.14 raw TOTAL=63868/70054, summary=92.60%, residual provider
 lines [265,270,292], branches []; 3.13 has no coverage JSON. See the final
 section of `acceptance-integration.md` and the distinct raw-artifact manifests.
-That is a checkpoint before this documentation reconciliation. Final-head
-confirmation and delivered-main acceptance are recorded in the #4523 verification section above.
+That run is an earlier checkpoint. The #4523 verification above identifies the subsequent checkpoint runs.
