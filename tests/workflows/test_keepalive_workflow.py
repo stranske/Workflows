@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -507,8 +508,43 @@ def test_keepalive_skips_unapproved_comment_author() -> None:
     )
 
 
-def test_keepalive_handles_paged_comments() -> None:
-    data = _run_scenario("paged_comments")
+def test_keepalive_handles_paged_comments(tmp_path: Path) -> None:
+    _require_node()
+    start = datetime(2024, 5, 17, tzinfo=UTC)
+    comments = [
+        {
+            "user": {"login": f"user{index}"},
+            "body": f"Placeholder comment {index}",
+            "created_at": (start + timedelta(minutes=10 * index)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        for index in range(119)
+    ]
+    # Keep the instruction and actionable checklist beyond the first 100 comments.
+    # Recover the original JSON from commit 94e30eff64a32e25853b221697db5b622b58141d
+    # at tests/workflows/fixtures/keepalive/paged_comments.json.
+    comments[110] = {
+        "user": {"login": "triage-bot"},
+        "body": "@codex plan-and-execute",
+        "created_at": "2024-05-18T08:00:00Z",
+    }
+    comments.append(
+        {
+            "user": {"login": "chatgpt-codex-connector"},
+            "body": "Daily update\n- [ ] Review signal output\n- [x] Stage summary",
+            "created_at": "2024-05-18T08:30:00Z",
+        }
+    )
+    scenario = {
+        "repo": {"owner": "stranske", "repo": "Workflows"},
+        "now": "2024-05-18T12:00:00Z",
+        "env": {"OPTIONS_JSON": "{}", "DRY_RUN": "false"},
+        "pulls": [{"number": 808, "labels": ["agents:keepalive"], "comments": comments}],
+    }
+    scenario_path = tmp_path / "paged_comments.json"
+    scenario_path.write_text(json.dumps(scenario, indent=2) + "\n", encoding="utf-8")
+    result = _run_harness(scenario_path)
+    assert result.returncode == 0, result.stderr
+    data = _parse_harness_payload(result)
     created = data["created_comments"]
     _assert_keepalive_authors(created)
     assert [item["issue_number"] for item in created] == [808]
