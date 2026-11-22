@@ -132,6 +132,10 @@ Pre-commit hooks automatically format and lint Python code.
 3. Update documentation in `docs/workflows/`
 4. Run validation
 
+### Workflow examples
+
+Choose a common real-world use case and place it next to the workflow guide or starter it demonstrates. Include the workflow YAML, required project files or a link to the tracked fixture, prerequisites, setup steps and the expected check or output. Comment the settings that readers need to adapt. Run the example as documented and record the command you used before adding it to the [workflow examples guide](USAGE.md#examples).
+
 ### Actions
 
 1. Create/modify action in `.github/actions/<action-name>/`

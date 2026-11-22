@@ -24,7 +24,7 @@ This folder contains the source-of-truth documentation for this repository.
 - **[contracts/](contracts/)** - Shared cross-repo contracts and schemas
 - **[reference/](reference/)** - Reference docs and analysis notes
 - **[workflows/](workflows/)** - Workflow system notes (evaluation, bug reports)
-- **[examples/](examples/)** - Runnable examples (placeholder)
+- **[Workflow examples](USAGE.md#examples)** - Copyable starters and actual workflow calls
 
 ### For Contributors
 
@@ -58,12 +58,7 @@ How-to guides in `guides/` should:
 
 ### Examples
 
-Examples in `examples/` should:
-
-- Represent real-world use cases
-- Be complete and runnable
-- Cover common scenarios
-- Include explanatory comments
+Follow the [workflow example contribution checklist](CONTRIBUTING.md#workflow-examples) for runnable configurations and expected results.
 
 ## Adding Documentation
 
