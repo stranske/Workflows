@@ -715,7 +715,7 @@ def _summarise_autofix(entries: list[dict[str, Any]]) -> dict[str, Any]:
     gate_results: Counter[str] = Counter()
     stop_reasons: Counter[str] = Counter()
     prs: set[int] = set()
-    attempts = 0
+    worker_attempts = 0
     skipped = 0
     unresolved_outcomes = 0
     fixes_applied = 0
@@ -737,18 +737,19 @@ def _summarise_autofix(entries: list[dict[str, Any]]) -> dict[str, Any]:
         outcome = _autofix_result(entry)
         if outcome == "skipped":
             skipped += 1
-            continue
-        if "autofix_result" in entry and outcome not in _AUTOFIX_ATTEMPT_RESULTS:
+        elif outcome in _AUTOFIX_ATTEMPT_RESULTS:
+            worker_attempts += 1
+        else:
             unresolved_outcomes += 1
-            continue
-        # Legacy records without an explicit worker result retain their previous counts.
-        attempts += 1
+        # The public v1 counter reports raw flags across all Autofix records.
         if entry.get("fix_applied") in (True, "true", "True", "1", 1):
             fixes_applied += 1
             if outcome == "success":
                 successful_attempts_reporting_fix += 1
     return {
-        "attempts": attempts,
+        # Public v1 attempts has always counted all records, even explicit skips.
+        "attempts": len(entries),
+        "worker_attempts": worker_attempts,
         "skipped": skipped,
         "unresolved_outcomes": unresolved_outcomes,
         "prs": len(prs),
@@ -1455,7 +1456,7 @@ def build_summary(
         f"Generated: {now}",
         (
             f"Records: {len(entries)} "
-            f"(keepalive {keepalive['runs']}, autofix {len(buckets['autofix'])}, "
+            f"(keepalive {keepalive['runs']}, autofix {autofix['attempts']}, "
             f"verifier {verifier['runs']}, "
             f"terminal dispositions {verifier['terminal_records']}, "
             f"verifier follow-up ledgers {verifier['ledger_records']}, "
@@ -1487,12 +1488,12 @@ def build_summary(
             f"- Tasks complete rate: {_format_rate(keepalive['tasks_complete'], keepalive['runs'])}",
             "",
             "## Autofix",
-            f"- Attempts: {autofix['attempts']}",
+            f"- Worker attempts: {autofix['worker_attempts']}",
             f"- Skipped evaluations: {autofix['skipped']}",
             f"- Unresolved outcomes: {autofix['unresolved_outcomes']}",
             f"- PRs: {autofix['prs']}",
             f"- Fixes applied: {_format_rate(autofix['fixes_applied'], autofix['attempts'])} "
-            "(reported by telemetry)",
+            "(reported by telemetry across all records)",
             f"- Successful attempts reporting a fix: {autofix['successful_attempts_reporting_fix']}",
             f"- Stop reasons: {_format_counter(autofix['stop_reasons'])}",
             f"- Trigger reasons: {_format_counter(autofix['triggers'])}",

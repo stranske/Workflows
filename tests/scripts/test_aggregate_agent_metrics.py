@@ -1099,8 +1099,9 @@ def test_weekly_autofix_separates_attempts_skips_and_reported_fixes(
             {**base, "autofix_result": "cancelled", "fix_applied": False},
             {
                 **base,
+                "metric_type": "autofix",
                 "autofix_result": "skipped",
-                "fix_applied": False,
+                "fix_applied": True,
                 "stop_reason": "unsupported_agent",
             },
             {**base, "autofix_result": "unknown", "fix_applied": True},
@@ -1124,11 +1125,12 @@ def test_weekly_autofix_separates_attempts_skips_and_reported_fixes(
     assert contract["record_buckets"] == {"autofix": 7, "keepalive": 1}
     assert contract["parse_errors"]["count"] == 1
     assert contract["summaries"]["autofix"] == {
-        "attempts": 4,
+        "attempts": 7,
+        "worker_attempts": 3,
         "skipped": 1,
-        "unresolved_outcomes": 2,
+        "unresolved_outcomes": 3,
         "prs": 1,
-        "fixes_applied": 3,
+        "fixes_applied": 6,
         "successful_attempts_reporting_fix": 1,
         "triggers": {"pytest": 1},
         "gate_results": {},
@@ -1136,9 +1138,9 @@ def test_weekly_autofix_separates_attempts_skips_and_reported_fixes(
     }
     markdown = report.read_text(encoding="utf-8")
     assert "keepalive 1, autofix 7" in markdown
-    assert "Attempts: 4" in markdown
+    assert "Worker attempts: 3" in markdown
     assert "Skipped evaluations: 1" in markdown
-    assert "Fixes applied: 75.0% (3/4) (reported by telemetry)" in markdown
+    assert "Fixes applied: 85.7% (6/7) (reported by telemetry across all records)" in markdown
     assert "Successful attempts reporting a fix: 1" in markdown
 
 
