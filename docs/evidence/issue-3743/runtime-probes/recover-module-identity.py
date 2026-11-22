@@ -28,7 +28,9 @@ def restore(source, destination):
     parent = json.loads((source / "manifest.json").read_bytes())
     prefix = f"{PHASE}/"
     expected = {
-        name.removeprefix(prefix): digest for name, digest in parent.items() if name.startswith(prefix)
+        name.removeprefix(prefix): digest
+        for name, digest in parent.items()
+        if name.startswith(prefix)
     }
     if len(expected) != 70 or any(
         name in {".", ".."} or not re.fullmatch(r"[A-Za-z0-9_.-]+", name) for name in expected
@@ -78,12 +80,16 @@ def restore(source, destination):
     destination.mkdir()
     for name, data in files.items():
         (destination / name).write_bytes(data)
-    print("Restored 70 original paths and SHA-256 digests (68 also checked against sizes and digests in the child manifest).")
+    print(
+        "Restored 70 original paths and SHA-256 digests (68 also checked against sizes and digests in the child manifest)."
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("destination", type=Path, help="new output directory with an existing parent")
+    parser.add_argument(
+        "destination", type=Path, help="new output directory with an existing parent"
+    )
     args = parser.parse_args()
     try:
         restore(Path(__file__).resolve().parent, args.destination)
