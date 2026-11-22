@@ -41,7 +41,9 @@ jobs:
           persist-credentials: false
 
       - name: Create the docs-drift audit issue (deduped)
-        if: ${{ inputs.create_issue != false }}
+        if: >-
+          ${{ github.event_name == 'schedule' ||
+              (github.event_name == 'workflow_dispatch' && inputs.create_issue) }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

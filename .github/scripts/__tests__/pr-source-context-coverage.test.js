@@ -83,6 +83,38 @@ test('buildCoverageReport summarizes PR source context and task-list artifacts',
   assert.equal(report.unknown_source_prs[0].number, 13);
 });
 
+test('non-PR smoke artifacts retain their event counts without creating unknown PRs', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'source-coverage-events-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const eventName of ['push', 'workflow_dispatch']) {
+    writeReport(root, eventName, buildPrSourceContextReport({ eventName, event: {} }));
+  }
+  const skipped = buildCoverageReport({ root });
+  assert.equal(skipped.status, 'no-data');
+  assert.equal(skipped.records, 2);
+  assert.deepEqual(skipped.reason_counts, { 'not-pull-request': 2 });
+  assert.equal(skipped.unknown_source_context_count, 0);
+  assert.equal(skipped.inferred_source_context_count, 0);
+  assert.deepEqual(skipped.unknown_source_prs, []);
+
+  writeReport(root, 'valid-pr', buildPrSourceContextReport({
+    eventName: 'pull_request',
+    event: { pull_request: { number: 4879, body: '<!-- workflow-source:local_request -->' } },
+  }));
+  const mixed = buildCoverageReport({ root });
+  assert.equal(mixed.status, 'pass');
+  assert.equal(mixed.records, 3);
+  assert.deepEqual(mixed.status_counts, { pass: 1, skipped: 2 });
+  assert.deepEqual(mixed.source_type_counts, { local_request: 1 });
+  assert.equal(mixed.valid_source_context_count, 1);
+  assert.equal(mixed.warning_count, 0);
+
+  writeReport(root, 'incomplete-pr', buildPrSourceContextReport({ eventName: 'pull_request', event: {} }));
+  const incomplete = buildCoverageReport({ root });
+  assert.equal(incomplete.status, 'warning');
+  assert.equal(incomplete.unknown_source_context_count, 1);
+});
+
 test('shouldFail only hard-blocks when explicitly approved', () => {
   const report = { status: 'warning' };
   assert.equal(shouldFail(report, {}), false);

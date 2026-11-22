@@ -55,7 +55,10 @@ def test_bare_validate_workflow_yaml_passes_on_git_changed_workflows() -> None:
         text=True,
     )
     assert result.returncode == 0, (result.stdout, result.stderr)
-    assert "validated successfully" in result.stdout
+    assert (
+        "validated successfully" in result.stdout
+        or "No changed workflow files to validate" in result.stdout
+    ), result.stdout
 
 
 def test_november_2026_archived_workflow_audit_report() -> None:

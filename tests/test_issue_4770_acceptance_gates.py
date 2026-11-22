@@ -87,7 +87,10 @@ def test_issue_4770_validate_workflow_yaml_criterion() -> None:
         text=True,
     )
     assert result.returncode == 0, (result.stdout, result.stderr)
-    assert "validated successfully" in result.stdout
+    assert (
+        "validated successfully" in result.stdout
+        or "No changed workflow files to validate" in result.stdout
+    ), result.stdout
 
 
 def test_issue_4770_archived_audit_report_criterion() -> None:

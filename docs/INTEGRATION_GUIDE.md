@@ -931,7 +931,7 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 | `pr-00-gate.yml` | Required PR gate and summary status | PR |
 | `cross-repo-smoke.yml` | Optional cross-repo integration smoke (host + pinned dependency checkout) | push, PR, manual (opt-in via `CROSS_REPO_SMOKE_*` vars) |
 | `autofix-versions.env` | Pins tool versions | N/A |
-| `AGENTS.md` / `CLAUDE.md` / `docs/TARGET_WORK_ENVIRONMENT.md` | Repo-local agent guidance and delivery constraints synced from Workflows | N/A |
+| `AGENTS.md` / `CLAUDE.md` / `<consumer-root>/docs/TARGET_WORK_ENVIRONMENT.md` | Agent guidance and delivery constraints synced from Workflows into the receiving repository | N/A |
 
 ### Consolidated Workflow Migration (Notice Period)
 

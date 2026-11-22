@@ -87,14 +87,19 @@ def test_source_delta_selects_only_changed_manifest_sources() -> None:
 
 
 @pytest.mark.parametrize(
-    "importer",
+    ("importer", "expected_helpers"),
     [
-        "scripts/langchain/capability_check.py",
-        "scripts/langchain/issue_optimizer.py",
+        (
+            "scripts/langchain/capability_check.py",
+            ["scripts/langchain/response_content.py", "scripts/langchain/trace_utils.py"],
+        ),
+        ("scripts/langchain/issue_optimizer.py", ["scripts/langchain/trace_utils.py"]),
     ],
 )
-def test_source_delta_includes_trace_helper_for_consolidated_importers(importer: str) -> None:
-    """Older consumers receive the new helper with either new importer."""
+def test_source_delta_includes_trace_helper_for_consolidated_importers(
+    importer: str, expected_helpers: list[str]
+) -> None:
+    """Consumers receive the exact runtime helpers required by each importer."""
     root = Path(__file__).resolve().parents[2]
     full_plan = compile_manifest(root / ".github/sync-manifest.yml").to_plan()
 
@@ -106,8 +111,9 @@ def test_source_delta_includes_trace_helper_for_consolidated_importers(importer:
         source_commit="2" * 40,
     )
 
-    assert evidence["selected_targets"] == [importer, "scripts/langchain/trace_utils.py"]
-    assert evidence["selected_entry_count"] == 2
+    assert evidence["selected_targets"] == [importer, *expected_helpers]
+    assert evidence["dependency_targets"] == expected_helpers
+    assert evidence["selected_entry_count"] == 1 + len(expected_helpers)
     assert evidence["source_commit"] == "2" * 40
 
 

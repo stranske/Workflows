@@ -755,6 +755,7 @@ scripts:
   - source: scripts/langchain/response_content.py
     description: "Shared provider response text-block extraction"
     delivery: copy
+    template_sync: exact
 
   - source: scripts/langchain/_llm_client.py
     description: "Shared LangChain chat-client construction (get_llm_client/get_llm_clients)"
@@ -812,6 +813,7 @@ scripts:
     # has the pre-consolidation trace_utils module.
     requires:
       - scripts/langchain/trace_utils.py
+      - scripts/langchain/response_content.py
 
   - source: scripts/langchain/task_decomposer.py
     description: "Task decomposer - breaks large issues into sub-tasks"

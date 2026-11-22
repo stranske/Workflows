@@ -1,6 +1,10 @@
+import json
+import sys
 from pathlib import Path
 
+import pytest
 import yaml
+from scripts.langchain import issue_dedup
 
 WORKFLOW_PATH = Path(".github/workflows/agents-issue-optimizer.yml")
 CONSUMER_WORKFLOW_PATH = Path(
@@ -446,3 +450,63 @@ def test_docs_say_paused_issues_go_to_the_opener_lane() -> None:
     assert f"{phrase} rewrites and re-validates paused issues automatically" in guide
     assert f"{phrase} rewrites and re-validates paused issues automatically" in catalog
     assert "tells an operator to repair the issue body" not in catalog
+
+
+@pytest.mark.parametrize("workflow_path", [WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH])
+def test_optimizer_advisory_excludes_self_before_ranking_and_retains_marker(
+    workflow_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    step = next(
+        step
+        for step in workflow["jobs"]["optimize_issue"]["steps"]
+        if step["name"] == "Advisory issue dedup check"
+    )
+    advisory = step["run"].split("python - <<'PY'\n", 1)[1].split("\nPY\n", 1)[0]
+    source = compile(advisory.replace("/tmp/", f"{tmp_path}/"), str(workflow_path), "exec")
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.setitem(sys.modules, "issue_dedup", issue_dedup)
+
+    issue_number = 4686
+    other_numbers = [4684, 4683, 4682, 4681, 4680]
+    (tmp_path / "issue.json").write_text(
+        json.dumps({"number": issue_number, "title": "Issue title", "body": "Issue body"}),
+        encoding="utf-8",
+    )
+    (tmp_path / "open_issues.json").write_text(
+        json.dumps([{"number": number} for number in [issue_number, *other_numbers]]),
+        encoding="utf-8",
+    )
+    comments = tmp_path / "dedup_comments.json"
+    comments.write_text("[]", encoding="utf-8")
+    seen = []
+
+    def build_store(candidates):
+        numbers = [candidate["number"] for candidate in candidates]
+        seen.append(numbers)
+        return numbers
+
+    def top_matches(store, query, *, threshold, k):
+        assert query == "Issue title\nIssue body"
+        assert threshold == 0.82 and k == 5
+        return store[:k]
+
+    monkeypatch.setattr(issue_dedup, "build_issue_vector_store", build_store)
+    monkeypatch.setattr(issue_dedup, "find_similar_issues", top_matches)
+    monkeypatch.setattr(
+        issue_dedup,
+        "format_similar_issues_comment",
+        lambda matches, *, max_items: json.dumps(matches[:max_items]),
+    )
+    exec(source, {})
+    report = tmp_path / "dedup_comment.md"
+    assert seen == [other_numbers]
+    assert json.loads(report.read_text(encoding="utf-8")) == other_numbers
+
+    report.unlink()
+    comments.write_text(json.dumps([{"body": issue_dedup.SIMILAR_ISSUES_MARKER}]), encoding="utf-8")
+    with pytest.raises(SystemExit) as outcome:
+        exec(source, {})
+    assert outcome.value.code == 0
+    assert seen == [other_numbers]
+    assert not report.exists()

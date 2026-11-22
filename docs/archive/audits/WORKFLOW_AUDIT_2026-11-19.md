@@ -35,7 +35,7 @@ The November audit issue mixed **per-run display names** with **stable workflow 
 | `docs/WORKFLOW_GUIDE.md` | No operator procedure changes beyond Maint 47 retirement (already in #4771) |
 | Consumer sync | Not required for this audit; ranking fix is Workflows-repo Maint 66 only |
 
-## Non-dynamic workflows below 50% decisive failure rate (corrected policy)
+## Non-dynamic workflows below 50% baseline success (evaluated under corrected policy)
 
 Rates below use the **corrected** Maint 66 policy: decisive outcomes = success + failure + timed_out + startup_failure + action_required; attention thresholds apply only when ≥5 decisive outcomes exist. The **Issue rate (old)** column is the **baseline success band** from the pre-fix Maint 66 ranking (`success / all runs`, including skipped and neutral in the denominator). Do not treat those percentages as decisive-failure rates; rows marked *volume noise* were false positives under that baseline with zero literal failures.
 

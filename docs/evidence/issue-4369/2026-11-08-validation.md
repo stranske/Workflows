@@ -1549,6 +1549,36 @@ API actor fields alone cannot identify whether a human or local automation
 initiated them. This initiating-process provenance remains **UNKNOWN**; the
 following Maint 71 bot dispatch and payload lineage are independently retained.
 
+The original run metadata and earlier diagnostic receipts remain available at their publication revision.
+
+| Archived receipt | SHA-256 |
+| --- | --- |
+| [Maint 68 run 42499084007](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-run-42499084007.json) | `557964e18168667b574e9685f4fa45b8121f34fd6fc4225fc8cda2688eb11dab` |
+| [Maint 71 run 42521606142](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-run-42521606142.json) | `55acf933f1b3c5ec3812344e4254b57241a2515e834c8c2d4cb5741b6d8557a8` |
+| [Maint 71 job and step receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-jobs-42521606142.json) | `21204a08e086b2982de84e282bb7d69568bb3c01ed8170c630af533705cde972` |
+| [Earlier Maint 68 run 42485644055](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-run-42485644055.json) | `af8547f9436a8ea26c5ba45d96e547fb02757ab325c06ed2a5662a569c69ba07` |
+| [Earlier Maint 68 target job](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-jobs-42485644055.json) | `6aa804d9629feba0e35e6bd6b827cb88524adc6f2b83d9580ec5ae20973d7221` |
+| [Reference Selftest run 42486833507](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-reference-run.json) | `f183f6b25deac6bd68e6724ae62680f18c03e9cf0e3015674bf2bd09ea23cd15` |
+| [Reference Selftest runner jobs](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-reference-runner-jobs.json) | `ffe4bbcb57e3c3a169aee4f87771d8dcf69db03d3cb1dc24962bed104a7f0b4a` |
+| [Open PR 4551 snapshot with synthetic test merge](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-source-pr.json) | `6a075034e2da76376f456935f7f0640b71175587c7186c94c4a562845d5bdc0d` |
+| [Initial issue 4369 comment observation](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-issue-4369-comments.json) | `1b408d59fe8e8b54842b5312a79929ead551341040f8a50886fa6c4931f767b3` |
+| [Restricted-runner Node diagnostic](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-historical-coding-stdin-node-full.log) | `0803897d6281f45f91ccbd4ed57b808ea53c995bdff996ee9a04c60d8b26bb6f` |
+| [Restricted-runner Python diagnostic](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-historical-coding-stdin-python-full.log) | `f4b57f5055b8291bf3a4d5ebae1472acb70200475c9f48ac04df383b81b9667a` |
+| [PR 2486 source and receiver blob API snapshots](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-blob-api-receipts.json) | `e1c2f67402e7d4a8c271e8d97717585063a1b64042a337c1e48c997b195ff0ab` |
+| [First following run 42499282783 artifact inventory](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-first-following-artifacts.json) | `d141cb5739543acebcf090b107f0dfe0591a37ee02325a40289ac8b6513ec19e` |
+| [First following run 42499282783 job inventory](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-first-following-jobs.json) | `69e4e3906de8973bd0bc47f5247f023de88eb2fb36b70699e10ea5b8d468d32b` |
+| [Terminal run 42521606142 artifact inventory](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-merge-artifacts.json) | `ee8645dee7968ed88db80d06a9fd1acdcfd26d0083d9bcaff36c1b77d7ebc4d3` |
+| [Maint 68 producer run 42499084007 snapshot](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-producer-run.json) | `d895b540daa023a95f9e10de6c60a6e4d71bb59b727a1a082dcf25a34f688b91` |
+
+Choose the filename from the archive link. If the revision is missing from a shallow checkout, run the fetch before reading the receipt:
+
+```sh
+revision=d17b088aa5c97e6b024101c39252480c622e8395
+git fetch --no-tags --depth=1 origin "$revision"
+receipt=4557-run-42499084007.json
+git show "$revision:docs/evidence/issue-4369/runtime-4550/$receipt"
+```
+
 The complete [source bytes](runtime-4550/4557-source-subscription_llm.py.txt) at
 source `bbfc6ae604c8e8c4021138c5efe964a368482957` and
 [consumer bytes](runtime-4550/4557-consumer-subscription_llm.py.txt) at actual
@@ -1567,7 +1597,7 @@ unresolved conversations to head `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`.
 Historical discussion **4434491702** is excluded from this disposition; this is
 not a claim that an outdated finding was explicitly resolved on the new head.
 
-The fresh [issue-4369 comment receipt](runtime-4550/4557-issue-4369-comments.json)
+The first [issue-4369 comment receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-issue-4369-comments.json)
 records all **49** comments through boundary **2026-11-08T20:55:40.624898+00:00**. REST returned
 one page of capacity 100 with 49 rows, proving pagination exhaustion; comment
 IDs and actual creation/update timestamps are retained. No newer scoped
@@ -1577,11 +1607,11 @@ sync-core handoff appears: last Portable-Alpha recurrence is comment 6649911684,
 Artifact IDs, original archive SHA-256 digests, members and targeted projection
 rules are in [artifact provenance](runtime-4550/4557-artifact-provenance.json).
 
-The historical restricted-runner Node and Python logs at `b2949e496` were read
-in full and retained as `4557-historical-coding-stdin-*.log`. Their nine failing
-Node files and Python progress without a terminal summary remain diagnostic
-leads, not reproduced supported-runner failures. No named test/source symbol
-was repaired from those historical failures.
+Both historical restricted-runner logs were captured while testing `b2949e496`.
+The archive table links their first publication at `d17b088aa5`.
+The Node log records nine failing files. The Python log ends during progress
+without a terminal summary. The supported-runner suites did not reproduce
+these failures, and no test or source symbol was changed in response.
 
 The temporary exact-command Selftest executor initially failed the hosted API
 wrapper guard (one failed attempt; [raw log](runtime-4550/4557-harness-api-guard-failure.log)).
@@ -1814,6 +1844,18 @@ The checkout guard and fixture-PR read passed before either command.
 [Run and runner receipt](runtime-4550/4557-exact-main-run.json) retains the job,
 steps, immutable identities, selected Python configuration blob, and artifact
 **13634718948**, `issue-4557-exact-main-acceptance`.
+
+The hosted artifact's [original fixture PR snapshot](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4557-exact-main/fixture-pr.json)
+records PR #4551 at acceptance time. Its SHA-256 is
+`574b698059e37a0698c3153d70e4085a833e5e641ae23f1ed93bf42f5d102d21`.
+The [fixture snapshot used by the current replay](runtime-4550/4558-fixture-pr.json)
+records the same head and merge, with later comment-count and update-time metadata.
+If the original revision is missing from a shallow checkout, fetch it before reading the file:
+
+```sh
+git fetch --no-tags --depth=1 origin d17b088aa5c97e6b024101c39252480c622e8395
+git show d17b088aa5c97e6b024101c39252480c622e8395:docs/evidence/issue-4369/runtime-4550/4557-exact-main/fixture-pr.json
+```
 
 | Exact command | Exit | External bound | Wall seconds | Complete result |
 | --- | --- | --- | --- | --- |

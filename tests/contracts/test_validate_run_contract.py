@@ -841,6 +841,36 @@ def test_self_smoke_loads_every_bundled_schema(capsys) -> None:
         assert f"PASS schema loads + valid Draft202012: {name}" in out, name
 
 
+@pytest.mark.parametrize("omitted", ["unsafe_prompt_inline.json", "valid_manifest.json"])
+def test_self_smoke_can_require_bundled_fixtures(omitted, tmp_path, monkeypatch, capsys) -> None:
+    mod = _import_validator()
+    monkeypatch.setattr(mod, "__file__", str(tmp_path / "scripts" / VALIDATOR.name))
+    args = [
+        "--self-smoke",
+        "--schema-dir",
+        str(SCHEMA_DIR),
+        "--registry",
+        str(REGISTRY),
+        "--repo",
+        PRODUCER_REPO,
+    ]
+    assert mod.main(args) == 0
+    assert "schema-only self-smoke" in capsys.readouterr().out
+
+    bundled = tmp_path / "tests" / "fixtures" / "backplane"
+    bundled.mkdir(parents=True)
+    for path in FIXTURES.glob("*.json"):
+        if path.name != omitted:
+            (bundled / path.name).write_bytes(path.read_bytes())
+    strict = [*args, "--require-bundled-fixtures"]
+    assert mod.main(strict) == 1
+    assert f"FAIL missing bundled fixtures: {omitted}" in capsys.readouterr().out
+
+    (bundled / omitted).write_bytes((FIXTURES / omitted).read_bytes())
+    assert mod.main(strict) == 0
+    assert "PASS fixture unsafe_prompt_inline.json:" in capsys.readouterr().out
+
+
 def test_self_smoke_fails_on_an_empty_schema_dir(tmp_path, capsys) -> None:
     """An empty schema dir must fail loudly, not report a vacuous pass."""
     mod = _import_validator()

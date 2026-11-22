@@ -148,7 +148,7 @@ Issue: "Add user authentication"
 | `agents:apply-suggestions` | Issue | Apply optimization suggestions |
 | `agents:auto-pilot` | Issue | Full end-to-end automation |
 | `agents:capability-check` | Issue | Check if agent can complete |
-| `agents:decompose` | Issue | Break into smaller issues |
+| `agents:decompose` | Issue | Suggest subtasks in a comment |
 | `agents:dedup` | Issue | Check for duplicates |
 | `agents:auto-label` | Issue | Apply appropriate labels |
 | `agents:paused` | PR | Pause keepalive/agent work |
@@ -293,17 +293,11 @@ Before assigning an agent, validates:
 ---
 
 #### `agents:decompose` - Break Down Large Issues
-**Splits complex issues into smaller sub-issues**
+**Posts suggested subtasks on the original issue**
 
-For issues with >5 tasks or large scope:
-1. Analyzes tasks and dependencies
-2. Creates multiple smaller issues
-3. Links them together
-4. Each sub-issue is agent-ready
+Apply the label when an issue involves too much work for one PR. Review the Task Decomposition comment, then copy the suggestions into the issue's Tasks section or create and link child issues manually.
 
-**Use When:** Issue feels too large for one PR
-
-**Result:** Original issue gets sub-task links, new issues created
+**Result:** A comment when the workflow generates subtasks. After successful processing, the workflow attempts to remove the trigger label, including when it has no suggestions.
 
 ---
 
@@ -626,10 +620,11 @@ Add all three labels before or after merge
 
 **For large features:**
 ```
-1. Create meta-issue with full scope
-2. Add `agents:decompose` label
-3. Review created sub-issues
-4. Add `agent:codex` to each sub-issue individually
+1. Create a tracking issue with the full scope
+2. Add the `agents:decompose` label
+3. Review the suggested subtasks in the Task Decomposition comment
+4. Copy the suggestions into Tasks or create and link child issues manually
+5. Add `agent:codex` to individual child issues when they are ready
 ```
 
 **For stepwise development:**
