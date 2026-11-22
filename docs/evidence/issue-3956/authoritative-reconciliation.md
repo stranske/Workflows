@@ -68,8 +68,26 @@ pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-juni
 never substituted for missing destinations. ZIP SHA256 is
 `fedd97c894cb8466ca28afe22ffef76d184f5bd79dd00ed538f84f3792528312`.
 Exact revisions, configuration/source/test hashes, job/artifact identifiers,
-command and counts are appended to [hosted-coverage-receipt.json](hosted-coverage-receipt.json),
+command and counts are appended to [hosted-coverage-receipt.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/hosted-coverage-receipt.json),
 preserving its older `f77be1eee…` receipt fields as history.
+
+The original hosted receipt, hosted Gate readback and local comparison remain
+readable through the immutable links in this guide. The same three JSON files are in
+[`coverage-receipts.tar.gz`](coverage-receipts.tar.gz) for offline reading.
+From the repository root, verify the packet before printing a member. Use its
+original basename to choose another receipt.
+
+```sh
+(
+  archive=docs/evidence/issue-3956/coverage-receipts.tar.gz
+  expected=c711fbdaffa3992e4af835c0dfa5f92a5f214a2bfbbcea32d298f4a3b6762bf1
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Coverage receipt archive checksum failed' >&2
+    exit 1
+  fi
+  tar -xOzf "$archive" hosted-coverage-receipt.json
+)
+```
 
 The inspected baseline `94d9f952dad19f4f8048ae82bb8301bc6baf6ef5` Selftest run
 `38995688471`, job `117287656854`, uses Python 3.14.8, an explicit
@@ -334,7 +352,7 @@ with each revision's source, tests, and support modules. Command:
 `coverage json` reads that run's data to obtain **missing branches**, rather than
 substituting the terminal report's partial-branch count. Full output, source/test
 hashes, missing lines/arcs, configuration revision and summaries are in
-[local-coverage-comparison.json](local-coverage-comparison.json).
+[local-coverage-comparison.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/local-coverage-comparison.json).
 
 | Focused local snapshot | Passed | Statements | Missing statements | Branches | Missing branches | Missing statements + branches | Combined |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -626,11 +644,11 @@ The historical receipt records download and inspection of
 for `f77be1eee`: 851 statements, 0 missing statements, 386 branches, **1 missing
 branch**, 99.92%. ZIP SHA256:
 `540949b4d94392b5d2daafc794f9acc6c1011155ac0cc24bf8f1bb6d635f4136`.
-Summary in [hosted-coverage-receipt.json](hosted-coverage-receipt.json).
+Summary in [hosted-coverage-receipt.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/hosted-coverage-receipt.json).
 
 The current publication head is `closer/issue-3956` at `9eaf43313…`, not the
 historical `closer-r3/issue-3956` branch. Fresh hosted job-log inspection is recorded
-separately in [hosted-gate-readback.json](hosted-gate-readback.json):
+separately in [hosted-gate-readback.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/hosted-gate-readback.json):
 
 | Tested revision | Gate run | Python 3.14 job | Coverage artifact | Hosted pytest result |
 | --- | --- | --- | --- | --- |
