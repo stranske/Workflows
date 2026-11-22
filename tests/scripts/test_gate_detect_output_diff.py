@@ -317,20 +317,14 @@ def test_main_preserves_json_report_shape_for_invalid_refs(
 
 def test_template_gate_detect_outputs_expand_known_green_minimal_baseline() -> None:
     candidate = REPO_ROOT / "templates/consumer-repo/.github/workflows/pr-00-gate.yml"
-    baseline = REPO_ROOT / "tests/fixtures/workflows/pr-00-gate-known-green-minimal.yml"
+    baseline = REPO_ROOT / "tests/fixtures/pr-00-gate-known-green-minimal.yml"
 
     report = diff.compare_gate_detect_outputs(candidate, baseline)
 
-    candidate_outputs = set(report["added_outputs_vs_baseline"]) | {
-        "doc_only",
-        "run_core",
-        "reason",
-    }
+    assert report["removed_outputs_vs_baseline"] == []
     assert {
-        "doc_only",
-        "run_core",
         "is_template_change",
         "is_test_only",
         "affected_consumers",
         "classification_rationale",
-    } - candidate_outputs == set()
+    } <= set(report["added_outputs_vs_baseline"])
