@@ -214,9 +214,80 @@ passed, 25 skipped, 3 xfailed**, in 420.20s. Its configured JSON/XML reports wer
 written directly by pytest-cov, with no recovery. All 18 new cases pass in that
 run. Comparing complete JUnit inventories finds **no new failing nodes**; two
 instrumentation tests and the baseline internal-error testcase are gone from the
-failure inventory. `failure-comparison.json` retains every baseline/final failure
-node. This confirms the scope of local regressions without asserting that the
+failure inventory. The [recovered Gate comparison](#restore-the-derived-json-views)
+lists every baseline and final failure node. This confirms the scope of local
+regressions without asserting that the
 83 pre-existing failures can be ignored by CI.
+
+## Restore the derived JSON views
+
+Read the [original target-before inventory](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/target-before/inventory.json)
+and [original Gate failure comparison](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/failure-comparison.json) on GitHub.
+The target inventory comes from the three script entries in the bounded run's
+coverage JSON. The Gate comparison uses both complete Gate JUnits and includes
+86 baseline failures or errors, 83 final, zero new and three resolved.
+
+Run this command from the repository root to restore both views offline.
+It prints their hashes and paths under a temporary directory.
+
+```bash
+python - <<'PY'
+import gzip
+import hashlib
+import json
+import tempfile
+from pathlib import Path
+from xml.etree import ElementTree
+
+packet = Path("docs/evidence/issue-4502")
+with gzip.open(packet / "target-before/coverage.json.gz", "rt", encoding="utf-8") as source:
+    files = json.load(source)["files"]
+
+inventory = {}
+for module in ("validate_run_contract", "check_consumer_sync_drift", "aggregate_agent_metrics"):
+    name = f"scripts/{module}.py"
+    data = files[name]
+    inventory[name] = {
+        "summary": data["summary"],
+        "missing_statements": data["missing_lines"],
+        "missing_branches": data["missing_branches"],
+    }
+
+def failed_cases(phase):
+    with gzip.open(packet / phase / "pytest-junit.xml.gz") as source:
+        root = ElementTree.parse(source)
+    return {
+        f"{case.attrib['classname']}::{case.attrib['name']}"
+        for case in root.iter("testcase")
+        if case.find("failure") is not None or case.find("error") is not None
+    }
+
+before, after = failed_cases("gate-before"), failed_cases("gate-after")
+comparisons = {
+    "baseline_failures": sorted(before),
+    "final_failures": sorted(after),
+    "new_failure_nodes": sorted(after - before),
+    "resolved_failure_nodes": sorted(before - after),
+}
+
+# Read all inputs before creating the output directory.
+output = Path(tempfile.mkdtemp(prefix="issue-4502-views-"))
+for name, data in (
+    ("target-before/inventory.json", inventory),
+    ("failure-comparison.json", comparisons),
+):
+    path = output / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = (json.dumps(data, indent=2) + "\n").encode("utf-8")
+    path.write_bytes(payload)
+    print(f"{hashlib.sha256(payload).hexdigest()}  {path}")
+PY
+```
+
+The restored `target-before/inventory.json` has SHA-256
+`b56ea6d0c4d554053533917cc84bc3c4641b69cd327aee35d149a647a0ab6700`.
+The restored `failure-comparison.json` has SHA-256
+`0bf6c651e3baa58b82c72137955a09e028458afd69762afc578809126456f0f2`.
 
 ## Formatting validation
 
