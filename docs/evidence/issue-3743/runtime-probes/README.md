@@ -152,17 +152,30 @@ The three earlier `revalidation/replay`, `replay-validation/replay`, and
 `module-identity-validation/replay` directories are retained byte-for-byte in
 their sibling `replay-artifacts.json.gz` files. This reduces the PR below the
 300-path Actions-filter evidence limit; it does not remove a test or change a
-recorded outcome. Each archive is a gzip JSON object keyed by original relative
-filename, containing `base64`, `bytes`, and `sha256`. Before reading a historical
-nested manifest or transcript, reconstruct its directory with:
+recorded outcome. In `replay-validation/`, `driver-phase-artifacts.json.gz`
+holds the 24 command receipts, output streams and JUnit files for the three
+driver controls. The summary `driver-controls.json` and historical manifest
+remain directly readable.
+
+Each archive is gzip JSON keyed by original relative filename, with `base64`,
+`bytes`, and `sha256`. From a clean checkout, restore the named paths with:
 
 ```python
 import base64, gzip, hashlib, json
 from pathlib import Path
 root = Path("docs/evidence/issue-3743/runtime-probes")
-for archive in root.glob("*/replay-artifacts.json.gz"):
+driver = root / "replay-validation/driver-phase-artifacts.json.gz"
+for archive in [*root.glob("*/replay-artifacts.json.gz"), driver]:
+    records = json.loads(gzip.decompress(archive.read_bytes()))
     destination = archive.parent / "replay"
-    for name, record in json.loads(gzip.decompress(archive.read_bytes())).items():
+    if archive == driver:
+        destination = archive.parent
+        manifest = json.loads((destination / "manifest.json").read_text())
+        phases = {name: sha for name, sha in manifest.items()
+                  if name.startswith(("driver-0-", "driver-1-", "driver-2-"))}
+        if {name: record["sha256"] for name, record in records.items()} != phases:
+            raise ValueError("driver phase archive differs from historical manifest")
+    for name, record in records.items():
         member = Path(name)
         if member.is_absolute() or ".." in member.parts:
             raise ValueError("unsafe archive member")
