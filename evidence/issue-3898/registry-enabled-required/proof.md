@@ -2,6 +2,8 @@
 
 Root: stranske/Workflows#3898. Base: a09890634bf24c44a021d75b6aa484a31e5fb54a.
 
+The original RED logs are available in the [RED evidence archive](#recover-the-three-historical-red-logs).
+
 Before repair, `agents.set(key, true)` silently admitted an agent without its own
 `enabled` field. The new 160-case matrix executed all eight production parser
 copies and produced **40 failed / 120 passed** on the unchanged source. Missing
@@ -72,3 +74,28 @@ The expected SHA-256 is
 `0b8760c96a74f175c43a6aa47807223eb04417f9fba6357099222ea0ba9c28dc`.
 The [rebased log at its original path](https://github.com/stranske/Workflows/blob/f23c81b74f90789d98f91cec80d8cdec327d3915/evidence/issue-3898/registry-enabled-required/registry-enabled-rebased-validation.log)
 also remains available in the original merge.
+
+## Recover the three historical RED logs
+
+The [RED evidence archive](registry-enabled-red-evidence.tar.gz) contains the
+three original log files, with their original names and bytes. Each records
+a distinct validation stage.
+
+| Stage | Recorded outcome | Original log |
+| --- | --- | --- |
+| Original parser accepts missing flags | 40 failed, 120 passed | [registry-enabled-red.log](https://github.com/stranske/Workflows/blob/f23c81b74f90789d98f91cec80d8cdec327d3915/evidence/issue-3898/registry-enabled-required/registry-enabled-red.log) |
+| Native review catches stale corrective writes | 26 failed, 453 deselected | [registry-enabled-direct-binding-red.log](https://github.com/stranske/Workflows/blob/f23c81b74f90789d98f91cec80d8cdec327d3915/evidence/issue-3898/registry-enabled-required/registry-enabled-direct-binding-red.log) |
+| REST run path includes a ref suffix | 4 failed, 48 passed, 453 deselected | [registry-enabled-rest-path-red.log](https://github.com/stranske/Workflows/blob/f23c81b74f90789d98f91cec80d8cdec327d3915/evidence/issue-3898/registry-enabled-required/registry-enabled-rest-path-red.log) |
+
+Read or search one log offline without creating a file:
+
+```sh
+tar -xzOf registry-enabled-red-evidence.tar.gz registry-enabled-red.log | grep -F '40 failed, 120 passed'
+```
+
+For all 12 original hashes in receipt.json, run the rebased-log copy command
+above and extract the three RED logs in a disposable copy of this directory:
+
+```sh
+tar -xzf registry-enabled-red-evidence.tar.gz
+```
