@@ -10,12 +10,32 @@ const {
   isDockerRelated,
   isWorkflowFile,
 } = require('../detect-changes');
+const { classifyFiles, loadConfig } = require('../../actions/path-classifier/classify.js');
+const { resolve } = require('node:path');
 
 test('classifies documentation files', () => {
   assert.equal(isDocumentationFile('docs/README.md'), true);
   assert.equal(isDocumentationFile('guides/setup.txt'), true);
   assert.equal(isDocumentationFile('src/app.py'), false);
   assert.equal(isDocumentationFile('README'), true);
+});
+
+test('normal Gate selects each committed source-pin surface', () => {
+  const config = loadConfig(resolve(__dirname, '../../path-classification.yml'));
+  const pinPaths = [
+    '.github/workflows/autofix-versions.env',
+    '.pre-commit-config.yaml',
+    'pyproject.toml',
+    'requirements.lock',
+    'templates/consumer-repo/.github/workflows/autofix-versions.env',
+    'templates/integration-repo/.github/workflows/autofix-versions.env',
+  ];
+  for (const path of pinPaths) {
+    assert.equal(classifyChanges([path]).docOnly, false, path);
+    assert.equal(classifyFiles([path], config).outputs['is-docs-only'], 'false', path);
+  }
+  assert.equal(classifyChanges(['README.md']).docOnly, true);
+  assert.equal(classifyFiles(['README.md'], config).outputs['is-docs-only'], 'true');
 });
 
 test('detects docker related files', () => {

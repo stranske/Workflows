@@ -504,9 +504,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 ### Maintenance & repo health
 - **Gate summary job** – the `summary` job within `pr-00-gate.yml` consolidates
   CI results and uploads the Gate artifacts.
-- **Maint Sync Pyproject from Env** – `.github/workflows/maint-sync-env-from-pyproject.yml`
-  keeps `pyproject.toml`, templates, and direct `requirements.lock` pins aligned
-  to the canonical `autofix-versions.env` source used by downstream consumers.
 - **Maint Coverage Guard** – `.github/workflows/maint-coverage-guard.yml`
   downloads the latest Gate coverage payload plus the trend artifact and
   compares them against `config/coverage-baseline.json`, surfacing notices when
@@ -536,8 +533,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   is a manual workflow that verifies LLM provider API keys (GitHub Models, OpenAI)
   are configured correctly. Used to test the task completion analysis fallback chain.
 - **Maint Sync pyproject.toml from versions.env** – `.github/workflows/maint-sync-env-from-pyproject.yml`
-  syncs `pyproject.toml`, templates, and direct `requirements.lock` pins from
-  canonical `autofix-versions.env` on main-branch updates or manual dispatch.
+  repairs source pin drift on a maintainer-selected topic branch by manual dispatch.
+  It aligns `pyproject.toml`, templates, and direct `requirements.lock` pins to
+  `autofix-versions.env` and pushes changes to that topic. Gate checks alignment before merge.
 - **Maint 52 Validate Workflows** – `.github/workflows/maint-52-validate-workflows.yml`
   dry-parses every workflow YAML using `yq`, hydrates the shared actionlint
   allowlist, and runs `actionlint` so malformed syntax or unapproved action
@@ -722,7 +720,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Maint 50 Tool Version Check** (`maint-50-tool-version-check.yml`, maintenance bucket) | `schedule` (Mondays 8:00 AM UTC), `workflow_dispatch` | Publish read-only PyPI freshness evidence for the canonical dev-tool pin set. | ⚪ Scheduled | [Maint 50 version checks](https://github.com/stranske/Workflows/actions/workflows/maint-50-tool-version-check.yml) |
 | **Auto-label dependency PRs** (`maint-auto-label-dep-prs.yml`, maintenance bucket) | `pull_request_target` (`opened`) | Apply the `agents:allow-change` label to dependency-bot PRs (Dependabot + Renovate) so protected-workflow changes can be reviewed without manual label work. | ⚪ Automatic on PR open | [Auto-label runs](https://github.com/stranske/Workflows/actions/workflows/maint-auto-label-dep-prs.yml) |
 | **Auto-lock dependency PRs** (`maint-auto-lock-deps.yml`, maintenance bucket) | `pull_request` (dependency-bot branches `dependabot/**` + `renovate/**`, lock-input changes) | Regenerate `requirements.lock` by re-running the command recorded in the lock header when a dependency bot updates an input, committing the refreshed lock back to the PR branch. Workflows-local backstop to the fleet Renovate pip-compile manager. | ⚪ Automatic on dependency-bot PRs | [Auto-lock runs](https://github.com/stranske/Workflows/actions/workflows/maint-auto-lock-deps.yml) |
-| **Maint Sync pyproject.toml from versions.env** (`maint-sync-env-from-pyproject.yml`, maintenance bucket) | `push` (`main`, autofix pin/template/lock paths), `workflow_dispatch` | Sync `pyproject.toml`, templates, and direct `requirements.lock` pins from canonical `autofix-versions.env` after changes land. | ⚪ Automatic on main | [Maint sync env runs](https://github.com/stranske/Workflows/actions/workflows/maint-sync-env-from-pyproject.yml) |
+| **Maint Sync pyproject.toml from versions.env** (`maint-sync-env-from-pyproject.yml`, maintenance bucket) | `workflow_dispatch` on a selected non-default branch | Align source files to `autofix-versions.env` and commit any repairs back to that branch. Gate checks source alignment before merge. | ⚪ Manual topic-branch repair | [Maint sync env runs](https://github.com/stranske/Workflows/actions/workflows/maint-sync-env-from-pyproject.yml) |
 | **Maint 52 Validate Workflows** (`maint-52-validate-workflows.yml`, maintenance bucket) | `pull_request`, `push` (`main`) | Parse every workflow file with `yq`, honour the Actionlint allowlist, and fail fast when syntax errors or lint violations appear. | ⚪ Automatic on PR/main | [Maint 52 workflow validations](https://github.com/stranske/Workflows/actions/workflows/maint-52-validate-workflows.yml) |
 | **Maint 52 Sync Dev Versions** (`maint-52-sync-dev-versions.yml`, maintenance bucket) | post-settled-source-commit `push` (`autofix-versions.env` on `main`), drift catch-up `schedule`, `workflow_dispatch` | Propagate already-validated canonical source pins from `autofix-versions.env` to consumer `pyproject.toml`/lock files; never independently proposes newer PyPI versions. | ⚪ Propagation after settled source | [Sync dev versions runs](https://github.com/stranske/Workflows/actions/workflows/maint-52-sync-dev-versions.yml) |
 | **Maint Auto-Update PyPI Versions** (`maint-auto-update-pypi-versions.yml`, maintenance bucket) | `schedule` (Mondays 03:00 UTC), `workflow_dispatch` | Sole source proposal for routine dev-tool pins; opens or refreshes one weekly PR, with an explicit security override. | ⚪ Scheduled | [Auto-update PyPI versions runs](https://github.com/stranske/Workflows/actions/workflows/maint-auto-update-pypi-versions.yml) |
