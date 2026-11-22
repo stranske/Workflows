@@ -139,3 +139,61 @@ def test_health_67_fails_on_multiple_yaml_documents(tmp_path, template, receiver
     with pytest.raises(subprocess.CalledProcessError):
         _compare_ci(tmp_path, template, receiver + "\n---\njobs: {}\n")
     assert "Expected one jobs mapping" in capfd.readouterr().err
+
+
+def test_health_67_version_and_input_checks_pass_for_current_templates(tmp_path, receiver):
+    versions_rel = Path(".github/workflows/autofix-versions.env")
+    canonical_versions = (ROOT / versions_rel).read_text(encoding="utf-8")
+    template_versions = (ROOT / "templates/integration-repo" / versions_rel).read_text(
+        encoding="utf-8"
+    )
+    for relative, text in (
+        (Path("workflows") / versions_rel, canonical_versions),
+        (Path("workflows/templates/integration-repo") / versions_rel, template_versions),
+        (Path("integration-tests") / versions_rel, canonical_versions),
+        (Path("integration-tests") / CI, receiver),
+    ):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = {
+        step["id"]: step["run"] for step in workflow["jobs"]["check-sync"]["steps"] if "id" in step
+    }
+    output = tmp_path / "outputs"
+    output.touch()
+    summary = tmp_path / "summary"
+    for step_id in ("compare-versions", "compare-inputs"):
+        subprocess.run(
+            ["bash", "-e", "-o", "pipefail", "-c", steps[step_id]],
+            cwd=tmp_path,
+            env={
+                **os.environ,
+                "GITHUB_OUTPUT": str(output),
+                "GITHUB_STEP_SUMMARY": str(summary),
+            },
+            check=True,
+            timeout=10,
+        )
+    assert output.read_text(encoding="utf-8") == ""
+    summary_text = summary.read_text(encoding="utf-8")
+    assert "Versions in sync" in summary_text
+    assert "All input names valid" in summary_text
+
+
+def test_health_67_drift_issue_steps_never_mutate_issues_on_pull_requests():
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = {step["name"]: step for step in workflow["jobs"]["check-sync"]["steps"]}
+
+    close_cond = str(steps["Close resolved drift issue"]["if"])
+    create_step = steps["Create drift issue"]
+    create_cond = " ".join(str(create_step["if"]).split())
+
+    assert "github.event_name != 'pull_request'" in close_cond
+    assert "!cancelled() && github.event_name != 'pull_request' && (" in create_cond
+    assert create_cond.rstrip(" }").endswith(")")
+
+    script = str(create_step["with"]["script"])
+    assert "maint-69-sync-integration-repo.yml" in script
+    assert "maint-65-sync-label-docs.yml" in script
