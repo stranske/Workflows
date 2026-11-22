@@ -70,15 +70,30 @@ def scan_weak_test_files(file_texts: Mapping[str, str]) -> list[str]:
     ]
 
 
-def _weak_added_tests(files: list[str]) -> list[str]:
+def _read_file_at(file_name: str, head: str) -> str | None:
+    # The working tree only matches the scanned commit when head is HEAD; any
+    # other ref must be read from git or the scan grades the wrong content.
+    if head == "HEAD":
+        path = Path(file_name)
+        return path.read_text(encoding="utf-8") if path.is_file() else None
+    completed = subprocess.run(
+        ["git", "show", f"{head}:{file_name}"],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    return completed.stdout if completed.returncode == 0 else None
+
+
+def _weak_added_tests(files: list[str], head: str = "HEAD") -> list[str]:
     file_texts: dict[str, str] = {}
     for file_name in files:
         if not is_test_file(file_name):
             continue
-        path = Path(file_name)
-        if not path.is_file():
+        text = _read_file_at(file_name, head)
+        if text is None:
             continue
-        file_texts[file_name] = path.read_text(encoding="utf-8")
+        file_texts[file_name] = text
     return scan_weak_test_files(file_texts)
 
 
@@ -96,7 +111,7 @@ def scan_secret_patterns(diff_text: str) -> list[str]:
 
 def check_diff_quality(base: str, head: str) -> list[str]:
     failures: list[str] = []
-    weak_tests = _weak_added_tests(_changed_files(base, head))
+    weak_tests = _weak_added_tests(_changed_files(base, head), head)
     if weak_tests:
         failures.append(
             "test-quality: added/modified test files without literal expected assertions: "

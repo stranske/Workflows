@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -110,7 +111,7 @@ def test_git_adapters_and_quality_failure_paths(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(check_gate_diff_quality, "_changed_files", lambda *_: [test_file.name])
     monkeypatch.setattr(check_gate_diff_quality, "_full_diff", lambda *_: "+safe = 'value'\n")
 
-    assert check_gate_diff_quality.check_diff_quality("base", "head") == [
+    assert check_gate_diff_quality.check_diff_quality("base", "HEAD") == [
         f"test-quality: added/modified test files without literal expected assertions: {test_file.name}"
     ]
 
@@ -139,3 +140,50 @@ def test_git_adapters_and_missing_test_files(monkeypatch, tmp_path) -> None:
     assert check_gate_diff_quality._weak_added_tests([str(tmp_path / "test_missing.py")]) == []
     assert calls[0][0] == ["git", "diff", "--name-only", "--diff-filter=AM", "base...head"]
     assert calls[1][0] == ["git", "diff", "--no-ext-diff", "--unified=0", "base...head"]
+
+
+def _git(repo: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+        cwd=repo,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    return completed.stdout.strip()
+
+
+def test_check_diff_quality_reads_test_files_from_head_not_worktree(tmp_path, monkeypatch) -> None:
+    # Regression for #4929: `--head <sha>` graded the checked-out copy of each
+    # test file, so a local reproduction against another commit was wrong.
+    repo = tmp_path
+    _git(repo, "init", "-q")
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-q", "-m", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+
+    test_file = repo / "tests" / "test_links.py"
+    test_file.parent.mkdir()
+    test_file.write_text("def test_links():\n    assert not dangling\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "weak")
+    weak = _git(repo, "rev-parse", "HEAD")
+
+    test_file.write_text("def test_links():\n    assert dangling == []\n", encoding="utf-8")
+    _git(repo, "commit", "-q", "-am", "strong")
+    strong = _git(repo, "rev-parse", "HEAD")
+    monkeypatch.chdir(repo)
+
+    weak_failure = [
+        "test-quality: added/modified test files without literal expected assertions: "
+        "tests/test_links.py"
+    ]
+    # Worktree holds the strong version; the weak commit must still fail.
+    assert check_gate_diff_quality.check_diff_quality(base, weak) == weak_failure
+    assert check_gate_diff_quality.check_diff_quality(base, strong) == []
+
+    # Worktree holds the weak version; the strong commit must still pass.
+    _git(repo, "checkout", "-q", weak)
+    assert check_gate_diff_quality.check_diff_quality(base, strong) == []
+    assert check_gate_diff_quality.check_diff_quality(base, "HEAD") == weak_failure
