@@ -1060,24 +1060,13 @@ Consumer Gate and branch rules govern pull requests in this repository.
 ## Maintenance Operations
 
 ### `maint-39-test-llm-providers.yml` - Test LLM Providers
-**Purpose:** Validates all LLM API integrations
+**Purpose:** Smoke-test the configured OpenAI credential with one task-completion analysis.
 
-**Trigger:** Daily scheduled or manual
+**Trigger:** Manual dispatch with `all` or `openai`. Both options run the OpenAI smoke test when a key is configured.
 
-**Tests:**
-- OpenAI API
-- Anthropic API
-- Google AI API
-- Azure OpenAI
-- Other configured providers
+**Availability:** The job logs which built-in providers are locally available. This check makes no API requests.
 
-**Checks:**
-- API keys valid
-- Models accessible
-- Rate limits okay
-- Response quality
-
-**Result:** Status report with any issues
+**Result:** The job summary reports whether the OpenAI test passed, skipped, failed, or was cancelled. A missing OpenAI key skips the network test and leaves the job successful if all other steps succeed.
 
 ---
 

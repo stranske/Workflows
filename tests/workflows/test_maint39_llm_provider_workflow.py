@@ -1,6 +1,7 @@
 """Maint 39 must honor the configured provider retirement on real dispatch input."""
 
 import ast
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -125,3 +126,33 @@ def test_maint39_availability_smoke_uses_current_provider_registry() -> None:
     availability = check_providers()
     assert {"openai", "anthropic", "regex-fallback"} <= availability.keys()
     assert availability["regex-fallback"] is True
+
+
+@pytest.mark.parametrize(
+    ("outcome", "expected"),
+    [
+        ("success", "OpenAI provider test passed."),
+        ("skipped", "OpenAI provider test skipped."),
+        ("failure", "OpenAI provider test failed."),
+        ("cancelled", "OpenAI provider test cancelled."),
+    ],
+)
+def test_maint39_summary_reports_the_openai_step_outcome(
+    outcome: str, expected: str, tmp_path: Path
+) -> None:
+    workflow = yaml.safe_load(WORKFLOW.read_text())
+    steps = workflow["jobs"]["test-providers"]["steps"]
+    probe = next(step for step in steps if step["name"] == "Test OpenAI")
+    summary = next(step for step in steps if step["name"] == "Summary")
+    summary_path = tmp_path / "summary.md"
+    result = subprocess.run(
+        ["bash", "-e", "-c", summary["run"]],
+        cwd=tmp_path,
+        env={"OPENAI_OUTCOME": outcome, "GITHUB_STEP_SUMMARY": str(summary_path)},
+        check=False,
+    )
+    assert result.returncode == 0
+    assert summary_path.read_text().splitlines() == ["## LLM Provider Test Results", "", expected]
+    assert summary["env"]["OPENAI_OUTCOME"] == f"${{{{ steps.{probe['id']}.outcome }}}}"
+    assert summary["if"] == "${{ always() }}"
+    assert probe.get("continue-on-error", False) is False
