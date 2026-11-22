@@ -1247,6 +1247,22 @@ unchanged head. The prepared local changes require a writer-capable run.
 
 ## Supplemental guard-source regressions (2026-11-07 UTC)
 
+The four guard receipts linked below are also in [`guard-receipts.tar.gz`](guard-receipts.tar.gz) for
+offline reading. From the repository root, verify the archive before printing
+a member. Substitute the original basename to read another receipt.
+
+```sh
+(
+  archive=docs/evidence/issue-3956/guard-receipts.tar.gz
+  expected=a6dd4f4a7765143c381c7560a1d9ea042911846ce78d9341af4b1cc2c5366007
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Guard receipt archive checksum failed' >&2
+    exit 1
+  fi
+  tar -xOzf "$archive" guard-payload-source-proof.json
+)
+```
+
 The requested `gh pr view 4401 --repo stranske/Workflows --json
 state,headRefOid,mergeCommit,isDraft,statusCheckRollup` exited 1 connecting to
 `api.github.com`. Connected metadata still reports OPEN, `draft=false`,
@@ -1268,7 +1284,7 @@ unchanged. These cases supplement the existing repair rather than replace it.
 
 Local source revision: `3667ba73cc170b510fe1c5fcf665777bf962e9e3` plus the
 uncommitted new test overlay. The complete supplemental mutation mapping is
-[guard-payload-source-proof.json](guard-payload-source-proof.json); it records
+[guard-payload-source-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/guard-payload-source-proof.json); it records
 both parameter node IDs, full source revision, source/test/configuration hashes,
 mutation text and hash, restored source hash, commands and full RED/GREEN output.
 Each case independently fails with the relevant reason assertion when source
@@ -1344,7 +1360,7 @@ acceptance criterion. It fails by assertion against that immutable main-base
 source and passes against the existing repair, without changing production
 source or the retained test file. Full isolated RED/GREEN outputs, both source
 revisions/hashes, unchanged configuration hash, and the new test-overlay hash
-are in [guard-delivery-contract-proof.json](guard-delivery-contract-proof.json).
+are in [guard-delivery-contract-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/guard-delivery-contract-proof.json).
 The output was inspected in full. This new receipt supplements the earlier
 two payload-source receipts, which retain their original test-overlay hash;
 none is relabeled as current hosted or delivered-main evidence.
@@ -1414,7 +1430,7 @@ The new supplemental test `test_guard_stops_after_blocked_verification` verifies
 that a blocked first payload returns its source and prevents scanning the issue
 or log. The original three supplemental cases retain their names and bodies;
 the retained generator test set and production implementation are unchanged.
-[guard-first-payload-proof.json](guard-first-payload-proof.json) identifies the
+[guard-first-payload-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/guard-first-payload-proof.json) identifies the
 source revision above and test-overlay/configuration hashes. Its isolated mutation
 adds an extra issue scan before the blocked return: the new test fails specifically
 at the scan-list assertion (exit 1), then passes after restoration (exit 0).
@@ -1474,7 +1490,7 @@ Production source, the 199 retained generator tests, and the Node tests remain
 unchanged. These supplemental cases advance local regression verification;
 they do not deliver the existing repair to main.
 
-[guard-clean-payload-proof.json](guard-clean-payload-proof.json) records the
+[guard-clean-payload-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/guard-clean-payload-proof.json) records the
 full source revision, source/configuration hashes, test-overlay hash, individual
 commands, mutation replacements and complete RED/GREEN output. All six receipts
 were read in bounded pairs 0–1, 2–3 and 4–5. Receipts 0/2 add an unexpected
