@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import yaml
+
 AUTO_UPDATE = Path(".github/workflows/maint-auto-update-pypi-versions.yml")
 MAINT50 = Path(".github/workflows/maint-50-tool-version-check.yml")
 MAINT52 = Path(".github/workflows/maint-52-sync-dev-versions.yml")
@@ -82,10 +84,18 @@ def test_source_lane_commits_managed_precommit_repairs():
     assert create_block.count(".pre-commit-config.yaml") >= 2
 
 
-def test_source_alignment_runs_when_managed_precommit_revisions_change():
-    text = SYNC_ENV.read_text(encoding="utf-8")
+def test_source_alignment_dispatch_repairs_only_a_selected_topic_branch():
+    workflow = yaml.load(SYNC_ENV.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    assert set(workflow["on"]) == {"workflow_dispatch"}
 
-    assert "      - '.pre-commit-config.yaml'" in text
+    job = workflow["jobs"]["sync-source-files"]
+    assert " ".join(job["if"].split()) == (
+        "github.ref_type == 'branch' && "
+        "github.event.repository.default_branch != '' && "
+        "github.ref_name != github.event.repository.default_branch"
+    )
+    write_step = job["steps"][-1]["run"]
+    assert 'git push origin "HEAD:${GITHUB_REF}"' in write_step
 
 
 def test_maint50_reports_freshness_without_creating_competing_work():

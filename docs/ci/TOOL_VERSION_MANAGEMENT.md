@@ -103,6 +103,30 @@ The source lane is deliberately single-writer:
    `security_override=true`; it remains on the same source lane and still runs
    the normal source validation before propagation.
 
+### Repair committed source pins
+
+For drift against the existing canonical pins, push a Workflows topic branch and
+select it under **Run workflow** in [Maint - Sync pyproject from versions.env](../../.github/workflows/maint-sync-env-from-pyproject.yml).
+The workflow applies the two existing alignment helpers, then commits any
+correction back to that topic. An aligned branch produces no commit. Selecting
+the default branch or a tag skips the job. A push to main no longer runs this
+repair.
+
+Open a normal reviewed pull request from the updated topic after the repair
+finishes so Gate runs on the corrected head. If a PR is already open and the
+workflow's token did not trigger Gate, run Gate on that same topic with its PR
+number. For local preparation, run:
+
+```bash
+python scripts/sync_tool_versions.py --apply
+python scripts/sync_dev_dependencies.py --apply --lockfile --pre-commit
+python scripts/sync_tool_versions.py --check
+python scripts/sync_dev_dependencies.py --check --lockfile --pre-commit
+```
+
+Use the existing canonical pin file. Routine version updates still come through
+the weekly source proposal, and Maint 52 propagates eligible settled pins.
+
 ### Operator Review Steps
 
 When the canonical source lane opens a PR:

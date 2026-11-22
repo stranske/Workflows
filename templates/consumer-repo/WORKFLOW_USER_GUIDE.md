@@ -889,21 +889,14 @@ The Workflows repository includes maintenance workflows that handle sync, update
 
 ---
 
-### `maint-sync-env-from-pyproject.yml` - Sync Environment Files
-**Purpose:** Keeps environment configs in sync with `pyproject.toml`
+### Shared development-tool pins
 
-**Trigger:** When `pyproject.toml` changes
-
-**What It Does:**
-- Generates `requirements.txt`
-- Updates `.python-version`
-- Syncs dev dependencies
-- Commits synchronized files
-
-**Use When:** After editing `pyproject.toml`
+Workflows maintains the canonical `autofix-versions.env` pins. Maint 52
+proposes receiving changes after the canonical version update merges. The manual
+source-repair workflow runs in Workflows on a maintainer-selected topic branch.
+Review the receiving PR for this repository's dependency changes.
 
 ---
-
 ## Health & Quality
 
 ### `health-40-repo-selfcheck.yml` - Repository Self-Check
