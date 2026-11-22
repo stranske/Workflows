@@ -1569,6 +1569,7 @@ The original run metadata and earlier diagnostic receipts remain available at th
 | [First following run 42499282783 job inventory](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-first-following-jobs.json) | `69e4e3906de8973bd0bc47f5247f023de88eb2fb36b70699e10ea5b8d468d32b` |
 | [Terminal run 42521606142 artifact inventory](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-merge-artifacts.json) | `ee8645dee7968ed88db80d06a9fd1acdcfd26d0083d9bcaff36c1b77d7ebc4d3` |
 | [Maint 68 producer run 42499084007 snapshot](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-producer-run.json) | `d895b540daa023a95f9e10de6c60a6e4d71bb59b727a1a082dcf25a34f688b91` |
+| [Maint 68 run 42499084007 prepare job log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-maint68-42499084007-prepare.log) | `0584d18953df59fa80ef072e53527aca572e46c1d27f6812a48292c552416b80` |
 
 Choose the filename from the archive link. If the revision is missing from a shallow checkout, run the fetch before reading the receipt:
 
