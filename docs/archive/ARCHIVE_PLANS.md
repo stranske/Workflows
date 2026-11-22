@@ -111,3 +111,34 @@ The former paths under `docs/keepalive/` were retired. The Gap Assessment and Sy
 ## Rollback
 
 To restore a document, copy the archived file to its former path and update this ledger.
+
+## Superseded LLM installation handoff
+
+The February handoff recorded how to apply protected workflow edits. For today's
+cache and pinned dependencies, see [Auto-Pilot](../../.github/workflows/agents-auto-pilot.yml),
+[the issue optimizer](../../.github/workflows/agents-issue-optimizer.yml),
+and [the reusable verifier](../../.github/workflows/reusable-agents-verifier.yml).
+
+The three original files are under `docs/workflow-updates/` at revision
+`fbb4e424d29f3f51058b247e2be390093dca299d`. On GitHub, browse
+`https://github.com/stranske/Workflows/tree/fbb4e424d29f3f51058b247e2be390093dca299d/docs/workflow-updates`.
+
+| Original file | SHA-256 |
+| --- | --- |
+| `README.md` | `e86c8f659af6173b5f80f92e03f311cde4864f7436956790b2ddaa3a596e2a55` |
+| `agents-auto-pilot-changes.yml` | `560efa0e2b1adbc7f73a031047b92822e33538fef6ad94da1725c399f08dff96` |
+| `reusable-agents-verifier-changes.yml` | `8545093bc850563898558cd153c1ad20716e521a1e7151729b0c1e63bbca6cb8` |
+
+From a shallow Workflows checkout, choose a filename from the table. Compare
+the printed SHA-256 with its listed value. To read the original, omit the pipe
+to `shasum`.
+
+```bash
+(
+  set -euo pipefail
+  revision=fbb4e424d29f3f51058b247e2be390093dca299d
+  filename=README.md
+  git fetch --depth=1 origin "$revision"
+  git show "${revision}:docs/workflow-updates/${filename}" | shasum -a 256
+)
+```
