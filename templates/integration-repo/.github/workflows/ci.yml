@@ -70,26 +70,9 @@ jobs:
       artifact-prefix: typecheck-
     secrets: inherit
 
-  # Configuration 4: Lint only - no tests, just code quality
-  lint-only:
-    name: Lint only (3.14)
-    uses: __WORKFLOW_REF__
-    with:
-      python-versions: '["3.14"]'
-      coverage: false
-      lint: true
-      format_check: true
-      typecheck: false
-      enable-metrics: false
-      enable-history: false
-      enable-coverage-delta: false
-      enable-soft-gate: false
-      artifact-prefix: lint-
-    secrets: inherit
-
   notify-failure:
     name: Report failure to Workflows
-    needs: [basic, full-coverage, typecheck-only, lint-only]
+    needs: [basic, full-coverage, typecheck-only]
     if: ${{ failure() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
