@@ -105,8 +105,9 @@ enforce the following four-event behavior:
 
 1. **CODEOWNERS gate** – the files above are owned by `@stranske` in
    [`.github/CODEOWNERS`](../.github/CODEOWNERS). This policy requires Code
-   Owner approval for protected workflow logic changes. **Require review from
-   Code Owners** is the corresponding GitHub setting for automatic enforcement.
+   Owner approval before merging changes to any covered file. **Require review
+   from Code Owners** is the corresponding GitHub setting for automatic
+   enforcement.
 2. **Repository ruleset** – create (or update) a ruleset that targets the
    default branch (`Tests Pass to Merge`, ruleset ID `7880490`) and blocks
    deletions or renames of the covered workflows (`restrict_file_updates` with
@@ -124,8 +125,8 @@ enforce the following four-event behavior:
    `uses: owner/action@ref` updates on protected workflows when the PR has
    `agents:allow-change` and is authored by Dependabot, Renovate, or a
    repository owner/member/collaborator. This exception affects the guard
-   verdict only. Verify any applicable Code Owner approval and other required
-   merge reviews independently.
+   verdict only. The Code Owner approval policy and other required merge
+   reviews still apply.
 4. **GitHub required status checks** – the active default-branch ruleset
    requires the Gate aggregate job `summary`. GitHub reports strict
    required-status-check enforcement disabled. GitHub's separate pull-request
@@ -147,9 +148,7 @@ enforce the following four-event behavior:
   records its results in `enforcement.json` and `verification.json` when those
   steps run. The expected GitHub list lives in
   [`.github/config/required-contexts.json`](../.github/config/required-contexts.json).
-  The two commit statuses above are outside that list. See the
-  [Workflow System Overview](ci/WORKFLOW_SYSTEM.md#required-status-contexts-default-branch)
-  for their roles in CI.
+  The two commit statuses above are outside that list.
 
 ## How to verify required checks
 
@@ -167,16 +166,15 @@ enforce the following four-event behavior:
    To inspect GitHub's review enforcement, query the same endpoint with
    `--jq '.[] | select(.type == "pull_request") | .parameters'`.
 2. Open the pull request and confirm `summary` succeeded on the current head.
-   For a protected-file change, separately verify the required label, all
-   applicable approvals, and the Health 45 verdict on that head. Check any
+   For a protected-file change, separately verify the required label, Code
+   Owner approval, and the Health 45 verdict on that head. Check any
    documented guard-level exception against the actual protected-file diff.
-   A successful `summary` verifies Gate and carries no approval or guard
-   verdict.
-3. If the effective check list differs from the checked-in configuration, use
-   the [branch protection playbook](ci/WORKFLOW_SYSTEM.md#branch-protection-playbook).
-   Consult the
-   [Health 44 run history](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml)
-   for the latest audit artifacts.
+3. If the effective check list differs from the checked-in configuration,
+   record the readback and the latest
+   [Health 44 audit artifacts](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml)
+   in the incident record. Ask a repository maintainer to reconcile the rule
+   against the checked-in list, then repeat the effective-rules query to verify
+   the result.
 
 ## Allowlisted change reasons and label process
 
@@ -199,12 +197,12 @@ When one of these scenarios applies:
    **after** confirming the change reason fits the allowlist.
 3. Ensure the PR body includes the incident or policy context plus rollback
    steps.
-4. Secure Code Owner review before merge for workflow logic edits. A narrow
-   dependency-update exception lets the guard pass without Code Owner approval
-   when all protected workflow changes are limited to `uses: owner/action@ref`
-   reference updates, the PR has `agents:allow-change`, and the author is
-   Dependabot, Renovate, or a repository owner/member/collaborator. Repository
-   branch protection may still require review even when the guard passes.
+4. Secure Code Owner approval before merging changes to covered files. The
+   guard can pass before that approval if all protected workflow changes are
+   limited to `uses: owner/action@ref` reference updates, the PR has
+   `agents:allow-change`, and the author is Dependabot, Renovate, or a
+   repository owner/member/collaborator. That guard exception leaves Code
+   Owner approval and other merge review obligations in force.
 5. Remove the label once merged so the guardrail resumes full enforcement on
    future PRs.
 
@@ -227,12 +225,10 @@ When one of these scenarios applies:
 - **Guard check failing for “missing agents:allow-change label”.** Add the label
   (maintainers only) or revert the workflow edits. The check re-evaluates once
   the label is present.
-- **CODEOWNERS review still required.** For non-dependency workflow edits, ping
-  the maintainer listed in `.github/CODEOWNERS` (`@stranske`). Draft reviews do
-  not satisfy branch protection. For dependency-only action reference updates,
-  confirm the PR has `agents:allow-change`, the protected file diff changes only
-  `uses:` lines, and the author is Dependabot, Renovate, or a repository
-  owner/member/collaborator.
+- **Code Owner approval still pending.** Ask the Code Owner listed in
+  `.github/CODEOWNERS` (`@stranske`) for approval before merging a change to a
+  covered file. A pending review or a successful guard verdict leaves that
+  approval outstanding.
 - **Ruleset rejection on push.** Confirm you are operating on a maintainer-owned
   branch or request a maintainer to apply a temporary bypass while they assist
   with the change.
@@ -247,8 +243,8 @@ When one of these scenarios applies:
 ## Verification checklist
 
 - The effective default-branch rules match the checked-in required contexts.
-  For protected-file changes, separately verify the label, applicable Code
-  Owner review, and the Health 45 verdict.
+  For protected-file changes, separately verify the label, Code Owner
+  approval, and the Health 45 verdict.
 - The repository ruleset shows the three workflows in its “Protected file
   patterns section (`agents-63-issue-intake.yml`,
   `agents-70-orchestrator.yml`, and `agents-guard.yml`) with
