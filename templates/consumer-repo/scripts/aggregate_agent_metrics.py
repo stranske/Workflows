@@ -35,6 +35,8 @@ _NULL_EQUIVALENT_TOKENS = {
     "undefined",
 }
 _KNOWN_VERIFIER_MODES = {"checkbox", "compare", "evaluate"}
+_AUTOFIX_ATTEMPT_RESULTS = {"success", "failure", "cancelled"}
+_AUTOFIX_RECORD_RESULTS = _AUTOFIX_ATTEMPT_RESULTS | {"skipped", "unknown"}
 _TERMINAL_ARTIFACT_FAMILIES = (
     "review-thread-terminal-disposition",
     "verifier-terminal-disposition",
@@ -417,6 +419,11 @@ def read_metric_ndjson_files(
     return entries, errors
 
 
+def _autofix_result(entry: dict[str, Any]) -> str:
+    result = entry.get("autofix_result")
+    return result.strip().lower() if isinstance(result, str) else ""
+
+
 def _classify_entry(entry: dict[str, Any]) -> str:
     schema = entry.get("schema")
     if schema == "workflows-terminal-disposition/v1":
@@ -436,7 +443,13 @@ def _classify_entry(entry: dict[str, Any]) -> str:
             return "verifier"
         if lowered in ("step", "cycle", "escalation"):
             return "autopilot"
-    if any(key in entry for key in ("iteration_count", "stop_reason", "tasks_total")):
+    if any(key in entry for key in ("iteration_count", "tasks_total")):
+        return "keepalive"
+    # Hosted and reusable Autofix both emit stop_reason, even on successful attempts.
+    attempt = entry.get("attempt_number")
+    if type(attempt) is int and attempt >= 0 and _autofix_result(entry) in _AUTOFIX_RECORD_RESULTS:
+        return "autofix"
+    if "stop_reason" in entry:
         return "keepalive"
     if any(key in entry for key in ("attempt_number", "trigger_reason", "fix_applied")):
         return "autofix"
@@ -700,8 +713,13 @@ def _summarise_keepalive(entries: list[dict[str, Any]]) -> dict[str, Any]:
 def _summarise_autofix(entries: list[dict[str, Any]]) -> dict[str, Any]:
     triggers: Counter[str] = Counter()
     gate_results: Counter[str] = Counter()
+    stop_reasons: Counter[str] = Counter()
     prs: set[int] = set()
+    attempts = 0
+    skipped = 0
+    unresolved_outcomes = 0
     fixes_applied = 0
+    successful_attempts_reporting_fix = 0
     for entry in entries:
         trigger = entry.get("trigger_reason")
         if trigger:
@@ -712,14 +730,33 @@ def _summarise_autofix(entries: list[dict[str, Any]]) -> dict[str, Any]:
         pr_number = _safe_int(entry.get("pr_number") or entry.get("pr"))
         if pr_number is not None:
             prs.add(pr_number)
+        stop_reason = entry.get("stop_reason")
+        if stop_reason:
+            stop_reasons[str(stop_reason)] += 1
+
+        outcome = _autofix_result(entry)
+        if outcome == "skipped":
+            skipped += 1
+            continue
+        if "autofix_result" in entry and outcome not in _AUTOFIX_ATTEMPT_RESULTS:
+            unresolved_outcomes += 1
+            continue
+        # Legacy records without an explicit worker result retain their previous counts.
+        attempts += 1
         if entry.get("fix_applied") in (True, "true", "True", "1", 1):
             fixes_applied += 1
+            if outcome == "success":
+                successful_attempts_reporting_fix += 1
     return {
-        "attempts": len(entries),
+        "attempts": attempts,
+        "skipped": skipped,
+        "unresolved_outcomes": unresolved_outcomes,
         "prs": len(prs),
         "fixes_applied": fixes_applied,
+        "successful_attempts_reporting_fix": successful_attempts_reporting_fix,
         "triggers": triggers,
         "gate_results": gate_results,
+        "stop_reasons": stop_reasons,
     }
 
 
@@ -1418,7 +1455,7 @@ def build_summary(
         f"Generated: {now}",
         (
             f"Records: {len(entries)} "
-            f"(keepalive {keepalive['runs']}, autofix {autofix['attempts']}, "
+            f"(keepalive {keepalive['runs']}, autofix {len(buckets['autofix'])}, "
             f"verifier {verifier['runs']}, "
             f"terminal dispositions {verifier['terminal_records']}, "
             f"verifier follow-up ledgers {verifier['ledger_records']}, "
@@ -1451,8 +1488,13 @@ def build_summary(
             "",
             "## Autofix",
             f"- Attempts: {autofix['attempts']}",
+            f"- Skipped evaluations: {autofix['skipped']}",
+            f"- Unresolved outcomes: {autofix['unresolved_outcomes']}",
             f"- PRs: {autofix['prs']}",
-            f"- Fixes applied: {_format_rate(autofix['fixes_applied'], autofix['attempts'])}",
+            f"- Fixes applied: {_format_rate(autofix['fixes_applied'], autofix['attempts'])} "
+            "(reported by telemetry)",
+            f"- Successful attempts reporting a fix: {autofix['successful_attempts_reporting_fix']}",
+            f"- Stop reasons: {_format_counter(autofix['stop_reasons'])}",
             f"- Trigger reasons: {_format_counter(autofix['triggers'])}",
             f"- Gate results after: {_format_counter(autofix['gate_results'])}",
             "",
