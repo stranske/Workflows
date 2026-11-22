@@ -159,15 +159,14 @@ def discover_changed_workflows(base_ref: str = "origin/main") -> list[Path]:
             )
         except OSError:
             continue
-        if proc.returncode != 0 or not proc.stdout.strip():
+        if proc.returncode != 0:
             continue
-        paths = []
+        paths: list[Path] = []
         for line in proc.stdout.splitlines():
             path = Path(line.strip())
-            if path.suffix in {".yml", ".yaml"}:
+            if path.suffix in {".yml", ".yaml"} and path.is_file():
                 paths.append(path)
-        if paths:
-            return [path for path in paths if path.is_file()]
+        return paths
     return []
 
 

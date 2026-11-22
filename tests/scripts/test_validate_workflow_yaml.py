@@ -188,3 +188,59 @@ def test_main_skips_deleted_workflow_only_during_discovery(tmp_path: Path) -> No
     )
     assert explicit.returncode == 1
     assert ".github/workflows/retired.yml: File not found" in explicit.stdout
+
+
+def test_discover_changed_workflows_does_not_fallback_past_valid_base_ref(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def git(*args: str) -> None:
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Workflow Test",
+                "-c",
+                "user.email=workflow-test@example.com",
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+                *args,
+            ],
+            cwd=tmp_path,
+            capture_output=True,
+            check=True,
+        )
+
+    git("init")
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    stale = _write_workflow(workflows / "stale.yml", ["name: Stale"])
+    git("add", ".github/workflows")
+    git("commit", "-m", "Base commit")
+    git("branch", "-M", "main")
+
+    git("checkout", "-b", "feature")
+    _write_workflow(stale, ["name: Stale", "# " + "x" * 120])
+    retired = _write_workflow(workflows / "retired.yml", ["name: Retired"])
+    git("add", ".github/workflows")
+    git("commit", "-m", "Advance origin/main")
+    git("update-ref", "refs/remotes/origin/main", "HEAD")
+
+    monkeypatch.chdir(tmp_path)
+    assert validator.discover_changed_workflows("origin/main") == []
+
+    retired.unlink()
+    git("add", "-u")
+    git("commit", "-m", "Retire workflow")
+
+    assert validator.discover_changed_workflows("origin/main") == []
+
+    _write_workflow(workflows / "renamed.yml", ["name: Renamed"])
+    git("add", ".github/workflows/renamed.yml")
+    git("commit", "-m", "Add replacement workflow")
+
+    assert validator.discover_changed_workflows("origin/main") == [
+        Path(".github/workflows/renamed.yml")
+    ]
