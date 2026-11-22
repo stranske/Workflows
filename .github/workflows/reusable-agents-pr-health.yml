@@ -11,10 +11,9 @@
 #   - No existing workflow periodically scans for stale/stuck PRs
 #
 # Integrates with:
-#   - agents-keepalive-branch-sync.yml  (simple merges / lock files)
+#   - agents-81-gate-followups.yml      (consumer keepalive/conflict/failing-check receiver)
 #   - reusable-codex-run.yml            (Codex agent for complex conflicts)
 #   - reusable-claude-run.yml           (Claude agent for complex conflicts)
-#   - agents-autofix-loop.yml           (failing check re-dispatch)
 #   - .github/agents/registry.yml       (agent routing)
 #
 # Consumer repos call this via a thin wrapper: agents-pr-health.yml
@@ -646,23 +645,19 @@ jobs:
                   continue;
                 }
 
-                // Get current head SHA for the dispatch
-                const { data: prData } = await github.rest.pulls.get({
-                  owner, repo, pull_number: pr.number,
-                });
-
                 core.info(`PR #${pr.number}: Dispatching ${pr.agent_type} agent for conflict resolution`);
 
-                await github.rest.repos.createDispatchEvent({
+                // Dispatch on the repository default/base branch rather than pr.head_ref so
+                // privileged agent-standard followups use the trusted workflow definition.
+                const dispatchRef =
+                  context.payload?.repository?.default_branch || pr.base_ref || 'main';
+                await github.rest.actions.createWorkflowDispatch({
                   owner, repo,
-                  event_type: `${pr.agent_type}-agent-fix`,
-                  client_payload: {
-                    pr_number: pr.number,
-                    head_ref: pr.head_ref,
-                    base_ref: pr.base_ref,
-                    head_sha: prData.head.sha,
-                    issue_type: 'merge-conflict',
-                    agent_type: pr.agent_type,
+                  workflow_id: 'agents-81-gate-followups.yml',
+                  ref: dispatchRef,
+                  inputs: {
+                    pr_number: String(pr.number),
+                    force_retry: 'false',
                   },
                 });
                 core.info(`PR #${pr.number}: Agent dispatched`);
@@ -741,20 +736,20 @@ jobs:
               core.info(`\n--- Processing PR #${pr.number} (${pr.head_ref}) ---`);
 
               try {
-                // Use keepalive loop which handles agent routing and can
-                // trigger autofix internally.  We do NOT dispatch
-                // agents-autofix-loop.yml directly because it requires
-                // gate_run_id (a required input we cannot supply here).
+                // Dispatch the installed consumer Gate followups workflow on the trusted
+                // default/base branch; it resolves the PR head ref and routes repair internally.
+                const dispatchRef =
+                  context.payload?.repository?.default_branch || pr.base_ref || 'main';
                 await github.rest.actions.createWorkflowDispatch({
                   owner, repo,
-                  workflow_id: 'agents-keepalive-loop.yml',
-                  ref: pr.head_ref,
+                  workflow_id: 'agents-81-gate-followups.yml',
+                  ref: dispatchRef,
                   inputs: {
                     pr_number: String(pr.number),
-                    force_retry: 'true',
+                    force_retry: 'false',
                   },
                 });
-                core.info(`PR #${pr.number}: Dispatched keepalive loop (agent: ${pr.agent_type})`);
+                core.info(`PR #${pr.number}: Dispatched gate followups (agent: ${pr.agent_type})`);
 
               } catch (err) {
                 core.warning(`PR #${pr.number}: Failed to dispatch — ${err.message}`);
@@ -764,7 +759,7 @@ jobs:
             core.info(`\nProcessed ${failing.length} failing PRs`);
 
   # -----------------------------------------------------------------------
-  # 4. Nudge stalled PRs (add agent:retry, remove blocking labels)
+  # 4. Nudge stalled PRs (add agent:retry, preserve owned blocking labels)
   # -----------------------------------------------------------------------
   nudge-stalled:
     name: Nudge stalled PRs
@@ -864,7 +859,7 @@ jobs:
                 }
 
                 if (dryRun) {
-                  core.info(`PR #${pr.number}: [DRY RUN] Would add agent:retry and remove blocking labels`);
+                  core.info(`PR #${pr.number}: [DRY RUN] Would add agent:retry and preserve blocking labels`);
                   continue;
                 }
 
@@ -895,24 +890,12 @@ jobs:
                 );
                 core.info(`PR #${pr.number}: Added label: agent:retry`);
 
-                // Remove each blocking label (404-safe — label may already be gone)
+                // Preserve agent:needs-attention and agent:rate-limited so
+                // authority-challenge and rate-limit receipt reconciliation
+                // remain owned by their keepalive recovery paths.
                 const blockingLabels = pr.blocking_labels || [];
-                for (const label of blockingLabels) {
-                  try {
-                    await withRetry((client) =>
-                      client.rest.issues.removeLabel({
-                        owner, repo, issue_number: pr.number,
-                        name: label,
-                      })
-                    );
-                    core.info(`PR #${pr.number}: Removed label: ${label}`);
-                  } catch (error) {
-                    if (error.status === 404) {
-                      core.info(`PR #${pr.number}: Label already absent: ${label}`);
-                    } else {
-                      throw error;
-                    }
-                  }
+                if (blockingLabels.length > 0) {
+                  core.info(`PR #${pr.number}: Preserved owned labels: ${blockingLabels.join(', ')}`);
                 }
 
                 core.info(`PR #${pr.number}: Nudged successfully`);

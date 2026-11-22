@@ -261,8 +261,39 @@ jobs:
             const payload = context.payload || {};
             let prNumber = 0;
             let pr = null;
+            let actor = context.actor;
+            let config;
 
-            if (context.eventName === 'pull_request_target' && payload.pull_request) {
+            if (context.eventName === 'workflow_dispatch') {
+              const blockDispatch = (reason) => {
+                core.setOutput('blocked', 'true');
+                core.setOutput('reason', reason);
+                core.setFailed(`Security gate blocked: ${reason}`);
+              };
+              const input = String(payload.inputs?.pr_number ?? '');
+              prNumber = Number(input);
+              if (!/^[1-9][0-9]*$/.test(input) || !Number.isSafeInteger(prNumber)) {
+                return blockDispatch('invalid-dispatch-pr-number');
+              }
+
+              try {
+                const { data } = await withRetry((client) => client.rest.pulls.get({
+                  ...context.repo,
+                  pull_number: prNumber,
+                }));
+                pr = data;
+              } catch (error) {
+                core.info(`Could not resolve dispatched PR #${prNumber} (HTTP ${error.status || 'unknown'}).`);
+                return blockDispatch('unresolved-dispatch-pr');
+              }
+              if (pr?.number !== prNumber || !pr.user?.login ||
+                  !pr.head?.repo?.full_name || !pr.base?.repo?.full_name) {
+                return blockDispatch('unresolved-dispatch-pr');
+              }
+              actor = pr.user.login;
+              // Keep the guard's trusted bots and require write access for other authors.
+              config = { allowedUsers: [context.repo.owner] };
+            } else if (context.eventName === 'pull_request_target' && payload.pull_request) {
               prNumber = payload.pull_request.number;
               pr = payload.pull_request;
             } else if (context.eventName === 'workflow_run' && payload.workflow_run) {
@@ -288,7 +319,8 @@ jobs:
               github,
               context,
               pr,
-              actor: context.actor,
+              actor,
+              config,
               promptContent: pr.body || '',
               core,
             });
