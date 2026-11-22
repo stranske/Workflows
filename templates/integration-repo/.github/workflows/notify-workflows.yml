@@ -146,20 +146,30 @@ jobs:
 
           ACTUAL="integration-tests/.github/workflows/ci.yml"
 
-          echo "## Artifact Prefix Validation" >> "$GITHUB_STEP_SUMMARY"
+          missing=$(yq -o=json -I=0 '.jobs' "$ACTUAL" | jq -ers '
+            if length != 1 or (.[0] | type) != "object" then
+              error("Expected one jobs mapping")
+            else
+              .[0] | to_entries |
+              map(select((.value.uses // "") |
+                test("(^|/)[.]github/workflows/reusable-10-ci-python[.]yml(@[^[:space:]]+)?$"))) |
+              if length <= 1 then "" else
+                map(select(.value.with["artifact-prefix"] |
+                  if type == "string" then test("^[[:space:]]*$") else true end) | .key) |
+                join(", ")
+              end
+            end
+          ')
 
-          # Count jobs using reusable workflow
-          job_count=$(grep -c "uses:.*reusable-10-ci-python" "$ACTUAL" || printf '0')
-          prefix_count=$(grep -c "artifact-prefix:" "$ACTUAL" || printf '0')
-
-          if [ "$job_count" -gt 1 ] && [ "$prefix_count" -lt "$job_count" ]; then
-            echo "::error::Multi-job CI requires artifact-prefix on each job"
-            echo "❌ Missing artifact-prefix on some jobs" >> "$GITHUB_STEP_SUMMARY"
-            echo "($prefix_count/$job_count)" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$missing" ]; then
+            echo "::error::Multi-job CI requires artifact-prefix on each job. Missing or blank artifact-prefix: $missing"
+            printf '%s\n' "## Artifact Prefix Validation" \
+              "❌ Missing or blank artifact-prefix: $missing" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 
-          echo "✅ Artifact prefixes configured correctly" >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "## Artifact Prefix Validation" \
+            "✅ Artifact prefixes configured correctly" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Compare version pins
         run: |
