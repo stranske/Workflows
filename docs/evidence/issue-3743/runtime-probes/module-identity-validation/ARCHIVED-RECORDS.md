@@ -21,9 +21,9 @@ environment.
 
 The [recovery script](../recover-module-identity.py) combines the
 [29-member archive](../module-identity-metadata.tar.gz) with the 41 loose files.
-It checks all 70 original paths and SHA-256 digests against the unchanged parent
-manifest and also checks sizes and digests for 68 files listed in the phase
-manifest. It restores into a new directory and leaves the checkout untouched.
+It checks the exact archive SHA-256 before opening it, verifies all 70 original
+paths and digests against the unchanged parent manifest, and checks sizes and
+digests for 68 files listed in the phase manifest. It restores into a new directory and leaves the checkout untouched.
 The restored directory contains the original filenames, including the intact
 earlier replay archive. The recovery reads the outer archive only.
 

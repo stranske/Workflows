@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import io
 import json
 import re
 import sys
@@ -11,6 +12,7 @@ from pathlib import Path
 
 PHASE = "module-identity-validation"
 ARCHIVE = "module-identity-metadata.tar.gz"
+ARCHIVE_SHA256 = "fbf4c81d7f3091e72da4f5f3013b4c896efa3ed434e28fd9f5e11955b1f6ca8f"
 GUIDE = "ARCHIVED-RECORDS.md"
 
 
@@ -51,8 +53,12 @@ def restore(source, destination):
         data = manifest_data if path == manifest else path.read_bytes()
         files[path.name] = verify(path.name, data, expected[path.name], child)
 
+    archive_bytes = (source / ARCHIVE).read_bytes()
+    if hashlib.sha256(archive_bytes).hexdigest() != ARCHIVE_SHA256:
+        raise ValueError(f"Archive SHA-256 mismatch: {ARCHIVE}")
+
     archived = 0
-    with tarfile.open(source / ARCHIVE, "r:gz") as archive:
+    with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:gz") as archive:
         for member in archive:
             name = member.name
             if not member.isfile() or name not in expected or name not in child or name in files:
