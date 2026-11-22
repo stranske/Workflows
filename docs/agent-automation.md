@@ -274,7 +274,7 @@ archiving older entries under `archives/metrics/`.
 
 Run retention manually:
 - `python scripts/metrics_retention.py` (uses defaults + `agent-metrics/` discovery)
-- `python scripts/metrics_retention.py --dry-run` to preview without writing
+- `python scripts/metrics_retention.py --dry-run` to preview. It writes the audit log and leaves metrics files and archives unchanged.
 
 Archived data can be restored when needed:
 - `python scripts/metrics_retention.py --restore --archive-path archives/metrics/metrics-history/weekly --output-path metrics-history.ndjson`
@@ -282,12 +282,12 @@ Archived data can be restored when needed:
 Retention operations are tracked in `metrics-retention.ndjson`, including record counts, archive destinations, and storage
 reduction percentages.
 
-`.github/workflows/maint-metrics-retention.yml` is manual and pull-request validation only; its no-op nightly cron was
-removed because it restored no metrics artifacts before running. Use `workflow_dispatch` (with the optional `dry_run`
-input) for real retention runs. Pull-request triggers run in `--dry-run` mode when the script, policy config, or workflow
-file changes. The retention log is uploaded as the `metrics-retention-log` artifact and the storage reduction percentage
-is surfaced in the workflow step summary. Fresh checkouts with no metrics logs are treated as successful no-op runs:
-the script writes a zero-file `retention_summary` record so pull-request validation still produces durable evidence.
+[Maint Metrics Retention](../.github/workflows/maint-metrics-retention.yml) accepts `workflow_dispatch` with an optional
+`dry_run` input (default `false`). Pull requests run in `--dry-run` mode when the script, policy config, or workflow
+changes. The job uses the selected ref's checkout and does not fetch existing metrics artifacts. A checkout without
+metrics logs succeeds with a zero-file `retention_summary`. The job reports storage reduction in the step summary
+and retains the `metrics-retention-log` audit artifact for 90 days. Run the CLI where your metrics files live to preserve
+`archives/metrics/` for restoration. The hosted artifact contains the audit log only.
 
 ## Security Considerations
 
