@@ -46,17 +46,23 @@ jobs:
           # Cross-repo read; github.token is scoped to Workflows only.
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
         run: |
+          set -o pipefail
+          harvest_status=0
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.write }}" != "true" ]; then
-            python -m tools.harvest_verifier_corpus | tee harvest.log
+            python -m tools.harvest_verifier_corpus | tee harvest.log || harvest_status=$?
           else
-            python -m tools.harvest_verifier_corpus --write | tee harvest.log
+            python -m tools.harvest_verifier_corpus --write | tee harvest.log || harvest_status=$?
           fi
           {
             echo '## Verifier corpus harvest'
+            if [ "$harvest_status" -ne 0 ]; then
+              printf '\nHarvest failed (exit %s).\n\n' "$harvest_status"
+            fi
             echo '```'
             cat harvest.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          exit "$harvest_status"
       - name: Open auto-merging corpus-growth PR
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.write)
         id: cpr
