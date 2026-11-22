@@ -179,7 +179,6 @@ def test_public_dry_run_guards_keepalive_snapshot_and_token_mints():
     jobs = workflow_jobs()
     init = workflow_jobs(WORKFLOW.with_name("reusable-70-orchestrator-init.yml"))
     for job in (
-        init["token-preflight"],
         *(
             jobs[name]
             for name in (
@@ -191,8 +190,23 @@ def test_public_dry_run_guards_keepalive_snapshot_and_token_mints():
     ):
         mint = next(step for step in job["steps"] if step.get("id") == "app_token")
         assert mint["if"] == "inputs.dry_run != 'true'"
+    for step in init["token-preflight"]["steps"][:2]:
+        assert step["if"] == "needs.rate-limit-check.outputs.dry_run == 'false'"
+    for flow, job, mode in (
+        (init, "rate-limit-check", "steps.dry_run.outputs.value"),
+        (init, "idle-precheck", "needs.rate-limit-check.outputs.dry_run"),
+        (jobs, "keepalive-guard", "inputs.dry_run"),
+        (jobs, "belt-scan-ready-prs", "inputs.dry_run"),
+    ):
+        setup = next(step for step in flow[job]["steps"] if step.get("name") == "Setup API client")
+        guard = "!= 'true'" if mode == "inputs.dry_run" else "== 'false'"
+        assert setup["with"]["github_token"] == "${{ github.token }}"
+        for name, expression in setup["with"].items():
+            if name != "github_token":
+                assert expression.startswith(f"${{{{ {mode} {guard} && secrets.")
     gate = next(step for step in jobs["keepalive-guard"]["steps"] if step.get("id") == "guard")
     assert gate["env"]["DRY_RUN"] == "${{ inputs.dry_run }}"
+    assert "inputs.dry_run != 'true'" in gate["with"]["github-token"]
     snapshot = next(
         step
         for step in jobs["keepalive-prep"]["steps"]
@@ -314,3 +328,49 @@ def test_worker_observability_distinguishes_preview_from_execution(tmp_path, dry
         },
     )
     assert summary.read_text().startswith(line)
+
+
+@pytest.mark.parametrize(
+    ("input_mode", "params", "expected"),
+    [
+        ("  YES ", '{"dry_run": false}', "true"),
+        ("y", "{}", "true"),
+        ("1", "{}", "true"),
+        ("off", '{"dry_run": true}', "false"),
+        ("", '{"dry_run": true}', "true"),
+        ("", "{unparseable", "false"),
+    ],
+)
+def test_init_resolves_public_aliases_before_accessing_write_credentials(
+    tmp_path,
+    input_mode,
+    params,
+    expected,
+):
+    init = workflow_jobs(WORKFLOW.with_name("reusable-70-orchestrator-init.yml"))
+    steps = init["rate-limit-check"]["steps"]
+    normalize = next(step for step in steps if step.get("id") == "dry_run")
+    setup = next(step for step in steps if step.get("name") == "Setup API client")
+    assert steps.index(normalize) < steps.index(setup)
+    output = tmp_path / "credential-mode"
+    subprocess.run(
+        ["bash", "-c", normalize["run"]],
+        check=True,
+        timeout=10,
+        cwd=ROOT,
+        env={
+            "PATH": os.environ["PATH"],
+            "GITHUB_OUTPUT": str(output),
+            "WORKFLOW_DRY_RUN": input_mode,
+            "PARAMS_JSON": params,
+        },
+    )
+    assert output.read_text().strip() == f"value={expected}"
+
+
+def test_dispatch_summary_keeps_preview_mode_when_worker_is_skipped():
+    steps = workflow_jobs()["belt-dispatch-summary"]["steps"]
+    append = next(step for step in steps if step.get("name") == "Append dispatch summary")
+    record = next(step for step in steps if step.get("name") == "Record keepalive worker outcome")
+    assert append["env"]["WORKER_DRY_RUN"] == record["env"]["WORKER_DRY_RUN"]
+    assert append["env"]["WORKER_DRY_RUN"].startswith("${{ inputs.dry_run == 'true' && 'true' ||")

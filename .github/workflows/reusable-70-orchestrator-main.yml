@@ -2726,7 +2726,7 @@ jobs:
             }}
           WORKER_BRANCH: >-
             ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
-          WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
+          WORKER_DRY_RUN: ${{ inputs.dry_run == 'true' && 'true' || needs.belt-worker.outputs.dry_run || '' }}
           KEEPALIVE_ACTION: ${{ needs.belt-worker.outputs.keepalive_action || '' }}
           KEEPALIVE_REASON: ${{ needs.belt-worker.outputs.keepalive_reason || '' }}
         with:
