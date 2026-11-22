@@ -41,6 +41,14 @@ def test_dependency_bot_workflows_gate_on_pr_author_not_trigger_actor():
         assert "github.actor == 'renovate[bot]'" not in source
 
 
+def test_auto_label_concurrency_is_scoped_to_pr_number():
+    workflow = yaml.safe_load(_workflow_source(WORKFLOW_ROOT / "maint-auto-label-dep-prs.yml"))
+    assert workflow["concurrency"] == {
+        "group": "${{ github.workflow }}-${{ github.event.pull_request.number }}",
+        "cancel-in-progress": True,
+    }
+
+
 def test_auto_lock_separates_pr_resolution_from_publication():
     workflow = yaml.safe_load(_workflow_source(WORKFLOW_ROOT / "maint-auto-lock-deps.yml"))
     trigger = workflow[True]["pull_request"]
