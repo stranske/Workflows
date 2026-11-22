@@ -1,10 +1,10 @@
 # Shared Test Helpers
 
-This directory contains shared test utilities that are synced to all consumer repos.
+This directory contains shared test utilities that consumer maintainers can choose to install.
 
 ## Syncing to Consumer Repos
 
-These files are automatically synced using the `scripts/sync_test_helpers.sh` script.
+Run `scripts/sync_test_helpers.sh` to copy the Python helpers into a selected repository's `tests/helpers/`. The script updates any differing helper at the same destination, so review local customizations before installing.
 
 ### In Consumer Repos
 
@@ -25,6 +25,8 @@ cd /path/to/consumer-repo
 ```bash
 ./scripts/sync_test_helpers.sh --check --repo /path/to/consumer-repo
 ```
+
+Both check and install fail when the source directory contains no Python helper files. Neither mode changes the destination in that case.
 
 ## Available Utilities
 
