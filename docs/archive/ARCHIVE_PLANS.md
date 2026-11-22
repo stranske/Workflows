@@ -38,6 +38,20 @@ are available through Git.
 To recover either version, use its commit in
 `git show <commit>:docs/archive/plans/DEPENDENCY_MANAGEMENT_SUMMARY.md`.
 
+## Superseded workflow plans
+
+The five plans below are available at their original Git revisions. In a
+shallow checkout, fetch the listed revision with `git fetch --depth=1 origin <commit>`
+before running its recovery command. Use the current references for operational guidance.
+
+| Plan | Recover the original | SHA-256 | Current references |
+| --- | --- | --- | --- |
+| Autofix workflow | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/autofix_workflow_plan.md` | `b74fc5ec27fe4e6b4013d66c991837e47b9900a6f948c0bee4319f340f49f9fa` | See **Autofix routes** in the [workflow catalog](../ci/WORKFLOWS.md). |
+| CI reuse consolidation | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/ci_reuse_consolidation_plan.md` | `cd6b17268b278ae67927f072c2faf3a7af7c7a90c1e32b6f9b8512c38d8b3ae6` | See the [workflow catalog](../ci/WORKFLOWS.md) and **Scenario Matrix** in the [Selftest guide](../ci/SELFTESTS.md). |
+| Reusable agents | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/reusable_agents_plan.md` | `f728b26b925b6b13bb0e570d9858e85fbfef2c09dcb673581c21592cd6039d9d` | [Reusable 16 Agents](../../.github/workflows/reusable-16-agents.yml) and [Reusable 70 Orchestrator Main](../../.github/workflows/reusable-70-orchestrator-main.yml) define the current caller inputs. |
+| Validation scripts | `git show 1785424766b30b8860d2a6a2f8d8bf71c4847058:docs/archive/plans/validation-scripts.md` | `5044f347f9e876a366b9591f662dbbe96eeb984da6ae2c215e806e675b872245` | See **check_branch.sh - Comprehensive Validation** in the [validation overview](../validation/overview.md) and the [script itself](../../scripts/check_branch.sh). |
+| Workflow renaming | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/workflow_renaming_plan.md` | `0f46abb8e6f2a33eb688baf15f074112702008065b702fb7a7dde7a646102e56` | See the [workflow catalog](../ci/WORKFLOWS.md) and [workflow naming tests](../../tests/workflows/test_workflow_naming.py). |
+
 ## Archived January 2026 plans
 
 | Former path | Archive path | Superseded by |
