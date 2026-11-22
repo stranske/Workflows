@@ -71,20 +71,26 @@ jobs:
           .venv/bin/python - "$report" <<'PYCODE'
           import os
           import sys
+          from pathlib import Path
           from xml.etree import ElementTree
 
+          from scripts.classify_test_failures import _test_id
+
+          report = Path(sys.argv[1])
           try:
-              root = ElementTree.parse(sys.argv[1]).getroot()
+              root = ElementTree.parse(report).getroot()
           except (OSError, ElementTree.ParseError) as exc:
               sys.exit(f"Cannot read the original pytest report: {exc}")
           cases = list(root.iter("testcase"))
           if root.tag not in {"testsuites", "testsuite"} or not cases:
               sys.exit("The original pytest report contains no test cases.")
           exit_code = os.environ["PYTEST_EXIT_CODE"]
-          failures = any(case.find("failure") is not None for case in cases)
+          failures = [_test_id(case, report) for case in cases if case.find("failure") is not None]
           errors = any(case.find("error") is not None for case in cases)
-          if errors or exit_code not in {"0", "1"} or failures != (exit_code == "1"):
+          if errors or exit_code not in {"0", "1"} or bool(failures) != (exit_code == "1"):
               sys.exit(f"Original pytest result is unresolved (exit {exit_code}).")
+          if len(failures) != len(set(failures)):
+              sys.exit("Repeated failed testcase in the original pytest report.")
           PYCODE
 
           mode=--apply

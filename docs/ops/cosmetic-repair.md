@@ -7,8 +7,10 @@ workflow when a cosmetic failure blocks a merge.
 
 ## When to use the workflow
 
-* Pytest failures marked with `@pytest.mark.cosmetic` and carrying a
-  `COSMETIC_*` payload in the assertion message.
+* Pytest failures whose test calls `record_property("markers", "cosmetic")`
+  and carries a `COSMETIC_*` payload in the assertion message. The JUnit
+  classifier reads that property. A pytest selection marker alone does not
+  populate it.
 * Known guard rails exist in the affected files (for example, lines annotated
   with `# cosmetic-repair: float EXPECTED_ALPHA`).
 * The failure can be resolved mechanically by updating stored baselines or
@@ -50,7 +52,8 @@ produce a repair remain failed and open no PR.
 Developers can run the same logic locally:
 
 ```bash
-python -m scripts.ci_cosmetic_repair --apply --skip-pr
+python -m pytest -o junit_family=xunit1 --junitxml=pytest-report.xml
+python -m scripts.ci_cosmetic_repair --apply --skip-pr --require-all --report pytest-report.xml
 ```
 
 * Use `--dry-run` to inspect the planned fixes without modifying files.
@@ -59,6 +62,6 @@ python -m scripts.ci_cosmetic_repair --apply --skip-pr
 * `--branch-suffix` lets you append a human-friendly token to the generated
   branch name when creating a PR.
 
-Ensure the working tree is clean before running in `--apply` mode. The script
-will refuse to operate on files outside the repository root and only touches
-lines that explicitly declare the cosmetic guard comment.
+Ensure the working tree is clean before running in `--apply` mode.
+`--require-all` also confines targets to the checkout and checks the
+guards during preview.

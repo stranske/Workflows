@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,7 @@ TARGET = "baseline[approved].py"
         ("already-applied", False, "no-changes", False),
         ("missing-guard", True, None, False),
         ("partial-cosmetic", False, None, False),
+        ("duplicate-id", False, None, False),
         ("ordinary", False, None, False),
         ("mixed", False, None, False),
         ("missing", False, None, False),
@@ -45,7 +47,9 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
 
     checkout = tmp_path / "checkout"
     (checkout / ".venv/bin").mkdir(parents=True)
-    (checkout / ".venv/bin/python").symlink_to(sys.executable)
+    launcher = checkout / ".venv/bin/python"
+    launcher.write_text(f'#!/bin/bash\nexec {shlex.quote(sys.executable)} "$@"\n')
+    launcher.chmod(0o755)
     (checkout / "scripts").mkdir()
     for name in ("ci_cosmetic_repair.py", "classify_test_failures.py"):
         shutil.copyfile(ROOT / "scripts" / name, checkout / "scripts" / name)
@@ -102,15 +106,22 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
     elif case != "missing":
         suite = ElementTree.Element("testsuite")
         test = ElementTree.SubElement(suite, "testcase", name="original")
-        if case in {"already-applied", "mixed", "missing-guard", "partial-cosmetic"}:
+        if case in {
+            "already-applied",
+            "mixed",
+            "missing-guard",
+            "partial-cosmetic",
+            "duplicate-id",
+        }:
             properties = ElementTree.SubElement(test, "properties")
             ElementTree.SubElement(properties, "property", name="markers", value="cosmetic")
             instruction = {"path": TARGET, "guard": "float", "key": "EXPECTED", "value": "1.23456"}
             ElementTree.SubElement(test, "failure").text = "COSMETIC_TOLERANCE " + json.dumps(
                 instruction
             )
-        if case in {"ordinary", "mixed"}:
-            ordinary = ElementTree.SubElement(suite, "testcase", name="ordinary")
+        if case in {"ordinary", "mixed", "duplicate-id"}:
+            name = "original" if case == "duplicate-id" else "ordinary"
+            ordinary = ElementTree.SubElement(suite, "testcase", name=name)
             ElementTree.SubElement(ordinary, "failure").text = "Runtime regression"
         if case == "partial-cosmetic":
             missing = ElementTree.SubElement(suite, "testcase", name="missing-instruction")
