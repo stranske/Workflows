@@ -1491,10 +1491,7 @@ jobs:
       inputs.enable_keepalive == 'true' &&
       (inputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true') &&
       needs.keepalive-prep.outputs.trace != '' &&
-      needs.keepalive-prep.outputs.pr_number != '' &&
-      needs.keepalive-prep.outputs.base_ref != '' &&
-      needs.keepalive-prep.outputs.head_ref != '' &&
-      needs.keepalive-prep.outputs.baseline_head != ''
+      needs.keepalive-prep.outputs.pr_number != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1524,9 +1521,12 @@ jobs:
               core.setOutput('result', 'unknown');
               core.setFailed(reason);
             }
-            if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0 ||
-                !process.env.BASE_REF || !process.env.HEAD_REF || !process.env.HEAD_REPO || !sha(expectedHead)) {
-              return unknown('Branch-sync preview is missing a valid PR, ref, or expected head.');
+            if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0) {
+              return unknown('Branch-sync preview is missing a valid PR number.');
+            }
+            core.setOutput('pr_url', `${context.serverUrl}/${owner}/${repo}/pull/${pullNumber}`);
+            if (!process.env.BASE_REF || !process.env.HEAD_REF || !process.env.HEAD_REPO || !sha(expectedHead)) {
+              return unknown('Branch-sync preview is missing a ref, repository, or expected head.');
             }
 
             const baseRepo = `${owner}/${repo}`.toLowerCase();
@@ -1546,7 +1546,6 @@ jobs:
             try {
               const pr = await readPull();
               observe(pr);
-              core.setOutput('pr_url', `${context.serverUrl}/${owner}/${repo}/pull/${pullNumber}`);
               if (!matches(pr)) return unknown('Branch-sync preview inputs are stale or unavailable.');
 
               const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
@@ -2570,6 +2569,7 @@ jobs:
               ''
             }}
           BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head || '' }}
+          DRY_RUN: ${{ inputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
           WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
           INSTRUCTION_RESULT: ${{ needs.keepalive-instruction.result || '' }}
         run: |
@@ -2595,6 +2595,12 @@ jobs:
           instr="${COMMENT_ID:-}"
           if [ -z "${instr}" ]; then
             instr='none'
+          fi
+
+          if [ "${DRY_RUN}" = 'true' ] && [ "${PROCEED}" = 'true' ] && [ "${CAP_OK}" = 'true' ]; then
+            printf 'WORKER PREVIEW: result=%s pr=%s head=%s trace=%s\n' \
+              "${WORKER_RESULT:-unknown}" "${pr_label}" "${head}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
 
           action='skip'

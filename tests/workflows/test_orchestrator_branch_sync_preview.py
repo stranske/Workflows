@@ -67,6 +67,9 @@ def test_dry_run_branch_job_uses_read_only_authority():
     assert job["permissions"] == {"contents": "read", "pull-requests": "read"}
     assert "belt-worker" not in job["needs"]
     assert "!cancelled()" in job["if"]
+    assert "needs.keepalive-prep.outputs.pr_number != ''" in job["if"]
+    for snapshot_output in ("base_ref", "head_ref", "baseline_head"):
+        assert f"needs.keepalive-prep.outputs.{snapshot_output}" not in job["if"]
     assert "inputs.dry_run == 'true'" in job["if"]
     assert "needs.belt-dispatch.outputs.dry_run == 'true'" in job["if"]
     assert [step["uses"] for step in job["steps"] if "uses" in step] == ["actions/github-script@v9"]
@@ -86,6 +89,7 @@ def test_dry_run_branch_job_uses_read_only_authority():
         ("missing-expected-head", "unknown", 0),
         ("fork-missing-repo", "unknown", 1),
         ("missing-expected-repo", "unknown", 0),
+        ("snapshot-unavailable", "unknown", 0),
         ("closed", "unknown", 1),
         ("comparison-unavailable", "unknown", 2),
         ("unbound-comparison", "unknown", 2),
@@ -132,10 +136,12 @@ def test_authored_branch_preview_readback(case, expected, reads, tmp_path):
         env={
             "PATH": os.environ["PATH"],
             "PR_NUMBER": "4937",
-            "BASE_REF": "main",
-            "HEAD_REF": HEAD_REF,
-            "HEAD_SHA": "" if case == "missing-expected-head" else HEAD,
-            "HEAD_REPO": "" if case == "missing-expected-repo" else expected_repo,
+            "BASE_REF": "" if case == "snapshot-unavailable" else "main",
+            "HEAD_REF": "" if case == "snapshot-unavailable" else HEAD_REF,
+            "HEAD_SHA": "" if case in {"missing-expected-head", "snapshot-unavailable"} else HEAD,
+            "HEAD_REPO": (
+                "" if case in {"missing-expected-repo", "snapshot-unavailable"} else expected_repo
+            ),
         },
     )
     reply = json.loads(result.stdout)
@@ -143,8 +149,8 @@ def test_authored_branch_preview_readback(case, expected, reads, tmp_path):
     assert len(reply["reads"]) == reads
     assert reply["outputs"]["result"] == expected
     assert bool(reply["errors"]) == (expected == "unknown")
+    assert reply["outputs"]["pr_url"] == "https://github.com/stranske/Workflows/pull/4937"
     if reads:
-        assert reply["outputs"]["pr_url"] == "https://github.com/stranske/Workflows/pull/4937"
         assert reply["outputs"]["observed_head"] == (
             ANCESTOR if case in {"moved-before", "moved-during"} else HEAD
         )
@@ -272,3 +278,39 @@ new AsyncFunction('core', 'context', 'github', 'require', fs.readFileSync(0, 'ut
     assert reply["summaries"][0] == "Keepalive worker outcome"
     assert reply["summaries"][1][1] == ["3", "recorded-4937", "success", HEAD]
     assert len(reply["writes"]) == (dry_run == "false")
+
+
+@pytest.mark.parametrize(
+    ("dry_run", "line"),
+    [
+        ("true", "WORKER PREVIEW: result=success pr=#4937 head=8fa2a02 trace=recorded-4937"),
+        ("false", "WORKER: action=execute reason=new-instruction pr=#4937 head=8fa2a02"),
+    ],
+)
+def test_worker_observability_distinguishes_preview_from_execution(tmp_path, dry_run, line):
+    step = next(
+        step
+        for step in workflow_jobs()["belt-dispatch-summary"]["steps"]
+        if step.get("name") == "Emit worker observability line"
+    )
+    summary = tmp_path / "worker.md"
+    subprocess.run(
+        ["bash", "-c", step["run"]],
+        check=True,
+        timeout=10,
+        env={
+            "PATH": os.environ["PATH"],
+            "GITHUB_STEP_SUMMARY": str(summary),
+            "PROCEED": "true",
+            "CAP_OK": "true",
+            "SHOULD_POST": "false" if dry_run == "true" else "true",
+            "COMMENT_ID": "" if dry_run == "true" else "7351",
+            "TRACE": "recorded-4937",
+            "PR_NUMBER": "4937",
+            "BASELINE_HEAD": HEAD,
+            "WORKER_RESULT": "success",
+            "INSTRUCTION_RESULT": "success",
+            "DRY_RUN": dry_run,
+        },
+    )
+    assert summary.read_text().startswith(line)
