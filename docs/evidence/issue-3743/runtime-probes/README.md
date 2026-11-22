@@ -155,7 +155,15 @@ their sibling `replay-artifacts.json.gz` files. This reduces the PR below the
 recorded outcome. In `replay-validation/`, `driver-phase-artifacts.json.gz`
 holds the 24 command receipts, output streams and JUnit files for the three
 driver controls. The summary `driver-controls.json` and historical manifest
-remain directly readable.
+remain directly readable. The separate `validation-run-artifacts.json.gz`
+preserves 63 command receipts, console streams, JUnit results and raw coverage
+reports from the matched validation runs. The [comparison](replay-validation/comparison.json),
+[source provenance](replay-validation/source-provenance.json),
+[task reconciliation](replay-validation/task-reconciliation.md) and
+[validation summary](replay-validation/validation.json) remain directly readable.
+Run the decoder below before following the reconciliation's attachment paths.
+The [original revision](https://github.com/stranske/Workflows/tree/9a0219f361e4ba4b9072a554362ef378ff47ec4c/docs/evidence/issue-3743/runtime-probes/replay-validation)
+also retains the loose files.
 
 Each archive is gzip JSON keyed by original relative filename, with `base64`,
 `bytes`, and `sha256`. From a clean checkout, restore the named paths with:
@@ -164,17 +172,26 @@ Each archive is gzip JSON keyed by original relative filename, with `base64`,
 import base64, gzip, hashlib, json
 from pathlib import Path
 root = Path("docs/evidence/issue-3743/runtime-probes")
-driver = root / "replay-validation/driver-phase-artifacts.json.gz"
-for archive in [*root.glob("*/replay-artifacts.json.gz"), driver]:
+capture = root / "replay-validation"
+driver = capture / "driver-phase-artifacts.json.gz"
+validation = capture / "validation-run-artifacts.json.gz"
+driver_prefixes = ("driver-0-", "driver-1-", "driver-2-")
+for archive in [*root.glob("*/replay-artifacts.json.gz"), driver, validation]:
     records = json.loads(gzip.decompress(archive.read_bytes()))
     destination = archive.parent / "replay"
-    if archive == driver:
-        destination = archive.parent
-        manifest = json.loads((destination / "manifest.json").read_text())
-        phases = {name: sha for name, sha in manifest.items()
-                  if name.startswith(("driver-0-", "driver-1-", "driver-2-"))}
-        if {name: record["sha256"] for name, record in records.items()} != phases:
-            raise ValueError("driver phase archive differs from historical manifest")
+    if archive in (driver, validation):
+        destination = capture
+        manifest = json.loads((capture / "manifest.json").read_text())
+        if archive == driver:
+            expected = {name: sha for name, sha in manifest.items()
+                        if name.startswith(driver_prefixes)}
+        else:
+            expected = {name: sha for name, sha in manifest.items()
+                        if "/" not in name and not name.startswith(driver_prefixes)
+                        and (name.endswith((".command.json", ".stdout.gz", ".stderr.gz", ".xml"))
+                             or name in ("baseline.json", "candidate.json"))}
+        if {name: record["sha256"] for name, record in records.items()} != expected:
+            raise ValueError(f"{archive.name} differs from historical manifest")
     for name, record in records.items():
         member = Path(name)
         if member.is_absolute() or ".." in member.parts:
