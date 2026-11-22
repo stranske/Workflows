@@ -111,7 +111,7 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/ci-
 
 **Pros:**
 - Full control
-- No external dependencies
+- The standalone Python templates define their jobs locally. The Node starter calls the shared Node workflow at `@main`.
 - Easy customization
 
 **Cons:**
@@ -418,6 +418,7 @@ Copy from `/templates/` and customize:
 |----------|----------|
 | `ci-basic.yml` | Simple projects: lint + test |
 | `ci-full.yml` | Production projects: full pipeline with gate |
+| [ci-node-basic.yml](../templates/ci-node-basic.yml) | Run shared Node.js and TypeScript CI with npm and Jest by default |
 | `dependency-refresh.yml` | Keep `requirements.lock` updated |
 | `cosmetic-repair.yml` | Auto-fix formatting issues |
 

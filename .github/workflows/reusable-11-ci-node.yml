@@ -299,64 +299,46 @@ jobs:
         if: ${{ inputs.tests }}
         env:
           COVERAGE_ENABLED: ${{ inputs.coverage }}
+          PACKAGE_MANAGER: ${{ inputs['package-manager'] }}
+          TEST_RUNNER: ${{ inputs['test-runner'] }}
         run: |
           set -euo pipefail
-          pm="${{ inputs['package-manager'] }}"
-          runner="${{ inputs['test-runner'] }}"
+          test_script=$(node --input-type=commonjs -p 'Boolean(require("./package.json").scripts?.test?.trim())')
+          runner=jest
+          if [ "${TEST_RUNNER}" = "vitest" ]; then
+            runner=vitest
+          fi
 
-          case "${pm}" in
-            npm)
-              if [ "${runner}" = "vitest" ]; then
-                npm run test --if-present -- --runInBand || npx vitest run --coverage
-              else
-                coverage_flags=()
-                if [ "${COVERAGE_ENABLED}" = "true" ]; then
-                  coverage_flags+=(--coverage)
-                  coverage_flags+=(--coverageReporters=text)
-                  coverage_flags+=(--coverageReporters=json-summary)
-                  coverage_flags+=(--coverageReporters=cobertura)
-                  coverage_flags+=(--coverageReporters=lcov)
-                fi
-                if ! npm run test --if-present -- --runInBand "${coverage_flags[@]}"; then
-                  npx jest --runInBand "${coverage_flags[@]}"
-                fi
-              fi
-              ;;
-            pnpm)
-              if [ "${runner}" = "vitest" ]; then
-                pnpm run test --if-present -- --runInBand || pnpm exec vitest run --coverage
-              else
-                coverage_flags=()
-                if [ "${COVERAGE_ENABLED}" = "true" ]; then
-                  coverage_flags+=(--coverage)
-                  coverage_flags+=(--coverageReporters=text)
-                  coverage_flags+=(--coverageReporters=json-summary)
-                  coverage_flags+=(--coverageReporters=cobertura)
-                  coverage_flags+=(--coverageReporters=lcov)
-                fi
-                if ! pnpm run test --if-present -- --runInBand "${coverage_flags[@]}"; then
-                  pnpm exec jest --runInBand "${coverage_flags[@]}"
-                fi
-              fi
-              ;;
-            yarn)
-              if [ "${runner}" = "vitest" ]; then
-                yarn run test --if-present --runInBand || yarn exec vitest run --coverage
-              else
-                coverage_flags=()
-                if [ "${COVERAGE_ENABLED}" = "true" ]; then
-                  coverage_flags+=(--coverage)
-                  coverage_flags+=(--coverageReporters=text)
-                  coverage_flags+=(--coverageReporters=json-summary)
-                  coverage_flags+=(--coverageReporters=cobertura)
-                  coverage_flags+=(--coverageReporters=lcov)
-                fi
-                if ! yarn run test --if-present --runInBand "${coverage_flags[@]}"; then
-                  yarn exec jest --runInBand "${coverage_flags[@]}"
-                fi
-              fi
-              ;;
-          esac
+          if [ "${test_script}" = "true" ]; then
+            # The project script owns the verdict, including a nonzero exit.
+            case "${PACKAGE_MANAGER}" in
+              npm) command=(npm run test --) ;;
+              pnpm) command=(pnpm run test) ;;
+              yarn) command=(yarn run test) ;;
+            esac
+          else
+            echo "No test script in package.json; trying the installed ${runner} runner."
+            case "${PACKAGE_MANAGER}" in
+              npm) command=(npm exec --offline --no -- "${runner}") ;;
+              pnpm) command=(pnpm exec "${runner}") ;;
+              yarn) command=(yarn exec "${runner}") ;;
+            esac
+            if [ "${runner}" = "vitest" ]; then
+              command+=(run)
+            fi
+          fi
+
+          if [ "${runner}" = "jest" ]; then
+            command+=(--runInBand)
+          fi
+          if [ "${COVERAGE_ENABLED}" = "true" ]; then
+            command+=(--coverage)
+            if [ "${runner}" = "jest" ]; then
+              command+=(--coverageReporters=text --coverageReporters=json-summary)
+              command+=(--coverageReporters=cobertura --coverageReporters=lcov)
+            fi
+          fi
+          "${command[@]}"
 
       - name: Stage coverage artifact layout
         if: always()
