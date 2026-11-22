@@ -144,6 +144,48 @@ LEGACY_SKIP_WORKFLOWS = {
 }
 
 
+def _workflow_paths_from_stdout(stdout: str) -> list[Path]:
+    paths: list[Path] = []
+    seen: set[str] = set()
+    for line in stdout.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        path = Path(stripped)
+        if path.suffix not in {".yml", ".yaml"}:
+            continue
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        paths.append(path)
+    return paths
+
+
+def _local_workflow_edits() -> list[Path]:
+    """Tracked staged and unstaged workflow edits relative to ``HEAD``."""
+    try:
+        proc = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--diff-filter=d",
+                "HEAD",
+                "--",
+                ".github/workflows",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return []
+    if proc.returncode != 0:
+        return []
+    return _workflow_paths_from_stdout(proc.stdout)
+
+
 def discover_changed_workflows(base_ref: str | None = None) -> list[Path]:
     """Return workflow paths changed on this branch relative to a merge base ref.
 
@@ -151,6 +193,9 @@ def discover_changed_workflows(base_ref: str | None = None) -> list[Path]:
     ``origin/main`` is tried before ``main``. Stops on the first successful Git
     comparison even when the diff is empty, and raises
     :class:`WorkflowDiscoveryError` if no permitted comparison succeeds.
+
+    Default discovery also unions tracked local edits under ``.github/workflows``
+    (staged and unstaged) against ``HEAD``.
     """
     candidates = [base_ref] if base_ref is not None else ["origin/main", "main"]
     errors: list[str] = []
@@ -177,11 +222,14 @@ def discover_changed_workflows(base_ref: str | None = None) -> list[Path]:
             detail = (proc.stderr or "").strip() or f"git diff exited {proc.returncode}"
             errors.append(f"{ref}: {detail}")
             continue
-        paths = []
-        for line in proc.stdout.splitlines():
-            path = Path(line.strip())
-            if path.suffix in {".yml", ".yaml"}:
-                paths.append(path)
+        paths = _workflow_paths_from_stdout(proc.stdout)
+        if base_ref is None:
+            seen = {str(path) for path in paths}
+            for path in _local_workflow_edits():
+                key = str(path)
+                if key not in seen:
+                    seen.add(key)
+                    paths.append(path)
         return paths
     raise WorkflowDiscoveryError(
         "Failed to discover changed workflow files via git diff (" + "; ".join(errors) + ")"

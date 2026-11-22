@@ -21,6 +21,7 @@ from scripts.workflow_inventory_audit import (
     load_workflow_document,
     main,
     not_run_candidates,
+    render_markdown_summary,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -244,6 +245,104 @@ def test_not_run_candidates_omit_call_only_reusables() -> None:
     candidates = not_run_candidates(rows)
     assert all(not row.excluded_from_not_run for row in candidates)
     assert all(row.stem != "agents-72-codex-belt-worker" for row in candidates)
+
+
+def test_has_run_name_from_parsed_top_level_key_not_job_text(tmp_path: Path) -> None:
+    spaced = tmp_path / "spaced-run-name.yml"
+    spaced.write_text(
+        "name: Spaced run-name\n"
+        "run-name : Campaign title\n"
+        "on:\n"
+        "  workflow_dispatch:\n"
+        "jobs:\n"
+        "  noop:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: echo ok\n",
+        encoding="utf-8",
+    )
+    assert inspect_workflow_file(spaced).has_run_name is True
+
+    false_positive = tmp_path / "comment-run-name.yml"
+    false_positive.write_text(
+        "name: Callable\n"
+        "on:\n"
+        "  workflow_call:\n"
+        "jobs:\n"
+        "  noop:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      # run-name: incidental comment text\n"
+        "      - run: echo ok\n",
+        encoding="utf-8",
+    )
+    assert inspect_workflow_file(false_positive).has_run_name is False
+
+
+def test_iter_workflow_inventory_rejects_missing_directory(tmp_path: Path) -> None:
+    missing = tmp_path / "no-such-workflows"
+    with pytest.raises(WorkflowInventoryError, match="workflows directory not found"):
+        iter_workflow_inventory(missing)
+
+
+def test_main_rejects_missing_workflows_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["workflow_inventory_audit.py", "--workflows-dir", str(tmp_path / "missing")],
+    )
+    assert main() == 1
+
+
+def test_render_markdown_and_tabular_cli_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workflows = tmp_path / ".github/workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "call-only.yml").write_text(
+        "name: Call only\non:\n  workflow_call:\njobs:\n  j:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
+    (workflows / "eligible.yml").write_text(
+        "name: Eligible\n"
+        "on:\n"
+        "  workflow_dispatch:\n"
+        "jobs:\n  j:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
+    (workflows / "unknown.yml").write_text(
+        "name: Unknown\njobs:\n  j:\n    runs-on: ubuntu-latest\n", encoding="utf-8"
+    )
+
+    rows = iter_workflow_inventory(workflows)
+    md = render_markdown_summary(rows)
+    assert "Total workflow files: **3**" in md
+    assert "reusable_call_only" in md
+    assert "unknown_trigger" in md
+    assert "| `call-only.yml` | workflow_call | no |" in md
+    assert len(not_run_candidates(rows)) == 2
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["workflow_inventory_audit.py", "--workflows-dir", str(workflows), "--markdown"],
+    )
+    assert main() == 0
+    markdown_cli = capsys.readouterr().out
+    assert "Workflow inventory appendix" in markdown_cli
+    assert "call-only.yml" in markdown_cli
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["workflow_inventory_audit.py", "--workflows-dir", str(workflows)],
+    )
+    assert main() == 0
+    tabular = capsys.readouterr().out
+    assert "call-only\treusable_call_only" in tabular
+    assert "unknown\tunknown_trigger" in tabular
 
 
 def test_inspect_workflow_file_reads_display_name(tmp_path: Path) -> None:

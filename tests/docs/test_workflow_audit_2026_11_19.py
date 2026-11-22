@@ -118,7 +118,20 @@ def test_november_2026_audit_records_not_run_inventory() -> None:
 
 def test_november_2026_audit_t4_failure_inspection_section() -> None:
     text = AUDIT_REPORT.read_text(encoding="utf-8")
-    assert "Failed run inspection" in text
-    assert "gh run view" in text
-    missing = [name for name in T4_FAILURE_INSPECTION_WORKFLOWS if name not in text]
-    assert not missing, f"T4 inspection omits workflows: {missing}"
+    section = _section_text(text, "## Failed run inspection")
+    assert "gh run view" in section
+    missing_rows = [
+        name for name in T4_FAILURE_INSPECTION_WORKFLOWS if f"| `{name}` |" not in section
+    ]
+    assert not missing_rows, f"T4 inspection omits table rows: {missing_rows}"
+    thin_rows = []
+    for name in T4_FAILURE_INSPECTION_WORKFLOWS:
+        for line in section.splitlines():
+            if line.startswith(f"| `{name}` |"):
+                cells = [cell.strip() for cell in line.strip("|").split("|")]
+                if len(cells) < 4 or not cells[2].strip() or not cells[3].strip():
+                    thin_rows.append(name)
+                break
+        else:
+            thin_rows.append(name)
+    assert not thin_rows, f"T4 rows missing inspection evidence or disposition: {thin_rows}"

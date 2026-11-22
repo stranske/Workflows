@@ -140,13 +140,16 @@ def test_discover_stops_on_first_successful_empty_comparison(
 
     def fake_run(cmd: list[str], **_kwargs: object) -> SimpleNamespace:
         calls.append(cmd)
+        if "..." in " ".join(cmd):
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(validator.subprocess, "run", fake_run)
 
     assert validator.discover_changed_workflows() == []
-    assert len(calls) == 1
-    assert "origin/main...HEAD" in calls[0]
+    merge_calls = [c for c in calls if "..." in " ".join(c)]
+    assert len(merge_calls) == 1
+    assert "origin/main...HEAD" in merge_calls[0]
 
 
 def test_discover_honors_explicit_base_ref_without_fallback(
@@ -330,3 +333,109 @@ def test_main_validates_git_changed_workflows_when_no_paths(
 
     assert ok.value.code == 0
     assert "validated successfully" in capsys.readouterr().out
+
+
+def test_discover_falls_back_to_main_when_origin_main_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_kwargs: object) -> SimpleNamespace:
+        calls.append(cmd)
+        if "origin/main...HEAD" in cmd:
+            return SimpleNamespace(returncode=128, stdout="", stderr="unknown ref")
+        if "main...HEAD" in cmd:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=".github/workflows/from-main.yml\n",
+                stderr="",
+            )
+        if cmd[-2:] == ["--", ".github/workflows"] and "HEAD" in cmd and "..." not in " ".join(cmd):
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(validator.subprocess, "run", fake_run)
+
+    paths = validator.discover_changed_workflows()
+    assert paths == [Path(".github/workflows/from-main.yml")]
+    assert any("origin/main...HEAD" in c for c in calls)
+    assert any("main...HEAD" in c for c in calls)
+
+
+def test_discover_suffix_filtering_drops_non_yaml(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(cmd: list[str], **_kwargs: object) -> SimpleNamespace:
+        if "..." in " ".join(cmd):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=(
+                    ".github/workflows/keep.yml\n"
+                    ".github/workflows/notes.md\n"
+                    ".github/workflows/legacy.yaml\n"
+                ),
+                stderr="",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(validator.subprocess, "run", fake_run)
+
+    assert validator.discover_changed_workflows() == [
+        Path(".github/workflows/keep.yml"),
+        Path(".github/workflows/legacy.yaml"),
+    ]
+
+
+def test_discover_passes_deleted_filter_to_git(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_kwargs: object) -> SimpleNamespace:
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(validator.subprocess, "run", fake_run)
+
+    validator.discover_changed_workflows()
+    merge_diff = next(c for c in calls if "..." in " ".join(c))
+    assert "--diff-filter=d" in merge_diff
+
+
+def test_discover_includes_local_edits_after_merge_base_comparison(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    _init_temp_git_repo(repo)
+    monkeypatch.chdir(repo)
+    workflows = repo / ".github/workflows"
+    workflows.mkdir(parents=True)
+    _write_workflow(
+        workflows / "local-only.yml",
+        [
+            "name: Local only",
+            "on: workflow_dispatch",
+            "jobs:",
+            "  build:",
+            "    runs-on: ubuntu-latest",
+            "    steps:",
+            "      - run: echo committed",
+        ],
+    )
+    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "base"], cwd=repo, check=True, capture_output=True)
+
+    _write_workflow(
+        workflows / "local-only.yml",
+        [
+            "name: Local only",
+            "on: workflow_dispatch",
+            "jobs:",
+            "  build:",
+            "    runs-on: ubuntu-latest",
+            "    steps:",
+            "      - run: echo uncommitted",
+        ],
+    )
+
+    paths = validator.discover_changed_workflows("HEAD")
+    assert paths == []
+
+    paths_default = validator.discover_changed_workflows()
+    assert paths_default == [Path(".github/workflows/local-only.yml")]

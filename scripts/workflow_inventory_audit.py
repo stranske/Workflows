@@ -118,15 +118,18 @@ def inspect_workflow_file(path: Path) -> WorkflowInventoryRow:
         triggers=triggers,
         excluded_from_not_run=excluded,
         audit_category=classify_audit_category(triggers, excluded_from_not_run=excluded),
-        has_run_name="run-name:" in text,
+        has_run_name="run-name" in data,
     )
 
 
 def iter_workflow_inventory(workflows_dir: Path) -> list[WorkflowInventoryRow]:
     """Return sorted inventory rows for every `*.yml` file in the workflows directory."""
+    resolved = workflows_dir.resolve()
+    if not resolved.is_dir():
+        raise WorkflowInventoryError(f"workflows directory not found: {resolved}")
     rows: list[WorkflowInventoryRow] = []
     errors: list[str] = []
-    for path in sorted(workflows_dir.glob("*.yml")):
+    for path in sorted(resolved.glob("*.yml")):
         try:
             rows.append(inspect_workflow_file(path))
         except WorkflowInventoryError as exc:
