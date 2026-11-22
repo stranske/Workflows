@@ -17,6 +17,10 @@ RECEIPTS_PATH = ROOT / "docs/evidence/issue-4019/r3/mutations/mutation-receipts.
 RERUN_RECEIPTS_PATH = (
     ROOT / "docs/evidence/issue-4019/r3/integration-rerun/mutations/mutation-receipts.json"
 )
+METRICS_READER_PATH = "scripts/aggregate_agent_metrics.py"
+# The retained reader bytes are recoverable at 0513e66b7c91; the historical
+# integration-rerun commit is unavailable. CI's shallow checkout has neither.
+HISTORICAL_METRICS_SHA256 = "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
 
 
 def load_driver():
@@ -381,10 +385,45 @@ def test_verified_mutation_receipts_inventory():
                 assert transcript.startswith(f"# revision: {expected_rev}\n")
             live_bytes = (ROOT / rel_path).read_bytes()
             assert live_bytes.decode("utf-8").count(old) == count
-            if verify_live_digest:
+            if rel_path == METRICS_READER_PATH:
+                assert receipt["sha256_before"] == HISTORICAL_METRICS_SHA256
+            elif verify_live_digest:
                 assert hashlib.sha256(live_bytes).hexdigest() == receipt["sha256_before"]
         red_04 = (path.parent / "04-red.txt").read_text()
         assert expected_04_line in red_04
+
+
+@pytest.mark.parametrize(
+    ("mutation_id", "expected_error", "message"),
+    [("01", AssertionError, None), ("02", AssertionError, None), ("03", TypeError, "not iterable")],
+)
+def test_current_metrics_reader_mutation_still_has_named_failure(
+    tmp_path, monkeypatch, mutation_id, expected_error, message
+):
+    """Run the retained named proof against a temporary mutant and the actual current reader."""
+    _, node, rel_path, old, new, count = next(
+        mutation for mutation in load_driver().MUTATIONS if mutation[0] == mutation_id
+    )
+    assert rel_path == METRICS_READER_PATH
+    source = (ROOT / rel_path).read_text(encoding="utf-8")
+    assert source.count(old) == count
+    test_path, test_name = node.split("::")
+    tests_spec = importlib.util.spec_from_file_location("issue_4019_reader_tests", ROOT / test_path)
+    tests_module = importlib.util.module_from_spec(tests_spec)
+    tests_spec.loader.exec_module(tests_module)
+    probe = getattr(tests_module, test_name)
+
+    mutant = tmp_path / "aggregate_agent_metrics.py"
+    mutant.write_text(source.replace(old, new), encoding="utf-8")
+    mutant_spec = importlib.util.spec_from_file_location("issue_4019_metrics_mutant", mutant)
+    mutant_module = importlib.util.module_from_spec(mutant_spec)
+    with monkeypatch.context() as patch:
+        patch.setitem(sys.modules, mutant_spec.name, mutant_module)
+        mutant_spec.loader.exec_module(mutant_module)
+        patch.setattr(tests_module, "aggregate_agent_metrics", mutant_module)
+        with pytest.raises(expected_error, match=message):
+            probe()
+    probe()
 
 
 def test_driver_cli_validates_arguments_and_invokes_main(tmp_path, monkeypatch):
