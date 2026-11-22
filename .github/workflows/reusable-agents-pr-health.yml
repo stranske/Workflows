@@ -266,6 +266,8 @@ jobs:
 
             const conflictPrs = [];
             const failingPrs = [];
+            // Match the receiver's non-routing labels in keepalive_loop.js.
+            const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
             let healthyCount = 0;
 
             for (const pr of prs) {
@@ -348,9 +350,11 @@ jobs:
                   if (combinedFailure || failures.length > 0) {
                     // The receiving keepalive route requires explicit agent participation.
                     // Leave routing validity, pause and recovery decisions to that receiver.
-                    const hasAgentLabel = (pr.labels || []).some(label =>
-                      String(label.name ?? '').trim().toLowerCase().startsWith('agent:')
-                    );
+                    const hasAgentLabel = (pr.labels || []).some(label => {
+                      const name = String(label.name ?? '').trim().toLowerCase();
+                      const key = name.startsWith('agent:') ? name.slice('agent:'.length) : '';
+                      return key && !nonRoutingAgentKeys.has(key);
+                    });
                     failingPrs.push({
                       ...prInfo,
                       head_sha: pr.head.sha,

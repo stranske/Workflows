@@ -728,6 +728,7 @@ def _run_pr_health_replay(
     incident_only: bool = False,
     incident_checks_unavailable: bool = False,
     incident_first: bool = False,
+    incident_status_label: str | None = None,
     max_dispatches: int = 3,
 ) -> dict[str, Any]:
     node = shutil.which("node")
@@ -998,7 +999,11 @@ def _run_pr_health_replay(
                 "mergeable_state": "unstable",
                 "head": {"ref": "exports/route-weights", "sha": head},
                 "base": {"ref": "main"},
-                "labels": ["tracker:durable", "autofix:escalated"],
+                "labels": [
+                    "tracker:durable",
+                    "autofix:escalated",
+                    *([incident_status_label] if incident_status_label else []),
+                ],
             }
         )
         scenario["combinedStatusBySha"][head] = {
@@ -1069,16 +1074,31 @@ def test_pr_health_retains_combined_failure_when_check_runs_unavailable(tmp_path
     assert "Health 45 Agents Guard / guard" in summary
 
 
-@pytest.mark.parametrize(("max_dispatches", "expected"), [(1, {"101", "103"}), (0, set())])
+@pytest.mark.parametrize(
+    ("max_dispatches", "status_label"),
+    [
+        (1, None),
+        (0, None),
+        (1, "agent:needs-attention"),
+        (1, "agent:rate-limited"),
+        (1, "agent:retry"),
+        (1, "agent:"),
+    ],
+)
 def test_pr_health_applies_dispatch_cap_only_to_participating_failures(
-    tmp_path: Path, max_dispatches: int, expected: set[str]
+    tmp_path: Path, max_dispatches: int, status_label: str | None
 ) -> None:
     replay = _run_pr_health_replay(
-        tmp_path, include_incident=True, incident_first=True, max_dispatches=max_dispatches
+        tmp_path,
+        include_incident=True,
+        incident_first=True,
+        incident_status_label=status_label,
+        max_dispatches=max_dispatches,
     )
 
     assert replay["scanOutputs"]["failing_count"] == "2"
     assert replay["scanOutputs"]["check_dispatch_count"] == str(max_dispatches)
+    expected = {"101", "103"} if max_dispatches else set()
     assert {event["inputs"]["pr_number"] for event in replay["workflowDispatches"]} == expected
     assert replay["branchUpdates"] == ([101] if max_dispatches else [])
     summary = "\n".join(replay["summaries"])
