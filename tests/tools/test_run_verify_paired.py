@@ -18,6 +18,8 @@ from tools import run_verify_paired as runner
 from tools import verify_paired_policy as policy
 
 _real_packet_loader_for_test = runner.load_packet
+_VERIFY_PAIRED_ROOT = runner.PACKET
+_HISTORICAL_PACKET = _VERIFY_PAIRED_ROOT / "historical-square"
 
 
 @pytest.fixture(autouse=True)
@@ -27,15 +29,19 @@ def deny_unmocked_network(monkeypatch):
 
     monkeypatch.setattr("socket.getaddrinfo", refuse)
     monkeypatch.setattr("socket.socket.connect", refuse)
+    monkeypatch.setattr(runner, "PACKET", _HISTORICAL_PACKET)
     monkeypatch.setattr(
-        runner, "DESCRIPTOR_PATH", runner.PACKET / "historical-square-descriptor.json"
+        runner,
+        "DESCRIPTOR_PATH",
+        _HISTORICAL_PACKET / "historical-square-descriptor.json",
     )
 
 
 @pytest.fixture
 def enabled(monkeypatch, tmp_path, request):
     if getattr(request, "param", None) == "representative":
-        monkeypatch.setattr(runner, "DESCRIPTOR_PATH", runner.PACKET / "descriptor.json")
+        monkeypatch.setattr(runner, "PACKET", _VERIFY_PAIRED_ROOT)
+        monkeypatch.setattr(runner, "DESCRIPTOR_PATH", _VERIFY_PAIRED_ROOT / "descriptor.json")
     proposal, caps = runner.load_packet()
     caps.update(execution_enabled=True, review_status="reviewed")
     monkeypatch.setattr(runner, "load_packet", lambda: (proposal, deepcopy(caps)))
@@ -903,7 +909,7 @@ def test_actual_http_remaining_deadline_clamps_each_phase_before_send(monkeypatc
 def test_closed_descriptor_denies_bad_source_before_client(monkeypatch, tmp_path, defect):
     namespace = tmp_path / "packet"
     namespace.mkdir()
-    descriptor = json.loads((runner.PACKET / "descriptor.json").read_text())
+    descriptor = json.loads((_VERIFY_PAIRED_ROOT / "descriptor.json").read_text())
     if defect == "unknown":
         descriptor["caller_url"] = "https://untrusted.invalid"
     if defect == "absolute":
@@ -912,13 +918,13 @@ def test_closed_descriptor_denies_bad_source_before_client(monkeypatch, tmp_path
         descriptor["packet_root"] = "../escape"
     if defect == "symlink":
         (namespace / "representative-v1").symlink_to(
-            runner.PACKET / "representative-v1", target_is_directory=True
+            _VERIFY_PAIRED_ROOT / "representative-v1", target_is_directory=True
         )
     if defect == "hash":
         directory = namespace / "representative-v1"
         directory.mkdir()
         (directory / "PROPOSAL.json").write_bytes(
-            (runner.PACKET / "representative-v1/PROPOSAL.json").read_bytes()
+            (_VERIFY_PAIRED_ROOT / "representative-v1/PROPOSAL.json").read_bytes()
         )
         descriptor["proposal_sha256"] = "0" * 64
     raw = json.dumps(descriptor)
@@ -947,7 +953,7 @@ def test_one_case_descriptor_completes_exactly_two_generations(
     real_loader = _real_packet_loader_for_test
     source = tmp_path / "source"
     namespace = source / "config/verify_paired"
-    shutil.copytree(runner.PACKET, namespace)
+    shutil.copytree(_VERIFY_PAIRED_ROOT, namespace)
     for name in (
         "tools/run_verify_paired.py",
         "tools/verify_paired_policy.py",
@@ -1173,7 +1179,7 @@ def test_explicit_formatter_arguments_protect_only_frozen_data(tool, tmp_path):
             result.stderr,
         )
     original = (
-        runner.PACKET
+        _VERIFY_PAIRED_ROOT
         / "representative-v1/workflows-4265-verified/evidence/current-review-runner.py"
     )
     before = original.read_bytes()
