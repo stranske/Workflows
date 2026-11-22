@@ -52,4 +52,6 @@ lines [265,270,292], branches []; 3.13 has no coverage JSON. See the final
 section of `acceptance-integration.md` and the distinct raw-artifact manifests.
 That is a checkpoint before this documentation reconciliation. Final-head
 confirmation and delivered-main acceptance are recorded in
-[PR #4516](https://github.com/stranske/Workflows/pull/4516), not inferred here.
+[the #4523 verification](acceptance-integration.md#4523-cherry-pick-integration-and-verification-2026-11-12-utc)
+after [PR #4674](https://github.com/stranske/Workflows/pull/4674) delivered the integration.
+[PR #4516](https://github.com/stranske/Workflows/pull/4516) closed without merging.

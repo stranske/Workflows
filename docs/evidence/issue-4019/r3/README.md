@@ -48,9 +48,30 @@ and the codex_session_analyzer dispatch. Changing `if` to `elif` makes the logge
 
 `mutate.py` runs 27 mutations over 24 test functions (3 in aggregate, 21 in provider); some tests
 get several mutations. Each mutation applies the exact replacement, runs the one node (exit 1, named
-FAILED), restores the original bytes (sha256 checked), and reruns it (exit 0). Results are in
-`mutations/mutation-receipts.json`, and the full output is in `mutations/NN-red.txt` and `NN-green.txt`.
-The first `E` line of each red run shows the asserted behavior breaking; no red run is a collection error.
+FAILED), restores the original bytes (sha256 checked), and reruns it (exit 0). Both phase directories
+retain `mutation-receipts.json` and a
+`transcripts.tar.gz` containing the original `NN-red.txt` and `NN-green.txt` bytes.
+The first `E` line of each red run shows the asserted behavior breaking. All red runs reached their assertions.
+
+From the repository root, choose the candidate or integration-rerun phase.
+
+```sh
+phase=docs/evidence/issue-4019/r3/mutations  # use r3/integration-rerun/mutations for the rerun
+tar -tzf "$phase/transcripts.tar.gz"                # list member names
+tar -xOzf "$phase/transcripts.tar.gz" 04-red.txt   # read one transcript
+restore="$(mktemp -d)"
+tar -xzf "$phase/transcripts.tar.gz" -C "$restore"  # recover all 54 loose files
+```
+
+GitHub also shows the original loose
+[candidate transcripts](https://github.com/stranske/Workflows/tree/c26979fcab67d1c9d79437ad0a9a84082c9aadec/docs/evidence/issue-4019/r3/mutations)
+and [integration-rerun transcripts](https://github.com/stranske/Workflows/tree/c26979fcab67d1c9d79437ad0a9a84082c9aadec/docs/evidence/issue-4019/r3/integration-rerun/mutations)
+at the immutable delivery commit. The commit recorded inside each transcript is the revision actually tested.
+
+For a fresh capture, use the selected interpreter and a new output directory
+(`python docs/evidence/issue-4019/r3/mutate.py "$(mktemp -d)"`).
+The driver writes loose output and a manifest. Use its existing `--allow-dirty` option
+only for scratch evidence, which is marked with a dirty revision.
 
 ## Validation
 
@@ -100,7 +121,9 @@ this corrects the historical 21/18 wording while retaining the candidate
 receipt digests and output bodies described above. Review dispositions and bounded follow-ups are recorded in
 `integration-rerun/review-dispositions.md`. The final immutable head, hosted
 runs/raw artifact identities, merge SHA, and main ancestry are maintained in
-the acceptance section of [integration PR #4516](https://github.com/stranske/Workflows/pull/4516).
+the [#4523 verification section](acceptance-integration.md#4523-cherry-pick-integration-and-verification-2026-11-12-utc).
+[PR #4674](https://github.com/stranske/Workflows/pull/4674) delivered the integration to main.
+[PR #4516](https://github.com/stranske/Workflows/pull/4516) closed without merging.
 
 
 The integrated-tree hosted checkpoint now measures TARGET_MISSING=3 on
@@ -109,5 +132,4 @@ runtimes passed; 3.14 raw TOTAL=63868/70054, summary=92.60%, residual provider
 lines [265,270,292], branches []; 3.13 has no coverage JSON. See the final
 section of `acceptance-integration.md` and the distinct raw-artifact manifests.
 That is a checkpoint before this documentation reconciliation. Final-head
-confirmation and delivered-main acceptance are recorded in
-[PR #4516](https://github.com/stranske/Workflows/pull/4516), not inferred here.
+confirmation and delivered-main acceptance are recorded in the #4523 verification section above.
