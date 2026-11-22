@@ -907,6 +907,23 @@ to this round's edits. #4518 and #4401 were both read as open, `draft=false`.
 
 ## Historical-proof inspection and auditor portability (2026-11-07 UTC)
 
+The portability, single-case and pytest startup receipts linked in this guide
+are also in [`auditor-receipts.tar.gz`](auditor-receipts.tar.gz) for offline reading.
+From the repository root, run the following command with the original basename
+of the receipt you want to print.
+
+```sh
+(
+  archive=docs/evidence/issue-3956/auditor-receipts.tar.gz
+  expected=daf7494cd2c14ce73a1a5eed169242840d290d10d6edc506de87aa1f3da67719
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Auditor receipt archive checksum failed' >&2
+    exit 1
+  fi
+  tar -xOzf "$archive" auditor-portability-proof.json
+)
+```
+
 Before code edits at checkout `e0e027e6ae37683d2889a43b112fc5a7e453f7f8`,
 the requested `gh pr view 4401` read again failed to connect to `api.github.com`.
 Connected GitHub metadata independently returned OPEN, `draft=false`,
@@ -958,7 +975,7 @@ The auditor now explicitly reads repository evidence, source/tests, supplements,
 baseline and collected cases as UTF-8. The collection command above fixes stdout
 encoding to match. New regressions simulate cp1252 decoding and independently
 reject assertion failures without a case identity or from another case.
-[auditor-portability-proof.json](auditor-portability-proof.json) binds the code/test
+[auditor-portability-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/auditor-portability-proof.json) binds the code/test
 overlay to base `e0e027e6…`: the original auditor fails the encoding regression;
 removing the case-identity guard fails both negative cases; restored source passes
 all three. These isolated temporary-package outputs were read in two bounded
@@ -1105,7 +1122,7 @@ executed by the auditor.
 
 Validation base: `264e9cc6503be2e1eef1c4a0c3851a6f777f6985`, plus the local
 source/test overlay identified by SHA256 in
-[auditor-single-case-proof.json](auditor-single-case-proof.json). All 13 new
+[auditor-single-case-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/auditor-single-case-proof.json). All 13 new
 parameter cases fail the baseline auditor with `assert True is False`, then
 pass the corrected auditor independently. Each full receipt records its selected
 command, RED exit 1, restored GREEN exit 0, and identical test/configuration
@@ -1183,7 +1200,7 @@ separate from the historical assertion-failing retained mutation mapping.
 
 The local validation base is `a678142249d1c588458635ee358640d9a70c8343`, plus
 the configuration/new-test overlay identified by SHA256 in
-[pytest-startup-proof.json](pytest-startup-proof.json). Generator source and its
+[pytest-startup-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/pytest-startup-proof.json). Generator source and its
 199-test retained set, both Node production copies and Node tests are unchanged.
 The independently rerun retained audit still reports 35 added functions, 45
 parameter cases, 50 Python receipts and two original Node receipts, with
