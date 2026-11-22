@@ -45,8 +45,15 @@ Bounded missing statements before:
 Bounded missing branches before, in `validate_run_contract.py`:
 145→148, 326→328, 730→733, 755→758, 774→775, 819→820, 826→827.
 Other targets have no missing branches. Full Gate before misses only drift
-statements 920 and 921. The per-phase `inventory.json` files enumerate every
-missing statement and branch, with the original coverage summary counts.
+statements 920 and 921. The [Gate baseline inventory](gate-before/inventory.json)
+and [shared final inventory](target-after/inventory.json) list each missing
+statement and branch. The shared inventory is byte-identical to the
+[original Gate final copy](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/gate-after/inventory.json).
+Restore that path offline from the repository root with this command.
+
+```bash
+cp docs/evidence/issue-4502/target-after/inventory.json docs/evidence/issue-4502/gate-after/inventory.json
+```
 
 The historical 226-unit baseline is a separate historical observation from
 #4423, not this branch's starting point. The bounded final count is 226 units
