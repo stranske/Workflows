@@ -1066,6 +1066,7 @@ jobs:
     steps:
       # Mint GitHub App token early to use for API calls (avoids rate limits)
       - name: Mint GitHub App Token
+        if: ${{ needs.prepare.outputs.pr_number != '' }}
         id: app_token
         uses: actions/create-github-app-token@v3
         continue-on-error: true
@@ -1075,6 +1076,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout (for retry helpers)
+        if: ${{ needs.prepare.outputs.pr_number != '' }}
         uses: actions/checkout@v7
         with:
 
@@ -1088,6 +1090,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
+        if: ${{ needs.prepare.outputs.pr_number != '' }}
         uses: ./.github/actions/setup-api-client
         with:
           # named inputs, not the whole secrets context (see #3185)
