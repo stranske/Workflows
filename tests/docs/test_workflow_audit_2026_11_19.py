@@ -66,7 +66,7 @@ def test_november_2026_audit_report_sections() -> None:
 def test_november_2026_audit_covers_below_50_workflows() -> None:
     text = AUDIT_REPORT.read_text(encoding="utf-8")
     missing = [name for name in BELOW_50_WORKFLOWS if name not in text]
-    assert not missing, f"audit omits below-50% workflows: {missing}"
+    assert missing == [], f"audit omits below-50% workflows: {missing}"
 
 
 def test_november_2026_audit_covers_50_80_band() -> None:

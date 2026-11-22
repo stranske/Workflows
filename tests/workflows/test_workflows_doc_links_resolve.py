@@ -41,7 +41,7 @@ def test_workflows_doc_references_existing_workflow_files() -> None:
     print(f"dangling workflow references: {dangling}")
 
     assert references, "docs/ci/WORKFLOWS.md should reference at least one workflow file"
-    assert not dangling, f"Dangling workflow reference(s): {dangling}"
+    assert dangling == [], f"Dangling workflow reference(s): {dangling}"
 
 
 def test_november_2026_archived_workflow_audit_report() -> None:
