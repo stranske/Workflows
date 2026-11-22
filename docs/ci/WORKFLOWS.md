@@ -33,7 +33,7 @@ Diagram labels that start with `.` are shorthand for files under `.github/workfl
 - **Fork PR status:** [Gate Fork Status Publisher](../../.github/workflows/pr-00-gate-fork-status.yml) and [Agents Guard Fork Status Publisher](../../.github/workflows/agents-guard-fork-status.yml) validate trusted default-branch runs, current fork PR heads, latest attempts, protected controls, and complete attempt-bound evidence before writing their required contexts. See the [trust and rollout contract](../keepalive/FORK_GATE_STATUS_PUBLICATION.md).
 - Follow the [Autofix routes](#autofix-routes) to find the run that handled a Gate failure or produced a formatter patch.
 - **Agents control plane:** Completed non-push Gate `workflow_run` events trigger [Agents Keepalive Loop](../../.github/workflows/agents-keepalive-loop.yml), and the hourly [Agents Keepalive Sweep](../../.github/workflows/agents-keepalive-sweep.yml) (`23 * * * *`) re-dispatches that loop only for open, non-draft PRs carrying `agents:keepalive` plus an agent routing label; `agent:needs-attention`, `agent:rate-limited`, and `agent:retry` alone do not qualify. The standalone [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) (`agents-71/72/73-*.yml`) coordinates dispatcher → worker → conveyor hand-offs. [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml) still declares `schedule`, `workflow_dispatch`, `workflow_run` (`Gate` `completed`), and `repository_dispatch` (`agents-orchestrator-ping`), but `jobs.eligibility` (`expected-actions: workflow_dispatch,schedule`) admits only `schedule` and `workflow_dispatch` and denies `workflow_run` and `repository_dispatch` before `jobs.init`. In `jobs.init`, `schedule` (`*/30 * * * *`) forces `dry_run=true` as an A1 retirement shadow (attributed in workflow history to `0ecdff0f3`, qualified until runtime shadow coverage is verified) and `workflow_dispatch` remains input-controlled via `inputs.dry_run` (default `'false'`). Workflow YAML source proves only this authored control flow, not production liveness of the replacement loop/sweep, and whether to retire or restore Agents 70 remains undecided (see [AGENTS_POLICY.md](../AGENTS_POLICY.md)). When invoked, the orchestrator still honours the repository-level `keepalive:paused` label and `keepalive_enabled` flag and records the pause label name through `keepalive_pause_label`.
-- **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 40 Sweep](../../.github/workflows/health-40-sweep.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 43](../../.github/workflows/health-43-ci-signature-guard.yml), [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml), [Health 46 Codex Auth Check](../../.github/workflows/health-codex-auth-check.yml), [Health 50 Security Scan](../../.github/workflows/health-50-security-scan.yml), [Health 51 Actions SAST](../../.github/workflows/health-51-zizmor.yml), [Health 52 Semgrep Scan](../../.github/workflows/health-52-semgrep.yml), [Health 67 Integration Sync Check](../../.github/workflows/health-67-integration-sync-check.yml), [Health 68 Consumer Sync Drift Check](../../.github/workflows/health-68-consumer-sync-drift.yml), [Health 69 Consumer Sync Shadow Evidence](../../.github/workflows/health-69-consumer-sync-shadow-evidence.yml), and [Health 70 Validate Sync Manifest](../../.github/workflows/health-70-validate-sync-manifest.yml) workflows provide scheduled drift detection, read-only shadow evidence, enforcement snapshots, auth token monitoring, security scanning, and sync drift detection.
+- **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 40 Sweep](../../.github/workflows/health-40-sweep.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml), [Health 46 Codex Auth Check](../../.github/workflows/health-codex-auth-check.yml), [Health 50 Security Scan](../../.github/workflows/health-50-security-scan.yml), [Health 51 Actions SAST](../../.github/workflows/health-51-zizmor.yml), [Health 52 Semgrep Scan](../../.github/workflows/health-52-semgrep.yml), [Health 67 Integration Sync Check](../../.github/workflows/health-67-integration-sync-check.yml), [Health 68 Consumer Sync Drift Check](../../.github/workflows/health-68-consumer-sync-drift.yml), [Health 69 Consumer Sync Shadow Evidence](../../.github/workflows/health-69-consumer-sync-shadow-evidence.yml), and [Health 70 Validate Sync Manifest](../../.github/workflows/health-70-validate-sync-manifest.yml) workflows provide scheduled drift detection, read-only shadow evidence, enforcement snapshots, auth token monitoring, security scanning, and sync drift detection.
 
 Parser CLI tests use per-test temporary working directories. This isolates
 `input.txt` and `topics.json` across workers and separate invocations even when
@@ -320,7 +320,6 @@ Scheduled health jobs keep the automation ecosystem aligned:
 * [`health-41-repo-health.yml`](../../.github/workflows/health-41-repo-health.yml) performs the weekly repository health sweep (stale branches, unassigned issues, default-branch protection drift) and writes a single run-summary report; manual reruns accept `include_branches` / `include_prs` toggles to skip expensive enumeration APIs when only part of the report is needed.
 * [`health-cursor-auth-check.yml`](../../.github/workflows/health-cursor-auth-check.yml) and [`health-muse-auth-check.yml`](../../.github/workflows/health-muse-auth-check.yml) name a missing `CURSOR_API_KEY` / `META_API_KEY` secret daily (presence-only; the Muse check also verifies the CLI and bubblewrap sandbox; neither makes a model call).
 * [`health-42-actionlint.yml`](../../.github/workflows/health-42-actionlint.yml) provides the reusable Actionlint leg for the sweep or ad-hoc rehearsals.
-* [`health-43-ci-signature-guard.yml`](../../.github/workflows/health-43-ci-signature-guard.yml) checks the Gate job signature against `.github/signature-fixtures/` using the `signature-verify` action.
 * [`health-44-gate-branch-protection.yml`](../../.github/workflows/health-44-gate-branch-protection.yml) ensures branch protection stays aligned with Gate expectations.
 * [`health-codex-auth-check.yml`](../../.github/workflows/health-codex-auth-check.yml) checks `CODEX_AUTH_JSON` twice daily, lists open `auth-expiring` issues before running, and files or updates an issue when remaining lifetime drops below 48h or has already expired; missing, malformed, or undecodable auth fails the health run instead of reporting success. Manual dispatch also checks the credential when an alert is already open.
 * [`health-50-security-scan.yml`](../../.github/workflows/health-50-security-scan.yml) runs CodeQL security analysis on Python code (push, PR, weekly schedule).
@@ -443,6 +442,23 @@ the report branch. A missing credential fails explicitly; it does not fall back
 to the source-only workflow token. Publication uses expected file SHAs and the
 workflow serializes executions. A failed state read/write prevents unsafe
 issue reconciliation; a later run resumes from the persisted measurements.
+
+### CI signature guard fixtures
+
+The Workflows Gate scripts job and main Selftest run
+`test_signature_verify_action_matches_committed_fixture`. The test executes
+the signature-verify action's verification command against the checked-in
+jobs JSON and expected hash. It checks the static fixture pair. Health 44
+still reads the same pair for its guard summary.
+
+Run the focused check from the repository root with the project interpreter:
+
+```sh
+python -m pytest -q tests/workflows/github_scripts/test_health_summarize.py::test_signature_verify_action_matches_committed_fixture
+```
+
+See [Archived CI signature guard](../archive/ARCHIVE_WORKFLOWS.md#ci-signature-guard)
+for the former standalone workflow and recovery instructions.
 
 ## Self-test Harness
 
