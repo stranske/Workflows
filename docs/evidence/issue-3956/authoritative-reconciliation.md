@@ -618,8 +618,40 @@ The two retained added JS tests and their separate mutations are indexed in
 `parseCheckboxStates captures numbered checklist completions` and
 `mergeCheckboxStates restores numbered contract checklist items across refresh`.
 Each independently fails with an assertion when its regex loses numbered support,
-then passes after restoration. Historical `numbered-checklist-state-proof.json`
+then passes after restoration. Historical [`numbered-checklist-state-proof.json`](https://github.com/stranske/Workflows/blob/314895ec5d0b1e102fc80aff8001eae2545ed7fa/docs/evidence/issue-3956/numbered-checklist-state-proof.json)
 remains the earlier receipt; its coverage/completion narrative is superseded here.
+
+### Numbered-checklist records offline
+
+The three distinct historical checklist records are also in [`numbered-checklist-history.tar.gz`](numbered-checklist-history.tar.gz). Select one member from the repository root. The active repair receipt above remains separate.
+
+```bash
+(
+  archive=docs/evidence/issue-3956/numbered-checklist-history.tar.gz
+  member=numbered-checklist-state-proof.json
+  case "$member" in
+    numbered-checklist-state-proof.json)
+      expected=919b3ee253f5a6b4512171c9d71b2e776b9685875808eaa0b5993ec1843dfedb ;;
+    numbered-checklist-summary-proof.json)
+      expected=2762b80024a3f81a22d5a7828c722277e76c621955ba3e0955b30f49e2abd26c ;;
+    numbered-checklist-whitespace-proof.json)
+      expected=044a150ac6383bf3a35e7892372be179d119c65a4e5dd2a00b3595dcc0eeb23a ;;
+    *) printf '%s\n' 'Unknown historical record' >&2; exit 1 ;;
+  esac
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "92f40b8716bfd8a3b0c8185d75e993bc827cd35567d9b5d851e65dbaa8759a09" ]; then
+    printf '%s\n' 'Historical record archive checksum failed' >&2
+    exit 1
+  fi
+  recovered=$(mktemp) || exit 1
+  trap 'rm -f "$recovered"' EXIT
+  if ! tar -xOzf "$archive" "$member" > "$recovered" ||
+     ! actual=$(shasum -a 256 "$recovered") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Historical record member checksum failed' >&2
+    exit 1
+  fi
+  cat "$recovered"
+)
+```
 
 ### Superseded claims and records
 
@@ -802,7 +834,7 @@ a merge regression. The existing two numbered tests remain unchanged. Generator
 source/tests, both production Node copies, templates and the sync manifest have
 no diff; no consumer payload changed.
 
-[numbered-checklist-whitespace-proof.json](numbered-checklist-whitespace-proof.json)
+[numbered-checklist-whitespace-proof.json](https://github.com/stranske/Workflows/blob/5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44/docs/evidence/issue-3956/numbered-checklist-whitespace-proof.json)
 maps both new tests to **8 assertion-failing RED / restored GREEN receipts**.
 Production source is pinned to `a5145aafbe1cf8bc6fc69bf6961eaf18a91b69d4`,
 SHA256 `3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f`
@@ -890,7 +922,7 @@ unchecked despite checked examples in fenced code or outside the managed block.
 The source and consumer regexes remain unchanged, including their different
 whitespace contracts. No consumer payload, Python file or protected file changed.
 
-[numbered-checklist-summary-proof.json](numbered-checklist-summary-proof.json)
+[numbered-checklist-summary-proof.json](https://github.com/stranske/Workflows/blob/5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44/docs/evidence/issue-3956/numbered-checklist-summary-proof.json)
 binds this additional Node case to base `3ab79ec1275d150bd32a2a414cd99d9a28981ce0`
 and test-overlay SHA256
 `05e6d51fef76575be14a373c34decc374455959e7d5d7e94b201165cf65e8bfb`.
