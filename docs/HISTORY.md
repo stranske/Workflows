@@ -457,6 +457,8 @@ at the +30d realization re-read.
 
 ### Consumer onboarding timeline
 
+The [December 2025 Trend_Model_Project transition plan](https://github.com/stranske/Workflows/blob/c6406ca67e625bad8eb28a1c617cad00acb977c7/docs/TMP_TRANSITION_PLAN.md) records the original migration steps. For current consumer setup, see the [integration guide](INTEGRATION_GUIDE.md).
+
 | Date | PRs | Repos added | Manifest size |
 |---|---|---|---:|
 | 2025-12-26 | #173, #202 | Travel-Plan-Permission, Template, trip-planner, Manager-Database | 4 |
