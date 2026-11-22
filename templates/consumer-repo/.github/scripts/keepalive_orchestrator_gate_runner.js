@@ -233,6 +233,7 @@ async function runKeepaliveGate({ core, github, context, env }) {
   const normalise = (value) => String(value || '').trim();
   const toBool = (value) => ['true', '1', 'yes', 'on'].includes(normalise(value).toLowerCase());
 
+  const dryRun = toBool(env.DRY_RUN);
   const keepaliveEnabled = toBool(env.KEEPALIVE_ENABLED);
   const trace = normalise(env.KEEPALIVE_TRACE);
   const round = normalise(env.KEEPALIVE_ROUND);
@@ -274,7 +275,7 @@ async function runKeepaliveGate({ core, github, context, env }) {
 
     setOutputs(false, reason);
 
-    if (options.skipCount > 0 && Number.isFinite(options.skipCount)) {
+    if (!dryRun && options.skipCount > 0 && Number.isFinite(options.skipCount)) {
       const commentBody = [
         SKIP_MARKER,
         `<!-- keepalive-skip-count: ${options.skipCount} -->`,
@@ -413,7 +414,7 @@ async function runKeepaliveGate({ core, github, context, env }) {
       requiredLabels.push(`agent:${agentAlias}`);
     }
     const unresolvedLabels = requiredLabels.filter((label) => !currentLabels.has(label));
-    if (unresolvedLabels.length && hasAutomationSignal(pr, currentLabels)) {
+    if (!dryRun && unresolvedLabels.length && hasAutomationSignal(pr, currentLabels)) {
       await addLabelsIfMissing({
         github,
         owner,
@@ -450,7 +451,11 @@ async function runKeepaliveGate({ core, github, context, env }) {
 
       const noChecklist = checkboxCounts.checked === 0 && checkboxCounts.unchecked === 0;
       const allChecklistWorkComplete = checkboxCounts.checked > 0 && checkboxCounts.unchecked === 0;
-      if (allChecklistWorkComplete) {
+      if (dryRun) {
+        draftRequiresHuman = true;
+        addReason('pr-draft');
+        summary.addRaw('Dry run leaves draft disposition unchanged.').addEOL();
+      } else if (allChecklistWorkComplete) {
         const ready = await markDraftReadyForReview({ github, pr, core, summary });
         if (ready) {
           pr.draft = false;
