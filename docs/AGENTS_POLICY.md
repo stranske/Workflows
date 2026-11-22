@@ -105,8 +105,9 @@ enforce the following four-event behavior:
 
 1. **CODEOWNERS gate** – the files above are owned by `@stranske` in
    `.github/CODEOWNERS`. Pull requests cannot merge changes to them without Code
-   Owner approval. In the default branch protection rule, enable **Require review
-   from Code Owners** so GitHub enforces the restriction automatically.
+   Owner approval under this policy, subject to the dependency-only exception
+   below. **Require review from Code Owners** is the corresponding GitHub
+   setting when provisioning review enforcement.
 2. **Repository ruleset** – create (or update) a ruleset that targets the
    default branch (`Tests Pass to Merge`, ruleset ID `7880490`) and blocks
    deletions or renames of the covered workflows (`restrict_file_updates` with
@@ -123,62 +124,54 @@ enforce the following four-event behavior:
    approvals. The only guard-level review exception is for dependency-only
    `uses: owner/action@ref` updates on protected workflows when the PR has
    `agents:allow-change` and is authored by Dependabot, Renovate, or a
-   repository owner/member/collaborator. The check documents override steps and
-   prevents merges unless a maintainer explicitly bypasses the branch protection
-   rule. Mark this status check as **required** on the default branch so the
-   enforcement cannot be skipped accidentally.
-4. **Branch protection** – the default branch requires Gate and Health 45 Agents
-   Guard to report success, plus **Require review from Code Owners**. This
-   combination prevents force pushes or merges that sidestep the protections
-   above. See
-   [Workflow System Overview](ci/WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
-   for the verification flow and recovery playbook.
+   repository owner/member/collaborator. Verify the applicable guard verdict
+   and Code Owner approval before merging a protected-file change.
+4. **GitHub required status checks** – the active default-branch ruleset
+   requires the Gate aggregate job `summary`. GitHub reports strict
+   required-status-check enforcement disabled. Protected-file labels, approvals,
+   and the guard verdict still apply under this policy.
 
 ## Required checks and status contexts
 
-> 📚 **Cross-reference.** The
-> [Workflow System Overview](ci/WORKFLOW_SYSTEM.md#required-status-contexts-default-branch)
-> publishes the same status-context table from the topology perspective so both
-> documents stay synchronized when you audit branch protection.
-
-- **Gate** surfaces the status context `gate` (**Gate / gate**) and blocks every
-  pull request until it reports ✅. The check bundles docs-only detection and
-  kicks off the reusable CI matrix.
-- **Health 45 Agents Guard** surfaces the required status check **Health 45
-  Agents Guard / Enforce agents workflow protections** (also referenced as
-  **Agents Guard / Enforce agents workflow protections**). Branch protection
-  enforces it alongside Gate; GitHub attaches the check automatically whenever a
-  pull request touches `agents-*.yml`, enforcing the label and Code Owner
-  guardrails.
-- **Health 44 Gate Branch Protection** (workflow file:
-  [`.github/workflows/health-44-gate-branch-protection.yml`](../.github/workflows/health-44-gate-branch-protection.yml))
-  provides the enforcement audit trail. Its run history exposes
-  `enforcement.json` and `verification.json` artifacts that list the contexts
-  currently enforced on the default branch. Use the Health 44 snapshots to
-  confirm **Gate / gate** and **Health 45 Agents Guard / Enforce agents workflow
-  protections** stay protected, then cross-check against the
-  [Workflow System Overview](ci/WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
-  UI routine for the pull-request view.
+- **Gate** runs the CI matrix or docs checks and aggregates their results in
+  the required `summary` job. The same job publishes the compatibility commit
+  status `Gate / gate`.
+- **Health 45 Agents Guard** evaluates protected-file changes on eligible pull
+  requests. It publishes the separate commit status
+  `Health 45 Agents Guard / guard` for eligible agent-labelled PRs. For forks,
+  the [trusted status publisher](../.github/workflows/agents-guard-fork-status.yml)
+  publishes the verdict for the exact head after the canonical guard run.
+- **Health 44 Gate Branch Protection** audits the required configuration and
+  records its results in `enforcement.json` and `verification.json` when those
+  steps run. The expected GitHub list lives in
+  [`.github/config/required-contexts.json`](../.github/config/required-contexts.json).
+  The two commit statuses above are outside that list. See the
+  [Workflow System Overview](ci/WORKFLOW_SYSTEM.md#required-status-contexts-default-branch)
+  for their roles in CI.
 
 ## How to verify required checks
 
-Follow this routine whenever you need to prove the protections are active:
+1. Read the effective rules for the default branch:
 
-1. Visit the latest
-   [Health 44 Gate Branch Protection run](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml)
-   and download the `enforcement.json` / `verification.json` artifacts. They
-   enumerate the contexts branch protection enforces—expect **Gate / gate** and
-   **Health 45 Agents Guard / Enforce agents workflow protections**.
-2. Open a fresh pull request (or refresh an existing one) and confirm the Checks
-   tab lists **Gate / gate** under **Required checks**. When the diff touches
-   `agents-*.yml`, the UI adds **Health 45 Agents Guard / Enforce agents workflow
-   protections** to the same list automatically. Use the
-   [Workflow System Overview](ci/WORKFLOW_SYSTEM.md#how-to-verify-required-checks)
-   walkthrough for the matching verification language.
-3. If either context disappears, follow the
-   [branch protection playbook](ci/WORKFLOW_SYSTEM.md#branch-protection-playbook)
-   from the Workflow System Overview, then re-run Health 44 to capture the fixed
-   snapshot.
+   ```bash
+   gh api repos/stranske/Workflows/rules/branches/main \
+     --jq '.[] | select(.type == "required_status_checks") | .parameters'
+   ```
+
+   Expect one entry in `required_status_checks` with context `summary`, and
+   `strict_required_status_checks_policy: false`. The legacy
+   `branches/main/protection` endpoint can return HTTP 404 while the ruleset
+   still applies. Use the effective-rules endpoint above for this comparison.
+2. Open the pull request and confirm `summary` succeeded on the current head.
+   For a protected-file change, separately verify the required label, approval
+   or documented exception, and the applicable Health 45 result on that head.
+   A successful `summary` verifies Gate and carries no approval or guard
+   verdict.
+3. If the effective check list differs from the checked-in configuration, use
+   the [branch protection playbook](ci/WORKFLOW_SYSTEM.md#branch-protection-playbook).
+   Consult the
+   [Health 44 run history](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml)
+   for the latest audit artifacts.
 
 ## Allowlisted change reasons and label process
 
@@ -215,9 +208,9 @@ When one of these scenarios applies:
 1. Confirm the incident really requires editing or temporarily removing one of
    the protected workflows.
 2. A maintainer with admin access temporarily adjusts the repository ruleset
-   (or applies a bypass) via **Settings → Code security and analysis → Rulesets**
-   and, if required, toggles the `Health 45 Agents Guard` status check in branch
-   protection.
+   (or applies a bypass) via **Settings → Code security and analysis → Rulesets**.
+   Use the effective rules readback above to identify the rule involved.
+   Handle the independent Health 45 verdict through its documented policy.
 3. Apply and review the change in a dedicated pull request. Code Owner approval
    remains required even when a maintainer performs the edits.
 4. Re-enable the ruleset block and restore the CI guard immediately after the
@@ -248,9 +241,9 @@ When one of these scenarios applies:
 
 ## Verification checklist
 
-- The default branch protection lists **Require review from Code Owners** and
-   includes the files above. The `Health 45 Agents Guard` status check is marked as
-   required.
+- The effective default-branch rules match the checked-in required contexts.
+  For protected-file changes, separately verify the label, applicable Code
+  Owner review, and the Health 45 verdict.
 - The repository ruleset shows the three workflows in its “Protected file
   patterns section (`agents-63-issue-intake.yml`,
   `agents-70-orchestrator.yml`, and `agents-guard.yml`) with
