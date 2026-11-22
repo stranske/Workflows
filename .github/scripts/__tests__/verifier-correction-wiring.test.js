@@ -159,10 +159,12 @@ for(const surface of beltSurfaces)test(`${surface}: actual ordinary Belt create/
  for(const update of [false,true]) {
   const calls=[],comments=update?[{id:87,body:'<!-- agent-activation-marker --> old'}]:[],issues=Object.fromEntries(['listComments','createComment','updateComment','deleteComment'].map(method=>[method,async args=>{calls.push([method,args]);return {data:{}};}]));
   const github={rest:{issues,actions:new Proxy({},{get(){throw Error('unrelated correction history unavailable');}})}};
-  const values={'steps.pr.outputs.number':'10','steps.ctx.outputs.branch':'codex/issue-9','steps.mode.outputs.dry_run':'false','steps.ledger_start.outputs.task_id':'task-1','steps.ledger_start.outputs.task_title':'Exact single task','steps.ctx.outputs.agent_key':'codex'};
-  const code=script(step(read(surface),'Post activation comment')).replace(/\$\{\{\s*(.*?)\s*\}\}/g,(_,key)=>{assert.ok(key in values);return values[key];});
+  const values={'steps.pr.outputs.number':'10','steps.ctx.outputs.branch':'codex/issue-9','steps.mode.outputs.dry_run':'false','steps.ledger_start.outputs.task_id':'task-1','steps.ctx.outputs.agent_key':'codex'};
+  const activation=step(read(surface),'Post activation comment');
+  assert.match(activation.body,/^          BELT_TASK_TITLE: \$\{\{ steps\.ledger_start\.outputs\.task_title \}\}$/m);
+  const code=script(activation).replace(/\$\{\{\s*(.*?)\s*\}\}/g,(_,key)=>{assert.ok(key in values);return values[key];});
   await new AsyncFunction('require','github','core','context','process',code)(name=>{assert.equal(name,'./.github/scripts/github-api-with-retry.js');return {createTokenAwareRetry:async()=>({github,withRetry:fn=>fn(github),paginateWithRetry:async()=>comments})};},
-   github,coreFixture(),{repo:{owner:'stranske',repo:'example'}},{env:{}});
+   github,coreFixture(),{repo:{owner:'stranske',repo:'example'}},{env:{BELT_TASK_TITLE:'Exact single task'}});
   const writes=calls.filter(([name])=>['createComment','updateComment'].includes(name));assert.equal(writes.length,1);assert.equal(writes[0][1].body,legacyActivation);assert.equal(writes[0][1].request,undefined);
   assert.equal(writes[0][0],update?'updateComment':'createComment');
  }

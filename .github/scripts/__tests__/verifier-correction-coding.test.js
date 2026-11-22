@@ -158,18 +158,20 @@ const beltSurfaces=['.github/workflows/agents-72-codex-belt-worker.yml','templat
 function activationScript(surface=beltSurfaces[0]) {
  const text=fs.readFileSync(path.join(pythonRoot,surface),'utf8');
  const block=text.slice(text.indexOf('      - name: Post activation comment'));
+ assert.match(block,/^          BELT_TASK_TITLE: \$\{\{ steps\.ledger_start\.outputs\.task_title \}\}$/m);
  const lines=block.split('\n'),start=lines.findIndex(line=>line.trim()==='script: |')+1,body=[];
  for(const line of lines.slice(start)){if(line && !line.startsWith('            '))break;body.push(line.slice(12));}
  const values={'steps.pr.outputs.number':'10','steps.ctx.outputs.branch':'codex/issue-9','steps.mode.outputs.dry_run':'false',
-  'steps.ledger_start.outputs.task_id':'task-1','steps.ledger_start.outputs.task_title':'Exact single task','steps.ctx.outputs.agent_key':'codex'};
+  'steps.ledger_start.outputs.task_id':'task-1','steps.ctx.outputs.agent_key':'codex'};
  return body.join('\n').replace(/\$\{\{\s*(.*?)\s*\}\}/g,(_,key)=>{assert.ok(key in values,`known inert scalar ${key}`);return values[key];});
 }
-async function executeActivation({scope=null,budget='100000',update=false,calls=[],surface=beltSurfaces[0],failWrite=false}) {
+async function executeActivation({scope=null,budget='100000',update=false,calls=[],surface=beltSurfaces[0],failWrite=false,taskTitle='Exact single task'}) {
  const comments=update?[{id:87,body:'<!-- agent-activation-marker --> old'}]:[];
  const issues=Object.fromEntries(['listComments','createComment','updateComment','deleteComment'].map(method=>[method,async args=>{calls.push([method,args]);if(failWrite && ['createComment','updateComment'].includes(method))throw Object.assign(Error('native upsert failed'),{status:422});return {data:{}};}]));
  const github={rest:{issues}},core={warning:message=>calls.push(['warning',message])};
  const retry={createTokenAwareRetry:async()=>({github,withRetry:fn=>fn(github),paginateWithRetry:async(fn,args)=>{calls.push(['listComments',args]);return comments;}})};
- const env=scope?{CORRECTION_CONTEXT_FILE:'/inert/correction.json',ISSUE_PR_CONTEXT_TOKEN_BUDGET:budget}:{};
+ const env={BELT_TASK_TITLE:taskTitle};
+ if(scope)Object.assign(env,{CORRECTION_CONTEXT_FILE:'/inert/correction.json',ISSUE_PR_CONTEXT_TOKEN_BUDGET:budget});
  const inertRequire=name=>{
   if(name.includes('github-api-with-retry'))return retry;
   if(name==='fs')return {readFileSync:(filename,encoding)=>{assert.equal(filename,env.CORRECTION_CONTEXT_FILE);assert.equal(encoding,'utf8');return JSON.stringify(scope);}};
@@ -184,6 +186,19 @@ const legacyActivation='<!-- agent-activation-marker -->\nAgent worker (codex) a
 for(const surface of beltSurfaces)test(`${surface}: actual Belt absent-overlay activation remains byte-identical legacy single-task prompt`,async()=>{
  const calls=await executeActivation({surface});assert.equal(calls.find(row=>row[0]==='createComment')[1].body,legacyActivation);assert.equal(calls.find(row=>row[0]==='createComment')[1].request,undefined);
 });
+const quotedTaskTitle="Fix the source of `KeyError: 'a'` in "+
+ "`tests/test_closer_pipeline.py::test_capacity_is_read_fresh_and_zero_defers`.";
+for (const surface of beltSurfaces) {
+ for (const [label, taskTitle] of [['ordinary quoted title', quotedTaskTitle], ['empty title', '']]) {
+  test(`${surface}: actual Belt activation preserves ${label}`, async () => {
+   const calls = await executeActivation({surface,taskTitle});
+   const expected = taskTitle
+    ? legacyActivation.replace('Exact single task', taskTitle)
+    : legacyActivation.split('\n**Focus on this task first:**')[0];
+   assert.equal(calls.find(([method]) => method === 'createComment')[1].body, expected);
+  });
+ }
+}
 const {loadReviewedQualification}=require('../verifier_correction_collector');
 const {recheckCodingAdmission}=require('../verifier_correction_runtime');
 const {crossReferenceDigest}=require('../verifier_correction_host');
