@@ -167,6 +167,7 @@ for(const surface of beltSurfaces)test(`${surface}: actual ordinary Belt create/
    github,coreFixture(),{repo:{owner:'stranske',repo:'example'}},{env:{BELT_TASK_TITLE:'Exact single task'}});
   const writes=calls.filter(([name])=>['createComment','updateComment'].includes(name));assert.equal(writes.length,1);assert.equal(writes[0][1].body,legacyActivation);assert.equal(writes[0][1].request,undefined);
   assert.equal(writes[0][0],update?'updateComment':'createComment');
+  assert.equal(writes[0][1][update?'comment_id':'issue_number'],update?87:10);
  }
 });
 function runBody(row) {

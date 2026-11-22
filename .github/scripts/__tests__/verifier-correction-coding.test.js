@@ -195,7 +195,9 @@ for (const surface of beltSurfaces) {
    const expected = taskTitle
     ? legacyActivation.replace('Exact single task', taskTitle)
     : legacyActivation.split('\n**Focus on this task first:**')[0];
-   assert.equal(calls.find(([method]) => method === 'createComment')[1].body, expected);
+   const posted = calls.find(([method]) => method === 'createComment')[1];
+   assert.equal(posted.issue_number, 10);
+   assert.equal(posted.body, expected);
   });
  }
 }
