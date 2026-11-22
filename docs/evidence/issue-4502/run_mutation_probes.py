@@ -172,9 +172,6 @@ def run_probe(module: str, test: str, cases: int, replacements: tuple) -> str:
     (EVIDENCE / "mutations" / f"{test}.md.gz").write_bytes(
         gzip.compress(transcript.encode(), mtime=0)
     )
-    (EVIDENCE / "mutations" / f"{test}.md").write_text(
-        "\n".join(line.rstrip() for line in transcript.splitlines()) + "\n"
-    )
     if red.returncode != 1 or f"{cases} failed" not in red.stdout:
         raise AssertionError(f"{test}: expected every case to fail; see transcript")
     if green.returncode != 0 or f"{cases} passed" not in green.stdout:
