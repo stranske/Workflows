@@ -99,9 +99,27 @@ and release/verify pipelines were not run locally. Hosted CI is the full-suite
 authority; local focused coverage cannot establish whole-repository reduction.
 
 Focused Gate invocation: **242 passed in 31.55s**, exit 0, four workers.
-`focused-coverage.txt` contains its full output, and `focused-targets.json`
-contains diagnostic target counters. Its whole-source 5.53% is expected for
-three test files and must not be compared to the whole-suite baseline.
+[`focused-coverage.txt.gz`](focused-coverage.txt.gz) preserves the complete output.
+The [original #4406 text](https://github.com/stranske/Workflows/blob/2bd1aa094698d3e9f2ce91f754f6b00fb748a52d/docs/evidence/issue-4019/focused-coverage.txt)
+is readable in GitHub at the immutable delivery revision. The separate
+`focused-targets.json` contains the three target counters. The 5.53% whole-source
+figure comes from running only three test files. The whole-suite baseline is
+reported in the earlier comparable artifact section.
+
+From the repository root, verify the compressed bytes before printing the
+original text. Redirect the output to a file to keep an offline copy.
+
+```sh
+(
+  archive=docs/evidence/issue-4019/focused-coverage.txt.gz
+  expected=5c0e0eb442c2bf73569504066173c6ce49b4220c7f790045b3f2212b8d726270
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Focused coverage log checksum failed' >&2
+    exit 1
+  fi
+  gzip -dc "$archive"
+)
+```
 
 ## Exact hosted CI failure drained
 
