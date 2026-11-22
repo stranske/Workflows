@@ -41,6 +41,7 @@ def load_workflow_document(path: Path, *, text: str | None = None) -> dict:
         raise WorkflowInventoryError(f"workflow root must be a mapping: {path}")
     return data
 
+
 AUDIT_CATEGORIES = (
     "reusable_call_only",
     "reusable_with_independent_trigger",

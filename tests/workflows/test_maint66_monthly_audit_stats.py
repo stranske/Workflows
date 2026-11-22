@@ -350,17 +350,17 @@ def test_call_only_reusable_omitted_from_not_run_despite_pull_request_in_jobs(tm
     workflows = tmp_path / ".github/workflows"
     workflows.mkdir(parents=True, exist_ok=True)
     (workflows / "reusable-sample.yml").write_text(
-    "name: Reusable sample\n"
-    "on:\n"
-    "  workflow_call:\n"
-    "    inputs:\n"
-    "      x:\n"
-    "        type: string\n"
-    "jobs:\n"
-    "  j:\n"
-    "    runs-on: ubuntu-latest\n"
-    "    steps:\n"
-    "      - run: echo pull_request types path filter\n",
+        "name: Reusable sample\n"
+        "on:\n"
+        "  workflow_call:\n"
+        "    inputs:\n"
+        "      x:\n"
+        "        type: string\n"
+        "jobs:\n"
+        "  j:\n"
+        "    runs-on: ubuntu-latest\n"
+        "    steps:\n"
+        "      - run: echo pull_request types path filter\n",
         encoding="utf-8",
     )
     outputs = _attention(tmp_path, runs)

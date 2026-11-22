@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import sys
+from pathlib import Path
 
 import pytest
 from scripts.workflow_concurrency_audit import normalize_triggers
