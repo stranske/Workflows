@@ -24,14 +24,14 @@ node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
 # exit 0; 173 tests passed; zero failures, cancellations or skips
 git show 94d9f952dad19f4f8048ae82bb8301bc6baf6ef5:tests/test_followup_issue_generator.py > /tmp/issue4437-baseline-tests.py
 /opt/anaconda3/bin/python3 -m pytest tests/test_followup_issue_generator.py --collect-only -q > /tmp/issue4437-collected-tests.txt
-/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue4437-baseline-tests.py --collected-tests /tmp/issue4437-collected-tests.txt > docs/evidence/issue-3956/retained-mutation-audit.json
+/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue4437-baseline-tests.py --collected-tests /tmp/issue4437-collected-tests.txt > /tmp/issue-3956-regenerated-audit.json
 # exit 0; complete=true; problems=[]; 35 added functions; 45 added collected cases;
 # 50 Python receipts and two original Node receipts
 /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_audit_followup_mutations.py -q
 # exit 0; 66 passed in 0.41s
 ```
 
-The regenerated [retained audit](retained-mutation-audit.json) is byte-identical
+The regenerated [retained audit](https://github.com/stranske/Workflows/blob/5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44/docs/evidence/issue-3956/retained-mutation-audit.json) is byte-identical
 to the delivered audit (SHA256
 `508d4eb29d4a37a1a6934d51c5b2b44993784ede1621d7dfc574fd324168cc78`).
 All retained full RED/GREEN receipts were independently read in bounded groups:
@@ -309,7 +309,8 @@ that the inline-guard repair has not been delivered at the inspected revision.
 
 The following historical measurements were checked 2026-11-03 (America/Chicago).
 This record replaces the overlapping narratives in
-`pr-body-reconciled.md`, `followup-review-correction.md`, and historical receipts.
+[`pr-body-reconciled.md`](https://github.com/stranske/Workflows/blob/314895ec5d0b1e102fc80aff8001eae2545ed7fa/docs/evidence/issue-3956/pr-body-reconciled.md),
+[`followup-review-correction.md`](https://github.com/stranske/Workflows/blob/314895ec5d0b1e102fc80aff8001eae2545ed7fa/docs/evidence/issue-3956/followup-review-correction.md), and historical receipts.
 Historical records remain intact; their coverage figures are superseded by the matched
 **focused local** comparison below. Hosted Gate evidence is identified separately by
 exact tested revision and artifact. A local run never establishes hosted Gate success.
@@ -424,6 +425,42 @@ missing canonical ranking and rejects issue-3743 proxy artifacts as substitutes.
 The contradictory checked ranking boxes in `pr-body-reconciled.md` and historical
 JSON contracts are superseded: independent ranking verification remains incomplete.
 
+### Read the historical prose and delivered audit offline
+
+The two historical Markdown snapshots linked above and the delivered audit are also available in
+[`historical-prose-and-audit.tar.gz`](historical-prose-and-audit.tar.gz). From the repository root, set
+`member` to one of the three names shown. The command checks the pack and member before printing the original bytes.
+The regeneration commands produce a new report for the selected checkout. Run them on
+`5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44` to reproduce the delivered audit.
+
+```bash
+(
+  archive=docs/evidence/issue-3956/historical-prose-and-audit.tar.gz
+  member=retained-mutation-audit.json
+  case "$member" in
+    followup-review-correction.md)
+      expected=5fd2152cf5cfb19fd4b5fccf231965787ff720c804fda596e5fddb460a568fc8 ;;
+    pr-body-reconciled.md)
+      expected=210abe08cf2a708cfae13a8fff9fd3bb868eb8628466350e7ded0fd8c340f701 ;;
+    retained-mutation-audit.json)
+      expected=508d4eb29d4a37a1a6934d51c5b2b44993784ede1621d7dfc574fd324168cc78 ;;
+    *) printf '%s\n' 'Unknown historical record' >&2; exit 1 ;;
+  esac
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "975a076c51dfd00b95cbf193434196c24aab45b5fef77d023016ee33f93f357c" ]; then
+    printf '%s\n' 'Historical record archive checksum failed' >&2
+    exit 1
+  fi
+  recovered=$(mktemp) || exit 1
+  trap 'rm -f "$recovered"' EXIT
+  if ! tar -xOzf "$archive" "$member" > "$recovered" ||
+     ! actual=$(shasum -a 256 "$recovered") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Historical record member checksum failed' >&2
+    exit 1
+  fi
+  cat "$recovered"
+)
+```
+
 ## Coverage values and contradictory completion claims
 
 | Value | Historical attribution | Supported interpretation |
@@ -508,7 +545,7 @@ receipt digest are in
 [retained-mutation-unabridged-reruns.json](retained-mutation-unabridged-reruns.json).
 The restored production file in the checkout was never mutated.
 
-[retained-mutation-audit.json](retained-mutation-audit.json) enumerates every
+[retained-mutation-audit.json](https://github.com/stranske/Workflows/blob/5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44/docs/evidence/issue-3956/retained-mutation-audit.json) enumerates every
 Python parameter case and both Node cases, each replacement, assertion, restored
 GREEN summary and historical receipt index. With the bound replacements the
 audit exits 0: **35 added functions, 45 cases, 50 Python receipts, 2 Node receipts,
@@ -1559,7 +1596,7 @@ Runnable commands (from the repository root):
 ```sh
 git show 94d9f952dad19f4f8048ae82bb8301bc6baf6ef5:tests/test_followup_issue_generator.py > /tmp/issue-4518-baseline.py
 /opt/anaconda3/bin/python3 -m pytest tests/test_followup_issue_generator.py --collect-only -q -m 'not slow' > /tmp/issue-4518-collected.txt
-/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-4518-baseline.py --collected-tests /tmp/issue-4518-collected.txt > docs/evidence/issue-3956/retained-mutation-audit.json
+/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-4518-baseline.py --collected-tests /tmp/issue-4518-collected.txt > /tmp/issue-3956-regenerated-audit.json
 ```
 
 The auditor exited 0 and printed `complete=true`, `problems=[]`, 35 added
