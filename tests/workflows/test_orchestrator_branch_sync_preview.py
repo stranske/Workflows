@@ -33,8 +33,16 @@ const readOnly = target => new Proxy(target, {get(object, key) {
 const core = {setOutput: (k, v) => { outputs[k] = v; }, setFailed: m => errors.push(m)};
 const context = {repo: {owner: 'stranske', repo: 'Workflows'}, serverUrl: 'https://github.com'};
 const github = {rest: readOnly({
+  git: readOnly({getRef: async (args) => {
+    assert.deepEqual(args, {owner:'stranske', repo:'Workflows', ref: fixture.ref});
+    const index = reads.filter(item => item === 'git.getRef').length;
+    reads.push('git.getRef');
+    const data = fixture.baseRefs[index];
+    if (data === null) throw Object.assign(new Error('ref unavailable'), {status:404});
+    return {data};
+  }}),
   pulls: readOnly({get: async (args) => {
-    assert.deepEqual(args, {owner:'stranske', repo:'Workflows', pull_number:4937});
+    assert.deepEqual(args, {owner:'stranske', repo:'Workflows', pull_number:fixture.prNumber});
     const index = reads.filter(item => item === 'pulls.get').length;
     reads.push('pulls.get');
     return {data: fixture.pulls[index]};
@@ -80,50 +88,80 @@ def test_dry_run_branch_job_uses_read_only_authority():
 @pytest.mark.parametrize(
     ("case", "expected", "reads"),
     [
-        ("behind", "would-require-sync", 3),
-        ("current", "already-up-to-date", 3),
-        ("fork", "would-require-sync", 3),
+        ("behind", "would-require-sync", 5),
+        ("current", "already-up-to-date", 5),
+        ("fork", "would-require-sync", 5),
+        ("stale-pr-base-4924", "would-require-sync", 5),
+        ("unusual-refs", "would-require-sync", 5),
         ("moved-before", "unknown", 1),
-        ("moved-during", "unknown", 3),
-        ("base-moved-during", "unknown", 3),
+        ("moved-during", "unknown", 4),
+        ("base-moved-during", "unknown", 5),
+        ("base-metadata-only-changed", "would-require-sync", 5),
+        ("retargeted-during", "unknown", 4),
+        ("base-missing", "unknown", 2),
+        ("base-deleted-during", "unknown", 5),
+        ("base-ref-mismatch", "unknown", 2),
         ("missing-expected-head", "unknown", 0),
         ("fork-missing-repo", "unknown", 1),
         ("missing-expected-repo", "unknown", 0),
         ("snapshot-unavailable", "unknown", 0),
         ("closed", "unknown", 1),
-        ("comparison-unavailable", "unknown", 2),
-        ("unbound-comparison", "unknown", 2),
+        ("comparison-unavailable", "unknown", 3),
+        ("unbound-comparison", "unknown", 3),
     ],
 )
 def test_authored_branch_preview_readback(case, expected, reads, tmp_path):
     expected_repo = "contributor/Workflows" if case.startswith("fork") else "stranske/Workflows"
-    head = {"ref": HEAD_REF, "sha": HEAD, "repo": {"full_name": expected_repo}}
-    base = {"ref": "main", "sha": BASE, "repo": {"full_name": "stranske/Workflows"}}
+    pr_number, head_ref, head_sha = 4937, HEAD_REF, HEAD
+    base_ref, live_base, pr_base, merge_base = "main", BASE, BASE, ANCESTOR
+    if case == "stale-pr-base-4924":
+        pr_number, head_ref = 4924, "docs/guard-required-contexts-guide"
+        head_sha = "14cfc4af41067bacf09840f13956715c1fda57e5"
+        live_base = "8c53ad22b3833a27187121fcd99e0d6a406a46f2"
+        pr_base = merge_base = "0513e66b7c91cbac7dc99c5c7fa16fa0f748cccd"
+    elif case == "unusual-refs":
+        base_ref, head_ref = "release/2026.11+preview%candidate", "codex/évaluation/branch+name"
+    elif case == "current":
+        merge_base = live_base
 
-    def pull(*, head=head, base=base, state="open"):
-        return {"number": 4937, "state": state, "head": head, "base": base}
-
-    first = pull()
+    head = {"ref": head_ref, "sha": head_sha, "repo": {"full_name": expected_repo}}
+    base = {"ref": base_ref, "sha": pr_base, "repo": {"full_name": "stranske/Workflows"}}
+    first = {"number": pr_number, "state": "open", "head": head, "base": base}
     second = first
+    ref = {"ref": f"refs/heads/{base_ref}", "object": {"type": "commit", "sha": live_base}}
+    first_ref, second_ref = ref, ref
     if case == "moved-before":
-        first = pull(head={**head, "sha": ANCESTOR})
+        first = {**first, "head": {**head, "sha": ANCESTOR}}
     elif case == "moved-during":
-        second = pull(head={**head, "sha": ANCESTOR})
+        second = {**second, "head": {**head, "sha": ANCESTOR}}
     elif case == "base-moved-during":
-        second = pull(base={**base, "sha": ANCESTOR})
+        second_ref = {**ref, "object": {**ref["object"], "sha": ANCESTOR}}
+    elif case == "base-metadata-only-changed":
+        second = {**second, "base": {**base, "sha": ANCESTOR}}
+    elif case == "retargeted-during":
+        second = {**second, "base": {**base, "ref": "other-base"}}
+    elif case == "base-missing":
+        first_ref = None
+    elif case == "base-deleted-during":
+        second_ref = None
+    elif case == "base-ref-mismatch":
+        first_ref = {**ref, "ref": "refs/heads/different"}
     elif case == "fork-missing-repo":
-        first = pull(head={**head, "repo": None})
+        first = {**first, "head": {**head, "repo": None}}
     elif case == "closed":
-        first = pull(state="closed")
+        first = {**first, "state": "closed"}
 
     fixture = {
         "script": branch_job()["steps"][0]["with"]["script"],
         "pulls": [first, second],
-        "basehead": f"{BASE}...{HEAD}",
+        "prNumber": pr_number,
+        "ref": f"heads/{base_ref}",
+        "baseRefs": [first_ref, second_ref],
+        "basehead": f"{live_base}...{head_sha}",
         "compareError": case == "comparison-unavailable",
         "comparison": {
-            "base_commit": {"sha": ANCESTOR if case == "unbound-comparison" else BASE},
-            "merge_base_commit": {"sha": BASE if case == "current" else ANCESTOR},
+            "base_commit": {"sha": ANCESTOR if case == "unbound-comparison" else live_base},
+            "merge_base_commit": {"sha": merge_base},
         },
     }
     result = subprocess.run(
@@ -135,10 +173,12 @@ def test_authored_branch_preview_readback(case, expected, reads, tmp_path):
         timeout=10,
         env={
             "PATH": os.environ["PATH"],
-            "PR_NUMBER": "4937",
-            "BASE_REF": "" if case == "snapshot-unavailable" else "main",
-            "HEAD_REF": "" if case == "snapshot-unavailable" else HEAD_REF,
-            "HEAD_SHA": "" if case in {"missing-expected-head", "snapshot-unavailable"} else HEAD,
+            "PR_NUMBER": str(pr_number),
+            "BASE_REF": "" if case == "snapshot-unavailable" else base_ref,
+            "HEAD_REF": "" if case == "snapshot-unavailable" else head_ref,
+            "HEAD_SHA": (
+                "" if case in {"missing-expected-head", "snapshot-unavailable"} else head_sha
+            ),
             "HEAD_REPO": (
                 "" if case in {"missing-expected-repo", "snapshot-unavailable"} else expected_repo
             ),
@@ -146,13 +186,22 @@ def test_authored_branch_preview_readback(case, expected, reads, tmp_path):
     )
     reply = json.loads(result.stdout)
     assert reply["forbidden"] == []
-    assert len(reply["reads"]) == reads
+    assert (
+        reply["reads"]
+        == [
+            "pulls.get",
+            "git.getRef",
+            "repos.compareCommitsWithBasehead",
+            "pulls.get",
+            "git.getRef",
+        ][:reads]
+    )
     assert reply["outputs"]["result"] == expected
     assert bool(reply["errors"]) == (expected == "unknown")
-    assert reply["outputs"]["pr_url"] == "https://github.com/stranske/Workflows/pull/4937"
+    assert reply["outputs"]["pr_url"] == f"https://github.com/stranske/Workflows/pull/{pr_number}"
     if reads:
         assert reply["outputs"]["observed_head"] == (
-            ANCESTOR if case in {"moved-before", "moved-during"} else HEAD
+            ANCESTOR if case in {"moved-before", "moved-during"} else head_sha
         )
 
     summary = tmp_path / "summary.md"

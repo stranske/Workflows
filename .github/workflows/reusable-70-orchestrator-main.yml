@@ -1517,6 +1517,7 @@ jobs:
             const pullNumber = Number(process.env.PR_NUMBER);
             const sha = (value) => /^[0-9a-f]{40}$/.test(value || '');
             const expectedHead = process.env.HEAD_SHA;
+            const baseRef = process.env.BASE_REF;
             function unknown(reason) {
               core.setOutput('result', 'unknown');
               core.setFailed(reason);
@@ -1525,7 +1526,7 @@ jobs:
               return unknown('Branch-sync preview is missing a valid PR number.');
             }
             core.setOutput('pr_url', `${context.serverUrl}/${owner}/${repo}/pull/${pullNumber}`);
-            if (!process.env.BASE_REF || !process.env.HEAD_REF || !process.env.HEAD_REPO || !sha(expectedHead)) {
+            if (!baseRef || !process.env.HEAD_REF || !process.env.HEAD_REPO || !sha(expectedHead)) {
               return unknown('Branch-sync preview is missing a ref, repository, or expected head.');
             }
 
@@ -1534,11 +1535,18 @@ jobs:
             const readPull = async () => (await github.rest.pulls.get({
               owner, repo, pull_number: pullNumber,
             })).data;
+            const readBase = async () => {
+              const { data } = await github.rest.git.getRef({ owner, repo, ref: `heads/${baseRef}` });
+              if (data?.ref === `refs/heads/${baseRef}` &&
+                  data.object?.type === 'commit' && sha(data.object.sha)) {
+                return data.object.sha;
+              }
+            };
             const repository = (ref) => ref?.repo?.full_name?.toLowerCase();
             const matches = (pr) => pr?.number === pullNumber && pr?.state === 'open' &&
-              pr?.base?.ref === process.env.BASE_REF && repository(pr.base) === baseRepo &&
+              pr?.base?.ref === baseRef && repository(pr.base) === baseRepo &&
               pr?.head?.ref === process.env.HEAD_REF && repository(pr.head) === expectedRepo &&
-              sha(pr.base.sha) && pr.head.sha === expectedHead;
+              pr.head.sha === expectedHead;
             const observe = (pr) => {
               if (sha(pr?.head?.sha)) core.setOutput('observed_head', pr.head.sha);
             };
@@ -1548,22 +1556,28 @@ jobs:
               observe(pr);
               if (!matches(pr)) return unknown('Branch-sync preview inputs are stale or unavailable.');
 
+              const baseSha = await readBase();
+              if (!baseSha) return unknown('Branch-sync preview could not verify the live base ref.');
+
               const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
-                owner, repo, basehead: `${pr.base.sha}...${expectedHead}`, per_page: 1,
+                owner, repo, basehead: `${baseSha}...${expectedHead}`, per_page: 1,
               });
-              if (comparison?.base_commit?.sha !== pr.base.sha ||
+              if (comparison?.base_commit?.sha !== baseSha ||
                   !sha(comparison?.merge_base_commit?.sha)) {
                 return unknown('Branch-sync preview could not verify the immutable comparison.');
               }
 
               const current = await readPull();
               observe(current);
-              if (!matches(current) || current.base.sha !== pr.base.sha ||
-                  repository(current.head) !== repository(pr.head)) {
+              if (!matches(current)) {
                 return unknown('The PR changed during branch-sync preview.');
               }
 
-              core.setOutput('result', comparison.merge_base_commit.sha === pr.base.sha
+              if (await readBase() !== baseSha) {
+                return unknown('The live base ref changed or became unavailable during branch-sync preview.');
+              }
+
+              core.setOutput('result', comparison.merge_base_commit.sha === baseSha
                 ? 'already-up-to-date' : 'would-require-sync');
             } catch (error) {
               const status = Number.isInteger(error?.status) ? ` (HTTP ${error.status})` : '';
