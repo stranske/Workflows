@@ -54,4 +54,4 @@ As individual workflow docs are added, they should follow the naming convention 
 
 - [Workflow Template](../templates/WORKFLOW_TEMPLATE.md)
 - [Main Documentation README](../README.md)
-- [Examples](../examples/)
+- [Workflow examples](../USAGE.md#examples)

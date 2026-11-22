@@ -89,4 +89,4 @@ Reference documentation is expected to grow over time; this directory currently 
 
 - [Workflow Documentation](../workflows/)
 - [User Guides](../guides/)
-- [Examples](../examples/)
+- [Workflow examples](../USAGE.md#examples)

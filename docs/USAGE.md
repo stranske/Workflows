@@ -108,11 +108,13 @@ jobs:
 
 ## Examples
 
-See the [examples directory](examples/) for complete working configurations:
+Copy a starter to your repository’s `.github/workflows/` and adapt its marked settings:
 
-- Python project CI
-- Multi-language projects
-- Docker-based projects
+- [Basic Python CI](../templates/ci-basic.yml) for formatting, lint and tests, or [Full Python CI](../templates/ci-full.yml) for coverage and a final gate.
+- [Node.js CI](../templates/ci-node-basic.yml) for npm projects. For a repository with both languages, give each copied workflow its own filename and set its project paths.
+- For Docker, follow the calling job in [Workflows Gate](../.github/workflows/pr-00-gate.yml) and the steps in [Reusable Docker Smoke](../.github/workflows/reusable-12-ci-docker.yml). Your repository needs a Dockerfile and a matching health endpoint.
+
+To set up the managed consumer scaffold, follow the [consumer setup checklist](../templates/consumer-repo/docs/SETUP_CHECKLIST.md). To contribute a new example, follow the [example contribution checklist](CONTRIBUTING.md#workflow-examples).
 
 ## Troubleshooting
 
