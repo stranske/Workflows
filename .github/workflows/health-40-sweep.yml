@@ -97,7 +97,10 @@ jobs:
       github.event.schedule != '25 6 * * *'
     uses: ./.github/workflows/health-42-actionlint.yml
     with:
-      reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
+      reporter: >-
+        ${{ github.event_name == 'pull_request' && 'github-pr-review'
+        || github.event_name == 'push' && 'github-annotations'
+        || 'github-check' }}
     secrets: inherit
 
   workflow-liveness:
