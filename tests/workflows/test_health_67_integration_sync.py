@@ -250,6 +250,8 @@ def test_health_67_runs_after_maint_69_instead_of_racing_push_to_main():
     assert "github.event_name != 'workflow_run'" in job_if
     assert "github.event.workflow_run.conclusion == 'success'" in job_if
     assert "github.event.workflow_run.head_branch == 'main'" in job_if
+    assert "github.event.workflow_run.head_repository.full_name == github.repository" in job_if
+    assert "zizmor: ignore[dangerous-triggers]" in WORKFLOW.read_text(encoding="utf-8")
 
 
 def test_health_67_drift_issue_steps_never_mutate_issues_on_pull_requests():

@@ -5,6 +5,8 @@ name: Health 67 Integration Sync Check
 # on repository_dispatch from Integration-Tests, and daily to catch external drift
 
 on:
+  # zizmor: ignore[dangerous-triggers] Trusted default-branch code only; Maint 69
+  # runs only on main/schedule/dispatch and check-sync enforces main + same repo.
   workflow_run:
     workflows: [Maint 69 Sync Integration Repo]
     types: [completed]
@@ -48,7 +50,11 @@ jobs:
     name: Validate Integration-Tests sync
     if: >-
       github.event_name != 'workflow_run' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
     runs-on: ubuntu-latest
     env:
       RUN_CI_CHECK: 'true'
