@@ -1,14 +1,13 @@
 name: Health 67 Integration Sync Check
 
 # Validates that Workflows-Integration-Tests repo stays in sync with templates
-# Triggers on template changes and daily to catch external drift
+# Triggers after Maint 69 syncs main, on template PRs (summary-only),
+# on repository_dispatch from Integration-Tests, and daily to catch external drift
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'templates/integration-repo/**'
-      - '.github/workflows/autofix-versions.env'
+  workflow_run:
+    workflows: [Maint 69 Sync Integration Repo]
+    types: [completed]
   pull_request:
     branches: [main]
     paths:
@@ -47,6 +46,9 @@ concurrency:
 jobs:
   check-sync:
     name: Validate Integration-Tests sync
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     env:
       RUN_CI_CHECK: 'true'
