@@ -152,16 +152,23 @@ jobs:
           discovery_rc=$?
           cat freshness.json
           cat catalog-discovery.json
-          if [ "$freshness_rc" = "2" ] || [ "$discovery_rc" = "2" ]; then
+          if [ "$freshness_rc" -gt 1 ] || [ "$discovery_rc" -gt 1 ]; then
             echo "::error::Freshness gate configuration error."
             exit 2
           fi
-          if [ "$freshness_rc" != "1" ] && [ "$discovery_rc" != "1" ]; then
-            echo "::notice::Freshness and catalog findings cleared before issue update."
-            exit 0
+          has_advisory=$(python3 -c "import json;print('true' if json.load(open('freshness.json')).get('advisory') else 'false')") || exit 2
+          if [ "$freshness_rc" = "1" ] || [ "$discovery_rc" = "1" ] || [ "$has_advisory" = "true" ]; then
+            echo "has_findings=true" >> "$GITHUB_OUTPUT"
+            message="Freshness or catalog findings persist after recheck."
+          else
+            echo "has_findings=false" >> "$GITHUB_OUTPUT"
+            message="Freshness and catalog findings cleared before issue update."
           fi
+          echo "::notice::$message"
+          printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Open or refresh tracking issue (scheduled/dispatch only)
+        if: steps.reports.outputs.has_findings == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
