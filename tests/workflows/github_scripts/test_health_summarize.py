@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import runpy
+import shlex
+import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -70,6 +73,38 @@ def _write_signature_fixture(tmp_path: Path, jobs: list[dict[str, str]]) -> tupl
         encoding="utf-8",
     )
     return jobs_path, expected_path
+
+
+def test_signature_verify_action_matches_committed_fixture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = Path(__file__).resolve().parents[3]
+    fixtures = repo / ".github/signature-fixtures"
+    jobs = (fixtures / "basic_jobs.json").read_text(encoding="utf-8").rstrip("\n")
+    expected = (fixtures / "basic_hash.txt").read_text(encoding="utf-8").rstrip("\n")
+
+    action = (repo / ".github/actions/signature-verify/action.yml").read_text(encoding="utf-8")
+    steps = action.split("\n    - name: ")
+    step = next(item for item in steps if item.startswith("Run signature verification\n"))
+    script = textwrap.dedent(step.split("\n      run: |\n", 1)[1])
+    for name, value in (("jobs-json", jobs), ("expected-hash", expected)):
+        argument = "'${{ inputs['" + name + "'] }}'"
+        assert argument in script
+        script = script.replace(argument, shlex.quote(value))
+
+    # Run the action's verification step with the same interpreter as pytest.
+    monkeypatch.setenv("SIGNATURE_PYTHON", sys.executable)
+    result = subprocess.run(
+        ["bash", "-e", "-c", 'python() { "$SIGNATURE_PYTHON" "$@"; }\n' + script],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == expected
 
 
 def test_signature_row_success(tmp_path: Path) -> None:
