@@ -161,10 +161,15 @@ From the repository root, set `transcript` to any one of the nine
 
 ```bash
 transcript=docs/evidence/issue-4502/mutations/test_consumer_mirror_enforces_catalog_timestamp.md.gz
-view=$(mktemp "${TMPDIR:-/tmp}/issue-4502-view.XXXXXX")
-python -c 'import gzip, sys; print("\n".join(line.rstrip() for line in gzip.open(sys.argv[1], "rt", encoding="utf-8").read().splitlines()))' "$transcript" > "$view"
-shasum -a 256 "$view"
-printf '%s\n' "$view"
+(
+  view=$(mktemp "${TMPDIR:-/tmp}/issue-4502-view.XXXXXX") || exit 1
+  if python -c 'import gzip, sys; print("\n".join(line.rstrip() for line in gzip.open(sys.argv[1], "rt", encoding="utf-8").read().splitlines()))' "$transcript" > "$view"; then
+    shasum -a 256 "$view" && printf '%s\n' "$view"
+  else
+    rm -f "$view"
+    exit 1
+  fi
+)
 ```
 
 To reproduce the original 18 fail/pass pairs, run
