@@ -7,6 +7,7 @@ that may not be caught by basic YAML parsers but cause failures in GitHub Action
 """
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
@@ -20,6 +21,8 @@ except ImportError:
 LINE_LENGTH_EXEMPTIONS = (
     "stranske/Workflows/.github/actions/setup-api-client@",
     "stranske/Workflows/.github/workflows/reusable-model-profile-trial.yml@",
+    "docs/ci/WORKFLOW_AUDIT_PROCEDURE.md",
+    "docs/archive/ARCHIVE_PLANS.md#workflow-audit-reports",
 )
 
 
@@ -139,13 +142,41 @@ LEGACY_SKIP_WORKFLOWS = {
 }
 
 
+def discover_changed_workflows(base_ref: str = "origin/main") -> list[Path]:
+    """Return workflow paths changed on this branch relative to a merge base ref."""
+    candidates = [base_ref, "origin/main", "main"]
+    seen: set[str] = set()
+    for ref in candidates:
+        if ref in seen:
+            continue
+        seen.add(ref)
+        try:
+            proc = subprocess.run(
+                ["git", "diff", "--name-only", f"{ref}...HEAD", "--", ".github/workflows"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            continue
+        if proc.returncode != 0:
+            continue
+        paths: list[Path] = []
+        for line in proc.stdout.splitlines():
+            path = Path(line.strip())
+            if path.suffix in {".yml", ".yaml"} and path.is_file():
+                paths.append(path)
+        return paths
+    return []
+
+
 def main():
     parser = argparse.ArgumentParser(description="Validate GitHub Actions workflow YAML files")
     parser.add_argument(
         "files",
-        nargs="+",
+        nargs="*",
         type=Path,
-        help="Workflow files to validate",
+        help="Workflow files to validate (default: git-changed files under .github/workflows)",
     )
     parser.add_argument(
         "-v",
@@ -158,11 +189,23 @@ def main():
         action="store_true",
         help="Don't skip known legacy workflows (validate all files)",
     )
+    parser.add_argument(
+        "--base-ref",
+        default="origin/main",
+        help="Merge base for discovering changed workflows when no files are listed",
+    )
     args = parser.parse_args()
+
+    files = list(args.files)
+    if not files:
+        files = discover_changed_workflows(args.base_ref)
+        if not files:
+            print("No changed workflow files to validate")
+            sys.exit(0)
 
     all_valid = True
     skipped_count = 0
-    for file_path in args.files:
+    for file_path in files:
         if not file_path.exists():
             print(f"❌ {file_path}: File not found")
             all_valid = False
@@ -179,7 +222,7 @@ def main():
             all_valid = False
 
     if all_valid:
-        msg = f"\n✓ All {len(args.files) - skipped_count} workflow file(s) validated successfully"
+        msg = f"\n✓ All {len(files) - skipped_count} workflow file(s) validated successfully"
         if skipped_count:
             msg += f" ({skipped_count} legacy workflow(s) skipped)"
         print(msg)

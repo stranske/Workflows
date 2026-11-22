@@ -43,7 +43,7 @@ def test_audit_issue_body_documentation_links_resolve() -> None:
     for target in MARKDOWN_LINK.findall(body):
         if target.startswith("http://") or target.startswith("https://"):
             continue
-        if target.startswith("#"):
+        if target.startswith("#") or target == "${DETAIL_URL}":
             continue
         file_target = target.split("#", 1)[0]
         path = REPO_ROOT / file_target
@@ -67,9 +67,14 @@ def test_rendered_checklist_fields(tmp_path: Path, total: int, successful: int, 
         "TOTAL_RUNS": str(total),
         "TOTAL_SUCCESS": str(successful),
         "TOTAL_FAILURE": str(total - successful),
+        "TOTAL_FAILED_OUTCOMES": "4",
+        "TOTAL_DECISIVE": "5",
+        "DETAIL_URL": "https://github.com/stranske/Workflows/actions/runs/123",
         "LOOKBACK": "30",
         "FAILING": finding,
         "WARNING": "None",
+        "SMALL_SAMPLE": "Small sample failure",
+        "CONCLUSION_MIX": "skipped=8, unknown=2",
         "NOT_RUN": "None",
         "API_GUARD": "All clear",
     }
@@ -77,8 +82,14 @@ def test_rendered_checklist_fields(tmp_path: Path, total: int, successful: int, 
     body = output.read_text(encoding="utf-8")
     assert "**Generated:** 2026-11-30T23:59:59Z" in body
     assert "## Monthly Workflow Audit - November 2026" in body
-    assert f"| Success Rate | {rate}% |" in body
+    assert f"| Success Rate (all runs, descriptive only) | {rate}% |" in body
+    assert "| Failed outcomes (ranking numerator) | 4 |" in body
+    assert "| Decisive outcomes (ranking denominator) | 5 |" in body
+    assert "https://github.com/stranske/Workflows/actions/runs/123" in body
     assert finding in body
+    assert "Small sample failure" in body
+    assert "skipped=8, unknown=2" in body
+    assert "at least five decisive outcomes" in body
     assert "Check for issues with label `workflow-audit`" in body
 
 
@@ -117,3 +128,35 @@ def test_scheduled_audits_publish_and_manual_runs_honor_the_checkbox() -> None:
     writer = next(step for step in steps if step["name"] == "Create or update audit issue")
     assert workflow[True]["workflow_dispatch"]["inputs"]["create_issue"]["default"] is True
     assert writer["if"] == "github.event_name == 'schedule' || inputs.create_issue"
+
+
+def test_oversized_body_fails_before_issue_output(tmp_path):
+    steps = yaml.safe_load(WORKFLOW_PATH.read_text())["jobs"]["audit"]["steps"]
+    script = next(step["run"] for step in steps if step.get("id") == "checklist")
+    script = script.replace("/tmp/audit_", "audit_")
+    output = tmp_path / "output"
+    result = subprocess.run(
+        ["bash", "-e", "-c", script],
+        cwd=tmp_path,
+        env={**os.environ, "GITHUB_OUTPUT": str(output), "API_GUARD": "x" * 61000},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode != 0
+    assert "exceeds safe 60,000-byte limit" in result.stderr
+    assert not output.exists()
+
+
+def test_complete_artifact_is_uploaded_before_render_and_issue_write():
+    steps = yaml.safe_load(WORKFLOW_PATH.read_text())["jobs"]["audit"]["steps"]
+    artifact = next(
+        step for step in steps if step.get("with", {}).get("name") == "monthly-audit-details"
+    )
+    assert artifact["with"]["retention-days"] == 90
+    assert artifact["with"]["overwrite"] is True
+    assert artifact["with"]["if-no-files-found"] == "error"
+    assert steps.index(artifact) < next(
+        i for i, step in enumerate(steps) if step.get("id") == "checklist"
+    )
+    assert "continue-on-error" not in artifact

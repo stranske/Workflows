@@ -30,6 +30,13 @@ The [preceding full main run](https://github.com/stranske/Workflows/actions/runs
 
 **Next work.** Verify the three canary defaults and a scheduled report using the corrected weekly reader. Repair the remaining test bridge, trial the archive index and establish whether Maint 45 and Maint 70 still need distinct manual routes. Four of the five original 1A assignments have decisions. Agents 64 still needs a real parent assignment mismatch. The [Health 42 fix](https://github.com/stranske/Workflows/pull/4785) passed on called and manual roots and in fork-token replay. At 05:44 UTC the latest 100 sampled Health 40 PR runs were all same-repository. An ordinary fork annotation remains open.
 
+## November 2026 monthly workflow audit (#4770)
+
+- [x] **Maint 66 ranking and inventory.** Workflow-definition grouping, decisive failure rates, path-based not-run detection, and bounded issue sections are covered by the November audit tests.
+- [x] **API wrapper guard.** `python scripts/check_api_wrapper_guard.py --all` reports zero violations; #4811 corrected `restore_branch_snapshots.py`.
+- [x] **Duplicate Detection import path.** `agents-dedup.yml` now includes `tools/embedding_provider.py` in its sparse checkout, allowing `semantic_matcher` to import in hosted runs.
+- [x] **Archive report.** [`docs/archive/audits/WORKFLOW_AUDIT_2026-11-19.md`](../archive/audits/WORKFLOW_AUDIT_2026-11-19.md) records dispositions for non-dynamic workflows, the unrun classification, and parallelism/caching findings.
+
 ## November 22 Autofix routing, pagination and historical records
 
 The November 19 review has decisions for **1,175 of 5,554 files, 143 of 487 folders and 90 of 198 workflows** at [this revision](https://github.com/stranske/Workflows/tree/f8f25372059804768ec723d96e78066ee3342175). This adds 35 file, three folder and three workflow decisions. The three prunings reduced checked-out content by 80,605 bytes after accounting for generators and recovery instructions. Git tracks 22 files at the root, down from 27 when this review began. The original cleanup checklist remains **26/28**. At 03:13 UTC the stub-pruner had no eligible files and Workflows plus its 16 registered receivers had no eligible dependency-lock PR.

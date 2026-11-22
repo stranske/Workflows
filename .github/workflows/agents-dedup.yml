@@ -41,6 +41,8 @@ jobs:
             README.md
             scripts/__init__.py
             scripts/langchain
+            tools/__init__.py
+            tools/embedding_provider.py
             tools/requirements-llm.txt
           sparse-checkout-cone-mode: false
 

@@ -67,6 +67,7 @@ Historical snapshots from the December 2025–January 2026 audit cycle. Monthly 
 |-------------|--------------|
 | `docs/WORKFLOW_AUDIT_2025-12-25.md` | [`audits/WORKFLOW_AUDIT_2025-12-25.md`](audits/WORKFLOW_AUDIT_2025-12-25.md) |
 | `docs/WORKFLOW_AUDIT_2026-01-09.md` | [`audits/WORKFLOW_AUDIT_2026-01-09.md`](audits/WORKFLOW_AUDIT_2026-01-09.md) |
+| `docs/WORKFLOW_AUDIT_2026-11-19.md` | [`audits/WORKFLOW_AUDIT_2026-11-19.md`](audits/WORKFLOW_AUDIT_2026-11-19.md) |
 
 ## January 2026 Template handoff
 
