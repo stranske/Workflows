@@ -54,13 +54,19 @@ new AsyncFunction('core', 'context', 'github', fixture.script)(core, context, gi
 """
 
 
+def workflow_jobs(path=WORKFLOW):
+    return yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"]
+
+
 def branch_job():
-    return yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["dry-run-branch-sync"]
+    return workflow_jobs()["dry-run-branch-sync"]
 
 
 def test_dry_run_branch_job_uses_read_only_authority():
     job = branch_job()
     assert job["permissions"] == {"contents": "read", "pull-requests": "read"}
+    assert "belt-worker" not in job["needs"]
+    assert "!cancelled()" in job["if"]
     assert "inputs.dry_run == 'true'" in job["if"]
     assert "needs.belt-dispatch.outputs.dry_run == 'true'" in job["if"]
     assert [step["uses"] for step in job["steps"] if "uses" in step] == ["actions/github-script@v9"]
@@ -79,6 +85,7 @@ def test_dry_run_branch_job_uses_read_only_authority():
         ("base-moved-during", "unknown", 3),
         ("missing-expected-head", "unknown", 0),
         ("fork-missing-repo", "unknown", 1),
+        ("missing-expected-repo", "unknown", 0),
         ("closed", "unknown", 1),
         ("comparison-unavailable", "unknown", 2),
         ("unbound-comparison", "unknown", 2),
@@ -128,7 +135,7 @@ def test_authored_branch_preview_readback(case, expected, reads, tmp_path):
             "BASE_REF": "main",
             "HEAD_REF": HEAD_REF,
             "HEAD_SHA": "" if case == "missing-expected-head" else HEAD,
-            "HEAD_REPO": expected_repo,
+            "HEAD_REPO": "" if case == "missing-expected-repo" else expected_repo,
         },
     )
     reply = json.loads(result.stdout)
@@ -160,3 +167,108 @@ def test_authored_branch_preview_readback(case, expected, reads, tmp_path):
     rendered = summary.read_text()
     assert f"| 3 | `recorded-4937` | {expected} |" in rendered
     assert reply["outputs"].get("observed_head", "unknown") in rendered
+
+
+def test_public_dry_run_guards_keepalive_snapshot_and_token_mints():
+    jobs = workflow_jobs()
+    init = workflow_jobs(WORKFLOW.with_name("reusable-70-orchestrator-init.yml"))
+    for job in (
+        init["token-preflight"],
+        *(
+            jobs[name]
+            for name in (
+                "keepalive-guard",
+                "keepalive-prep",
+                "belt-dispatch-summary",
+            )
+        ),
+    ):
+        mint = next(step for step in job["steps"] if step.get("id") == "app_token")
+        assert mint["if"] == "inputs.dry_run != 'true'"
+    gate = next(step for step in jobs["keepalive-guard"]["steps"] if step.get("id") == "guard")
+    assert gate["env"]["DRY_RUN"] == "${{ inputs.dry_run }}"
+    snapshot = next(
+        step
+        for step in jobs["keepalive-prep"]["steps"]
+        if step.get("name") == "Persist keepalive head snapshot"
+    )
+    assert snapshot["if"] == "inputs.dry_run != 'true' && steps.snapshot.outputs.head != ''"
+    assert "inputs.dry_run != 'true'" in jobs["keepalive-post-work"]["if"]
+
+
+@pytest.mark.parametrize(("dry_run", "should_post"), [("true", "false"), ("false", "true")])
+def test_instruction_gate_respects_dry_run_even_when_post_work_reports_change(
+    tmp_path,
+    dry_run,
+    should_post,
+):
+    gate = workflow_jobs()["keepalive-instruction"]["steps"][0]
+    assert gate["id"] == "gate"
+    output = tmp_path / "output"
+    subprocess.run(
+        ["bash", "-c", gate["run"]],
+        env={
+            "PATH": os.environ["PATH"],
+            "GITHUB_OUTPUT": str(output),
+            "GITHUB_ENV": str(tmp_path / "env"),
+            "POST_WORK_RESULT": "success",
+            "POST_WORK_SUCCESS": "true",
+            "POST_WORK_CHANGED": "true",
+            "DRY_RUN": dry_run,
+        },
+        check=True,
+        timeout=10,
+    )
+    assert f"should_post={should_post}\n" in output.read_text()
+    if dry_run == "true":
+        assert "skip_reason=dry-run\n" in output.read_text()
+
+
+@pytest.mark.parametrize("dry_run", ["true", "false"])
+def test_worker_outcome_renders_summary_without_dry_run_pr_comment(dry_run):
+    step = next(
+        step
+        for step in workflow_jobs()["belt-dispatch-summary"]["steps"]
+        if step.get("name") == "Record keepalive worker outcome"
+    )
+    assert "inputs.dry_run == 'true'" in step["env"]["WORKER_DRY_RUN"]
+    harness = """
+const fs = require('node:fs');
+const writes = [];
+const summaries = [];
+const summary = {
+  addHeading(value) { summaries.push(value); return this; },
+  addTable(rows) { summaries.push(rows); return this; },
+  write() { return Promise.resolve(); },
+};
+const core = {summary, info() {}, warning(message) { throw Error(message); }};
+const github = {rest: {issues: {async createComment(value) { writes.push(value); }}}};
+const context = {repo: {owner:'stranske', repo:'Workflows'}};
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+new AsyncFunction('core', 'context', 'github', 'require', fs.readFileSync(0, 'utf8'))(
+  core, context, github, require,
+).then(() => console.log(JSON.stringify({writes, summaries})))
+.catch(error => { console.error(error); process.exitCode = 1; });
+"""
+    result = subprocess.run(
+        ["node", "-e", harness],
+        input=step["with"]["script"],
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=10,
+        cwd=ROOT,
+        env={
+            "PATH": os.environ["PATH"],
+            "WORKER_DRY_RUN": dry_run,
+            "KEEPALIVE_PR": "4937",
+            "KEEPALIVE_TRACE": "recorded-4937",
+            "KEEPALIVE_ROUND": "3",
+            "WORKER_RESULT": "success",
+            "KEEPALIVE_HEAD_SHA": HEAD,
+        },
+    )
+    reply = json.loads(result.stdout)
+    assert reply["summaries"][0] == "Keepalive worker outcome"
+    assert reply["summaries"][1][1] == ["3", "recorded-4937", "success", HEAD]
+    assert len(reply["writes"]) == (dry_run == "false")

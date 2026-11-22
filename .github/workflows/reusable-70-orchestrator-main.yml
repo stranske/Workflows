@@ -129,6 +129,7 @@ jobs:
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
+        if: inputs.dry_run != 'true'
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
@@ -148,11 +149,11 @@ jobs:
         with:
           # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
-          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          service_bot_pat: ${{ inputs.dry_run != 'true' && secrets.SERVICE_BOT_PAT || '' }}
+          actions_bot_pat: ${{ inputs.dry_run != 'true' && secrets.ACTIONS_BOT_PAT || '' }}
+          owner_pr_pat: ${{ inputs.dry_run != 'true' && secrets.OWNER_PR_PAT || '' }}
+          workflows_app_id: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_ID || '' }}
+          workflows_app_private_key: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
 
 
 
@@ -160,6 +161,7 @@ jobs:
         id: guard
         uses: actions/github-script@v9
         env:
+          DRY_RUN: ${{ inputs.dry_run }}
           KEEPALIVE_ENABLED: ${{ inputs.enable_keepalive }}
           KEEPALIVE_TRACE: ${{ inputs.keepalive_trace }}
           KEEPALIVE_ROUND: ${{ inputs.keepalive_round }}
@@ -168,9 +170,9 @@ jobs:
         with:
           github-token: >-
             ${{
-              steps.app_token.outputs.token ||
-              secrets.ACTIONS_BOT_PAT ||
-              secrets.SERVICE_BOT_PAT ||
+              (inputs.dry_run != 'true' && (
+                steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT
+              )) ||
               github.token
             }}
           script: |
@@ -578,6 +580,7 @@ jobs:
 
       - name: Mint GitHub App token (preferred)
         id: app_token
+        if: inputs.dry_run != 'true'
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
@@ -1086,7 +1089,7 @@ jobs:
             }
 
       - name: Persist keepalive head snapshot
-        if: steps.snapshot.outputs.head != ''
+        if: inputs.dry_run != 'true' && steps.snapshot.outputs.head != ''
         uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
@@ -1480,8 +1483,10 @@ jobs:
       - keepalive-guard
       - keepalive-prep
       - belt-dispatch
-      - belt-worker
     if: |
+      !cancelled() &&
+      needs.keepalive-guard.result == 'success' &&
+      needs.keepalive-prep.result == 'success' &&
       needs.keepalive-guard.outputs.proceed != 'false' &&
       inputs.enable_keepalive == 'true' &&
       (inputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true') &&
@@ -1520,20 +1525,19 @@ jobs:
               core.setFailed(reason);
             }
             if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0 ||
-                !process.env.BASE_REF || !process.env.HEAD_REF || !sha(expectedHead)) {
+                !process.env.BASE_REF || !process.env.HEAD_REF || !process.env.HEAD_REPO || !sha(expectedHead)) {
               return unknown('Branch-sync preview is missing a valid PR, ref, or expected head.');
             }
 
             const baseRepo = `${owner}/${repo}`.toLowerCase();
-            const expectedRepo = (process.env.HEAD_REPO || '').toLowerCase();
+            const expectedRepo = process.env.HEAD_REPO?.toLowerCase();
             const readPull = async () => (await github.rest.pulls.get({
               owner, repo, pull_number: pullNumber,
             })).data;
             const repository = (ref) => ref?.repo?.full_name?.toLowerCase();
             const matches = (pr) => pr?.number === pullNumber && pr?.state === 'open' &&
               pr?.base?.ref === process.env.BASE_REF && repository(pr.base) === baseRepo &&
-              pr?.head?.ref === process.env.HEAD_REF && repository(pr.head) &&
-              (!expectedRepo || repository(pr.head) === expectedRepo) &&
+              pr?.head?.ref === process.env.HEAD_REF && repository(pr.head) === expectedRepo &&
               sha(pr.base.sha) && pr.head.sha === expectedHead;
             const observe = (pr) => {
               if (sha(pr?.head?.sha)) core.setOutput('observed_head', pr.head.sha);
@@ -1758,17 +1762,15 @@ jobs:
           should_post='false'
           reason='post-work-unavailable'
 
-            if [ "${result}" = 'success' ] && \
+          if [ "${dry_run}" = 'true' ]; then
+            reason='dry-run'
+          elif [ "${result}" = 'success' ] && \
               [ "${success}" = 'true' ] && \
               [ "${changed}" = 'true' ]; then
             should_post='true'
             reason=''
           elif [ "${result}" = 'success' ] && [ "${success}" = 'true' ]; then
             reason='branch-not-advanced'
-          elif [ "${result}" = 'skipped' ] && [ "${dry_run}" = 'true' ]; then
-            reason='dry-run'
-          elif [ -z "${result}" ] && [ "${dry_run}" = 'true' ]; then
-            reason='dry-run'
           elif [ -z "${result}" ]; then
             reason='post-work-not-run'
           else
@@ -2538,6 +2540,7 @@ jobs:
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
+        if: inputs.dry_run != 'true'
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
@@ -2746,7 +2749,7 @@ jobs:
           WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
           WORKER_BRANCH: >-
             ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
-          WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
+          WORKER_DRY_RUN: ${{ inputs.dry_run == 'true' && 'true' || needs.belt-worker.outputs.dry_run || '' }}
           KEEPALIVE_ACTION: >-
             ${{ needs.belt-worker.outputs.keepalive_action || '' }}
           KEEPALIVE_REASON: >-
@@ -2760,9 +2763,9 @@ jobs:
         with:
           github-token: >-
             ${{
-              steps.app_token.outputs.token ||
-              secrets.ACTIONS_BOT_PAT ||
-              secrets.SERVICE_BOT_PAT ||
+              (inputs.dry_run != 'true' && (
+                steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT
+              )) ||
               github.token
             }}
           script: |
@@ -2812,7 +2815,7 @@ jobs:
             const lastInstructionHead = normalise(process.env.KEEPALIVE_LAST_INSTRUCTION_HEAD);
 
             const summary = core.summary;
-            summary
+            await summary
               .addHeading('Keepalive worker outcome')
               .addTable([
                 [
@@ -2844,6 +2847,8 @@ jobs:
               ])
               .write();
 
+            if (dryRun) return;
+
             if (!trace) {
               core.info('No keepalive trace detected; skipping worker outcome comment.');
               return;
@@ -2864,9 +2869,6 @@ jobs:
 
             const shortSha = headSha ? headSha.slice(0, 12) : 'unknown';
             let details = `worker ${workerResult}`;
-            if (dryRun) {
-              details += ' (dry run)';
-            }
             if (headSha) {
               details += ` – head ${shortSha}`;
             }
@@ -2932,11 +2934,11 @@ jobs:
         uses: ./.github/actions/setup-api-client
         with:
           github_token: ${{ github.token }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
-          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          service_bot_pat: ${{ inputs.dry_run != 'true' && secrets.SERVICE_BOT_PAT || '' }}
+          actions_bot_pat: ${{ inputs.dry_run != 'true' && secrets.ACTIONS_BOT_PAT || '' }}
+          owner_pr_pat: ${{ inputs.dry_run != 'true' && secrets.OWNER_PR_PAT || '' }}
+          workflows_app_id: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_ID || '' }}
+          workflows_app_private_key: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
 
       - name: Preflight API budget and identify ready belt PRs
         id: scan

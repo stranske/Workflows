@@ -143,10 +143,10 @@ jobs:
         with:
           # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          service_bot_pat: ${{ inputs.dry_run != 'true' && secrets.SERVICE_BOT_PAT || '' }}
+          actions_bot_pat: ${{ inputs.dry_run != 'true' && secrets.ACTIONS_BOT_PAT || '' }}
+          workflows_app_id: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_ID || '' }}
+          workflows_app_private_key: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
 
 
 
@@ -260,10 +260,10 @@ jobs:
         uses: ./.github/actions/setup-api-client
         with:
           github_token: ${{ github.token }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          service_bot_pat: ${{ inputs.dry_run != 'true' && secrets.SERVICE_BOT_PAT || '' }}
+          actions_bot_pat: ${{ inputs.dry_run != 'true' && secrets.ACTIONS_BOT_PAT || '' }}
+          workflows_app_id: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_ID || '' }}
+          workflows_app_private_key: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
 
       - name: Count agent issues
         id: precheck
@@ -467,7 +467,7 @@ jobs:
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
-        if: always()
+        if: inputs.dry_run != 'true'
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
@@ -476,6 +476,7 @@ jobs:
 
       - name: Select write token
         id: select
+        if: inputs.dry_run != 'true'
         env:
           APP_TOKEN: ${{ steps.app_token.outputs.token }}
           ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT }}
