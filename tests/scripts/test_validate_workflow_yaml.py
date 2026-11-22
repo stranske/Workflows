@@ -1,3 +1,4 @@
+import subprocess
 import sys
 from pathlib import Path
 
@@ -132,3 +133,58 @@ def test_main_validates_git_changed_workflows_when_no_paths(
 
     assert ok.value.code == 0
     assert "validated successfully" in capsys.readouterr().out
+
+
+def test_main_skips_deleted_workflow_only_during_discovery(tmp_path: Path) -> None:
+    validator_script = Path(validator.__file__).resolve()
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Workflow Test",
+                "-c",
+                "user.email=workflow-test@example.com",
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+                *args,
+            ],
+            cwd=tmp_path,
+            capture_output=True,
+            check=True,
+        )
+
+    git("init")
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    retired = _write_workflow(workflows / "retired.yml", ["name: Retired"])
+    git("add", ".github/workflows")
+    git("commit", "-m", "Add workflow")
+    git("update-ref", "refs/remotes/origin/main", "HEAD")
+
+    retired.unlink()
+    git("add", "-u")
+    git("commit", "-m", "Retire workflow")
+
+    automatic = subprocess.run(
+        [sys.executable, str(validator_script)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert automatic.returncode == 0, automatic.stdout + automatic.stderr
+    assert "No changed workflow files to validate" in automatic.stdout
+
+    explicit = subprocess.run(
+        [sys.executable, str(validator_script), str(retired.relative_to(tmp_path))],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert explicit.returncode == 1
+    assert ".github/workflows/retired.yml: File not found" in explicit.stdout

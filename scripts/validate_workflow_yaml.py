@@ -167,7 +167,7 @@ def discover_changed_workflows(base_ref: str = "origin/main") -> list[Path]:
             if path.suffix in {".yml", ".yaml"}:
                 paths.append(path)
         if paths:
-            return paths
+            return [path for path in paths if path.is_file()]
     return []
 
 
