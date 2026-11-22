@@ -130,7 +130,7 @@ function makeCore(stepOutputs, logs, warnings, summaries) {
   const summaries = [];
 
   const context = {
-    repo: { owner: "stranske", repo: "Consumer-Repo" },
+    repo: { owner: "stranske", repo: scenario.repo || "Consumer-Repo" },
     eventName: "workflow_call",
     actor: "github-actions[bot]",
     payload: {
@@ -203,22 +203,24 @@ function makeCore(stepOutputs, logs, warnings, summaries) {
         getCollaboratorPermissionLevel: async ({ username }) => ({
           data: { permission: username === "fixture-maintainer" ? "write" : "read" },
         }),
-        getCombinedStatusForRef: async ({ ref }) => ({
-          data: {
-            state: scenario.combinedStatusBySha[ref] || "success",
-          },
-        }),
+        getCombinedStatusForRef: async ({ ref }) => {
+          const status = scenario.combinedStatusBySha[ref] || "success";
+          return { data: typeof status === "string" ? { state: status } : status };
+        },
         createDispatchEvent: async (payload) => {
           repositoryDispatches.push(payload);
           return { status: 204 };
         },
       },
       checks: {
-        listForRef: async ({ ref }) => ({
-          data: {
-            check_runs: scenario.checkRunsBySha[ref] || [],
-          },
-        }),
+        listForRef: async ({ ref }) => {
+          if (ref === scenario.unavailableChecksSha) {
+            const error = new Error("Check runs unavailable");
+            error.status = 404;
+            throw error;
+          }
+          return { data: { check_runs: scenario.checkRunsBySha[ref] || [] } };
+        },
       },
       actions: {
         createWorkflowDispatch: async (payload) => {
@@ -335,12 +337,12 @@ function makeCore(stepOutputs, logs, warnings, summaries) {
 
   const scanOutputs = await runStep(scenario.scripts.categorise, {
     MAX_PRS: "10",
-    MAX_DISPATCHES: "3",
+    MAX_DISPATCHES: String(scenario.maxDispatches),
   });
   await runStep(scenario.scripts.resolveConflicts, {
     DRY_RUN: scenario.dryRun ? "true" : "false",
   });
-  if (!scenario.dryRun) {
+  if (!scenario.dryRun && (scanOutputs.check_dispatch_count ?? scanOutputs.failing_count) !== "0") {
     await runStep(scenario.scripts.fixChecks, {});
   }
   await runStep(scenario.scripts.nudgeStalled, {
@@ -469,6 +471,7 @@ function makeCore(stepOutputs, logs, warnings, summaries) {
       finalComments,
       receiverGuards,
       receiverEvaluations,
+      summaries,
       warnings,
     })
   );
@@ -721,6 +724,12 @@ def _run_pr_health_replay(
     live_labels_override: dict[int, list[str]] | None = None,
     label: str | None = None,
     guard_controls: bool = False,
+    include_incident: bool = False,
+    incident_only: bool = False,
+    incident_checks_unavailable: bool = False,
+    incident_first: bool = False,
+    incident_status_label: str | None = None,
+    max_dispatches: int = 3,
 ) -> dict[str, Any]:
     node = shutil.which("node")
     if node is None:  # pragma: no cover - host dependent
@@ -762,6 +771,7 @@ def _run_pr_health_replay(
         "scanDir": str(scan_dir),
         "dryRun": dry_run,
         "guardControls": guard_controls,
+        "maxDispatches": max_dispatches,
         "scripts": {
             "categorise": _extract_github_script(reusable_doc, "scan", step_id="categorise"),
             "resolveConflicts": _extract_github_script(
@@ -977,6 +987,42 @@ def _run_pr_health_replay(
         },
     }
 
+    if include_incident:
+        head = "913515fe2a3e8f7a86b229244f8ec434a740dc31"
+        scenario["prs"].append(
+            {
+                "number": 561,
+                "title": "PR Health incident replay",
+                "state": "open",
+                "draft": False,
+                "mergeable": True,
+                "mergeable_state": "unstable",
+                "head": {"ref": "exports/route-weights", "sha": head},
+                "base": {"ref": "main"},
+                "labels": [
+                    "tracker:durable",
+                    "autofix:escalated",
+                    *([incident_status_label] if incident_status_label else []),
+                ],
+            }
+        )
+        scenario["combinedStatusBySha"][head] = {
+            "state": "failure",
+            "statuses": [{"state": "failure", "context": "Health 45 Agents Guard / guard"}],
+        }
+        scenario["checkRunsBySha"][head] = [
+            {"name": "guard", "conclusion": "failure"},
+            {"name": "detect changed files", "conclusion": "failure"},
+            {"name": "automerge", "conclusion": "failure"},
+        ]
+        if incident_first:
+            scenario["prs"].insert(0, scenario["prs"].pop())
+        if incident_only:
+            scenario["prs"] = [scenario["prs"][-1]]
+            scenario["repo"] = "Orchestrator"
+        if incident_checks_unavailable:
+            scenario["unavailableChecksSha"] = head
+
     scenario_path = tmp_path / f"scenario-{run_tag}.json"
     scenario_path.write_text(json.dumps(scenario), encoding="utf-8")
     harness_path = tmp_path / "pr_health_replay_harness.js"
@@ -991,6 +1037,76 @@ def _run_pr_health_replay(
     )
     assert completed.returncode == 0, completed.stderr
     return dict(json.loads(completed.stdout))
+
+
+def test_pr_health_reports_unassigned_failing_head_without_dispatch(tmp_path: Path) -> None:
+    replay = _run_pr_health_replay(tmp_path, include_incident=True)
+
+    assert {event["inputs"]["pr_number"] for event in replay["workflowDispatches"]} == {
+        "101",
+        "103",
+    }
+    assert replay["scanOutputs"]["failing_count"] == "2"
+    summary = "\n".join(replay["summaries"])
+    assert "No agent routing label" in summary
+    assert "Health 45 Agents Guard / guard" in summary
+    assert "detect changed files" in summary
+    assert "913515fe2a3e8f7a86b229244f8ec434a740dc31/checks" in summary
+    assert "automerge" not in summary
+    condition = yaml.safe_load(REUSABLE_PR_HEALTH.read_text())["jobs"]["fix-checks"]["if"]
+    assert "needs.scan.outputs.check_dispatch_count != '0'" in condition
+    assert "inputs.skip_check_fix != 'true'" in condition
+    assert "inputs.dry_run != 'true'" in condition
+
+
+def test_pr_health_retains_combined_failure_when_check_runs_unavailable(tmp_path: Path) -> None:
+    replay = _run_pr_health_replay(
+        tmp_path, include_incident=True, incident_only=True, incident_checks_unavailable=True
+    )
+
+    assert replay["scanOutputs"]["failing_count"] == "1"
+    assert replay["scanOutputs"]["check_dispatch_count"] == "0"
+    assert replay["workflowDispatches"] == []
+    assert replay["repositoryDispatches"] == []
+    assert any("Could not list check runs for PR #561" in item for item in replay["warnings"])
+    summary = "\n".join(replay["summaries"])
+    assert "https://github.com/stranske/Orchestrator/pull/561" in summary
+    assert "Health 45 Agents Guard / guard" in summary
+
+
+@pytest.mark.parametrize(
+    ("max_dispatches", "status_label"),
+    [
+        (1, None),
+        (0, None),
+        (1, "agent:needs-attention"),
+        (1, "agent:rate-limited"),
+        (1, "agent:retry"),
+        (1, "agent:"),
+    ],
+)
+def test_pr_health_applies_dispatch_cap_only_to_participating_failures(
+    tmp_path: Path, max_dispatches: int, status_label: str | None
+) -> None:
+    replay = _run_pr_health_replay(
+        tmp_path,
+        include_incident=True,
+        incident_first=True,
+        incident_status_label=status_label,
+        max_dispatches=max_dispatches,
+    )
+
+    assert replay["scanOutputs"]["failing_count"] == "2"
+    assert replay["scanOutputs"]["check_dispatch_count"] == str(max_dispatches)
+    expected = {"101", "103"} if max_dispatches else set()
+    assert {event["inputs"]["pr_number"] for event in replay["workflowDispatches"]} == expected
+    assert replay["branchUpdates"] == ([101] if max_dispatches else [])
+    summary = "\n".join(replay["summaries"])
+    assert "No agent routing label; no dispatch" in summary
+    assert "Health 45 Agents Guard / guard" in summary
+    assert "pytest" in summary
+    if max_dispatches == 0:
+        assert "Follow-up dispatch cap reached" in summary
 
 
 def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
@@ -1048,6 +1164,7 @@ def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
     assert replay["scanOutputs"] == {
         "conflict_count": "2",
         "failing_count": "1",
+        "check_dispatch_count": "1",
         "stalled_scan_count": "2",
         "healthy_count": "3",
         "total_open": "6",

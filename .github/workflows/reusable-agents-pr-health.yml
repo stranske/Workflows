@@ -176,6 +176,7 @@ jobs:
     outputs:
       conflict_count: ${{ steps.categorise.outputs.conflict_count }}
       failing_count: ${{ steps.categorise.outputs.failing_count }}
+      check_dispatch_count: ${{ steps.categorise.outputs.check_dispatch_count }}
       stalled_scan_count: ${{ steps.categorise.outputs.stalled_scan_count }}
       healthy_count: ${{ steps.categorise.outputs.healthy_count }}
       total_open: ${{ steps.categorise.outputs.total_open }}
@@ -265,6 +266,8 @@ jobs:
 
             const conflictPrs = [];
             const failingPrs = [];
+            // Match the receiver's non-routing labels in keepalive_loop.js.
+            const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
             let healthyCount = 0;
 
             for (const pr of prs) {
@@ -326,21 +329,38 @@ jobs:
                       owner, repo, ref: pr.head.sha,
                     })
                   );
-                  if (status.state === 'failure') {
-                    failingPrs.push(prInfo);
-                    continue;
+                  const combinedFailure = status.state === 'failure';
+                  const failures = (combinedFailure ? status.statuses || [] : [])
+                    .filter(entry => entry.state === 'failure')
+                    .map(entry => entry.context);
+                  try {
+                    const { data: checks } = await withRetry((client) =>
+                      client.rest.checks.listForRef({
+                        owner, repo, ref: pr.head.sha, per_page: 100,
+                      })
+                    );
+                    failures.push(...checks.check_runs
+                      .filter(check => check.conclusion === 'failure' && check.name !== 'automerge')
+                      .map(check => check.name));
+                  } catch (error) {
+                    // Keep the observed status failure even if Check Runs are unavailable.
+                    if (!combinedFailure) throw error;
+                    core.warning(`Could not list check runs for PR #${pr.number}: ${error.message}`);
                   }
-                  // Also check check runs
-                  const { data: checks } = await withRetry((client) =>
-                    client.rest.checks.listForRef({
-                      owner, repo, ref: pr.head.sha, per_page: 100,
-                    })
-                  );
-                  const hasFailure = checks.check_runs.some(
-                    cr => cr.conclusion === 'failure' && cr.name !== 'automerge'
-                  );
-                  if (hasFailure) {
-                    failingPrs.push(prInfo);
+                  if (combinedFailure || failures.length > 0) {
+                    // The receiving keepalive route requires explicit agent participation.
+                    // Leave routing validity, pause and recovery decisions to that receiver.
+                    const hasAgentLabel = (pr.labels || []).some(label => {
+                      const name = String(label.name ?? '').trim().toLowerCase();
+                      const key = name.startsWith('agent:') ? name.slice('agent:'.length) : '';
+                      return key && !nonRoutingAgentKeys.has(key);
+                    });
+                    failingPrs.push({
+                      ...prInfo,
+                      head_sha: pr.head.sha,
+                      failed_checks: [...new Set(failures)],
+                      has_agent_label: hasAgentLabel,
+                    });
                     continue;
                   }
                 } catch (e) {
@@ -357,7 +377,13 @@ jobs:
             // simple auto-merges are free so we keep all of those in the
             // list and let the loop step handle them.
             const limitedConflicts = conflictPrs.slice(0, Math.min(maxPrs, maxDispatches));
-            const limitedFailing = failingPrs.slice(0, Math.min(maxPrs, maxDispatches));
+            const limitedFailing = failingPrs.slice(0, maxPrs);
+            // Reserve request slots for participants; reporting does not use this cap.
+            let checkDispatchCount = 0;
+            for (const pr of limitedFailing) {
+              pr.dispatch_selected = pr.has_agent_label && checkDispatchCount < maxDispatches;
+              if (pr.dispatch_selected) checkDispatchCount++;
+            }
 
             // ----- Second pass: detect stalled PRs with incomplete tasks -----
             function extractStatusSummary(body) {
@@ -498,6 +524,7 @@ jobs:
             // Only scalar counts as outputs (safe from masking)
             core.setOutput('conflict_count', String(limitedConflicts.length));
             core.setOutput('failing_count', String(limitedFailing.length));
+            core.setOutput('check_dispatch_count', String(checkDispatchCount));
             core.setOutput('stalled_scan_count', String(stalledPrs.length));
             core.setOutput('healthy_count', String(healthyCount));
             core.setOutput('total_open', String(prs.length));
@@ -523,8 +550,17 @@ jobs:
             }
             if (limitedFailing.length > 0) {
               summary += `### PRs with Failing Checks\n`;
+              const repoUrl = `${context.serverUrl || 'https://github.com'}/${owner}/${repo}`;
               for (const pr of limitedFailing) {
-                summary += `- #${pr.number} (\`${pr.head_ref}\`) → agent: **${pr.agent_type}**\n`;
+                const checks = pr.failed_checks.map(name => `\`${String(name).replace(/[\r\n`]/g, ' ')}\``);
+                summary += `- [#${pr.number}](${repoUrl}/pull/${pr.number}) — [checks at ${pr.head_sha.slice(0, 12)}](${repoUrl}/commit/${pr.head_sha}/checks): ${checks.join(', ') || 'combined status failed; details unavailable'}. `;
+                if (pr.dispatch_selected) {
+                  summary += 'Agent label present; see the dispatch job for the request status.\n';
+                } else if (pr.has_agent_label) {
+                  summary += 'Follow-up dispatch cap reached; review the failing checks on this head.\n';
+                } else {
+                  summary += 'No agent routing label; no dispatch. Review the failing checks on this head.\n';
+                }
               }
               summary += '\n';
             }
@@ -677,7 +713,7 @@ jobs:
     needs: scan
     if: >-
       needs.scan.outputs.has_work == 'true'
-      && needs.scan.outputs.failing_count != '0'
+      && needs.scan.outputs.check_dispatch_count != '0'
       && inputs.skip_check_fix != 'true'
       && inputs.dry_run != 'true'
     runs-on: ubuntu-latest
@@ -722,7 +758,8 @@ jobs:
           script: |
             // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
-            const failing = JSON.parse(fs.readFileSync('/tmp/scan-data/failing_prs.json', 'utf8'));
+            const failing = JSON.parse(fs.readFileSync('/tmp/scan-data/failing_prs.json', 'utf8'))
+              .filter(pr => pr.dispatch_selected);
 
             if (failing.length === 0) {
               core.info('No failing PRs to fix');
@@ -943,7 +980,7 @@ jobs:
             echo "|----------|-------|--------|"
             echo "| Total open PRs | $TOTAL | — |"
             echo "| Conflicting | $conflict_count | resolve-conflicts: **${CONFLICT_RESULT:-skipped}** |"
-            echo "| Failing checks | $failing_count | fix-checks: **${CHECK_RESULT:-skipped}** |"
+            echo "| Failing checks | $failing_count | Details in scan. Follow-up dispatch job: **${CHECK_RESULT:-skipped}** |"
             echo "| Stalled (nudged) | ${STALLED_COUNT:-0} | nudge-stalled: **${NUDGE_RESULT:-skipped}** |"
             echo "| Healthy | $HEALTHY | — |"
           } >> "$GITHUB_STEP_SUMMARY"
