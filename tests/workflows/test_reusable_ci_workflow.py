@@ -442,8 +442,8 @@ def test_working_directory_propagates_to_steps() -> None:
 def test_pinned_verifier_history_fetch_deepens_the_checkout_ref(tmp_path: Path) -> None:
     """Execute the workflow shell against a local depth-1 pull merge checkout.
 
-    The fixture substitutes only the pinned SHA; dates, fetch commands and the
-    ancestry check come from the production step. No GitHub access is needed.
+    The fixture substitutes only the two history anchors; dates, fetch
+    commands and ancestry checks come from the production step. No GitHub access is needed.
     """
     steps = _load_workflow()["jobs"]["tests"]["steps"]
     step = next(
@@ -453,6 +453,7 @@ def test_pinned_verifier_history_fetch_deepens_the_checkout_ref(tmp_path: Path) 
     pinned_sha = "021ec67ef580c83a88402a1574e27ea34db14dde"
     assert pinned_sha in script, "Workflow pin changed; update this fixture"
     assert step["if"] == "${{ hashFiles('tests/test_verifier_4422_audit.py') != '' }}"
+    inventory_pin = "5b1c6424716c413871d4eda7f6a125fa070e097f"
     source = tmp_path / "source.git"
     checkout = tmp_path / "checkout"
     main_only_checkout = tmp_path / "main-only-checkout"
@@ -488,7 +489,8 @@ def test_pinned_verifier_history_fetch_deepens_the_checkout_ref(tmp_path: Path) 
         return git(source, "commit-tree", tree, *parent_args, input=f"day {day}\n").stdout.strip()
 
     root = commit(16)
-    pin = commit(18, root)
+    inventory_sha = commit(17, root)
+    pin = commit(18, inventory_sha)
     main = commit(19, pin)
     feature = commit(20, pin)
     merge = commit(21, main, feature)
@@ -520,8 +522,9 @@ def test_pinned_verifier_history_fetch_deepens_the_checkout_ref(tmp_path: Path) 
     assert main_only.returncode == 1, main_only.stderr
     print(f"before (main-only fetch): checkout ancestry exit {main_only.returncode}")
 
+    script = script.replace(pinned_sha, pin).replace(inventory_pin, inventory_sha)
     completed = subprocess.run(
-        ["bash", "-c", script.replace(pinned_sha, pin)],
+        ["bash", "-c", script],
         cwd=checkout,
         env=env,
         text=True,
@@ -532,6 +535,45 @@ def test_pinned_verifier_history_fetch_deepens_the_checkout_ref(tmp_path: Path) 
     git(checkout, "merge-base", "--is-ancestor", pin, "origin/main")
     git(checkout, "merge-base", "--is-ancestor", pin, "HEAD")
     print("after (workflow fetch): pinned and checkout ancestry exit 0")
+
+    # Simulate refs/pull/1/merge advancing after a depth-1 checkout (e.g. a
+    # reopened PR or rerun after main moves): HEAD must still be deepened.
+    moved_checkout = tmp_path / "moved-checkout"
+    shallow_checkout(moved_checkout)
+    newer_main = commit(22, main)
+    newer_merge = commit(23, newer_main, feature)
+    git(source, "update-ref", "refs/heads/main", newer_main)
+    git(source, "update-ref", env["GITHUB_REF"], newer_merge)
+
+    moved = subprocess.run(
+        ["bash", "-c", script],
+        cwd=moved_checkout,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+    assert moved.returncode == 0, moved.stderr
+    git(moved_checkout, "merge-base", "--is-ancestor", pin, "origin/main")
+    git(moved_checkout, "merge-base", "--is-ancestor", inventory_sha, merge)
+    assert git(moved_checkout, "rev-parse", "HEAD").stdout.strip() == merge
+
+    disconnected = commit(24, root)
+    git(source, "update-ref", env["GITHUB_REF"], disconnected)
+    disconnected_checkout = tmp_path / "disconnected-checkout"
+    shallow_checkout(disconnected_checkout)
+    rejected = subprocess.run(
+        ["bash", "-c", script],
+        cwd=disconnected_checkout,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+    assert rejected.returncode == 1, rejected.stderr
+    assert f"Unable to establish #4426 inventory ancestry for exact checkout {disconnected}" in (
+        rejected.stdout
+    )
 
 
 # --- Coverage config / editable-install gating -----------------------------
