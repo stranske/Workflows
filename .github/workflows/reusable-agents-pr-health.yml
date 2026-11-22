@@ -348,14 +348,14 @@ jobs:
                   if (combinedFailure || failures.length > 0) {
                     // The receiving keepalive route requires explicit agent participation.
                     // Leave routing validity, pause and recovery decisions to that receiver.
-                    const dispatchCandidate = (pr.labels || []).some(label =>
+                    const hasAgentLabel = (pr.labels || []).some(label =>
                       String(label.name ?? '').trim().toLowerCase().startsWith('agent:')
                     );
                     failingPrs.push({
                       ...prInfo,
                       head_sha: pr.head.sha,
                       failed_checks: [...new Set(failures)],
-                      dispatch_candidate: dispatchCandidate,
+                      has_agent_label: hasAgentLabel,
                     });
                     continue;
                   }
@@ -373,7 +373,13 @@ jobs:
             // simple auto-merges are free so we keep all of those in the
             // list and let the loop step handle them.
             const limitedConflicts = conflictPrs.slice(0, Math.min(maxPrs, maxDispatches));
-            const limitedFailing = failingPrs.slice(0, Math.min(maxPrs, maxDispatches));
+            const limitedFailing = failingPrs.slice(0, maxPrs);
+            // Reserve request slots for participants; reporting does not use this cap.
+            let checkDispatchCount = 0;
+            for (const pr of limitedFailing) {
+              pr.dispatch_selected = pr.has_agent_label && checkDispatchCount < maxDispatches;
+              if (pr.dispatch_selected) checkDispatchCount++;
+            }
 
             // ----- Second pass: detect stalled PRs with incomplete tasks -----
             function extractStatusSummary(body) {
@@ -514,7 +520,7 @@ jobs:
             // Only scalar counts as outputs (safe from masking)
             core.setOutput('conflict_count', String(limitedConflicts.length));
             core.setOutput('failing_count', String(limitedFailing.length));
-            core.setOutput('check_dispatch_count', String(limitedFailing.filter(pr => pr.dispatch_candidate).length));
+            core.setOutput('check_dispatch_count', String(checkDispatchCount));
             core.setOutput('stalled_scan_count', String(stalledPrs.length));
             core.setOutput('healthy_count', String(healthyCount));
             core.setOutput('total_open', String(prs.length));
@@ -544,9 +550,13 @@ jobs:
               for (const pr of limitedFailing) {
                 const checks = pr.failed_checks.map(name => `\`${String(name).replace(/[\r\n`]/g, ' ')}\``);
                 summary += `- [#${pr.number}](${repoUrl}/pull/${pr.number}) — [checks at ${pr.head_sha.slice(0, 12)}](${repoUrl}/commit/${pr.head_sha}/checks): ${checks.join(', ') || 'combined status failed; details unavailable'}. `;
-                summary += pr.dispatch_candidate
-                  ? 'Agent label present; see the dispatch job for the request status.\n'
-                  : 'No agent routing label; no dispatch. Review the failing checks on this head.\n';
+                if (pr.dispatch_selected) {
+                  summary += 'Agent label present; see the dispatch job for the request status.\n';
+                } else if (pr.has_agent_label) {
+                  summary += 'Follow-up dispatch cap reached; review the failing checks on this head.\n';
+                } else {
+                  summary += 'No agent routing label; no dispatch. Review the failing checks on this head.\n';
+                }
               }
               summary += '\n';
             }
@@ -745,7 +755,7 @@ jobs:
             // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
             const failing = JSON.parse(fs.readFileSync('/tmp/scan-data/failing_prs.json', 'utf8'))
-              .filter(pr => pr.dispatch_candidate);
+              .filter(pr => pr.dispatch_selected);
 
             if (failing.length === 0) {
               core.info('No failing PRs to fix');

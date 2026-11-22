@@ -337,7 +337,7 @@ function makeCore(stepOutputs, logs, warnings, summaries) {
 
   const scanOutputs = await runStep(scenario.scripts.categorise, {
     MAX_PRS: "10",
-    MAX_DISPATCHES: "3",
+    MAX_DISPATCHES: String(scenario.maxDispatches),
   });
   await runStep(scenario.scripts.resolveConflicts, {
     DRY_RUN: scenario.dryRun ? "true" : "false",
@@ -727,6 +727,8 @@ def _run_pr_health_replay(
     include_incident: bool = False,
     incident_only: bool = False,
     incident_checks_unavailable: bool = False,
+    incident_first: bool = False,
+    max_dispatches: int = 3,
 ) -> dict[str, Any]:
     node = shutil.which("node")
     if node is None:  # pragma: no cover - host dependent
@@ -768,6 +770,7 @@ def _run_pr_health_replay(
         "scanDir": str(scan_dir),
         "dryRun": dry_run,
         "guardControls": guard_controls,
+        "maxDispatches": max_dispatches,
         "scripts": {
             "categorise": _extract_github_script(reusable_doc, "scan", step_id="categorise"),
             "resolveConflicts": _extract_github_script(
@@ -1007,6 +1010,8 @@ def _run_pr_health_replay(
             {"name": "detect changed files", "conclusion": "failure"},
             {"name": "automerge", "conclusion": "failure"},
         ]
+        if incident_first:
+            scenario["prs"].insert(0, scenario["prs"].pop())
         if incident_only:
             scenario["prs"] = [scenario["prs"][-1]]
             scenario["repo"] = "Orchestrator"
@@ -1062,6 +1067,26 @@ def test_pr_health_retains_combined_failure_when_check_runs_unavailable(tmp_path
     summary = "\n".join(replay["summaries"])
     assert "https://github.com/stranske/Orchestrator/pull/561" in summary
     assert "Health 45 Agents Guard / guard" in summary
+
+
+@pytest.mark.parametrize(("max_dispatches", "expected"), [(1, {"101", "103"}), (0, set())])
+def test_pr_health_applies_dispatch_cap_only_to_participating_failures(
+    tmp_path: Path, max_dispatches: int, expected: set[str]
+) -> None:
+    replay = _run_pr_health_replay(
+        tmp_path, include_incident=True, incident_first=True, max_dispatches=max_dispatches
+    )
+
+    assert replay["scanOutputs"]["failing_count"] == "2"
+    assert replay["scanOutputs"]["check_dispatch_count"] == str(max_dispatches)
+    assert {event["inputs"]["pr_number"] for event in replay["workflowDispatches"]} == expected
+    assert replay["branchUpdates"] == ([101] if max_dispatches else [])
+    summary = "\n".join(replay["summaries"])
+    assert "No agent routing label; no dispatch" in summary
+    assert "Health 45 Agents Guard / guard" in summary
+    assert "pytest" in summary
+    if max_dispatches == 0:
+        assert "Follow-up dispatch cap reached" in summary
 
 
 def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
