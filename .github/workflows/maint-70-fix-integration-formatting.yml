@@ -87,15 +87,49 @@ jobs:
           python3 -m pip install black ruff
 
       - name: Apply formatting fixes
+        id: formatting
         if: steps.integration_token.outputs.token_available == 'true'
         run: |
+          set -euo pipefail
           cd integration-tests
           echo "Running black on Python files (using pyproject.toml config)..."
           # Black will use line-length=100 from pyproject.toml
-          black --exclude '\.workflows-lib' . || true
+          black --exclude '\.workflows-lib' .
 
           echo "Running ruff fixes..."
-          ruff check --fix --exclude '.workflows-lib' . || true
+          diagnostics=$(mktemp)
+          trap 'rm -f "$diagnostics"' EXIT
+          ruff_status=0
+          ruff check --fix --output-format json --exclude '.workflows-lib' . > "$diagnostics" || ruff_status=$?
+          if [ "$ruff_status" -gt 1 ]; then
+            echo "::error::Ruff did not complete (exit $ruff_status)."
+            exit "$ruff_status"
+          fi
+          if [ "$ruff_status" -eq 1 ]; then
+            python3 - "$diagnostics" <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          try:
+              diagnostics = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          except (OSError, ValueError):
+              diagnostics = None
+
+          # Exit 1 also covers syntax diagnostics. Accept only ordinary lint rules.
+          if not isinstance(diagnostics, list) or not diagnostics or any(
+              not isinstance(item, dict)
+              or not isinstance(code := item.get("code"), str)
+              or not re.fullmatch(r"[A-Z]+[0-9]+", code)
+              or code in {"E902", "E999"}
+              for item in diagnostics
+          ):
+              sys.exit("::error::Ruff reported incomplete formatting or unreadable diagnostics.")
+          codes = ", ".join(sorted({item["code"] for item in diagnostics}))
+          print(f"::warning::Ruff completed with remaining lint diagnostics: {codes}.")
+          PY
+          fi
 
       - name: Check for changes
         if: steps.integration_token.outputs.token_available == 'true'
@@ -128,6 +162,15 @@ jobs:
             -m "Applied by: ${run_url}"
 
           git push
+
+      - name: Summarize incomplete formatting
+        if: failure() && steps.formatting.outcome == 'failure'
+        run: |
+          {
+            echo "## Integration Tests Formatting Fix"
+            echo ""
+            echo "Formatting did not complete. No changes were pushed."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
         run: |
