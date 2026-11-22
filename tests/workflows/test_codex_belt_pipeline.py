@@ -12,6 +12,8 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+import shutil
+import subprocess
 from typing import Any
 
 import pytest
@@ -243,3 +245,72 @@ def test_worker_pagination_uses_paginate_with_retry():
     ), "Worker workflow has github.paginate usage; replace with paginateWithRetry(): " + ", ".join(
         sorted(failures)
     )
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Activation script replay requires Node")
+@pytest.mark.parametrize("root", [pathlib.Path("."), pathlib.Path("templates/consumer-repo")])
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Fix the source of `KeyError: 'a'` in "
+        "`tests/test_closer_pipeline.py::test_capacity_is_read_fresh_and_zero_defers`.",
+        "Implement the documented behavior",
+        "",
+    ],
+)
+def test_worker_activation_preserves_the_task_title_as_data(root: pathlib.Path, title: str) -> None:
+    path = root / WORKFLOW_ROOT / "agents-72-codex-belt-worker.yml"
+    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    step = next(
+        step
+        for job in workflow["jobs"].values()
+        for step in job["steps"]
+        if step.get("name") == "Post activation comment"
+    )
+    script = step["with"]["script"]
+    assert step["env"]["BELT_TASK_TITLE"] == "${{ steps.ledger_start.outputs.task_title }}"
+    assert "steps.ledger_start.outputs.task_title" not in script
+    for key, value in {
+        "steps.pr.outputs.number": "4685",
+        "steps.ctx.outputs.branch": "codex/issue-4555",
+        "steps.mode.outputs.dry_run": "false",
+        "steps.ledger_start.outputs.task_id": "task-01",
+        "steps.ctx.outputs.agent_key": "codex",
+    }.items():
+        script = script.replace("${{ " + key + " }}", value)
+
+    # Model only the activation comment surface. No real token or API client is loaded.
+    runner = """
+const assert = require('node:assert/strict');
+const action = new (Object.getPrototypeOf(async () => {}).constructor)(
+  'require', 'github', 'core', 'context', process.argv[1]);
+const posted = [];
+const issues = {
+  listComments() {},
+  createComment({body, issue_number}) {
+    assert.equal(issue_number, 4685);
+    posted.push(body);
+  }
+};
+const fakeRequire = () => ({createTokenAwareRetry: async () => ({
+  github: {rest:{issues}},
+  withRetry: callback => callback({rest:{issues}}),
+  paginateWithRetry: async () => [],
+})});
+action(fakeRequire, {}, {warning(message){throw Error(message);}},
+  {repo:{owner:'stranske', repo:'Workflows'}}).then(() => {
+  assert.equal(posted.length, 1);
+  process.stdout.write(posted[0]);
+}).catch(error => {console.error(error); process.exitCode = 1;});
+"""
+    completed = subprocess.run(
+        ["node", "-e", runner, script],
+        capture_output=True,
+        check=True,
+        text=True,
+        env={"PATH": os.environ["PATH"], "BELT_TASK_TITLE": title},
+    )
+    assert "@codex start" in completed.stdout
+    assert ("Focus on this task first" in completed.stdout) is bool(title)
+    if title:
+        assert f"**Focus on this task first:** `task-01` — {title}" in completed.stdout
