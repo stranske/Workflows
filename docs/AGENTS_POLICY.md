@@ -104,10 +104,9 @@ enforce the following four-event behavior:
 ## Protection layers
 
 1. **CODEOWNERS gate** – the files above are owned by `@stranske` in
-   `.github/CODEOWNERS`. Pull requests cannot merge changes to them without Code
-   Owner approval under this policy, subject to the dependency-only exception
-   below. **Require review from Code Owners** is the corresponding GitHub
-   setting when provisioning review enforcement.
+   [`.github/CODEOWNERS`](../.github/CODEOWNERS). This policy requires Code
+   Owner approval for protected workflow logic changes. **Require review from
+   Code Owners** is the corresponding GitHub setting for automatic enforcement.
 2. **Repository ruleset** – create (or update) a ruleset that targets the
    default branch (`Tests Pass to Merge`, ruleset ID `7880490`) and blocks
    deletions or renames of the covered workflows (`restrict_file_updates` with
@@ -124,11 +123,14 @@ enforce the following four-event behavior:
    approvals. The only guard-level review exception is for dependency-only
    `uses: owner/action@ref` updates on protected workflows when the PR has
    `agents:allow-change` and is authored by Dependabot, Renovate, or a
-   repository owner/member/collaborator. Verify the applicable guard verdict
-   and Code Owner approval before merging a protected-file change.
+   repository owner/member/collaborator. This exception affects the guard
+   verdict only. Verify any applicable Code Owner approval and other required
+   merge reviews independently.
 4. **GitHub required status checks** – the active default-branch ruleset
    requires the Gate aggregate job `summary`. GitHub reports strict
-   required-status-check enforcement disabled. Protected-file labels, approvals,
+   required-status-check enforcement disabled. GitHub's separate pull-request
+   rule currently reports `require_code_owner_review: false` and
+   `required_approving_review_count: 0`. Protected-file labels, approvals,
    and the guard verdict still apply under this policy.
 
 ## Required checks and status contexts
@@ -161,10 +163,13 @@ enforce the following four-event behavior:
    Expect one entry in `required_status_checks` with context `summary`, and
    `strict_required_status_checks_policy: false`. The legacy
    `branches/main/protection` endpoint can return HTTP 404 while the ruleset
-   still applies. Use the effective-rules endpoint above for this comparison.
+   still applies. Use the effective-rules endpoint for this comparison.
+   To inspect GitHub's review enforcement, query the same endpoint with
+   `--jq '.[] | select(.type == "pull_request") | .parameters'`.
 2. Open the pull request and confirm `summary` succeeded on the current head.
-   For a protected-file change, separately verify the required label, approval
-   or documented exception, and the applicable Health 45 result on that head.
+   For a protected-file change, separately verify the required label, all
+   applicable approvals, and the Health 45 verdict on that head. Check any
+   documented guard-level exception against the actual protected-file diff.
    A successful `summary` verifies Gate and carries no approval or guard
    verdict.
 3. If the effective check list differs from the checked-in configuration, use
