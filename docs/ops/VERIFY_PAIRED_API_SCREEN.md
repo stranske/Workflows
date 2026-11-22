@@ -14,24 +14,20 @@ python -m pytest -q tests/tools/test_run_verify_paired.py::test_source_proposed_
   tests/tools/test_run_verify_paired.py::test_actual_two_case_cli_four_generations_eight_counts_six_metadata
 ```
 
-MAINT-78 has a separate `verify-paired` mode for the independently reviewed
-public `square-pass` / `square-nonpass` packet. The old `assess` job is excluded
-only for that mode. The new job runs only from the repository default branch,
-has `contents: read` permission, disables checkout credential persistence, and
-maps only the existing `OPENAI_API_KEY` and `CLAUDE_API_STRANSKE` secret names.
-It has no comment, issue, PR, token-minting, dispatch, or repository-write step.
-Evidence is retained as a seven-day Actions artifact.
-The job first provisions a fixed temporary virtual environment from the existing
-unchanged `requirements.lock`, without provider secrets in that setup step.
-The key-bearing step then invokes that environment's Python directly, avoiding
-an unlocked dependency resolution. This repository does not contain `uv.lock`.
-
-**Source preparation only:** `config/verify_paired/historical-square/trial-policy.json` currently
+MAINT-78's current `verify-paired` job invokes the runner with its
+[default descriptor](../../config/verify_paired/descriptor.json), which selects
+the representative cases and their reviewed policy. The offline tests above
+select the archived square descriptor explicitly. Its
+[trial policy](../../config/verify_paired/historical-square/trial-policy.json)
 has `execution_enabled: false` and `review_status: proposed_source_only`.
-The command writes a held receipt before any client construction or provider
-request. Core and the executor must review the exact code and caps before a
-separate source change can enable it. This preparation does not authorize a
-dispatch or API invocation.
+The historical policy test checks that this selection produces a held receipt
+before any provider client is constructed.
+
+The sections below describe the original square screen and its controls.
+The original workflow design scoped the job to the default branch, used
+read-only repository permissions and installed dependencies from
+`requirements.lock` before the credential-bearing step. Current operational
+instructions are in the [representative proposal](VERIFY_REPRESENTATIVE_API_PROPOSAL.md).
 
 ## Frozen input and existing execution path
 
