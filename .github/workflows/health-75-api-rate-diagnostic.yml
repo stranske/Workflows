@@ -280,8 +280,8 @@ jobs:
   check-consumer-repos:
     name: Check Consumer Repo Activity
     runs-on: ubuntu-latest
-    # Always run for current mode; steps short-circuit unless manual dispatch requests it
-    if: ${{ inputs.report_mode != 'historical' }}
+    # Start this runner only when current-mode manual dispatch requests consumer activity.
+    if: ${{ inputs.report_mode != 'historical' && github.event_name == 'workflow_dispatch' && inputs.include_consumer_repos != false }}
     needs: collect-rate-limits
     outputs:
       consumer_activity: ${{ steps.activity.outputs.activity_json }}
