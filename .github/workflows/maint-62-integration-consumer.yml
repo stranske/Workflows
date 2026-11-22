@@ -180,7 +180,7 @@ jobs:
     needs:
       - scenarios
       - select-scenarios
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -233,7 +233,11 @@ jobs:
 
 
       - name: Open or update failure issue
-        if: ${{ needs.scenarios.result != 'success' }}
+        if: >-
+          ${{
+            success() && !cancelled() &&
+            (needs.scenarios.result == 'failure' || needs.select-scenarios.result == 'failure')
+          }}
         uses: actions/github-script@v9
         with:
           script: |
@@ -317,7 +321,7 @@ jobs:
             }
 
       - name: Resolve open issue on success
-        if: ${{ needs.scenarios.result == 'success' }}
+        if: ${{ success() && !cancelled() && needs.scenarios.result == 'success' }}
         continue-on-error: true
         uses: actions/github-script@v9
         with:
