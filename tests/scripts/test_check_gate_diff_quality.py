@@ -142,6 +142,28 @@ def test_git_adapters_and_missing_test_files(monkeypatch, tmp_path) -> None:
     assert calls[1][0] == ["git", "diff", "--no-ext-diff", "--unified=0", "base...head"]
 
 
+def test_main_reports_failed_explicit_ref_blob_read(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        check_gate_diff_quality, "_changed_files", lambda *_: ["tests/test_real.py"]
+    )
+    monkeypatch.setattr(check_gate_diff_quality, "_full_diff", lambda *_: "")
+
+    def fake_run(args: list[str], *, check: bool, **kwargs) -> subprocess.CompletedProcess[str]:
+        assert args == ["git", "show", "head:tests/test_real.py"]
+        completed = subprocess.CompletedProcess(args, 128, stdout="")
+        if check:
+            completed.check_returncode()
+        return completed
+
+    monkeypatch.setattr(check_gate_diff_quality.subprocess, "run", fake_run)
+
+    assert check_gate_diff_quality.main(["--base", "base", "--head", "head"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "git read error" in captured.err
+    assert "head:tests/test_real.py" in captured.err
+
+
 def _git(repo: Path, *args: str) -> str:
     completed = subprocess.run(
         ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],

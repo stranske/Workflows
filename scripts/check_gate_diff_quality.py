@@ -78,11 +78,11 @@ def _read_file_at(file_name: str, head: str) -> str | None:
         return path.read_text(encoding="utf-8") if path.is_file() else None
     completed = subprocess.run(
         ["git", "show", f"{head}:{file_name}"],
-        check=False,
+        check=True,
         text=True,
         capture_output=True,
     )
-    return completed.stdout if completed.returncode == 0 else None
+    return completed.stdout
 
 
 def _weak_added_tests(files: list[str], head: str = "HEAD") -> list[str]:
@@ -136,7 +136,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--head", default="HEAD")
     args = parser.parse_args(argv)
 
-    failures = check_diff_quality(args.base, args.head)
+    try:
+        failures = check_diff_quality(args.base, args.head)
+    except subprocess.CalledProcessError as exc:
+        print(f"git read error: {exc}", file=sys.stderr)
+        return 1
     if failures:
         for failure in failures:
             print(failure, file=sys.stderr)
