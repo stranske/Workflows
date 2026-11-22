@@ -15,6 +15,7 @@ This directory contains workflow templates that consumer repositories can copy a
 |----------|---------|------------|
 | [ci-basic.yml](ci-basic.yml) | Basic Python CI: lint, type check, test | Simple |
 | [ci-full.yml](ci-full.yml) | Full CI: smoke test, lint, coverage, PR gate | Medium |
+| [ci-node-basic.yml](ci-node-basic.yml) | Shared CI for Node.js and TypeScript projects using npm and Jest by default | Simple |
 | [dependency-refresh.yml](dependency-refresh.yml) | Scheduled `requirements.lock` refresh | Simple |
 | [cosmetic-repair.yml](cosmetic-repair.yml) | Auto-fix formatting/cosmetic issues | Medium |
 
