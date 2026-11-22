@@ -13,6 +13,23 @@ import yaml
 
 WORKFLOW = Path(".github/workflows/reusable-11-ci-node.yml")
 NO_TEST_PACKAGE = Path(".github/actions/maint78-codex-cli/package.json")
+RUNNER_COVERAGE_CASES = [
+    ("jest", False, ["--runInBand"]),
+    (
+        "jest",
+        True,
+        [
+            "--runInBand",
+            "--coverage",
+            "--coverageReporters=text",
+            "--coverageReporters=json-summary",
+            "--coverageReporters=cobertura",
+            "--coverageReporters=lcov",
+        ],
+    ),
+    ("vitest", False, []),
+    ("vitest", True, ["--coverage"]),
+]
 
 
 @pytest.fixture
@@ -48,18 +65,21 @@ def run_tests(step: dict, project: Path, runner: str, coverage: bool):
     )
 
 
-def install_local_runner(project: Path) -> None:
-    runner = project / "node_modules/jest"
-    runner.mkdir(parents=True)
-    (runner / "package.json").write_text(
-        '{"name":"jest","version":"1.0.0","bin":{"jest":"cli.js"}}'
+def install_local_runner(project: Path, runner: str) -> None:
+    package = project / "node_modules" / runner
+    package.mkdir(parents=True)
+    (package / "package.json").write_text(
+        json.dumps({"name": runner, "version": "1.0.0", "bin": {runner: "cli.js"}})
     )
-    executable = runner / "cli.js"
-    executable.write_text('#!/usr/bin/env node\nconsole.log("installed runner executed");\n')
+    executable = package / "cli.js"
+    executable.write_text(
+        '#!/usr/bin/env node\nconsole.log("installed runner executed");\n'
+        "console.log(JSON.stringify(process.argv.slice(2)));\n"
+    )
     executable.chmod(0o755)
-    bins = runner.parent / ".bin"
+    bins = package.parent / ".bin"
     bins.mkdir()
-    (bins / "jest").symlink_to(Path("../jest/cli.js"))
+    (bins / runner).symlink_to(Path("..") / runner / "cli.js")
 
 
 def test_real_package_without_tests_fails_without_an_installed_runner(test_steps, tmp_path):
@@ -70,40 +90,26 @@ def test_real_package_without_tests_fails_without_an_installed_runner(test_steps
     assert "No test script in package.json" in result.stdout
 
 
-def test_missing_script_can_use_an_installed_runner(test_steps, tmp_path):
+@pytest.mark.parametrize(("runner", "coverage", "expected"), RUNNER_COVERAGE_CASES)
+def test_missing_script_can_use_an_installed_runner(
+    test_steps, tmp_path, runner, coverage, expected
+):
     test, _ = test_steps
     shutil.copyfile(NO_TEST_PACKAGE, tmp_path / "package.json")
-    install_local_runner(tmp_path)
-    result = run_tests(test, tmp_path, "jest", coverage=False)
+    install_local_runner(tmp_path, runner)
+    result = run_tests(test, tmp_path, runner, coverage)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "installed runner executed" in result.stdout
+    fallback_only = ["run"] if runner == "vitest" else []
+    assert json.loads(result.stdout.splitlines()[-1]) == fallback_only + expected
 
 
-@pytest.mark.parametrize(
-    ("runner", "coverage", "expected"),
-    [
-        ("jest", False, ["--runInBand"]),
-        (
-            "jest",
-            True,
-            [
-                "--runInBand",
-                "--coverage",
-                "--coverageReporters=text",
-                "--coverageReporters=json-summary",
-                "--coverageReporters=cobertura",
-                "--coverageReporters=lcov",
-            ],
-        ),
-        ("vitest", False, []),
-        ("vitest", True, ["--coverage"]),
-    ],
-)
+@pytest.mark.parametrize(("runner", "coverage", "expected"), RUNNER_COVERAGE_CASES)
 def test_project_script_keeps_runner_arguments_and_verdict(
     test_steps, tmp_path, runner, coverage, expected
 ):
     test, _ = test_steps
-    install_local_runner(tmp_path)
+    install_local_runner(tmp_path, runner)
     (tmp_path / "package.json").write_text(json.dumps({"scripts": {"test": "node test.cjs"}}))
     script = tmp_path / "test.cjs"
     script.write_text("console.log(JSON.stringify(process.argv.slice(2)));")
