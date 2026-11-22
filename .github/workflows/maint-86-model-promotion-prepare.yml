@@ -19,7 +19,9 @@ on:
         description: "Path to an evaluate_model_benchmark.py output JSON in the repo."
         required: true
       mode:
-        description: "promote | rollback | auto"
+        description: >-
+          auto and rollback can prepare a rollback PR for human review when evidence qualifies.
+          promote is retained for compatibility and prepares no change.
         type: choice
         options: [auto, promote, rollback]
         default: auto
