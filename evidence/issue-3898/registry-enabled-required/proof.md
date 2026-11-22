@@ -54,3 +54,21 @@ remains open pending native source acceptance and the parent's guarded delivery.
 Registry-only precursor #3922 was guarded-merged at b633a3a6f61b8c95cf186c10444b6895f3005e9c. The strict branch rebased cleanly onto those admitted base facts, then reran all **798 tests** successfully. Rebased full logs and validation output are adjacent and hash-bound by receipt.json.
 
 Native follow-up discussion_r4290382649 found the REST run path commonly includes `@main`. The realistic REST fixture reproduced **4 failed / 48 passed** before repair. Canonical path validation now admits optional nonempty `@ref` suffixes while independently checking workflow ID/path/name and run name; the exact returned path/name remain bound across rereads. Unsuffixed and full-ref paths pass, while wrong path/name/ID and final path changes suppress writes. Final full regression: **830 passed**. Full text RED/GREEN/static validation logs are adjacent and bound in receipt.json.
+
+## Recover the archived rebased validation log
+
+The rebased and reviewed-final validation logs have identical bytes. Their
+separate test runs remain recorded in the two GREEN logs and in the original
+receipt. The earlier reviewed-final validation log is the local copy of the
+shared bytes. From this directory, restore the original rebased filename
+before checking all paths in receipt.json:
+
+```sh
+cp registry-enabled-reviewed-final-validation.log registry-enabled-rebased-validation.log
+shasum -a 256 registry-enabled-rebased-validation.log
+```
+
+The expected SHA-256 is
+`0b8760c96a74f175c43a6aa47807223eb04417f9fba6357099222ea0ba9c28dc`.
+The [rebased log at its original path](https://github.com/stranske/Workflows/blob/f23c81b74f90789d98f91cec80d8cdec327d3915/evidence/issue-3898/registry-enabled-required/registry-enabled-rebased-validation.log)
+also remains available in the original merge.
