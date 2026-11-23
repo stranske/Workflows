@@ -173,6 +173,38 @@ def collect_matching_issues(
     return matches
 
 
+def _standalone_warning_refs(body: str) -> list[re.Match[str]]:
+    if not body.startswith(STANDALONE_WARNING_HEADER) or not body.rstrip().endswith(
+        STANDALONE_WARNING_FOOTER
+    ):
+        return []
+    reference_block, details, _ = body[len(STANDALONE_WARNING_HEADER) :].partition(
+        STANDALONE_WARNING_DETAILS
+    )
+    if not details:
+        return []
+
+    refs = []
+    for line in reference_block.splitlines():
+        target = STANDALONE_WARNING_REF.fullmatch(line)
+        if target is None or target["reference"] != target["number"]:
+            return []
+        # The producer interpolates raw titles. Unbalanced brackets or a nested
+        # link can prevent GitHub from rendering the advertised issue link.
+        depth = 0
+        for bracket in re.findall(r"\\.|\\$|\]\(|[\[\]]", target["title"]):
+            if bracket in ("](", "\\") or (bracket == "]" and depth == 0):
+                return []
+            if bracket == "[":
+                depth += 1
+            elif bracket == "]":
+                depth -= 1
+        if depth:
+            return []
+        refs.append(target)
+    return refs
+
+
 def _is_standalone_dedup_comment(comment: dict[str, Any], body: str) -> bool:
     author = comment.get("user")
     if not isinstance(author, dict) or author.get("type") != "Bot":
@@ -180,27 +212,18 @@ def _is_standalone_dedup_comment(comment: dict[str, Any], body: str) -> bool:
     author_id = STANDALONE_WARNING_AUTHORS.get(str(author.get("login")))
     if author_id is None or author.get("id") != author_id:
         return False
-    if not body.startswith(STANDALONE_WARNING_HEADER) or not body.rstrip().endswith(
-        STANDALONE_WARNING_FOOTER
-    ):
-        return False
 
     origin = COMMENT_ISSUE_URL.fullmatch(str(comment.get("issue_url")))
-    reference_block, details, _ = body[len(STANDALONE_WARNING_HEADER) :].partition(
-        STANDALONE_WARNING_DETAILS
+    refs = _standalone_warning_refs(body)
+    return (
+        origin is not None
+        and bool(refs)
+        and all(
+            ref["repo"].casefold() == origin["repo"].casefold()
+            and ref["number"] != origin["number"]
+            for ref in refs
+        )
     )
-    if origin is None or not details or not reference_block:
-        return False
-    for line in reference_block.splitlines():
-        target = STANDALONE_WARNING_REF.fullmatch(line)
-        if (
-            target is None
-            or target["repo"].casefold() != origin["repo"].casefold()
-            or target["reference"] != target["number"]
-            or target["number"] == origin["number"]
-        ):
-            return False
-    return True
 
 
 def find_dedup_comment(comments: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -212,22 +235,19 @@ def find_dedup_comment(comments: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 def extract_similar_issue_refs(comment_body: str) -> list[SimilarIssueRef]:
+    if comment_body.startswith(STANDALONE_WARNING_HEADER) and (
+        issue_dedup.SIMILAR_ISSUES_MARKER not in comment_body
+    ):
+        return [
+            SimilarIssueRef(number=int(ref["number"]), url=ref["url"], title=ref["title"])
+            for ref in _standalone_warning_refs(comment_body)
+        ]
     refs: list[SimilarIssueRef] = []
     link_pattern = re.compile(r"\[(?P<label>[^\]]+)\]\((?P<url>[^)]+)\)")
     number_pattern = re.compile(r"#(?P<number>\d+)")
     for line in comment_body.splitlines():
         stripped = line.strip()
         if not stripped.startswith("- "):
-            continue
-        standalone_ref = STANDALONE_WARNING_REF.fullmatch(stripped)
-        if standalone_ref is not None and standalone_ref["reference"] == standalone_ref["number"]:
-            refs.append(
-                SimilarIssueRef(
-                    number=int(standalone_ref["number"]),
-                    url=standalone_ref["url"],
-                    title=standalone_ref["title"],
-                )
-            )
             continue
         content = stripped[2:]
         title: str | None = None

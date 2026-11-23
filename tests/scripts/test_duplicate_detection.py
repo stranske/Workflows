@@ -226,6 +226,29 @@ class TestSimilarIssueReferenceHelpers:
         }
         assert duplicate_detection.find_dedup_comment([comment]) is None
 
+    def test_standalone_warning_extracts_only_its_validated_reference_block(
+        self, retained_standalone_warning: dict
+    ) -> None:
+        body = retained_standalone_warning["body"].replace(
+            "</details>",
+            "- **#1999** - [Example](https://github.com/stranske/trip-planner/issues/1999)"
+            " (100% similarity)\n</details>",
+        )
+        comment = {**retained_standalone_warning, "body": body}
+        assert duplicate_detection.find_dedup_comment([comment]) == comment
+        assert [ref.number for ref in duplicate_detection.extract_similar_issue_refs(body)] == [
+            1967
+        ]
+
+    def test_standalone_warning_requires_a_well_formed_markdown_link(
+        self, retained_standalone_warning: dict
+    ) -> None:
+        comment = {
+            **retained_standalone_warning,
+            "body": retained_standalone_warning["body"].replace("Dev-tool pin", "Dev-tool ] pin"),
+        }
+        assert duplicate_detection.find_dedup_comment([comment]) is None
+
     def test_extract_similar_issue_refs_handles_links_bare_refs_titles_and_ignored_lines(
         self,
     ) -> None:
