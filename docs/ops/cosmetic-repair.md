@@ -49,7 +49,7 @@ produce a repair remain failed and open no PR.
 
 ## Local execution
 
-Developers can run the same logic locally:
+Developers can generate a local JUnit report and apply the guarded repairs:
 
 ```bash
 python -m pytest -o junit_family=xunit1 --junitxml=pytest-report.xml
@@ -63,5 +63,5 @@ python -m scripts.ci_cosmetic_repair --apply --skip-pr --require-all --report py
   branch name when creating a PR.
 
 Ensure the working tree is clean before running in `--apply` mode.
-`--require-all` also confines targets to the checkout and checks the
-guards during preview.
+`--require-all` rejects repeated failed testcase identities, confines targets
+to the checkout, and checks the guards during preview.

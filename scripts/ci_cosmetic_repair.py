@@ -39,6 +39,7 @@ SUMMARY_FILE = Path(".cosmetic-repair-summary.json")
 
 from scripts.classify_test_failures import (  # noqa: E402
     FailureRecord,
+    RepeatedFailureError,
     classify_reports,
 )
 
@@ -188,8 +189,16 @@ def _format_value(data: dict[str, object]) -> str:
     raise CosmeticRepairError(f"Unsupported value type: {type(raw_value)!r}")
 
 
-def load_failure_records(report_path: Path) -> list[FailureRecord]:
-    summary = classify_reports([report_path])
+def load_failure_records(
+    report_path: Path, *, reject_repeated_failures: bool = False
+) -> list[FailureRecord]:
+    try:
+        if reject_repeated_failures:
+            summary = classify_reports([report_path], reject_repeated_failures=True)
+        else:
+            summary = classify_reports([report_path])
+    except RepeatedFailureError as exc:
+        raise CosmeticRepairError(str(exc)) from exc
     cosmetic_entries = summary.get("cosmetic", [])
     runtime_entries = summary.get("runtime", [])
     unknown_entries = summary.get("unknown", [])
@@ -452,7 +461,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--require-all",
         action="store_true",
-        help="Require a repair instruction for every failure and check guards in preview",
+        help="Require unique failed testcases with repair instructions and check guards in preview",
     )
     return parser.parse_args(argv)
 
@@ -479,8 +488,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if not report_path.exists():
         raise CosmeticRepairError(f"JUnit report not found: {report_path}")
-    records = load_failure_records(report_path)
     if ns.require_all:
+        records = load_failure_records(report_path, reject_repeated_failures=True)
         instructions = collect_instructions(records, require_all=True)
         root = ns.root.resolve()
         for instruction in instructions:
@@ -489,7 +498,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"Repair path is outside the checkout: {instruction.path}"
                 )
     else:
-        instructions = collect_instructions(records)
+        instructions = collect_instructions(load_failure_records(report_path))
     if not instructions:
         if pytest_result is not None and pytest_result.returncode != 0:
             write_summary(

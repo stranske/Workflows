@@ -21,10 +21,12 @@ TARGET = "baseline[approved].py"
         ("clean", False, "clean", False),
         ("cosmetic", True, "dry-run", False),
         ("cosmetic", False, "applied-no-pr", True),
+        ("cosmetic-local", False, "applied-no-pr", True),
         ("already-applied", False, "no-changes", False),
         ("missing-guard", True, None, False),
         ("partial-cosmetic", False, None, False),
         ("duplicate-id", False, None, False),
+        ("duplicate-id-local", False, None, False),
         ("ordinary", False, None, False),
         ("mixed", False, None, False),
         ("missing", False, None, False),
@@ -35,6 +37,8 @@ TARGET = "baseline[approved].py"
     ],
 )
 def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, eligible):
+    local = case.endswith("-local")
+    case = case.removesuffix("-local")
     workflow = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
     job = workflow["jobs"]["repair"]
     steps = {step["name"]: step for step in job["steps"]}
@@ -73,13 +77,13 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
         cwd=checkout,
         check=True,
     )
-    report = tmp_path / "pytest-report.xml"
+    report = (checkout if local else tmp_path) / "pytest-report.xml"
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
     env.update(
         PYTHONDONTWRITEBYTECODE="1",
         PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
-        RUNNER_TEMP=str(tmp_path),
+        RUNNER_TEMP=str(report.parent),
     )
     if case == "cosmetic":
         (checkout / "pytest.ini").write_text("[pytest]\nfilterwarnings = error\n")
@@ -132,8 +136,27 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
 
     original = report.read_bytes() if report.exists() else None
     output = tmp_path / "outputs"
+    if local:
+        command = [
+            sys.executable,
+            "-m",
+            "scripts.ci_cosmetic_repair",
+            "--apply",
+            "--skip-pr",
+            "--require-all",
+            "--report",
+            report.name,
+        ]
+    else:
+        command = [
+            "bash",
+            "-eo",
+            "pipefail",
+            "-c",
+            steps["Run cosmetic repair on original report"]["run"],
+        ]
     result = subprocess.run(
-        ["bash", "-eo", "pipefail", "-c", steps["Run cosmetic repair on original report"]["run"]],
+        command,
         cwd=checkout,
         env={
             **env,
@@ -155,9 +178,11 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
     assert (
         json.loads(summary.read_text())["status"] if summary.exists() else None
     ) == expected_status
-    assert output.exists() == eligible
+    assert output.exists() == (eligible and not local)
     assert ("1.23456" in target.read_text()) == (eligible or case == "already-applied")
-    if eligible:
+    if case == "duplicate-id":
+        assert "Repeated failed testcase in the original pytest report" in result.stderr
+    if eligible and not local:
         other = checkout / "baselinea.py"
         other.write_text("Do not stage this unrelated path.\n", encoding="utf-8")
         (pathspec,) = output.read_text().splitlines()[1:-1]
