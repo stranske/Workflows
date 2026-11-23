@@ -124,3 +124,17 @@ restoration passes(exit0). Synthetic logs are explicitly test controls; actual
 production mutation evidence remains the separate real ten-case replay.
 Current focused combined suite16PASS; real ten-case replay allRED1/GREEN0.
 Compressed raw outputs are retained under review-recovery/final.
+
+### Recover the two production replays
+
+The [review replay](https://github.com/stranske/Workflows/tree/98b6ed3de1fdea92e3eb00420c863f873a00a210/docs/evidence/issue-3743/launch-boundaries/review-recovery/production-replay) and the [final replay](https://github.com/stranske/Workflows/tree/98b6ed3de1fdea92e3eb00420c863f873a00a210/docs/evidence/issue-3743/launch-boundaries/review-recovery/final/production-replay) each record ten root and template cases, including the red and green logs. Each link opens the files at their original revision. Their filenames recur across the two runs. Their recorded bytes differ in all 21 pairs.
+
+The [offline archive](review-recovery/production-replays.tar.gz) contains all 42 original files with their relative paths and modes. Its SHA-256 is `74a48dea8ca21fd1c754f24e5413f399d71e32ae9f240f4ff3c920104d3d84fc`. From the repository root, extract both sets to a new directory and read the final run's case manifest.
+
+```sh
+recovered=$(mktemp -d)
+tar -xpzf docs/evidence/issue-3743/launch-boundaries/review-recovery/production-replays.tar.gz -C "$recovered"
+cat "$recovered/final/production-replay/wf-mutations.json"
+```
+
+The earlier run's case manifest is at `production-replay/wf-mutations.json` in the same directory. The [historical capacity inventory](../../../../evidence/issue-3820/native-capacity-registry-preservation.json) records each original file's SHA-256 under its full repository path.
