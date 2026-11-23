@@ -17,6 +17,21 @@ For a current incident, inspect the [integration sync source](../../.github/work
 bash scripts/fix-integration-tests-formatting.sh /path/to/Workflows-Integration-Tests
 ```
 
+On a fresh Integration-Tests checkout, use Python 3.13 or newer to create and
+activate an isolated environment, then install the receiver’s pinned dev extra:
+
+```sh
+python3 -m venv /path/to/Workflows-Integration-Tests/.venv
+. /path/to/Workflows-Integration-Tests/.venv/bin/activate
+python -m pip install -e '/path/to/Workflows-Integration-Tests[dev]'
+```
+
+The default formats only the two incident files with Black. To format the whole
+checkout with Black and Ruff, run
+`bash scripts/fix-integration-tests-formatting.sh --all /path/to/Workflows-Integration-Tests`.
+The underscore-named script still runs full formatting from the Integration-Tests
+root. Both entries use the tools already available in your environment.
+
 The January patch reproduces the four files in the [landed integration repair](https://github.com/stranske/Workflows-Integration-Tests/commit/0994ab8223df4c9523690dc514063e4e0a089e0e). The April edit changed six lines of Python-version context. Both editions are in the [offline patch archive](integration-test-repair-2026.tar.gz).
 
 | Edition | Archive member | SHA-256 |
