@@ -94,6 +94,35 @@ scripts:
     assert outside_sentinel.read_text(encoding="utf-8") == "outside"
 
 
+def test_sync_templates_checks_later_paths_before_syncing_first_file(tmp_path: Path) -> None:
+    repo = _fixture_repo(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: .github/scripts/first.js
+    description: first
+  - source: .github/scripts/later.js
+    description: later
+""",
+    )
+    for name in ("first.js", "later.js"):
+        (repo / ".github" / "scripts" / name).write_text("updated", encoding="utf-8")
+    destination = repo / "templates" / "consumer-repo" / ".github" / "scripts"
+    destination.mkdir(parents=True)
+    first = destination / "first.js"
+    first.write_text("original", encoding="utf-8")
+    outside = tmp_path / "outside.js"
+    outside.write_text("protected", encoding="utf-8")
+    (destination / "later.js").symlink_to(outside)
+
+    result = _run_sync(repo)
+
+    assert result.returncode == 1
+    assert "Unsafe template-sync path .github/scripts/later.js" in result.stderr
+    assert first.read_text(encoding="utf-8") == "original"
+    assert outside.read_text(encoding="utf-8") == "protected"
+
+
 def test_sync_templates_syncs_manifest_script(tmp_path: Path) -> None:
     repo = _fixture_repo(
         tmp_path,

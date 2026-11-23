@@ -17,82 +17,89 @@ if ! FILES=$(python scripts/validate_template_sync.py --print-sources); then
     exit 1
 fi
 
-validate_sync_path() {
-    python - "$REPO_ROOT" "$TEMPLATE_ROOT" "$1" <<'PY'
+validate_sync_paths() {
+    python - "$REPO_ROOT" "$TEMPLATE_ROOT" 3<<< "$1" <<'PY'
+import os
 from pathlib import Path
 import sys
 
 repo_root = Path(sys.argv[1]).resolve(strict=True)
 template_root = Path(sys.argv[2])
-relative = Path(sys.argv[3])
 
 
-def fail(message: str) -> None:
-    print(f"❌ Unsafe template-sync path {relative}: {message}", file=sys.stderr)
-    raise SystemExit(1)
+def validate_sync_path(relative: Path) -> None:
+    def fail(message: str) -> None:
+        print(f"❌ Unsafe template-sync path {relative}: {message}", file=sys.stderr)
+        raise SystemExit(1)
 
 
-def reject_symlink_components(path: Path, anchor: Path) -> None:
+    def reject_symlink_components(path: Path, anchor: Path) -> None:
+        try:
+            relative_parts = path.relative_to(anchor).parts
+        except ValueError:
+            fail(f"{path} is outside {anchor}")
+        current = anchor
+        for part in relative_parts:
+            current /= part
+            if current.is_symlink():
+                fail(f"symlink component is not allowed: {current}")
+
+
+    if not template_root.exists() or not template_root.is_dir() or template_root.is_symlink():
+        fail(f"template root is not a real directory: {template_root}")
+    reject_symlink_components(template_root, repo_root)
+
+    source = repo_root / relative
+    destination = template_root / relative
+    reject_symlink_components(source, repo_root)
+    reject_symlink_components(destination, repo_root)
+
     try:
-        relative_parts = path.relative_to(anchor).parts
+        source_resolved = source.resolve(strict=True)
+    except OSError as exc:
+        fail(f"source cannot be resolved: {exc}")
+    template_resolved = template_root.resolve(strict=True)
+    destination_resolved = destination.resolve(strict=False)
+
+    try:
+        source_resolved.relative_to(repo_root)
     except ValueError:
-        fail(f"{path} is outside {anchor}")
-    current = anchor
-    for part in relative_parts:
-        current /= part
-        if current.is_symlink():
-            fail(f"symlink component is not allowed: {current}")
+        fail("source resolves outside the repository")
+    try:
+        destination_relative = destination_resolved.relative_to(template_resolved)
+    except ValueError:
+        fail("destination resolves outside the template root")
+    if not destination_relative.parts:
+        fail("destination equals the template root")
+    if source_resolved == destination_resolved:
+        fail("source and destination are identical")
+    if source_resolved in destination_resolved.parents or destination_resolved in source_resolved.parents:
+        fail("source and destination overlap")
+
+    if source_resolved.is_dir():
+        for child in source_resolved.rglob("*"):
+            if child.is_symlink():
+                fail(f"source directory contains a symlink: {child}")
 
 
-if not template_root.exists() or not template_root.is_dir() or template_root.is_symlink():
-    fail(f"template root is not a real directory: {template_root}")
-reject_symlink_components(template_root, repo_root)
-
-source = repo_root / relative
-destination = template_root / relative
-reject_symlink_components(source, repo_root)
-reject_symlink_components(destination, repo_root)
-
-try:
-    source_resolved = source.resolve(strict=True)
-except OSError as exc:
-    fail(f"source cannot be resolved: {exc}")
-template_resolved = template_root.resolve(strict=True)
-destination_resolved = destination.resolve(strict=False)
-
-try:
-    source_resolved.relative_to(repo_root)
-except ValueError:
-    fail("source resolves outside the repository")
-try:
-    destination_relative = destination_resolved.relative_to(template_resolved)
-except ValueError:
-    fail("destination resolves outside the template root")
-if not destination_relative.parts:
-    fail("destination equals the template root")
-if source_resolved == destination_resolved:
-    fail("source and destination are identical")
-if source_resolved in destination_resolved.parents or destination_resolved in source_resolved.parents:
-    fail("source and destination overlap")
-
-if source_resolved.is_dir():
-    for child in source_resolved.rglob("*"):
-        if child.is_symlink():
-            fail(f"source directory contains a symlink: {child}")
+with os.fdopen(3, "rb") as paths:
+    for line in paths:
+        name = line.rstrip(b"\n")
+        if name:
+            validate_sync_path(Path(os.fsdecode(name)))
 PY
 }
 
 # Validate every entry before the first mkdir, copy, or removal. Revalidate each
 # entry immediately before mutation to catch ordinary local path changes.
-while IFS= read -r file; do
-    [ -n "$file" ] || continue
-    validate_sync_path "$file"
-done <<< "$FILES"
+if [ -n "$FILES" ]; then
+    validate_sync_paths "$FILES"
+fi
 
 synced=0
 while IFS= read -r file; do
     [ -n "$file" ] || continue
-    validate_sync_path "$file"
+    validate_sync_paths "$file"
     source_file="$REPO_ROOT/$file"
     template_file="$TEMPLATE_ROOT/$file"
 
