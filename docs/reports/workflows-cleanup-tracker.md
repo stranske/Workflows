@@ -1,9 +1,21 @@
 # Workflows cleanup tracker
 
-**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input. The [latest whole-repository checkpoint](#november-23-receiving-coverage-and-validation-tools) follows.
+**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input. The [latest whole-repository checkpoint](#current-structure-review) follows.
 
 
 The earlier dated headings link to their original sections on GitHub. For offline use, run `gzip -dc docs/archive/audits/workflows-cleanup-tracker-2026-11-23.md.gz` from the repository root to read the [complete November 23 snapshot](../archive/audits/workflows-cleanup-tracker-2026-11-23.md.gz). The decompressed snapshot's SHA-256 is `97c309057d21705f9e122f5c161066715d19975d81c3183fca87a8c7fea804f3`.
+
+## Current structure review
+
+November 23 UTC. Decisions cover **2,206/5,554 files, 224/487 folders and 151/198 workflows**. This pass completed 12 file decisions and 2 workflow decisions. The original checklist is **26/28**. The first workflow group is **4/5** and awaits an Agents 64 nested mismatch. The [Health 42 fix #4785](https://github.com/stranske/Workflows/pull/4785) passed its called, manual and fork-token checks. An ordinary fork annotation remains open.
+
+- The installed macOS pre-push hook now reaches Actionlint on Apple Bash. Ten input comparisons preserved the expected behavior. [Hook fix #5043](https://github.com/stranske/Workflows/pull/5043)
+- The fixes index now recovers both integration repair patches offline. Only January reproduces the four delivered files. This saves 7,576 checkout bytes. [Repair index #5044](https://github.com/stranske/Workflows/pull/5044)
+- Two hosted/portable helper pairs have separate readers. All four files stay. Template regeneration batches its static checks and still validates each copy. An eight-path sample used 10 Python starts instead of 17. [Template sync #5045](https://github.com/stranske/Workflows/pull/5045)
+- The ordinary weekly tool report identified two available updates and six current pins. Its current setup took six seconds. The removal proposal remains open. [Maint 50 report](https://github.com/stranske/Workflows/actions/runs/45135260651/job/137559918172)
+- The weekly metrics job ran in 101s versus 1,005s the previous week. All 17 in-scope dashboard rows matched the report. On the same saved input, lookup fell from 57 pages to 15 with all 123 records preserved. [Maint 80 dashboard](https://github.com/stranske/Workflows/actions/runs/45144126685/job/137589079662)
+
+Next, check the remaining mirror pairs against both install routes and restore navigation between the historical API audit and its 71-row CSV. Preserve the two extended-autopilot plans while their active index and tests require the old paths. Check Maint 84 on an eligible deletion and dependency-lock fallback on a matching bot PR.
 
 ## November 23 receiving coverage and validation tools
 
