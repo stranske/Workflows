@@ -136,7 +136,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Locate latest Gate workflow run
+      - name: Locate latest coverage producer run
         id: discover
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
@@ -144,6 +144,13 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const fs = require('fs');
+            const integration = owner.toLowerCase() === 'stranske' &&
+              repo.toLowerCase() === 'workflows-integration-tests';
+            const defaultBranch = integration ? context.payload.repository?.default_branch : '';
+            if (integration && !defaultBranch) {
+              core.setFailed('Integration coverage requires the repository default branch.');
+              return;
+            }
             // WHICH WORKFLOW CARRIES THIS REPO'S COVERAGE IS A PER-REPO FACT, AND IT WAS HARDCODED.
             //
             // Two repos are invisible to this guard for the same reason, and neither is
@@ -189,7 +196,6 @@ jobs:
                   'using the default workflow list'
               );
             }
-            core.info(`Searching for coverage in: ${workflowIds.join(', ')} (from ${workflowSource})`);
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -199,6 +205,12 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { paginateWithRetry, withRetry } = retryHelpers;
+            // The Integration fixture publishes the guarded Full lane in its main CI.
+            if (integration) {
+              workflowIds = ['.github/workflows/ci.yml'];
+              workflowSource = 'Integration CI';
+            }
+            core.info(`Searching for coverage in: ${workflowIds.join(', ')} (from ${workflowSource})`);
 
             // Every configured workflow is listed and the runs POOLED, rather than stopping at the
             // first that returns anything. A repo can legitimately publish coverage from more than
@@ -216,10 +228,14 @@ jobs:
                     workflow_id: wf,
                     status: 'completed',
                     per_page: 100,
+                    ...(integration ? { branch: defaultBranch, event: 'push' } : {}),
                   },
                 );
                 const successfulForWorkflow = found
-                  .filter((run) => ['success', 'neutral'].includes(run.conclusion || ''))
+                  .filter((run) => integration
+                    ? run.status === 'completed' && run.conclusion === 'success' &&
+                      run.event === 'push' && run.head_branch === defaultBranch
+                    : ['success', 'neutral'].includes(run.conclusion || ''))
                   .sort(
                     (a, b) =>
                       new Date(b.run_started_at || b.created_at || 0) -
@@ -241,9 +257,12 @@ jobs:
               core.warning(`No successful or neutral completed runs found in: ${searched.join('; ')}`);
               core.setOutput('run_id', '');
               core.setFailed(
-                'Coverage verification requires at least one successful or neutral completed run ' +
-                  `in a configured workflow. Searched: ${searched.join('; ')}. If this repo ` +
-                  'publishes coverage elsewhere, add source_workflows to config/coverage-baseline.json.'
+                integration
+                  ? `Coverage verification requires a successful Integration CI push on ${defaultBranch}. ` +
+                    `Searched: ${searched.join('; ')}.`
+                  : 'Coverage verification requires at least one successful or neutral completed run ' +
+                    `in a configured workflow. Searched: ${searched.join('; ')}. If this repo ` +
+                    'publishes coverage elsewhere, add source_workflows to config/coverage-baseline.json.'
               );
               return;
             }
@@ -301,6 +320,8 @@ jobs:
             const trendArtifactName = 'gate-coverage-trend';
             const historyArtifactName = 'gate-coverage-trend-history';
             let candidate = null;
+            let resolvedPayloadId = '';
+            let resolvedTrendId = '';
             let resolvedPayloadName = '';
             let fallbackArtifactIds = [];
             let resolvedTrendName = '';
@@ -322,8 +343,35 @@ jobs:
                 );
               } catch (error) {
                 core.warning(
-                  `Skipping Gate run ${run.id}; artifact lookup failed: ${error.message}`,
+                  `Skipping coverage run ${run.id}; artifact lookup failed: ${error.message}`,
                 );
+                continue;
+              }
+
+              if (integration) {
+                // The payload includes the attempt number. Bind the unsuffixed trend to
+                // that same attempt by its server creation time, then download both by ID.
+                const attempt = run.run_attempt;
+                const startedAt = Date.parse(run.run_started_at);
+                const finishedAt = Date.parse(run.updated_at);
+                const fromAttempt = artifacts.filter(({ id, expired, created_at }) => {
+                  const createdAt = Date.parse(created_at);
+                  return !expired && Number.isSafeInteger(id) && id > 0 &&
+                    createdAt >= startedAt && createdAt <= finishedAt;
+                });
+                const payloads = fromAttempt.filter(({ name }) =>
+                  name === `full-coverage-3.14-${attempt}`);
+                const trends = fromAttempt.filter(({ name }) => name === 'full-coverage-trend');
+                if (Number.isSafeInteger(attempt) && attempt > 0 &&
+                    payloads.length === 1 && trends.length === 1) {
+                  candidate = run;
+                  resolvedPayloadName = payloads[0].name;
+                  resolvedPayloadId = String(payloads[0].id);
+                  resolvedTrendName = trends[0].name;
+                  resolvedTrendId = String(trends[0].id);
+                  break;
+                }
+                core.info(`Skipping Integration CI run ${run.id}; no unique Full 3.14 payload and trend for attempt ${attempt}.`);
                 continue;
               }
 
@@ -394,6 +442,11 @@ jobs:
             }
 
             if (!candidate) {
+              if (integration) {
+                core.setOutput('run_id', '');
+                core.setFailed('Coverage verification requires a Full 3.14 payload and trend from the same Integration CI attempt.');
+                return;
+              }
               // THREE FINDINGS, NOT ONE. "This repo does not measure coverage", "it measures it
               // and publishes it under a name I do not recognise" and "it publishes a payload but
               // no trend" have completely different fixes, and the single message this replaced
@@ -441,18 +494,22 @@ jobs:
             // repeating a literal. A name that is discovered cannot drift from the name that
             // exists, which is the whole defect this replaces.
             core.setOutput('coverage_artifact_name', resolvedPayloadName);
+            core.setOutput('coverage_artifact_id', resolvedPayloadId);
             core.setOutput('coverage_fallback_artifact_ids', fallbackArtifactIds.join(','));
             core.setOutput('trend_artifact_name', resolvedTrendName);
+            core.setOutput('trend_artifact_id', resolvedTrendId);
             core.setOutput('history_artifact_name', resolvedHistoryName);
             core.setOutput('run_url', candidate.html_url || '');
             const url = candidate.html_url || 'no url';
-            core.notice(`Using Gate workflow run ${candidate.id} (${url})`);
+            const producer = integration ? 'Integration CI' : 'Gate workflow';
+            core.notice(`Using ${producer} run ${candidate.id} (${url})`);
 
       - name: Download coverage trend artifact
         if: ${{ steps.discover.outputs.trend_artifact_name }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: ${{ steps.discover.outputs.trend_artifact_name }}
+          name: ${{ !steps.discover.outputs.trend_artifact_id && steps.discover.outputs.trend_artifact_name || '' }}
+          artifact-ids: ${{ steps.discover.outputs.trend_artifact_id }}
           run-id: ${{ steps.discover.outputs.run_id }}
           path: coverage_artifacts/trend
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -473,7 +530,8 @@ jobs:
         if: ${{ steps.discover.outputs.coverage_artifact_name }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: ${{ steps.discover.outputs.coverage_artifact_name }}
+          name: ${{ !steps.discover.outputs.coverage_artifact_id && steps.discover.outputs.coverage_artifact_name || '' }}
+          artifact-ids: ${{ steps.discover.outputs.coverage_artifact_id }}
           run-id: ${{ steps.discover.outputs.run_id }}
           path: coverage_artifacts/payload
           github-token: ${{ secrets.GITHUB_TOKEN }}
