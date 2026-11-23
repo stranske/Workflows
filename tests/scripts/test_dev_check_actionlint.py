@@ -18,6 +18,7 @@ def _run_dev_check(
     output: str,
     exit_code: int,
     actionlint_timeout: bool = False,
+    kill_after_output: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     actionlint = tmp_path / "actionlint"
     actionlint.write_text(
@@ -26,6 +27,7 @@ def _run_dev_check(
                 "#!/bin/sh",
                 '[ -z "$FAKE_ACTIONLINT_OUTPUT" ] || printf "%s\\n" "$FAKE_ACTIONLINT_OUTPUT"',
                 '[ "$FAKE_ACTIONLINT_WAIT" != true ] || sleep 5',
+                '[ "$FAKE_ACTIONLINT_KILL" != true ] || kill -KILL "$$"',
                 'exit "${FAKE_ACTIONLINT_EXIT:-0}"',
                 "",
             ]
@@ -48,6 +50,7 @@ def _run_dev_check(
     env["FAKE_ACTIONLINT_OUTPUT"] = output
     env["FAKE_ACTIONLINT_EXIT"] = str(exit_code)
     env["FAKE_ACTIONLINT_WAIT"] = str(actionlint_timeout).lower()
+    env["FAKE_ACTIONLINT_KILL"] = str(kill_after_output).lower()
     env["DEV_CHECK_TIMEOUT"] = "1" if actionlint_timeout else "10"
 
     return subprocess.run(
@@ -183,5 +186,23 @@ def test_dev_check_reports_actual_actionlint_timeout_after_allowlisted_output(
     assert result.returncode == 1
     assert "timed out after 1s" in combined
     assert "increase DEV_CHECK_TIMEOUT" in combined
+    assert 'unexpected key "secrets"' not in combined
+    assert "ignored snippet" not in combined
+
+
+def test_dev_check_reports_killed_actionlint_after_allowlisted_output(tmp_path: Path) -> None:
+    file_path = "templates/consumer-repo/.github/workflows/allowlisted.yml"
+    result = _run_dev_check(
+        tmp_path,
+        allowlist=[file_path],
+        files=[file_path],
+        output=f'{file_path}:20:2: unexpected key "secrets" for "step"\n  ignored snippet',
+        exit_code=0,
+        kill_after_output=True,
+    )
+
+    combined = result.stdout + result.stderr
+    assert result.returncode == 1
+    assert "actionlint exit status 137" in combined
     assert 'unexpected key "secrets"' not in combined
     assert "ignored snippet" not in combined

@@ -433,7 +433,7 @@ run_actionlint_for_files() {
     filter_actionlint_output "$output_file" "$filtered_file" || filter_status=$?
 
     if [[ $exit_code -eq 0 && $filter_status -eq 0 ]] ||
-        [[ $exit_code -ne 124 && $filter_status -eq 1 && ! -s "$filtered_file" ]]; then
+        [[ $exit_code -le 1 && $filter_status -eq 1 && ! -s "$filtered_file" ]]; then
         echo -e "${GREEN}✓ $name${NC}"
         rm -f "$output_file" "$filtered_file"
         return 0
