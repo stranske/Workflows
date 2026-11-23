@@ -1,9 +1,22 @@
 # Workflows cleanup tracker
 
-**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input. The [latest whole-repository checkpoint](#november-23-coverage-selection-and-evidence-archive) follows.
+**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input. The [latest whole-repository checkpoint](#november-23-validation-and-freshness-review) follows.
 
 
 The earlier dated headings link to their original sections on GitHub. For offline use, run `gzip -dc docs/archive/audits/workflows-cleanup-tracker-2026-11-23.md.gz` from the repository root to read the [complete November 23 snapshot](../archive/audits/workflows-cleanup-tracker-2026-11-23.md.gz). The decompressed snapshot's SHA-256 is `97c309057d21705f9e122f5c161066715d19975d81c3183fca87a8c7fea804f3`.
+
+## November 23 validation and freshness review
+
+At [delivered source `9262e2c238`](https://github.com/stranske/Workflows/tree/9262e2c238e5dd8f6ac57ee9c1629740a0b1adf3), review covers **2,093/5,554 files, 218/487 folders, and 144/198 workflows** (+30 files, +2 folders, +0 workflows), leaving 3,461 files, 269 folders, and 54 workflows. The original checklist is **26/28**. The four source changes removed 21 tracked paths and 20,486 bytes in total.
+
+- **Historical receipts.** Archived 20 round 10–11 files and kept both inventories at their reader paths. Offline recovery verified all 22 paths, 12 log hashes and both 198-run observations. The missing-log control failed and restoration passed. The checkout saves 22,920 bytes and 19 paths. [Archive #5024](https://github.com/stranske/Workflows/pull/5024)
+- **Local validation.** The fast-validation guide now points to supported commands and preserves all 34 published section links. The validator still names a failed check and returns 1. Guidance and related edits save 6,773 bytes. The separate developer hook returned success for silent child exit 7 and timeout 124. That open repair is slated for the next pass. [Validation #5025](https://github.com/stranske/Workflows/pull/5025)
+- **Reusable CI contract.** The original coverage-disabled test now fails when the authored summary falsely claims coverage JSON. Restoring the step passes all three scenarios, with 47,335 local test identities preserved. Four actual archives corroborate the stage outputs, including the JUnit-only 3.13 payload. [Contract #5026](https://github.com/stranske/Workflows/pull/5026)
+- **Verifier CLI freshness.** Ordinary Health 76 reported 0.153.2 pinned and 0.171.0 published. The updated advice names the package and lockfile used by the locked installer in Markdown, JSON and NDJSON. [Scheduled artifact](https://github.com/stranske/Workflows/actions/runs/45107416192/artifacts/14787554706) · [Advice #5027](https://github.com/stranske/Workflows/pull/5027)
+- **Moderation.** Twelve new ordinary runs after the earlier 44-run sample found eight authors outside the deny list and 38 seconds of setup before those decisions. Three substantive comments survived. Savings remain unmeasured. [Ordinary moderation run](https://github.com/stranske/Workflows/actions/runs/45113590724)
+- **Consumer delivery.** The 05:00 Maint 68 run published three canary PRs with all 12 expected blobs. All three Gates passed. Receiver callbacks returned HTTP 403 between 05:07 and 05:10 UTC. The 05:30 Maint 71 run left all three PRs awaiting required canary evidence. Receiving defaults were 0/16 at 05:34 UTC. [Maint 68](https://github.com/stranske/Workflows/actions/runs/45115188511) · [Maint 71](https://github.com/stranske/Workflows/actions/runs/45118468244)
+
+**Next archive candidate.** A scratch pack for 11 issue #4426 files would save 98,051 bytes before guide edits. All 198 current cases passed with those loose files withheld.
 
 ## November 23 coverage selection and evidence archive
 
