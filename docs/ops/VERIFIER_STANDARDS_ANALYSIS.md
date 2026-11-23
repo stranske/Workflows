@@ -153,4 +153,4 @@ Under these rules gpt-6-luna would qualify today (0 of 19 against 2 of 19, 3 of 
 | Later breakage of PRs merged after a PASS against after a non-PASS, by PR class | at least 100 runs per class, re-run of the Brain query |
 | Shadow disagreements between candidate and incumbent | listed per PR, any candidate-misses-incumbent-catches triggers rollback |
 
-*Sources: Brain `outcomes` and `runs` (feedback database); the 161-PR sample from `gh pr list` keepalive state comments; `eval57-*` and `pilot-18-*` judge runs in `docs/evidence/judge-screen-20261017/`; `tools/verifier_standards_model.py`; the verifier workflow `reusable-agents-verifier.yml` (CI floor).*
+*Sources: Brain `outcomes` and `runs` (feedback database); the 161-PR sample from `gh pr list` keepalive state comments; the [57-case approval set and 18-case pilot](../evidence/judge-screen-20261017/PROVENANCE.md#october-17-approval-set-and-pilot-results); `tools/verifier_standards_model.py`; the verifier workflow `reusable-agents-verifier.yml` (CI floor).*
