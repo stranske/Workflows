@@ -2,10 +2,16 @@
 
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('fs'),path=require('path'),{createHash}=require('crypto');
+const {gunzipSync}=require('node:zlib');
 const root=path.resolve(__dirname,'../../..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const lineage=JSON.parse(read('docs/evidence/verifier-correction-inert-split/deployment-lineage.json'));
 const surfaces=['.github/workflows/agents-verify-to-new-pr.yml','templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml'];
+
+// Both predecessor surfaces had these exact job bytes at 7c5ac26448ed6149ba984584ed1db821ce049371.
+const predecessorJob=gunzipSync(fs.readFileSync(path.join(root,
+  'tests/fixtures/verifier_correction/ordinary-followup-predecessor.yml.gz'))).toString('utf8');
+const successorSha256='fa41081c172dcb89ddab437390855975c41c5e24f180db74e15f5076636a0574';
 
 for(const surface of surfaces) {
  test(`${surface}: typed effect job is unconditionally source-disabled independent of admitted outputs`,()=>{
@@ -17,9 +23,14 @@ for(const surface of surfaces) {
   assert.doesNotMatch(condition,/vars\.|secrets\.|inputs\./);
  });
  test(`${surface}: ordinary merged-PR label lane preserves exact pre-interface job bytes`,()=>{
+  assert.equal(createHash('sha256').update(predecessorJob).digest('hex'),lineage.legacy_job_sha256[surface]);
+  assert.doesNotMatch(predecessorJob,/guardLegacyCorrection|correction_guard|resolveCodingScope/);
+ });
+ test(`${surface}: ordinary merged-PR label lane matches the exact continuation identity successor`,()=>{
   const source=read(surface),job=source.slice(source.indexOf('  create-new-pr:\n'),source.indexOf('\n  collect-correction:\n')).trimEnd();
-  assert.equal(createHash('sha256').update(job).digest('hex'),lineage.legacy_job_sha256[surface]);
+  assert.equal(createHash('sha256').update(job).digest('hex'),successorSha256);
   assert.doesNotMatch(job,/guardLegacyCorrection|correction_guard|resolveCodingScope/);
+  assert.equal(source,read(surfaces[1-surfaces.indexOf(surface)]));
  });
  test(`${surface}: collection retains read-only permissions and cannot receive an effect activation callback`,()=>{
   const job=read(surface).split('\n  collect-correction:\n')[1].split('\n  apply-correction:\n')[0];
