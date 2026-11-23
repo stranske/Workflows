@@ -216,6 +216,12 @@ def test_malformed_ruff_result_cannot_report_clean(caller: Path, stdout: str, st
             id="false_clean",
         ),
         pytest.param(
+            "from pathlib import Path\nfrom sys import argv\n"
+            """Path(argv[3]).write_text('{"total":1,"new":1,"allowed":0,"by_code":[],"new_by_code":{}}')""",
+            None,
+            id="malformed_code_breakdown",
+        ),
+        pytest.param(
             "raise AssertionError('invalid allowlist reached caller helper')",
             '{"allow": "broken"}',
             id="bad_allowlist",
@@ -235,3 +241,4 @@ def test_bad_classifier_data_cannot_report_clean(
     assert result.returncode != 0
     assert "invalid allowlist reached caller helper" not in result.stderr
     assert (caller.parent / "classify").read_text() == ""
+    assert not (caller / "autofix_report_enriched.json").exists()

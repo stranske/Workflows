@@ -59,8 +59,9 @@ The step exposes `steps.autofix.outputs.changed`, `remaining_issues`, and
 `remaining_issues` counts Ruff findings after the fixers finish. The step reports
 findings without failing. If the checkout provides `scripts/classify_ruff.py`, it
 uses that script and the optional `.ruff-residual-allowlist.json` to count new
-findings. Otherwise, every remaining finding counts as new. Ruff or classifier
-execution errors and invalid report data fail the step before it emits counts.
+findings. Otherwise, every remaining finding counts as new. Tool errors and
+invalid diagnostic, allowlist, count or per-code data fail the step before it
+emits counts.
 
 ## Workflow Inputs
 

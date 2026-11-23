@@ -211,10 +211,19 @@ runs:
         fi
 
         if ! new=$(jq -ers --argjson total "$total" '
+          def whole_count: type == "number" and . == floor and . >= 0;
+          def valid_breakdown:
+            . as $report |
+            all(["by_code", "new_by_code", "allowed_by_code"][];
+              . as $key |
+              if $report | has($key) then
+                $report[$key] | type == "object" and all(.[]; whole_count)
+              else true end);
           if length == 1 and (.[0] |
             type == "object" and (has("error") | not) and .total == $total and
-            (.new | type == "number" and . == floor and . >= 0 and . <= $total) and
-            (if has("allowed") then .allowed == ($total - .new) else true end))
+            (.new | whole_count and . <= $total) and
+            (if has("allowed") then .allowed == ($total - .new) else true end) and
+            valid_breakdown)
           then .[0].new else empty end
         ' "$classification"); then
           echo "::error::Invalid Ruff classification or counts inconsistent with the diagnostics." >&2
