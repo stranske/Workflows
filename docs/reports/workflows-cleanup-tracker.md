@@ -1,9 +1,19 @@
 # Workflows cleanup tracker
 
-**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input. The [latest whole-repository checkpoint](#november-23-consumer-status-and-sync-instructions) follows.
+**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input. The [latest whole-repository checkpoint](#november-23-coverage-selection-and-evidence-archive) follows.
 
 
 The earlier dated headings link to their original sections on GitHub. For offline use, run `gzip -dc docs/archive/audits/workflows-cleanup-tracker-2026-11-23.md.gz` from the repository root to read the [complete November 23 snapshot](../archive/audits/workflows-cleanup-tracker-2026-11-23.md.gz). The decompressed snapshot's SHA-256 is `97c309057d21705f9e122f5c161066715d19975d81c3183fca87a8c7fea804f3`.
+
+## November 23 coverage selection and evidence archive
+
+At [delivered source `fda97d5e33`](https://github.com/stranske/Workflows/tree/fda97d5e338698ab2b91c293afe31deef089235b), the review covers **2,063/5,554 files, 216/487 folders and 144/198 workflows** (+107/+2/+1), leaving 3,491/271/54. Of 54 remaining workflows, 35 await verification, 17 are in review and two have proposals. The original checklist is **26/28**. Four of the five initial workflow decisions stand.
+
+- **Evidence archive.** Cold offline recovery matched all 87 round 14–16 originals and 68 receipt-to-log hashes. The omitted stderr failed verification and restoration passed. The checkout lost 183,692 bytes and 86 paths. [Archive #5019](https://github.com/stranske/Workflows/pull/5019)
+- **Consumer label suggestions.** The real identical trip-planner #2054 suggestions replay with zero writes, down from one. Changed, missing and foreign-author controls each keep one write. The old passing case maps to its Workflows-prefixed name. One consumer case takes hosted JavaScript to 4,288. Receiving installation is pending. [Label fix #5020](https://github.com/stranske/Workflows/pull/5020)
+- **Codex routing.** The guide replaces five stale copied model names with work kinds, the current table and a runnable resolver example. All eight active profiles resolve on both surfaces. For Codex execution, PR configuration takes precedence over manual input and the default. [Routing guide #5021](https://github.com/stranske/Workflows/pull/5021)
+- **Coverage artifact selection.** Counter_Risk's selected 3.13 bundle had no measured report. Its same-attempt 3.14 report matched the existing 95.79% trend. All five failure replays recovered measured siblings matching their original trends. Trip-planner kept its preferred coverage payload and 91.15% trend verdict with no fallback download. Ordinary receiver installation and an eligible native run remain open. [Coverage fix #5022](https://github.com/stranske/Workflows/pull/5022)
+- **Consumer keepalive sweep.** Keep the receiving sweep. Ready selected consolidated evaluation and Template selected fallback. Both named summaries passed. [Consolidated](https://github.com/stranske/Ready/actions/runs/45106323664) · [Fallback](https://github.com/stranske/Template/actions/runs/45106415933)
 
 ## November 23 consumer status and sync instructions
 
