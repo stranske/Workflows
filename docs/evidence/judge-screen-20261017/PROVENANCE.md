@@ -54,3 +54,29 @@ reports `{"cases": 8, "judges": 9, "pairs": 36, "tie_breaks": 252}`.
 `python -m pytest tests/tools/test_reproduce_muse13_screen.py -q`: 12 passed.
 Peer-input raw rewrites and policy digest changes are rejected. No model request
 is made.
+
+## October 17 approval-set and pilot results
+
+The six judges each evaluated the same 57 cases. Section 3 of the [standards analysis](../../ops/VERIFIER_STANDARDS_ANALYSIS.md) uses the 35 cases left after excluding the 22 failed-CI controls. The earlier 18-case pilot has six separate files matching `pilot-18-*.json` in this directory.
+
+[Browse the original six JSON files](https://github.com/stranske/Workflows/tree/33dc30842c744c2ff3904dedbbfd4bcbc1975050/docs/evidence/judge-screen-20261017) or [download the offline archive](approval-set-57.tar.gz). From the repository root, extract the approval-set files to a fresh directory and verify their original bytes.
+
+```sh
+(
+  set -eu
+  packet=docs/evidence/judge-screen-20261017/approval-set-57.tar.gz
+  printf '%s  %s\n' 8b61032b21e5e49bdca95c72f4c27aeed45aad6c764c71dade097843655014bc "$packet" | shasum -a 256 -c -
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/workflows-approval-set.XXXXXXXX")
+  tar -xpzf "$packet" -C "$recovered"
+  cd "$recovered"
+  shasum -a 256 -c <<'SUMS'
+8555f8d0d6a399208fb0deedb19957713773098885b4d840343ff9af86a4d5d8  approval-set-57-claude.json
+66aca961dabfc6ff980a7338c21e081929e8e1b5e17c71b081a235d6a1dbce17  approval-set-57-cursor.json
+21bbedd38809fbf46f96ff16e552b0b2d5d2572e4d7216c535b57050e0807b82  approval-set-57-luna.json
+2bfa28b0f543fc6751fd841d2925a5e426d8f5954c1661b7aae40caa5168ed86  approval-set-57-muse12.json
+eca0ff2ba9630249fe6e8b6effebc07a93010c52cce1081d4f7e7d33c141f16f  approval-set-57-muse12c.json
+bc7a2e6dc1ed8b054a9af3cca7388f515405df937496d14166ed3a5284b285cb  approval-set-57-terra.json
+SUMS
+  pwd
+)
+```
