@@ -17,7 +17,21 @@ For a current incident, inspect the [integration sync source](../../.github/work
 bash scripts/fix-integration-tests-formatting.sh /path/to/Workflows-Integration-Tests
 ```
 
-The original patch and the pre-cleanup reports preserve the contemporary commands, pins and test plan. [Original patch](../integration-test-failure-fix.patch) · [Root reports](https://github.com/stranske/Workflows/tree/68dfccae06410a7ccc0cc428756a5d890770e1a9) · [Documentation records](https://github.com/stranske/Workflows/tree/68dfccae06410a7ccc0cc428756a5d890770e1a9/docs) · [Run 60 and 61 records](https://github.com/stranske/Workflows/tree/68dfccae06410a7ccc0cc428756a5d890770e1a9/docs/fixes)
+The January patch reproduces the four files in the [landed integration repair](https://github.com/stranske/Workflows-Integration-Tests/commit/0994ab8223df4c9523690dc514063e4e0a089e0e). The April edit changed six lines of Python-version context. Both editions are in the [offline patch archive](integration-test-repair-2026.tar.gz).
+
+| Edition | Archive member | SHA-256 |
+| --- | --- | --- |
+| [January original](https://github.com/stranske/Workflows/blob/6a1400231ed2624331ba2abd2490b5848cb8aaac/docs/integration-test-failure-fix.patch) | `january.patch` | `85ca2b15eb94af924d4c8095739efde26fd43027175c1808ecbbbd8c90face24` |
+| [April revision](https://github.com/stranske/Workflows/blob/a9ce00e4e93563e55bf95147549d212ba997b393/docs/integration-test-failure-fix.patch) | `april.patch` | `a4bfc53430f02859808a4a4cf106d6ba8bd801b6df648e9f4d4d2b1697cb6867` |
+
+To recover an edition from the Workflows checkout offline, select its member by name.
+
+```sh
+tar -xOzf docs/fixes/integration-test-repair-2026.tar.gz january.patch > fix.patch
+shasum -a 256 fix.patch
+```
+
+Earlier incident reports preserve the commands, pins and test plan. [Root reports](https://github.com/stranske/Workflows/tree/68dfccae06410a7ccc0cc428756a5d890770e1a9) · [Documentation records](https://github.com/stranske/Workflows/tree/68dfccae06410a7ccc0cc428756a5d890770e1a9/docs) · [Run 60 and 61 records](https://github.com/stranske/Workflows/tree/68dfccae06410a7ccc0cc428756a5d890770e1a9/docs/fixes)
 
 ## November 2026 agent verification receipts
 
