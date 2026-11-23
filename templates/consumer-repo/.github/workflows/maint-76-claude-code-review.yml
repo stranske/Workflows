@@ -26,6 +26,7 @@ jobs:
       reason: ${{ steps.resolve.outputs.reason }}
     steps:
       - name: Checkout (for API wrappers)
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: |
@@ -37,6 +38,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
+        if: github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/setup-api-client
         with:
           # named inputs, not the whole secrets context (see #3185)
@@ -60,19 +62,19 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
-            const fs = require('fs');
-            const retryPath = './.github/scripts/github-api-with-retry.js';
-            const { createTokenAwareRetry } = fs.existsSync(retryPath)
-              ? require(retryPath)
-              : { createTokenAwareRetry: async () => ({ withRetry: (fn) => fn(github) }) };
-            const { withRetry } = await createTokenAwareRetry({ github, core });
-
             const eventName = context.eventName;
             let shouldRun = "false";
             let prNumber = "";
             let reason = "not_opted_in";
 
             if (eventName === "workflow_dispatch") {
+              const fs = require('fs');
+              const retryPath = './.github/scripts/github-api-with-retry.js';
+              const { createTokenAwareRetry } = fs.existsSync(retryPath)
+                ? require(retryPath)
+                : { createTokenAwareRetry: async () => ({ withRetry: (fn) => fn(github) }) };
+              const { withRetry } = await createTokenAwareRetry({ github, core });
+
               const raw = `${(context.payload.inputs || {}).pr_number || ""}`.trim();
               if (!/^\d+$/.test(raw)) {
                 reason = "invalid_pr_number";
