@@ -56,8 +56,11 @@ steps:
 
 The step exposes `steps.autofix.outputs.changed`, `remaining_issues`, and
 `new_issues`. Use `changed` to check whether the fixers modified tracked files.
-Run Ruff separately if residual findings matter. The legacy report can return
-zero counts when Ruff finds issues or when the optional classifier is absent.
+`remaining_issues` counts Ruff findings after the fixers finish. The step reports
+findings without failing. If the checkout provides `scripts/classify_ruff.py`, it
+uses that script and the optional `.ruff-residual-allowlist.json` to count new
+findings. Otherwise, every remaining finding counts as new. Ruff or classifier
+execution errors and invalid report data fail the step before it emits counts.
 
 ## Workflow Inputs
 
