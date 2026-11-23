@@ -234,7 +234,8 @@ def test_the_downloaded_matrix_payload_layout_is_probed(guard):
 
 
 @pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
-def test_only_payload_siblings_from_the_selected_attempt_can_be_downloaded(guard):
+@pytest.mark.parametrize("stale_trend", [False, True])
+def test_only_payload_siblings_from_the_selected_attempt_can_be_downloaded(guard, stale_trend):
     import yaml
 
     doc = yaml.safe_load(guard.read_text(encoding="utf-8"))
@@ -252,7 +253,7 @@ def test_only_payload_siblings_from_the_selected_attempt_can_be_downloaded(guard
     # of the same run may still appear in the artifact inventory.
     harness = """
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-const source = JSON.parse(process.argv[1]);
+const [source, staleTrend] = JSON.parse(process.argv[1]);
 const discover = new AsyncFunction('context', 'github', 'core', 'require', source);
 const runs = Symbol('runs');
 const artifacts = Symbol('artifacts');
@@ -261,13 +262,15 @@ const records = [
   { id: 11, name: 'gate-coverage-3.14-2', expired: false },
   { id: 12, name: 'gate-coverage-3.13-2', expired: false },
   { id: 13, name: 'gate-coverage-3.15-2', expired: true },
-  { id: 14, name: 'gate-coverage-trend', expired: false },
+  { id: 14, name: 'gate-coverage-trend', expired: false,
+    created_at: staleTrend ? '2026-11-22T05:03:00Z' : '2026-11-22T05:06:00Z' },
 ];
 const output = {};
 const github = {
   rest: { actions: { listWorkflowRuns: runs, listWorkflowRunArtifacts: artifacts } },
   paginate: async (method, args) => {
-    if (method === runs) return [{ id: 7, run_attempt: 2, conclusion: 'success' }];
+    if (method === runs) return [{ id: 7, run_attempt: 2, conclusion: 'success',
+      run_started_at: '2026-11-22T05:05:00Z', updated_at: '2026-11-22T05:10:00Z' }];
     if (method !== artifacts || args.run_id !== 7) throw new Error('looked outside selected run');
     return records;
   },
@@ -285,7 +288,7 @@ discover({ repo: { owner: 'owner', repo: 'repo' } }, github, core, read)
   .then(() => process.stdout.write(JSON.stringify(output)));
 """
     proc = subprocess.run(
-        ["node", "-e", harness, json.dumps(discover)],
+        ["node", "-e", harness, json.dumps([discover, stale_trend])],
         capture_output=True,
         check=True,
         text=True,
@@ -293,4 +296,4 @@ discover({ repo: { owner: 'owner', repo: 'repo' } }, github, core, read)
     )
     output = json.loads(proc.stdout)
     assert output["coverage_artifact_name"] == "gate-coverage-3.13-2"
-    assert output["coverage_fallback_artifact_ids"] == "11"
+    assert output["coverage_fallback_artifact_ids"] == ("" if stale_trend else "11,14")

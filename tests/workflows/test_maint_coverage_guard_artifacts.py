@@ -17,10 +17,12 @@ def test_coverage_guard_selects_only_runs_with_payload_and_trend(workflow_path: 
     workflow = Path(workflow_path).read_text(encoding="utf-8")
 
     assert (
-        workflow.count("const hasTrend = availableCoverageArtifactNames.has(trendArtifactName);")
+        workflow.count(
+            "const trendArtifact = availableArtifacts.find(({ name }) => name === trendArtifactName);"
+        )
         == 1
     )
-    assert workflow.count("if (payloadName && hasTrend)") == 1
+    assert workflow.count("if (payloadName && trendArtifact)") == 1
     assert workflow.count("Coverage verification could not proceed: ${missingPairReason}.") == 1
     assert workflow.count("no gate-coverage artifacts were published") == 1
     assert workflow.count("published coverage artifact names did not match") == 1

@@ -350,8 +350,8 @@ jobs:
                     `(${candidateNames.join(', ')}); trying ${payloadName} first.`,
                 );
               }
-              const hasTrend = availableCoverageArtifactNames.has(trendArtifactName);
-              if (payloadName && hasTrend) {
+              const trendArtifact = availableArtifacts.find(({ name }) => name === trendArtifactName);
+              if (payloadName && trendArtifact) {
                 candidate = run;
                 resolvedPayloadName = payloadName;
                 const alternates = new Set(candidateNames.slice(1));
@@ -361,6 +361,20 @@ jobs:
                     alternates.has(name) && Number.isSafeInteger(id) && id > 0,
                   )
                   .map(({ id }) => id);
+                // A trend has no attempt suffix. Use its server creation time to bind
+                // an alternate report to the same completed attempt as its trend.
+                const trendCreatedAt = Date.parse(trendArtifact.created_at || '');
+                const startedAt = Date.parse(run.run_started_at || '');
+                const finishedAt = Date.parse(run.updated_at || '');
+                if (
+                  fallbackArtifactIds.length &&
+                  trendCreatedAt >= startedAt && trendCreatedAt <= finishedAt &&
+                  Number.isSafeInteger(trendArtifact.id) && trendArtifact.id > 0
+                ) {
+                  fallbackArtifactIds.push(trendArtifact.id);
+                } else {
+                  fallbackArtifactIds = [];
+                }
                 resolvedTrendName = trendArtifactName;
                 resolvedHistoryName = availableCoverageArtifactNames.has(historyArtifactName)
                   ? historyArtifactName
@@ -507,7 +521,7 @@ jobs:
             coverage_artifacts/payload coverage_artifacts/coverage.json)"
           printf 'path=%s\n' "$report" >> "$GITHUB_OUTPUT"
 
-      - name: Download same-attempt coverage alternatives
+      - name: Download same-attempt coverage and trend alternatives
         id: coverage_alternates
         if: ${{ !steps.coverage_report.outputs.path && steps.discover.outputs.coverage_fallback_artifact_ids != '' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -552,9 +566,20 @@ jobs:
           done
 
           if [ -z "$COVERAGE_PATH" ] && [ -n "$COVERAGE_ALTERNATES" ]; then
-            COVERAGE_PATH="$(python "$RUNNER_TEMP/find-coverage-report.py" "$COVERAGE_ALTERNATES")"
-            if [ -n "$COVERAGE_PATH" ]; then
-              echo "Using measured coverage from the selected producer attempt's alternate payload."
+            # The fallback action downloads at least two artifacts into named directories.
+            # Never use an independently cached trend for an alternate measured report.
+            TREND_PATH=""
+            fallback_trend="$COVERAGE_ALTERNATES/gate-coverage-trend/coverage-trend.json"
+            if [ -f "$fallback_trend" ]; then
+              TREND_PATH="$fallback_trend"
+              for payload_dir in "$COVERAGE_ALTERNATES"/gate-coverage-[0-9]*; do
+                [ -d "$payload_dir" ] || continue
+                COVERAGE_PATH="$(python "$RUNNER_TEMP/find-coverage-report.py" "$payload_dir")"
+                if [ -n "$COVERAGE_PATH" ]; then
+                  echo "Using measured coverage from the selected producer attempt's alternate payload."
+                  break
+                fi
+              done
             fi
           fi
 
