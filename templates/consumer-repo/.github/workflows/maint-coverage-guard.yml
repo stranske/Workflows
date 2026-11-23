@@ -294,10 +294,15 @@ jobs:
             // deliberately treats a missing trend payload as a no-op.  Only select runs that
             // carry the trend artifact, otherwise this job can report success without checking
             // coverage or updating a breach issue.
+            // Numbered matrix payloads encode the producer's attempt in their name.
+            // Exact legacy names keep their existing priority.
+            const matrixAttempt = (name) =>
+              name.match(/^gate-coverage-\d+(?:\.\d+)+-(\d+)$/)?.[1];
             const trendArtifactName = 'gate-coverage-trend';
             const historyArtifactName = 'gate-coverage-trend-history';
             let candidate = null;
             let resolvedPayloadName = '';
+            let fallbackArtifactIds = [];
             let resolvedTrendName = '';
             let resolvedHistoryName = '';
             const seenCoverageArtifacts = new Set();
@@ -325,10 +330,13 @@ jobs:
               // Accumulated ACROSS runs so the failure message can distinguish "no coverage
               // artifacts anywhere" from "artifacts under names this job cannot use". Those are
               // opposite findings and only one of them means coverage is off.
+              const attempt = String(run.run_attempt || '');
+              const availableArtifacts = artifacts.filter((artifact) => {
+                const artifactAttempt = matrixAttempt(artifact.name);
+                return !artifact.expired && (!attempt || !artifactAttempt || artifactAttempt === attempt);
+              });
               const availableCoverageArtifactNames = new Set(
-                artifacts
-                  .filter((artifact) => !artifact.expired)
-                  .map((artifact) => artifact.name),
+                availableArtifacts.map((artifact) => artifact.name),
               );
               for (const name of availableCoverageArtifactNames) {
                 if (name.startsWith(payloadPrefix)) seenCoverageArtifacts.add(name);
@@ -339,15 +347,34 @@ jobs:
               if (candidateNames.length > 1) {
                 core.info(
                   `Gate run ${run.id} carries ${candidateNames.length} coverage payloads ` +
-                    `(${candidateNames.join(', ')}); using ${payloadName}. They are the same ` +
-                    'suite on different interpreters, so the choice is fixed rather than left ' +
-                    'to listing order.',
+                    `(${candidateNames.join(', ')}); trying ${payloadName} first.`,
                 );
               }
-              const hasTrend = availableCoverageArtifactNames.has(trendArtifactName);
-              if (payloadName && hasTrend) {
+              const trendArtifact = availableArtifacts.find(({ name }) => name === trendArtifactName);
+              if (payloadName && trendArtifact) {
                 candidate = run;
                 resolvedPayloadName = payloadName;
+                const alternates = new Set(candidateNames.slice(1));
+                fallbackArtifactIds = availableArtifacts
+                  .filter(({ name, id }) =>
+                    attempt && matrixAttempt(name) === attempt &&
+                    alternates.has(name) && Number.isSafeInteger(id) && id > 0,
+                  )
+                  .map(({ id }) => id);
+                // A trend has no attempt suffix. Use its server creation time to bind
+                // an alternate report to the same completed attempt as its trend.
+                const trendCreatedAt = Date.parse(trendArtifact.created_at || '');
+                const startedAt = Date.parse(run.run_started_at || '');
+                const finishedAt = Date.parse(run.updated_at || '');
+                if (
+                  fallbackArtifactIds.length &&
+                  trendCreatedAt >= startedAt && trendCreatedAt <= finishedAt &&
+                  Number.isSafeInteger(trendArtifact.id) && trendArtifact.id > 0
+                ) {
+                  fallbackArtifactIds.push(trendArtifact.id);
+                } else {
+                  fallbackArtifactIds = [];
+                }
                 resolvedTrendName = trendArtifactName;
                 resolvedHistoryName = availableCoverageArtifactNames.has(historyArtifactName)
                   ? historyArtifactName
@@ -414,6 +441,7 @@ jobs:
             // repeating a literal. A name that is discovered cannot drift from the name that
             // exists, which is the whole defect this replaces.
             core.setOutput('coverage_artifact_name', resolvedPayloadName);
+            core.setOutput('coverage_fallback_artifact_ids', fallbackArtifactIds.join(','));
             core.setOutput('trend_artifact_name', resolvedTrendName);
             core.setOutput('history_artifact_name', resolvedHistoryName);
             core.setOutput('run_url', candidate.html_url || '');
@@ -450,16 +478,70 @@ jobs:
           path: coverage_artifacts/payload
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Locate preferred coverage report
+        id: coverage_report
+        if: ${{ steps.discover.outputs.coverage_artifact_name }}
+        run: |
+          cat > "$RUNNER_TEMP/find-coverage-report.py" <<'COVERAGE_LOCATOR'
+          import json
+          from pathlib import Path
+          import sys
+
+          root = Path(sys.argv[1])
+          known = (
+              "coverage/runtimes/3.14/coverage.json",
+              "coverage/runtimes/3.13/coverage.json",
+              "artifacts/coverage/runtimes/3.14/coverage.json",
+              "artifacts/coverage/runtimes/3.13/coverage.json",
+              "gate-coverage.json",
+              "coverage.json",
+          )
+          candidates = [root / name for name in known]
+          candidates.extend(Path(name) for name in sys.argv[2:])
+          candidates.extend(sorted(root.rglob("*.json")))
+          for path in candidates:
+              if "\n" in str(path) or "\r" in str(path):
+                  continue
+              try:
+                  data = json.loads(path.read_text(encoding="utf-8"))
+              except (OSError, ValueError):
+                  continue
+              totals = data.get("totals") if isinstance(data, dict) else None
+              percent = totals.get("percent_covered") if isinstance(totals, dict) else None
+              if isinstance(percent, str):
+                  try:
+                      percent = float(percent)
+                  except ValueError:
+                      continue
+              if type(percent) in (int, float) and 0 <= percent <= 100:
+                  print(path)
+                  break
+          COVERAGE_LOCATOR
+          report="$(python "$RUNNER_TEMP/find-coverage-report.py" \
+            coverage_artifacts/payload coverage_artifacts/coverage.json)"
+          printf 'path=%s\n' "$report" >> "$GITHUB_OUTPUT"
+
+      - name: Download same-attempt coverage and trend alternatives
+        id: coverage_alternates
+        if: ${{ !steps.coverage_report.outputs.path && steps.discover.outputs.coverage_fallback_artifact_ids != '' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ steps.discover.outputs.coverage_fallback_artifact_ids }}
+          run-id: ${{ steps.discover.outputs.run_id }}
+          path: ${{ runner.temp }}/coverage-guard-fallback-${{ github.run_id }}-${{ github.run_attempt }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run coverage guard
         if: ${{ steps.discover.outputs.run_id }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COVERAGE_RUN_URL: ${{ steps.discover.outputs.run_url }}
           COVERAGE_RUN_NUMBER: ${{ steps.discover.outputs.run_number }}
+          COVERAGE_PATH: ${{ steps.coverage_report.outputs.path }}
+          COVERAGE_ALTERNATES: ${{ steps.coverage_alternates.outputs.download-path }}
         run: |
           # Try multiple possible artifact paths (workflow uses different naming)
           TREND_PATH=""
-          COVERAGE_PATH=""
           HISTORY_PATH="coverage_artifacts/history/coverage-trend-history.ndjson"
 
           # Check for trend artifact
@@ -483,45 +565,22 @@ jobs:
             fi
           done
 
-          # Check for coverage json
-          # THE ARTIFACT IS FOUND AND THE FILE INSIDE IT IS NOT. This list is the same shape of
-          # defect as the artifact-NAME list one step earlier: seven hardcoded paths against a
-          # producer that writes somewhere else. Verified 2026-08-30 by downloading
-          # stranske/Counter_Risk's real `gate-coverage-3.12-1` -- it holds `index.ndjson` and
-          # `runtimes/3.12/coverage.json`, extracting to
-          # `coverage_artifacts/payload/runtimes/3.12/coverage.json`, one directory level from the
-          # first candidate and matched by none of them. The list also hardcodes the Python
-          # versions, so a matrix change breaks it silently and later.
-          #
-          # Literals first, so a repo where they already work is untouched and this change cannot
-          # alter a working resolution. Then FIND the payload rather than guess where it is: a
-          # file is the payload when it PARSES and carries `totals.percent_covered`, which is what
-          # the guard actually reads. That test cannot drift from the producer's directory layout,
-          # because it does not mention the layout.
-          for candidate in \
-            "coverage_artifacts/payload/coverage/runtimes/3.14/coverage.json" \
-            "coverage_artifacts/payload/coverage/runtimes/3.13/coverage.json" \
-            "coverage_artifacts/payload/artifacts/coverage/runtimes/3.14/coverage.json" \
-            "coverage_artifacts/payload/artifacts/coverage/runtimes/3.13/coverage.json" \
-            "coverage_artifacts/payload/gate-coverage.json" \
-            "coverage_artifacts/payload/coverage.json" \
-            "coverage_artifacts/coverage.json"; do
-            if [ -f "$candidate" ]; then
-              COVERAGE_PATH="$candidate"
-              break
+          if [ -z "$COVERAGE_PATH" ] && [ -n "$COVERAGE_ALTERNATES" ]; then
+            # The fallback action downloads at least two artifacts into named directories.
+            # Never use an independently cached trend for an alternate measured report.
+            TREND_PATH=""
+            fallback_trend="$COVERAGE_ALTERNATES/gate-coverage-trend/coverage-trend.json"
+            if [ -f "$fallback_trend" ]; then
+              TREND_PATH="$fallback_trend"
+              for payload_dir in "$COVERAGE_ALTERNATES"/gate-coverage-[0-9]*; do
+                [ -d "$payload_dir" ] || continue
+                COVERAGE_PATH="$(python "$RUNNER_TEMP/find-coverage-report.py" "$payload_dir")"
+                if [ -n "$COVERAGE_PATH" ]; then
+                  echo "Using measured coverage from the selected producer attempt's alternate payload."
+                  break
+                fi
+              done
             fi
-          done
-          # `sort` so an artifact holding two runtimes resolves to the SAME file every run: they
-          # are one suite on different interpreters, and a figure that moved with directory order
-          # would be noise reported as a coverage change.
-          if [ -z "$COVERAGE_PATH" ]; then
-            while IFS= read -r found; do
-              if python -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d,dict) and 'percent_covered' in (d.get('totals') or {}) else 1)" "$found" 2>/dev/null; then
-                COVERAGE_PATH="$found"
-                echo "::notice title=Coverage payload located by search::No known path matched; found ${found} by looking for a JSON carrying totals.percent_covered."
-                break
-              fi
-            done < <(find coverage_artifacts -type f -name '*.json' 2>/dev/null | sort)
           fi
 
           # Build args
@@ -555,6 +614,9 @@ jobs:
             # it looked like a coverage report" -- and the second is what really happened.
             echo "--- files downloaded (the search covered every .json among these) ---"
             find coverage_artifacts -type f 2>/dev/null | head -50 || echo "(coverage_artifacts is absent or empty)"
+            if [ -n "$COVERAGE_ALTERNATES" ]; then
+              find "$COVERAGE_ALTERNATES" -type f | head -50
+            fi
             exit 1
           fi
 
