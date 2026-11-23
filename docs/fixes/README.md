@@ -48,7 +48,7 @@ Run from the repository root to recover and verify both files offline.
 
 ```sh
 recovery=$(mktemp -d)
-tar -xzf docs/fixes/high-volume-workflows-api-audit.tar.gz -C "$recovery"
+tar -xpzf docs/fixes/high-volume-workflows-api-audit.tar.gz -C "$recovery"
 (cd "$recovery" && shasum -a 256 -c <<'SUMS'
 a5c4ade5103b645d5967cc8254ca7ea04f39e29d67b7eff84113efaf11f35f1f  docs/fixes/high-volume-workflows-api-audit.md
 6dab27776df197a725e2b85795182930bbfb574b517b2d44b4aad0b775253f94  docs/fixes/high-volume-workflows-api-audit-table.csv
