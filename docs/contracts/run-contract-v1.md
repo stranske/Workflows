@@ -263,11 +263,12 @@ python scripts/validate_run_contract.py "$RUN_DIR/run.json" \
   --registry config/backplane_participants.json --repo stranske/Pension-Data
 ```
 
-An unregistered participant receives a successful opt-in skip. For a participating
-producer, validation must fail on malformed JSON, missing required shared fields,
-missing registry-required sections (e.g. `evidence_refs` absent when the entry
-requires `evidence`), any artifact named in `outputs.artifact_ids` that is absent
-from the manifest or lacks a `sha256`,
+After the CLI loads the supplied files, an unregistered participant receives an
+opt-in skip. A malformed input or an unreadable manifest can fail during loading.
+For a participating producer with a manifest, validation rejects missing required
+shared fields, missing registry-required sections such as `evidence_refs`, any
+artifact named in `outputs.artifact_ids` that lacks a matching manifest entry with
+a `sha256`,
 non-canonical identity refs, unsafe raw input/output payload fields, negative
 `cost`/`latency` numbers, and invalid `status` values. The canonical schema is
 versioned at `docs/contracts/schemas/run-contract-v1.schema.json` and is enforced
