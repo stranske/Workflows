@@ -1,90 +1,16 @@
 # Documentation Templates
 
-Templates for creating consistent documentation across the repository.
-
 ## Available Templates
 
-### [SETUP_CHECKLIST.md](../../templates/consumer-repo/docs/SETUP_CHECKLIST.md)
-
-Consumer-facing setup checklist for adopting these workflows (preferred pins, required secrets, common wiring). The canonical, maintained copy lives at `templates/consumer-repo/docs/SETUP_CHECKLIST.md`; the local `docs/templates/SETUP_CHECKLIST.md` is a redirect stub.
-
-### [AGENT_ISSUE_TEMPLATE.md](AGENT_ISSUE_TEMPLATE.md)
-
-Template for filing agent-related issues with enough context for debugging.
-
-### [WORKFLOW_TEMPLATE.md](WORKFLOW_TEMPLATE.md)
-
-Template for documenting individual workflows. Use this when adding documentation for a new workflow.
-
-**Includes sections for:**
-- Overview and purpose
-- Usage examples (basic and advanced)
-- Input parameters
-- Outputs
-- Secrets
-- Artifacts
-- Requirements
-- Examples
-- Troubleshooting
-- Version compatibility
-
-**How to use:**
-1. Copy the template
-2. Rename to match your workflow file (e.g., `reusable-10-ci-python.md`)
-3. Fill in all sections
-4. Save to `docs/workflows/`
-5. Update the index in `docs/workflows/README.md`
-
-## Planned Templates
-
-### GUIDE_TEMPLATE.md
-_(To be created)_
-
-Template for user guides and tutorials.
-
-### EXAMPLE_TEMPLATE.md
-_(To be created)_
-
-Template for example README files.
-
-### REFERENCE_TEMPLATE.md
-_(To be created)_
-
-Template for reference documentation.
+- [Consumer setup checklist](../../templates/consumer-repo/docs/SETUP_CHECKLIST.md) covers repository setup, required secrets and workflow wiring. The [previous checklist address](SETUP_CHECKLIST.md) points to the maintained copy.
+- [Agent issue template](AGENT_ISSUE_TEMPLATE.md) shows checked examples for writing an agent task or verifier follow-up. Use the [Workflows issue chooser](https://github.com/stranske/Workflows/issues/new/choose) to file it.
+- [Workflow documentation template](WORKFLOW_TEMPLATE.md) provides an outline for inputs, outputs, usage and troubleshooting.
 
 ## Using Templates
 
-1. **Copy, don't edit** - Copy the template to create new documentation
-2. **Keep originals** - Templates stay in this directory unchanged
-3. **Follow structure** - Maintain the section organization
-4. **Customize content** - Adapt sections to your specific needs
-5. **Remove unused sections** - If a section doesn't apply, remove it
-6. **Add sections** - Add additional sections if needed
-
-## Template Guidelines
-
-Templates should:
-
-- Provide clear section headings
-- Include placeholder text with instructions
-- Show example formatting
-- Cover all common scenarios
-- Be easy to understand and follow
-- Remain generic and reusable
-
-## Contributing Templates
-
-To add a new template:
-
-1. Create the template file in this directory
-2. Use clear, instructional language
-3. Include comprehensive sections
-4. Add examples of formatting
-5. Document how to use the template
-6. Update this README
+Copy the workflow documentation template into [the workflow docs](../workflows/README.md), fill in the sections applicable to the workflow and add the new page to that index. Add a template to this list once its file is available.
 
 ## See Also
 
-- [Main Documentation README](../README.md)
-- [Workflow Documentation](../workflows/)
-- [User Guides](../guides/)
+- [Documentation index](../README.md)
+- [User guides](../guides/README.md)
