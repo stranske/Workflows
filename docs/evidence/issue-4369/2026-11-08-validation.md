@@ -2689,6 +2689,32 @@ next exact-head CI readback; no new job, hold, or merge action is created.
 
 ## Keepalive round 10: hosted execution receipt binding — 2026-11-09
 
+The round 10–11 links to archived receipts and logs open their original Git
+publication. The [offline packet](runtime-4550/4558-round10-11-history.tar.gz) contains 20
+original files at their repository-relative paths. Both origin inventories
+remain directly available because the round 13 input receipt names them.
+The recovery block copies the pair into the restored tree for the historical
+observation receipts. It checks the compressed packet and all 22 restored
+file hashes. Run it in Bash from the Workflows checkout or source download
+root.
+
+```bash
+(
+  set -euo pipefail
+  packet=docs/evidence/issue-4369/runtime-4550/4558-round10-11-history.tar.gz
+  printf '36995fad0e4a439781c75e5f98e8bc537173fb1c7d15204badc2fcd828ba1089  %s\n' "$packet" | shasum -a 256 -c --quiet
+  destination=$(mktemp -d)
+  tar -xzpf "$packet" -C "$destination"
+  for round in 10 11; do
+    inventory="docs/evidence/issue-4369/runtime-4550/4558-round${round}-origin-inventory.json"
+    cp -p "$inventory" "$destination/$inventory"
+  done
+  cd "$destination"
+  shasum -a 256 -c --quiet SHA256SUMS
+  printf 'Recovered 20 archived files and 2 inventory copies in %s\n' "$destination"
+)
+```
+
 The links to archived publication notes open the original revision. To read one offline in a checkout with history, run this command with the linked filename.
 
 ```sh
@@ -2729,21 +2755,21 @@ forkserver socket; the second timed out at 120 seconds (partial output was not
 retained). The third used `BLACK_NUM_WORKERS=1` and the previously documented
 temporary 50ms event-loop callback, with unchanged formatting/safety/file checks.
 The exact commands, bounds, results and log hashes are in the
-[validation receipt](runtime-4550/4558-round10-validation.json); the
-[Black log](runtime-4550/4558-round10-black-heartbeat.log) retains its successful
+[validation receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round10-validation.json); the
+[Black log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round10-black-heartbeat.log) retains its successful
 result. The temporary callback source is retained as
-[`sitecustomize.py.txt`](runtime-4550/4558-round10-sitecustomize.py.txt).
+[`sitecustomize.py.txt`](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round10-sitecustomize.py.txt).
 
 The [complete interval inventory](runtime-4550/4558-round10-origin-inventory.json)
 retains all **101 unique runs**, pages of **100 and 1**, stable totals, native
 request URLs and an explicit field projection (ID, creation time, path, event,
 workflow ID). It is a projected inventory, not full raw API metadata. Both
-[producer](runtime-4550/4558-round10-producer-observation.json) and
-[merger](runtime-4550/4558-round10-merger-observation.json) replays find **zero**
+[producer](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round10-producer-observation.json) and
+[merger](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round10-merger-observation.json) replays find **zero**
 exact-path matches through **2026-11-09T02:01:37Z**. Similarly numbered integration
 workflows are excluded by exact path. No qualifying causal chain is observable.
 
-The [readback](runtime-4550/4558-round10-readback.json) records current published
+The [readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round10-readback.json) records current published
 main `7a9d652445cee388cb5c39e15b8d2de53f0dda68` and a native compare proving the
 selected acceptance revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf` remains
 its ancestor. PR 4558 was open and ready at incoming head `273394fe07aa27aced860849552315fe56720b79`.
@@ -2798,7 +2824,7 @@ and sequence results retain `chain_acceptance: false`.
 Verification: **47 Node tests pass**, both JavaScript syntax checks pass, and
 `git diff --check` exits **0**. The existing Python receipt tests passed before
 implementation: **124 passed** with `-m "not slow"`. No Python file was changed.
-The [validation receipt](runtime-4550/4558-round11-validation.json) retains final
+The [validation receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round11-validation.json) retains final
 commands, bounds, timings, exits and log hashes. The new positive sequence cases
 failed before implementation because the operation was absent; the complete
 post-implementation test run passes.
@@ -2807,7 +2833,7 @@ The [fresh projected API inventory](runtime-4550/4558-round11-origin-inventory.j
 retains **97 unique runs**, one complete page with matching total count, from
 **2026-11-09T02:01:37Z through 02:21:41Z**. Together with the prior round's
 101-run inventory, the
-[continuous replay](runtime-4550/4558-round11-continuous-observation.json)
+[continuous replay](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round11-continuous-observation.json)
 covers **01:49:57Z–02:21:41Z**, **198 unique runs**, and zero exact-path Maint 68
 or Maint 71 matches. Input hashes are retained. To reproduce the CLI replay,
 load the two named input JSON files in order into a JSON array, then run
@@ -2816,7 +2842,7 @@ No qualifying automation-started causal chain is established. No workflow was
 dispatched. The issue-comment observation boundary remains **01:49:57Z**;
 the run-inventory boundary does not extend comment observation.
 
-[Readback](runtime-4550/4558-round11-readback.json) retains current main
+[Readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round11-readback.json) retains current main
 `7a9d652445cee388cb5c39e15b8d2de53f0dda68` and PR 4558 open and ready at
 `825337ce48bd897465f015219c8bc0f56fea609b`. Upstream run 42522535899 remains
 attempt 1, completed with Actions conclusion success; its previously retained
