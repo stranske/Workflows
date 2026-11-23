@@ -500,16 +500,18 @@ EOF
 
 ### Consumer Repo Setup: Required Scripts
 
-The reusable `reusable-10-ci-python.yml` workflow runs two scripts from the
-consumer repository. Add these files to your repo or CI will fail:
+Reusable Python CI loads its dependency checker and mypy version resolver from
+the consumer checkout. Follow the [consumer script installation instructions](../templates/consumer-repo/README.md#required-scripts-for-consumer-repos)
+to copy both files into their expected locations. To check the installation,
+run these commands from the consumer repository root.
 
-- `scripts/sync_test_dependencies.py` (validates test imports vs. dev deps)
-- `tools/resolve_mypy_pin.py` (selects the Python version used by mypy)
+```sh
+python scripts/sync_test_dependencies.py --verify
+python tools/resolve_mypy_pin.py
+```
 
-You can copy the reference implementations from:
-
-- `templates/integration-repo/scripts/sync_test_dependencies.py`
-- `templates/integration-repo/tools/resolve_mypy_pin.py`
+The first command reports undeclared test dependencies. The second prints the
+Python version selected for mypy.
 
 ### Consumer Repo Setup: .gitignore Entries
 
