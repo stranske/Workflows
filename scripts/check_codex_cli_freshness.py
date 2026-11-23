@@ -124,6 +124,14 @@ def build_contract(
                 "reason": "Advance the pinned verifier Codex CLI install.",
             },
             {
+                "path": ".github/actions/verifier-codex-cli/package.json",
+                "reason": "Match the declared package version to the workflow pin.",
+            },
+            {
+                "path": ".github/actions/verifier-codex-cli/package-lock.json",
+                "reason": "Regenerate the lock consumed by npm ci for the pinned CLI.",
+            },
+            {
                 "path": "tests/workflows/test_verifier_terminal_disposition.py",
                 "reason": "Keep model-to-minimum-CLI compatibility reviewed.",
             },
@@ -150,14 +158,9 @@ def format_markdown(report: dict[str, Any]) -> str:
             "- Version delta: "
             f"major {delta['major']}, minor {delta['minor']}, patch {delta['patch']}"
         )
-    lines.extend(
-        [
-            "",
-            "## Update Path",
-            f"- Update `{report['source']['workflow']}` in the Install Codex CLI step.",
-            "- Re-run the verifier terminal disposition contract tests.",
-        ]
-    )
+    lines.extend(["", "## Update Path"])
+    for target in report["update_targets"]:
+        lines.append(f"- `{target['path']}` {target['reason']}")
     latest = report.get("latest_version")
     if latest:
         lines.append(f"- Target install pin: `{report['package']}@{latest}`")
