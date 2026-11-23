@@ -73,6 +73,66 @@ links to the full historical briefing at three revisions. For current
 navigation, see the [workflow system guide](../ci/WORKFLOW_SYSTEM.md) and
 [validation overview](../validation/overview.md).
 
+## January Auto-Pilot analysis and metrics proposals
+
+The January design evaluation and deviations summary describe the pipeline at
+the time. The remediation plan records options for separating workflow steps,
+and the revised scope proposes ways to capture metrics for Workflows #880.
+PR #1381 superseded the three January design records with the
+[February 40-PR evaluation](../analysis/autopilot-40pr-evaluation-feb-2026.md).
+The January proposals include future work whose implementation status is
+outside this archive. For current behavior and operations, use the
+[workflow catalog](../ci/WORKFLOWS.md), [operator guide](../agent-automation.md),
+and [metrics schema](../ci/AUTOPILOT_METRICS_SCHEMA.md).
+
+The four originals share the tree from PR #1381 at
+`ed65b8e904cab95cb37c084533cf34b3576344fa`. Browse the
+[pinned analysis directory][january-autopilot-tree] to follow their links in
+context.
+
+[january-autopilot-tree]: https://github.com/stranske/Workflows/tree/ed65b8e904cab95cb37c084533cf34b3576344fa/docs/analysis
+
+| Original file under `docs/analysis/` | SHA-256 |
+| --- | --- |
+| `autopilot-design-compliance-evaluation.md` | `5eef1e578d597178d4b2153560a74e7fa544c011f9d96d95bb73ec416e231ec0` |
+| `autopilot-deviations-summary.md` | `04f554af61d1e76cd127f61a43b4056b7a72c89a1016e8f616b43cd849a656aa` |
+| `autopilot-remediation-plan.md` | `8aeef5a5ff819906dcf6600afee17f1d4a501663de35a33af9e3668cdc1cec37` |
+| `issue-880-revised-scope.md` | `8bf48fb8356bceb8e7f0403d2647a0a2db8967921ecf83de9b4658918dbaf237` |
+
+From the root of a Workflows checkout, use Bash to recover all four documents
+and their direct relative link targets in a new temporary directory. Compare
+the printed checksums with the table.
+
+```bash
+(
+  set -euo pipefail
+  revision=ed65b8e904cab95cb37c084533cf34b3576344fa
+  packet=(
+    docs/analysis/autopilot-design-compliance-evaluation.md
+    docs/analysis/autopilot-deviations-summary.md
+    docs/analysis/autopilot-remediation-plan.md
+    docs/analysis/issue-880-revised-scope.md
+  )
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --depth=1 origin "$revision"
+  fi
+  destination=$(mktemp -d)
+  git archive "$revision" -- "${packet[@]}" \
+    docs/analysis/autopilot-40pr-evaluation-feb-2026.md \
+    docs/keepalive/GoalsAndPlumbing.md \
+    docs/keepalive/METRICS_SCHEMA.md \
+    docs/keepalive/MULTI_AGENT_ROUTING.md \
+    docs/keepalive/Observability_Contract.md \
+    docs/plans/AUTOPILOT_FIX_HISTORY.md \
+    docs/plans/SHORT_TERM_PLAN.md \
+    .github/workflows/agents-auto-pilot.yml |
+    tar -xf - -C "$destination"
+  cd "$destination"
+  printf 'Recovered in %s\n' "$destination"
+  shasum -a 256 "${packet[@]}"
+)
+```
+
 ## Workflow audit reports
 
 Historical snapshots from the December 2025–January 2026 audit cycle. Monthly operators should follow [`docs/ci/WORKFLOW_AUDIT_PROCEDURE.md`](../ci/WORKFLOW_AUDIT_PROCEDURE.md) and the active workflow catalog instead of these reports.
