@@ -118,7 +118,12 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/ci-
 - Manual updates needed
 - Can drift from best practices
 
-First-party registered consumers use the managed form of this method. Maint 68
+For the cosmetic repair and dependency refresh workflows, follow the
+[standalone maintenance copy instructions](../templates/README.md#standalone-maintenance-copies).
+Your repository owns and updates its copies.
+
+For files selected by the [consumer sync manifest](../.github/sync-manifest.yml),
+registered first-party consumers use managed delivery. Maint 68
 coalesces copied-file changes into stable candidate/delivery PRs, and Maint 71
 alone merges them after bounded reviewer settlement, an exact-head seal, a
 fresh Gate, a valid GitHub-generated commit signature, and zero active review
@@ -419,8 +424,8 @@ Copy from `/templates/` and customize:
 | `ci-basic.yml` | Simple projects: lint + test |
 | `ci-full.yml` | Production projects: full pipeline with gate |
 | [ci-node-basic.yml](../templates/ci-node-basic.yml) | Run shared Node.js and TypeScript CI with npm and Jest by default |
-| `dependency-refresh.yml` | Keep `requirements.lock` updated |
-| `cosmetic-repair.yml` | Auto-fix formatting issues |
+| [dependency-refresh.yml](../templates/dependency-refresh.yml) | Keep `requirements.lock` updated |
+| [cosmetic-repair.yml](../templates/cosmetic-repair.yml) | Auto-fix formatting issues |
 
 > **Consuming a `packages/` monorepo dependency (e.g. `app-baseline-kit`)?**
 > Exclude it from `requirements.lock` with `[tool.uv.pip] no-emit-package` so a
