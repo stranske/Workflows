@@ -17,18 +17,18 @@ background, instructions and notes in Why, Scope or Implementation Notes.
 
 Describe the problem in **Why** and identify the affected files or behavior in
 **Scope**. Use **Non-Goals** to bound the change. Give each **Tasks** item a
-concrete target such as a file or symbol. Name at least one runnable check or
-observable result in **Acceptance Criteria**. Put execution details in
+concrete target such as a file or symbol. Name at least one runnable check in
+**Acceptance Criteria**, such as a named test. Put execution details in
 **Implementation Notes**.
 
 ## Section Reference
 
 ### Required Sections
 
-| Section | Accepted aliases | What to write |
-| --- | --- | --- |
-| Tasks | Task List, Implementation | Checkboxes with concrete files, symbols, paths, configuration keys, jobs or commands. |
-| Acceptance Criteria | Acceptance, Definition of Done | Checkboxes that include a named test, runnable command or observable verification gate. |
+| Use this heading | What to write |
+| --- | --- |
+| Tasks | Checkboxes with concrete files, symbols, paths, configuration keys, jobs or commands. |
+| Acceptance Criteria | Checkboxes that include at least one named test or runnable verification command. |
 
 ### Recommended Sections
 
