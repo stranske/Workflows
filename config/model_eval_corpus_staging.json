@@ -217,6 +217,254 @@
       "category": "clean-pass",
       "provenance": "harvested",
       "harvested_at": "2026-11-16"
+    },
+    {
+      "case_id": "stranske/workflows#4233@28c8ad613401f49798a404f2601d9abacc27c281:40141908432:1",
+      "repo": "stranske/Workflows",
+      "pr": 4233,
+      "head_sha": "28c8ad613401f49798a404f2601d9abacc27c281",
+      "merge_sha": "52e0c6eecabc9d150b2d551e9216d10c10c6c960",
+      "verifier_decision": {
+        "assessment_identity": {
+          "canonical": true,
+          "mode": "evaluate",
+          "model": "claude-sonnet-5-5",
+          "model2": "",
+          "provider": "anthropic"
+        },
+        "ci_failed": false,
+        "evaluated_sha": "52e0c6eecabc9d150b2d551e9216d10c10c6c960",
+        "head_sha": "28c8ad613401f49798a404f2601d9abacc27c281",
+        "pr": "4233",
+        "provider_verdicts": [
+          "PASS"
+        ],
+        "repo": "stranske/Workflows",
+        "result_admission": {
+          "execution_receipt_sha256": "8cda89951f18d0e69820a44006c59823f73f441fb6463cd4283107e5b82d5c62",
+          "mode": "evaluate",
+          "payload_sha256": "caf4fc46b2c633e6790b5ee3e08025b8532495730656382908526ff9432902e2",
+          "schema": "verifier-result-admission/v1"
+        },
+        "run_attempt": "1",
+        "run_id": "40141908432",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "verification_event": {
+          "evaluated_sha": "52e0c6eecabc9d150b2d551e9216d10c10c6c960",
+          "event_id": "bd29871707090561c55e7b383e5fb6c103fefacb9e5e5768ec15645b4776135d",
+          "head_sha": "28c8ad613401f49798a404f2601d9abacc27c281",
+          "material_sha256": "0f95437d2dfd728c97a94ffda2086775fb626a353cccabe9ee93ffc9f0fd4a47",
+          "pr": "4233",
+          "repo": "stranske/workflows",
+          "request_sha256": "7f984db8e19d7db5cc35bb1a2e5e018d32c93ff269004f023d20e13aae8afee5",
+          "schema": "verification-event/v1"
+        },
+        "source_url": "https://github.com/stranske/Workflows/pull/4233#issuecomment-6390770510"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-23"
+    },
+    {
+      "case_id": "stranske/workflows#4230@70de6d9959d6ae89aeedeec0ec8c3887c2b8ba7c:40138076990:1",
+      "repo": "stranske/Workflows",
+      "pr": 4230,
+      "head_sha": "70de6d9959d6ae89aeedeec0ec8c3887c2b8ba7c",
+      "merge_sha": "f85480290ffdf68334babc52907a9d8c5df63276",
+      "verifier_decision": {
+        "assessment_identity": {
+          "canonical": true,
+          "mode": "evaluate",
+          "model": "claude-sonnet-5-5",
+          "model2": "",
+          "provider": "anthropic"
+        },
+        "ci_failed": false,
+        "evaluated_sha": "f85480290ffdf68334babc52907a9d8c5df63276",
+        "head_sha": "70de6d9959d6ae89aeedeec0ec8c3887c2b8ba7c",
+        "pr": "4230",
+        "provider_verdicts": [
+          "PASS"
+        ],
+        "repo": "stranske/Workflows",
+        "result_admission": {
+          "execution_receipt_sha256": "a5b11c035c281538224e985a1c01d0d4db6d2a0c9e961179e3ec037664290fb2",
+          "mode": "evaluate",
+          "payload_sha256": "0b0118ffd6a2cf95f3c6b994e62290ec948293a7fe23f4c88d46197904f9e5b0",
+          "schema": "verifier-result-admission/v1"
+        },
+        "run_attempt": "1",
+        "run_id": "40138076990",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "verification_event": {
+          "evaluated_sha": "f85480290ffdf68334babc52907a9d8c5df63276",
+          "event_id": "d81f6f50dbcf2d5eb387eea97d1e8d35edad486d717c31b19f03141ed05eb1e3",
+          "head_sha": "70de6d9959d6ae89aeedeec0ec8c3887c2b8ba7c",
+          "material_sha256": "dc47de55483fc67583c4bca3e79b39106c72678401d17204532aad3a83b2d191",
+          "pr": "4230",
+          "repo": "stranske/workflows",
+          "request_sha256": "8b167be1d0693e86ef408e30142e08f796135609813e00557b0fe49e1cb27a16",
+          "schema": "verification-event/v1"
+        },
+        "source_url": "https://github.com/stranske/Workflows/pull/4230#issuecomment-6390262178"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-23"
+    },
+    {
+      "case_id": "stranske/workflows#4229@d32f338080da291c63227d7ec4b8b7882fb726c6:40135316582:1",
+      "repo": "stranske/Workflows",
+      "pr": 4229,
+      "head_sha": "d32f338080da291c63227d7ec4b8b7882fb726c6",
+      "merge_sha": "c5514142db211f1b4b9e96e75809b0d47168a2c8",
+      "verifier_decision": {
+        "assessment_identity": {
+          "canonical": true,
+          "mode": "compare",
+          "model": "",
+          "model2": "",
+          "provider": ""
+        },
+        "ci_failed": false,
+        "evaluated_sha": "c5514142db211f1b4b9e96e75809b0d47168a2c8",
+        "head_sha": "d32f338080da291c63227d7ec4b8b7882fb726c6",
+        "pr": "4229",
+        "provider_verdicts": [
+          "PASS",
+          "PASS"
+        ],
+        "repo": "stranske/Workflows",
+        "result_admission": {
+          "execution_receipt_sha256": "f319f58ba751b1e3b0858aadc7396df1cbdb37289c15c29f82de4ae4398a8120",
+          "mode": "compare",
+          "payload_sha256": "c1fa09679f427625dc2aba80721524bcd5b490f2b8566b2e67d798c91e761e5e",
+          "schema": "verifier-result-admission/v1"
+        },
+        "run_attempt": "1",
+        "run_id": "40135316582",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "verification_event": {
+          "evaluated_sha": "c5514142db211f1b4b9e96e75809b0d47168a2c8",
+          "event_id": "afd741196946d3bbd17319b8277a197f8409d76ad1e272453870c3bb5eef0f4c",
+          "head_sha": "d32f338080da291c63227d7ec4b8b7882fb726c6",
+          "material_sha256": "46d8d21d378c16cf81ed8fec7d3618e6d033c45ac90b578c638967dc41141a85",
+          "pr": "4229",
+          "repo": "stranske/workflows",
+          "request_sha256": "4989c4049b9cd2b41dafd62566bcb65b1edaac491390f7c6e5f32b1dab9661dc",
+          "schema": "verification-event/v1"
+        },
+        "source_url": "https://github.com/stranske/Workflows/pull/4229#issuecomment-6389919218"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-23"
+    },
+    {
+      "case_id": "stranske/workflows#4227@7749b9fa861002b5097f667130241fb8b74c5ff3:40131068217:1",
+      "repo": "stranske/Workflows",
+      "pr": 4227,
+      "head_sha": "7749b9fa861002b5097f667130241fb8b74c5ff3",
+      "merge_sha": "c25deded36f5605299f560a323af5a0069cc5287",
+      "verifier_decision": {
+        "assessment_identity": {
+          "canonical": true,
+          "mode": "compare",
+          "model": "",
+          "model2": "",
+          "provider": ""
+        },
+        "ci_failed": false,
+        "evaluated_sha": "c25deded36f5605299f560a323af5a0069cc5287",
+        "head_sha": "7749b9fa861002b5097f667130241fb8b74c5ff3",
+        "pr": "4227",
+        "provider_verdicts": [
+          "PASS",
+          "PASS"
+        ],
+        "repo": "stranske/Workflows",
+        "result_admission": {
+          "execution_receipt_sha256": "95a3260330ed0d9a42c127a9aa61fb93b592d336d95e21329d912350fd971bfb",
+          "mode": "compare",
+          "payload_sha256": "e9af01ae62ba88308c44120b01961846bdcefe036bb70edd704d89270154e4bd",
+          "schema": "verifier-result-admission/v1"
+        },
+        "run_attempt": "1",
+        "run_id": "40131068217",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "verification_event": {
+          "evaluated_sha": "c25deded36f5605299f560a323af5a0069cc5287",
+          "event_id": "c3cc4e81d92b3c7e6794fbda8a59153586b485da97cf7e6bc5984076f0e3c695",
+          "head_sha": "7749b9fa861002b5097f667130241fb8b74c5ff3",
+          "material_sha256": "9a7f9a16382be7893c6c3f593f63f69d8a1451c808e038a05723e7a0c1263a3d",
+          "pr": "4227",
+          "repo": "stranske/workflows",
+          "request_sha256": "fb5691a5051d6ca9fa82db40664e36c2fe802194a441762a36cc07e9a244231c",
+          "schema": "verification-event/v1"
+        },
+        "source_url": "https://github.com/stranske/Workflows/pull/4227#issuecomment-6389378462"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-23"
+    },
+    {
+      "case_id": "stranske/manager-database#1853@f1095bdf424aaf0ddb003a8e4f961650038ac597:42013582053:1",
+      "repo": "stranske/Manager-Database",
+      "pr": 1853,
+      "head_sha": "f1095bdf424aaf0ddb003a8e4f961650038ac597",
+      "merge_sha": "5605c75711c03cdb2a0cacd15ec9a193d7cbb45c",
+      "verifier_decision": {
+        "assessment_identity": {
+          "canonical": true,
+          "mode": "compare",
+          "model": "",
+          "model2": "",
+          "provider": ""
+        },
+        "ci_failed": false,
+        "evaluated_sha": "5605c75711c03cdb2a0cacd15ec9a193d7cbb45c",
+        "head_sha": "f1095bdf424aaf0ddb003a8e4f961650038ac597",
+        "pr": "1853",
+        "provider_verdicts": [
+          "PASS",
+          "PASS"
+        ],
+        "repo": "stranske/Manager-Database",
+        "result_admission": {
+          "execution_receipt_sha256": "97b30dded32d7172a218436b1b77126288c2bfa8cbebdb70baeb431da654303f",
+          "mode": "compare",
+          "payload_sha256": "2ff531cd308d970e9294bf65c419ea095a6341169fec7157331fb5fcd35716d9",
+          "schema": "verifier-result-admission/v1"
+        },
+        "run_attempt": "1",
+        "run_id": "42013582053",
+        "schema": "verifier-corpus-decision/v1",
+        "verdict": "PASS",
+        "verification_event": {
+          "evaluated_sha": "5605c75711c03cdb2a0cacd15ec9a193d7cbb45c",
+          "event_id": "d68f17fd503fc7470b11dbfdfefcc404d88d8d56c5937c375002abb8ab7fd04c",
+          "head_sha": "f1095bdf424aaf0ddb003a8e4f961650038ac597",
+          "material_sha256": "8bf0e1b7af1401f9b2de91a24d4fb0689030de5798fe418a321b593d5060b975",
+          "pr": "1853",
+          "repo": "stranske/manager-database",
+          "request_sha256": "d11ae6b029c719b26436910746212fbfc807740c1944c23fd0982a27b3ed2d58",
+          "schema": "verification-event/v1"
+        },
+        "source_url": "https://github.com/stranske/Manager-Database/pull/1853#issuecomment-6656079305"
+      },
+      "expected_verdict": "PASS",
+      "category": "clean-pass",
+      "provenance": "harvested",
+      "harvested_at": "2026-11-23"
     }
   ]
 }
