@@ -56,6 +56,19 @@ SUMS
 )
 ```
 
+## February 2026 setup API client coverage
+
+The [historical coverage table](../archive/audits/setup-api-client-coverage-audit.csv) records 60 entries across 56 workflows. Forty-four entries were marked `Unverified` during the rollout. For current guidance, see [API rate limit management](../ops/api-rate-limit-management.md). The [recorded remediation plan](RATE_LIMIT_REMEDIATION_PLAN.md) tracks its own checklist. [Pinned original table](https://github.com/stranske/Workflows/blob/699e5086acc590589adb262230a3cfef6d3f8f88/docs/fixes/setup-api-client-coverage-audit.csv)
+
+Run from the repository root to recover the CSV at its original path and mode in a temporary directory.
+
+```sh
+recovery=$(mktemp -d)
+mkdir -p "$recovery/docs/fixes"
+install -m 0644 docs/archive/audits/setup-api-client-coverage-audit.csv "$recovery/docs/fixes/setup-api-client-coverage-audit.csv"
+printf '%s  %s\n' ffe921a2bb43cc0a50e15d1e1b6c3a6f61e1a65f40eed7cae92fc0d252bf8f5e "$recovery/docs/fixes/setup-api-client-coverage-audit.csv" | shasum -a 256 -c
+```
+
 ## November 2026 agent verification receipts
 
 [PR #4470](https://github.com/stranske/Workflows/pull/4470) records how the [sentence-delivery test](../../tests/scripts/test_report_sentence_delivery.py) distinguishes a reported sentence in a PR comment from absent or unavailable evidence. [PR #4709](https://github.com/stranske/Workflows/pull/4709) records the deliberate break and restoration of the [queued-check ordering regression](../../tests/test_check_checks_reported.py).
