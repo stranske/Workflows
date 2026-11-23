@@ -17,7 +17,9 @@ profile selects `codex-default`.
 | Hardest tasks after explicit escalation | `codex-hardest` | `hardest` | high |
 
 With the repository's Python environment active, run the [resolver](../../scripts/agent_model_table.py)
-from the Workflows root to see the current hosted choice for a profile.
+from the Workflows root to see the current hosted choice for one of the active
+profiles listed above. Ordinary keepalive admits only active profiles from its
+registry.
 
 ```sh
 python3 scripts/agent_model_table.py resolve --agent codex --surface hosted \
@@ -32,7 +34,7 @@ Workflows with the Orchestrator copy.
 The [root keepalive workflow](../../.github/workflows/agents-keepalive-loop.yml)
 and [consumer Gate follow-ups workflow](../../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml)
 accept `execution_profile` on manual dispatch and honor a profile specified in the
-PR's keepalive configuration. The consumer and [root autofix](../../.github/workflows/agents-autofix-loop.yml)
+PR's keepalive configuration. Consumer autofix and [root autofix](../../.github/workflows/agents-autofix-loop.yml)
 callers explicitly select the routine profile. Ordinary PR execution uses the default. The
 [Codex checkbox verifier](../../.github/workflows/reusable-agents-verifier.yml)
 uses Astra at medium effort for consequential acceptance judgments. Auxiliary API
