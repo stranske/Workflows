@@ -46,7 +46,8 @@ jobs:
       enable-metrics: false
       enable-history: false
       enable-coverage-delta: false
-      enable-soft-gate: false
+      enable-soft-gate: true
+      require-measured-coverage-trend: true
       baseline-coverage: '80'
       coverage-alert-drop: '2'
       artifact-prefix: full-

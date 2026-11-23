@@ -178,6 +178,11 @@ on:
         required: false
         default: false
         type: boolean
+      require-measured-coverage-trend:
+        description: Publish soft-gate trends only when coverage.json contains a measured percentage.
+        required: false
+        default: false
+        type: boolean
       artifact-prefix:
         description: Optional prefix applied to all uploaded artifact names.
         required: false
@@ -3002,6 +3007,7 @@ jobs:
           overwrite: true
 
       - name: Generate coverage trend summary
+        id: coverage_trend
         if: >-
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
@@ -3010,7 +3016,25 @@ jobs:
           }}
         env:
           COVERAGE_MIN: ${{ inputs['coverage-min'] }}
+          REQUIRE_MEASURED_COVERAGE_TREND: ${{ inputs['require-measured-coverage-trend'] }}
         run: |
+          if [[ "$REQUIRE_MEASURED_COVERAGE_TREND" == true ]]; then
+            if ! python - <<'PY'
+          import json
+          from pathlib import Path
+
+          try:
+              report = json.loads(Path("coverage.json").read_text(encoding="utf-8"))
+              percent = report["totals"]["percent_covered"]
+          except (OSError, ValueError, TypeError, KeyError):
+              raise SystemExit(1) from None
+          raise SystemExit(not (type(percent) in (int, float) and 0 <= percent <= 100))
+          PY
+            then
+              echo "::warning::Coverage trend skipped because coverage.json was not measured."
+              exit 0
+            fi
+          fi
           # shellcheck disable=SC2086
           MIN_ARG=""
           if [ -n "$COVERAGE_MIN" ]; then
@@ -3051,12 +3075,16 @@ jobs:
             --github-output coverage-trend.env \
             --soft \
             $MIN_ARG
+          if [[ "$REQUIRE_MEASURED_COVERAGE_TREND" == true ]]; then
+            echo "measured=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Annotate coverage trend record
         if: >-
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         run: |
@@ -3079,6 +3107,7 @@ jobs:
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         run: |
@@ -3092,6 +3121,7 @@ jobs:
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         continue-on-error: true
@@ -3108,6 +3138,7 @@ jobs:
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         continue-on-error: true
@@ -3124,6 +3155,7 @@ jobs:
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         continue-on-error: true

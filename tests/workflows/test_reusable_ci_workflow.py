@@ -1166,3 +1166,90 @@ def test_fresh_pytest_and_nested_tempfile_honor_job_temp_storage(
         # fixture and nested-tool checks can falsely certify the selected disk.
         assert result.returncode == 1, result.stdout + result.stderr
         assert "wrong-first-tempfile-location" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("case", "report", "require_measured", "coverage"),
+    [
+        ("missing", None, True, None),
+        ("invalid-json", "{", True, None),
+        ("no-measurement", "{}", True, None),
+        ("nonfinite", '{"totals":{"percent_covered":NaN}}', True, None),
+        ("boolean", '{"totals":{"percent_covered":false}}', True, None),
+        ("measured-zero", '{"totals":{"percent_covered":0},"files":{}}', True, 0.0),
+        ("legacy-missing", None, False, 0.0),
+    ],
+    ids=lambda value: value if isinstance(value, str) and value.isidentifier() else None,
+)
+def test_opt_in_trend_rejects_unmeasured_reports(
+    tmp_path: Path,
+    case: str,
+    report: str | None,
+    require_measured: bool,
+    coverage: float | None,
+) -> None:
+    steps = _load_workflow()["jobs"]["tests"]["steps"]
+    generate = next(s for s in steps if s.get("name") == "Generate coverage trend summary")
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "coverage_trend.py").symlink_to(Path("tools/coverage_trend.py").resolve())
+    if report is not None:
+        (tmp_path / "coverage.json").write_text(report, encoding="utf-8")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "python").symlink_to(sys.executable)
+    outputs = tmp_path / "outputs"
+    outputs.touch()
+    result = subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", generate["run"]],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+            "COVERAGE_MIN": "70",
+            "REQUIRE_MEASURED_COVERAGE_TREND": str(require_measured).lower(),
+            "GITHUB_WORKSPACE": str(tmp_path),
+            "WORKSPACE_ROOT": str(tmp_path),
+            "PROJECT_ROOT": str(tmp_path),
+            "GITHUB_OUTPUT": str(outputs),
+            "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    trend = tmp_path / "coverage-trend.json"
+    if coverage is None:
+        assert not trend.exists(), case
+        assert "not measured" in result.stdout
+    else:
+        assert json.loads(trend.read_text(encoding="utf-8"))["current"] == coverage
+    assert ("measured=true" in outputs.read_text(encoding="utf-8")) == (
+        require_measured and coverage is not None
+    )
+
+
+def test_integration_full_coverage_owns_the_measured_trend() -> None:
+    option = "require-measured-coverage-trend"
+    workflow = _load_workflow()
+    assert _workflow_call_defaults(workflow)[option] is False
+    template = Path("templates/integration-repo/.github/workflows/ci.yml")
+    jobs = yaml.safe_load(template.read_text(encoding="utf-8"))["jobs"]
+    assert jobs["full-coverage"]["with"]["enable-soft-gate"] is True
+    assert jobs["full-coverage"]["with"][option] is True
+    assert jobs["full-coverage"]["with"]["artifact-prefix"] == "full-"
+    for role in ("basic", "typecheck-only"):
+        assert jobs[role]["with"]["enable-soft-gate"] is False
+        assert option not in jobs[role]["with"]
+
+    steps = workflow["jobs"]["tests"]["steps"]
+    starts = next(i for i, step in enumerate(steps) if step.get("id") == "coverage_trend")
+    trend_steps = steps[starts : starts + 6]
+    assert all(
+        "matrix.python-version == env.PRIMARY_PYTHON_VERSION" in s["if"] for s in trend_steps
+    )
+    required = "(!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')"
+    for step in trend_steps[1:]:
+        assert required in step["if"]
+    assert trend_steps[-2]["with"]["name"].endswith("coverage-trend")
