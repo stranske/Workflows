@@ -130,7 +130,7 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Lifecycle:** Applied at issue claim / PR creation by an opener that already has Claude capacity. Removed when work completes (PR merged or issue closed). Co-applied with `agents:keepalive` on the PR so keepalive is enabled.
 
-**Workflow:** `agents-auto-label.yml`, `agents-81-gate-followups.yml`, `agents-guard.yml`, `reusable-pr-context.yml`; runner is `reusable-claude-run.yml` per `.github/agents/registry.yml`.
+**Workflow:** `agents-auto-label.yml`, `agents-81-gate-followups.yml` and `agents-guard.yml`. Agents 80 calls [the Workflows-hosted PR-context reusable](https://github.com/stranske/Workflows/blob/main/.github/workflows/reusable-pr-context.yml) for PR metadata. The runner is `reusable-claude-run.yml` per `.github/agents/registry.yml`.
 
 ---
 
@@ -208,7 +208,7 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Lifecycle:** Applied at PR creation by the opener lane, alongside the concrete `agent:<name>` label that records which seat opened the PR, or manually or by the closer when a PR is capacity-stuck. The delegation policy reads it on keepalive ticks and either keeps the current runner choice or switches the runner decision for that dispatch.
 
-**Workflow:** `agents-auto-label.yml`, `reusable-pr-context.yml`, `agents-capability-check.yml`, `agents-guard.yml`; policy implementation is `.github/scripts/agent_delegation_policy.js`.
+**Workflow:** `agents-auto-label.yml`, `agents-capability-check.yml` and `agents-guard.yml`. Agents 80 calls [the Workflows-hosted PR-context reusable](https://github.com/stranske/Workflows/blob/main/.github/workflows/reusable-pr-context.yml) for PR metadata. The policy is implemented in `.github/scripts/agent_delegation_policy.js`.
 
 ---
 
