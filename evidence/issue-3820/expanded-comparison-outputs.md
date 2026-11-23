@@ -17,11 +17,14 @@ expected = {
     name: digest for name, digest in json.loads(manifest.read_text())['sha256'].items()
     if re.fullmatch(r'evidence/issue-3820/expanded-comparison-[^/]+\.(txt|xml)', name)
 }
-assert len(expected) == 20, 'Expected 20 historical outputs in the manifest'
+if len(expected) != 20:
+    raise SystemExit('Expected 20 historical outputs in the manifest')
 for name, digest in expected.items():
     path = Path(sys.argv[1]) / name
-    assert sha256(path.read_bytes()).hexdigest() == digest, f'Checksum mismatch: {name}'
-    assert path.stat().st_mode & 0o777 == 0o644, f'Mode mismatch: {name}'
+    if sha256(path.read_bytes()).hexdigest() != digest:
+        raise SystemExit(f'Checksum mismatch: {name}')
+    if path.stat().st_mode & 0o777 != 0o644:
+        raise SystemExit(f'Mode mismatch: {name}')
 print('Verified 20 historical outputs')
 PYTHON
 ```
