@@ -485,6 +485,11 @@ jobs:
                   continue
               totals = data.get("totals") if isinstance(data, dict) else None
               percent = totals.get("percent_covered") if isinstance(totals, dict) else None
+              if isinstance(percent, str):
+                  try:
+                      percent = float(percent)
+                  except ValueError:
+                      continue
               if type(percent) in (int, float) and 0 <= percent <= 100:
                   print(path)
                   break

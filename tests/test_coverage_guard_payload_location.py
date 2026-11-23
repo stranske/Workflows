@@ -168,9 +168,16 @@ def test_the_failure_lists_what_was_downloaded(guard):
 @pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
 def test_a_results_bundle_without_a_measured_report_does_not_supply_a_path(guard, tmp_path):
     tree = {
-        "coverage_artifacts/payload/coverage.json": {"totals": {"percent_covered": "90"}},
+        "coverage_artifacts/payload/coverage.json": {"totals": {"percent_covered": "not measured"}},
         "coverage_artifacts/payload/runtimes/3.13/summary.json": {"coverage": {"percent": 90}},
         "coverage_artifacts/trend/coverage-trend.json": {"current": 90},
         "coverage_artifacts/other-run/runtimes/3.14/coverage.json": REAL_REPORT,
     }
     assert _resolve(guard, tree, tmp_path) == ""
+
+
+@pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
+def test_a_legacy_numeric_string_is_a_measured_coverage_report(guard, tmp_path):
+    path = "coverage_artifacts/payload/gate-coverage.json"
+    tree = {path: {"totals": {"percent_covered": "87.654"}}}
+    assert _resolve(guard, tree, tmp_path) == path
