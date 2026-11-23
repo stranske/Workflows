@@ -132,6 +132,11 @@ Agent workflows require additional configuration files:
 3. **Required scripts directory**:
    - `templates/consumer-repo/.github/scripts/` → `.github/scripts/`
    - Includes: `issue_scope_parser.js`, `issue_context_utils.js`, `prompt_injection_guard.js`
+   - For Auto-Pilot and the issue bridge, copy the
+     [context formatter](https://github.com/stranske/Workflows/blob/main/scripts/langchain/issue_pr_context.py)
+     from the top-level `scripts/langchain/issue_pr_context.py` in the same Workflows checkout
+     or source ZIP to `scripts/langchain/issue_pr_context.py` in the consumer repository.
+     It enables the formatter's context budget when preparing issue text.
 
 ## Security & Workflow Pinning
 
