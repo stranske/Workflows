@@ -27,6 +27,51 @@ markers were changed.
 | #4231 | 40143755394 / 12579928048 | `c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58` |
 | #4235 | 40155311407 / 12584318436 | `526dcef67f26160ece176b800e7a4d18a2e6d6883d7a2e4294b07570570486ab` |
 
+## Original state comments
+
+The #4231 and #4235 tests read the two original state comments from each
+`authenticated-readback.json` under `history`. PR [#4409](https://github.com/stranske/Workflows/pull/4409)
+switched these tests to the authenticated history, which also preserves the
+comment and GitHub App identities. The #4238 provenance test reads its own
+`4238-retained-states.json`.
+
+From the repository root, this offline command reconstructs both former loose
+copies, verifies their SHA-256 hashes, and prints where it saved them:
+
+```bash
+python3 -B - <<'PYTHON'
+import hashlib
+import json
+from pathlib import Path
+from tempfile import mkdtemp
+
+fixtures = Path("tests/fixtures/verification_input_repair")
+expected = {
+    4231: "2c3766faa0a1d34f5d9bfad086252412a555ed5bf8982efc2ea8bf3198877320",
+    4235: "105e90a7ca27d3b2d5927f2c0e8c2777ea522247f706f85185a671f03e21b78d",
+}
+output = Path(mkdtemp(prefix="retained-states-"))
+for target, digest in expected.items():
+    source = fixtures / f"{target}-original/authenticated-readback.json"
+    history = json.loads(source.read_text(encoding="utf-8"))["history"]
+    records = [
+        {"url": row["html_url"], "author": row["user"]["login"],
+         "body": row["body"], "truncated": False}
+        for row in history
+    ]
+    path = output / f"{target}-retained-states.json"
+    path.write_bytes(json.dumps(records, indent=1).encode("utf-8"))
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != digest:
+        raise SystemExit(f"{target}: SHA-256 mismatch: {actual}")
+    print(f"{target} {actual}")
+print(f"Verified copies: {output}")
+PYTHON
+```
+
+The immutable originals are [#4231](https://github.com/stranske/Workflows/blob/ed496b6d7285fbc13df916b4d1cc1af8ae6f44b9/tests/fixtures/verification_input_repair/4231-retained-states.json)
+and [#4235](https://github.com/stranske/Workflows/blob/ed496b6d7285fbc13df916b4d1cc1af8ae6f44b9/tests/fixtures/verification_input_repair/4235-retained-states.json).
+
 ## Operational acceptance, checked 2026-11-02 America/Chicago
 
 Before editing, the recorded real-input acceptance command was
