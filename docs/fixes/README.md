@@ -33,6 +33,29 @@ shasum -a 256 fix.patch
 
 Earlier incident reports preserve the commands, pins and test plan. [Root reports](https://github.com/stranske/Workflows/tree/68dfccae06410a7ccc0cc428756a5d890770e1a9) · [Documentation records](https://github.com/stranske/Workflows/tree/68dfccae06410a7ccc0cc428756a5d890770e1a9/docs) · [Run 60 and 61 records](https://github.com/stranske/Workflows/tree/68dfccae06410a7ccc0cc428756a5d890770e1a9/docs/fixes)
 
+## February 2026 high-volume API audit
+
+The [February report](https://github.com/stranske/Workflows/blob/c81cbdc78829bcea31191b323e0e9d82d3de80a6/docs/fixes/high-volume-workflows-api-audit.md) and [follow-up](https://github.com/stranske/Workflows/blob/395fba3dda6d18a65f50a1e0acbf509e3b0b9cab/docs/fixes/high-volume-workflows-api-audit.md) document the token load balancer and retry-wrapper rollout. The [last report edition](https://github.com/stranske/Workflows/blob/1c4bd2076047fce01066b098b34ac4f226caff10/docs/fixes/high-volume-workflows-api-audit.md) retains its workflow sections and the [recorded remediation plan](https://github.com/stranske/Workflows/blob/1c4bd2076047fce01066b098b34ac4f226caff10/docs/fixes/high-volume-workflows-api-audit.md#remediation-plan-recorded). Open the [71-row table](https://github.com/stranske/Workflows/blob/c81cbdc78829bcea31191b323e0e9d82d3de80a6/docs/fixes/high-volume-workflows-api-audit-table.csv) directly from this index.
+
+The [offline audit archive](high-volume-workflows-api-audit.tar.gz) contains the last report edition and the original table at their original paths and Git mode `100644`.
+
+| Member | Git blob ID | SHA-256 |
+| --- | --- | --- |
+| `docs/fixes/high-volume-workflows-api-audit.md` | `37de6be62844b98c2af65f3101844ed48efda02f` | `a5c4ade5103b645d5967cc8254ca7ea04f39e29d67b7eff84113efaf11f35f1f` |
+| `docs/fixes/high-volume-workflows-api-audit-table.csv` | `7b05225ae136050cb08208fef982b4385e961515` | `6dab27776df197a725e2b85795182930bbfb574b517b2d44b4aad0b775253f94` |
+
+Run from the repository root to recover and verify both files offline.
+
+```sh
+recovery=$(mktemp -d)
+tar -xpzf docs/fixes/high-volume-workflows-api-audit.tar.gz -C "$recovery"
+(cd "$recovery" && shasum -a 256 -c <<'SUMS'
+a5c4ade5103b645d5967cc8254ca7ea04f39e29d67b7eff84113efaf11f35f1f  docs/fixes/high-volume-workflows-api-audit.md
+6dab27776df197a725e2b85795182930bbfb574b517b2d44b4aad0b775253f94  docs/fixes/high-volume-workflows-api-audit-table.csv
+SUMS
+)
+```
+
 ## November 2026 agent verification receipts
 
 [PR #4470](https://github.com/stranske/Workflows/pull/4470) records how the [sentence-delivery test](../../tests/scripts/test_report_sentence_delivery.py) distinguishes a reported sentence in a PR comment from absent or unavailable evidence. [PR #4709](https://github.com/stranske/Workflows/pull/4709) records the deliberate break and restoration of the [queued-check ordering regression](../../tests/test_check_checks_reported.py).
