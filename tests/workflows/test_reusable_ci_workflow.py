@@ -1283,3 +1283,46 @@ def test_integration_full_coverage_owns_the_measured_trend() -> None:
             "full-coverage-trend-history",
         ],
     }
+
+
+def test_integration_coverage_helpers_ship_through_both_existing_paths(tmp_path: Path) -> None:
+    from scripts import publish_integration_sync
+    from scripts.sync_integration_manifest_subset import apply_subset, select_copy_sources
+    from tools.integration_repo import render_integration_repo
+
+    helpers = ("tools/coverage_trend.py", "scripts/coverage_history_append.py")
+    fresh = render_integration_repo(tmp_path / "fresh")
+    manifest = yaml.safe_load(Path(".github/sync-manifest.yml").read_text(encoding="utf-8"))
+    subset = {"scripts": [entry for entry in manifest["scripts"] if entry["source"] in helpers]}
+    assert set(select_copy_sources(subset)) == set(helpers)
+
+    workflow = yaml.safe_load(
+        Path(".github/workflows/maint-69-sync-integration-repo.yml").read_text(encoding="utf-8")
+    )
+    checkout = next(
+        step
+        for step in workflow["jobs"]["sync"]["steps"]
+        if step.get("name") == "Checkout Workflows delivery tree"
+    )
+    assert set(helpers) <= set(checkout["with"]["sparse-checkout"].split())
+    delivery = publish_integration_sync.DELIVERY_PATHS
+    assert all(
+        any(path == name or Path(path) in Path(name).parents for path in delivery)
+        for name in helpers
+    )
+
+    # Maint 69 upgrades an existing copy and materializes the other missing helper.
+    existing = tmp_path / "existing"
+    old_tool = existing / helpers[0]
+    old_tool.parent.mkdir(parents=True)
+    old_tool.write_text("# previous coverage helper\n", encoding="utf-8")
+    result = apply_subset(subset, Path.cwd(), existing)
+    assert result.ok and set(result.copied) == set(helpers)
+    for target in (fresh, existing):
+        for helper in helpers:
+            disk = target / helper
+            assert disk.read_bytes() == Path(helper).read_bytes()
+            assert disk.stat().st_mode == Path(helper).stat().st_mode
+
+    missing = apply_subset(subset, tmp_path / "missing-source", tmp_path / "failed")
+    assert not missing.ok and set(missing.missing_sources) == set(helpers)

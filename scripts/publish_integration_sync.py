@@ -16,6 +16,7 @@ DELIVERY_PATHS = (
     "pyproject.toml",
     "requirements.lock",
     "tools/coverage_guard.py",
+    "tools/coverage_trend.py",
 )
 OPTIONAL_DELIVERY_PATH = ".pre-commit-config.yaml"
 RACE_REJECTIONS = {b"[rejected] (fetch first)", b"[rejected] (non-fast-forward)"}

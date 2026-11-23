@@ -40,7 +40,8 @@ SCRIPT_SUFFIXES = frozenset({".js", ".cjs", ".mjs", ".py", ".json"})
 EXTRA_WORKFLOW_SOURCES = frozenset({".github/workflows/maint-coverage-guard.yml"})
 # Run by the delivered maint-coverage-guard.yml as `python tools/coverage_guard.py`; WIT's
 # January copy rejected the `--history-path` argument the current workflow passes.
-EXTRA_TOOL_SOURCES = frozenset({"tools/coverage_guard.py"})
+EXTRA_TOOL_SOURCES = frozenset({"tools/coverage_guard.py", "tools/coverage_trend.py"})
+EXTRA_SCRIPT_SOURCES = frozenset({"scripts/coverage_history_append.py"})
 ACTION_DIRECTORIES = frozenset({".github/actions/setup-api-client"})
 REMOVAL_PREFIXES = (".github/workflows/", ".github/scripts/")
 
@@ -91,7 +92,12 @@ def _select_copy_entries(manifest: dict[str, Any], repo: str) -> list[tuple[str,
                 and posix.suffix in SCRIPT_SUFFIXES
                 and "node_modules" not in posix.parts
             )
-            if is_script or source in EXTRA_WORKFLOW_SOURCES or source in EXTRA_TOOL_SOURCES:
+            if (
+                is_script
+                or source in EXTRA_WORKFLOW_SOURCES
+                or source in EXTRA_TOOL_SOURCES
+                or source in EXTRA_SCRIPT_SOURCES
+            ):
                 source_tree = entry.get(
                     "source_tree", "root" if section == "scripts" else "template"
                 )
