@@ -3006,6 +3006,36 @@ specific failure and proposed commit subject. The existing authorized writer
 must publish these local code/test changes. Overall acceptance remains incomplete.
 ## Keepalive round 14: bounded native run collection — 2026-11-09
 
+The round 14–16 links below open the original Git publication. The
+[offline packet](runtime-4550/4558-round14-16-history.tar.gz) contains all 87 previously
+loose round 14–16 records at their original repository-relative paths. It
+includes the stdout and stderr files named by the validation receipts and
+preserves empty logs. The round 14 proposed PR body remains at its existing
+path. The recovery command copies it beside its publication receipt in the
+restored tree. The five previously archived notes are linked to their original
+Git revision.
+
+From the root of a Workflows checkout or downloaded source tree, run this
+block in Bash. It checks the compressed packet, restores the original paths in
+a new temporary directory, and verifies each file's SHA-256. Read the recovered
+records as historical evidence.
+
+```bash
+(
+  set -euo pipefail
+  packet=docs/evidence/issue-4369/runtime-4550/4558-round14-16-history.tar.gz
+  printf '078ce44f29c275ae016b76d7867a74f91ad101b0d446cd5d3d2e35399a552dd6  %s\n' "$packet" | shasum -a 256 -c --quiet
+  destination=$(mktemp -d)
+  tar -xzpf "$packet" -C "$destination"
+  retained_body=docs/evidence/issue-4369/runtime-4550/4558-round14-pr-body-reconciled.md
+  cp -p "$retained_body" "$destination/$retained_body"
+  cd "$destination"
+  printf '0210218e91ab98ead58fae7fd74e87cb7eedd98455d84ecaee54ff56886aebcb  %s\n' "$retained_body" | shasum -a 256 -c --quiet
+  shasum -a 256 -c --quiet SHA256SUMS
+  printf 'Recovered 87 original files in %s\n' "$destination"
+)
+```
+
 Plan recorded before implementation at **2026-11-09T03:03:30Z**.
 Recent commits include round 13's strict UTC observer and retained native
 revision/hosted-suite/payload receipts. Fresh #4550/#4551/#4558/main reads
@@ -3049,29 +3079,29 @@ SIGKILL, a 16 MiB response bound, and at most ten requests. No shell or dispatch
 operation is used. A scheduled run remains only an origin lead; causal delivery
 acceptance stays false.
 
-The [validation receipt](runtime-4550/4558-round14-validation.json) retains
+The [validation receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-validation.json) retains
 commands, bounds, timings, exits and complete stdout/stderr hashes.
-[Observer tests](runtime-4550/4558-round14-observer-tests-stdout.log):
-**80 passed**, zero skipped; [Python receipt tests](runtime-4550/4558-round14-receipt-tests-stdout.log):
+[Observer tests](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-observer-tests-stdout.log):
+**80 passed**, zero skipped; [Python receipt tests](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-receipt-tests-stdout.log):
 **124 passed** with `-m "not slow"`. Both syntax checks, all three ancestry
 commands, the retained source/consumer byte comparison, and `git diff --check`
-exit **0**. The [red log](runtime-4550/4558-round14-red.log) demonstrates the
+exit **0**. The [red log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-red.log) demonstrates the
 new collector cases fail before implementation. No Python file was edited.
 
-The live native [collector stderr](runtime-4550/4558-round14-native-collection-stderr.log)
+The live native [collector stderr](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-native-collection-stderr.log)
 records `error connecting to api.github.com`, exit **2** and empty stdout.
 This is a transport limitation, not proof of a collected native inventory.
-The [connector-backed projected inventory](runtime-4550/4558-round14-origin-inventory.json)
+The [connector-backed projected inventory](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-origin-inventory.json)
 retains the successful fallback read, its exact URL, all 86 rows and the explicit
 field projection. Combined with rounds 10/11/13, the
-[producer replay](runtime-4550/4558-round14-producer-sequence-stdout.log) and
-[merger replay](runtime-4550/4558-round14-merger-sequence-stdout.log) exit **0**:
+[producer replay](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-producer-sequence-stdout.log) and
+[merger replay](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-merger-sequence-stdout.log) exit **0**:
 **441 unique runs**, four complete adjacent inventories,
 **2026-11-09T01:49:57Z–03:01:54Z**, no exact-path Maint 68/71 runs.
 These reads cannot establish an automation-started delivery chain.
 The issue-comment observation boundary remains **02:45:58Z**.
 
-The [fresh readback](runtime-4550/4558-round14-readback.json) and passing native
+The [fresh readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-readback.json) and passing native
 ancestry/receipt checks support five checkbox corrections in the
 [reconciled PR body](runtime-4550/4558-round14-pr-body-reconciled.md):
 revision selection, hosted full suites, byte comparison, and their two matching
@@ -3087,12 +3117,12 @@ disposition remains unresolved.
 - [ ] Authenticate and observe the qualifying automation-started delivery chain.
 - [ ] Clear the upstream non-PASS verification disposition.
 
-Publication is blocked. The explicit-path [Git attempt](runtime-4550/4558-round14-publication.json)
+Publication is blocked. The explicit-path [Git attempt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-publication.json)
 exits **128**: `.git/index.lock` cannot be created on the read-only filesystem.
 No commit or push succeeded. Automatic approval review also rejected the PR-body
 correction, `needs-human` label and blocker comment because approval is required
 but the active approval policy is `never`
-([remote results](runtime-4550/4558-round14-remote-publication.json)).
+([remote results](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-remote-publication.json)).
 The [concrete handoff](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round14-publication-blocker.md) and exact
 reconciled body are retained for the authorized writer. Overall acceptance
 remains incomplete; no new source/runtime failure was inferred from this blocker.
@@ -3109,12 +3139,12 @@ task and four corresponding suite/payload rows are already verified. Automatic
 approval review rejected the five-checkbox PR-body reconciliation because
 approval is required but approval policy is `never`; the exact proposed body is
 retained in [the reconciliation artifact](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-pr-body-reconciled.md).
-[Fresh readback](runtime-4550/4558-round15-readback.json) retains #4550/#4551/main
+[Fresh readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-readback.json) retains #4550/#4551/main
 and PR 4558 open and ready. Upstream verifier attempt 1 is unchanged; Actions
 success does not clear the retained model non-PASS disposition.
 
 The next unresolved task is delivery observation. A complete unfiltered
-[projected run inventory](runtime-4550/4558-round15-origin-inventory.json)
+[projected run inventory](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-origin-inventory.json)
 covers **03:01:54Z–03:25:25Z**, with stable total **190** and pages **100/90**.
 It contains Maint 71 run **42555977107**, created **03:21:43Z**, but no exact-path
 Maint 68 run. Bot actor and `workflow_dispatch` do not authenticate the caller
@@ -3143,18 +3173,18 @@ repository, producer-specific and merger-specific collection. No consumer payloa
 or production source symbol changed, so the historical hosted-suite acceptance
 revision remains unchanged.
 
-The [validation receipt](runtime-4550/4558-round15-validation.json) retains exact
+The [validation receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-validation.json) retains exact
 argv, absolute executables, 120-second bounds, UTC timings, exit codes and complete
 stdout/stderr hashes. Observer tests: **81 passed**; Python receipt tests:
 **124 passed** with `-m "not slow"`; syntax, ancestry, byte comparison and diff
-checks all exit **0**. The [red log](runtime-4550/4558-round15-red.log) retains the
+checks all exit **0**. The [red log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-red.log) retains the
 pre-fix failure. No Python file changed.
 
-Combined with rounds 10/11/13/14, [producer](runtime-4550/4558-round15-producer-sequence-stdout.log)
-and [merger](runtime-4550/4558-round15-merger-sequence-stdout.log) replays cover
+Combined with rounds 10/11/13/14, [producer](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-producer-sequence-stdout.log)
+and [merger](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-merger-sequence-stdout.log) replays cover
 **01:49:57Z–03:25:25Z**, **631 unique runs**, with five complete adjacent
 inventories. There are zero Maint 68 runs and one Maint 71 run in that interval.
-The [fresh merger readback](runtime-4550/4558-round15-merger-readback.json)
+The [fresh merger readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-merger-readback.json)
 retains its native metadata, job and artifact identity. This metadata does not
 establish a producer link, source/plan/candidate payload, or qualifying merge.
 Both replays retain `chain_acceptance: false`. The issue-comment observation
@@ -3169,7 +3199,7 @@ Publication remains blocked: explicit-path `git add` exits **128** because
 succeeded. Automatic approval review rejected the PR-body update, `needs-human`
 label and blocker comment: `MCP tool call requires approval, but approval policy
 is never`. No remote task checkbox was changed. The
-[publication receipt](runtime-4550/4558-round15-publication.json) retains the
+[publication receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-publication.json) retains the
 Git error, remote rejection results and final PR readback confirming open and
 ready (`isDraft=false`). The [concrete blocker note](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round15-publication-blocker.md)
 and proposed PR body are retained for the existing authorized writer.
@@ -3288,7 +3318,7 @@ output on this restricted runner. The passing fixture uses synchronous stub
 writes and regular files for outer CLI stdout/stderr, preserving the assertions
 and real transport without changing the observer or any production symbol.
 
-The [validation receipt](runtime-4550/4558-round16-validation.json) records exact
+The [validation receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-validation.json) records exact
 argv, executable paths, 120-second bounds, UTC timings, exit codes and complete
 log hashes. Observer tests: **88 passed**, zero skipped; focused Python receipt
 tests: **124 passed** with `-m "not slow"`. Both syntax checks, all three native
@@ -3297,7 +3327,7 @@ exit **0**. No Python file was edited; the Python formatting gate does not apply
 The new evidence-tool tests have not been run in the historical hosted suite;
 they do not constitute a production repair or change its selected acceptance SHA.
 
-The fresh [readback](runtime-4550/4558-round16-readback.json) confirms #4551 merged
+The fresh [readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-readback.json) confirms #4551 merged
 as `0a06f1976db1dd7eb12853f493a3371ee4736bcf`, a native ancestor of current main
 `dc88475b617e52bb06f86ab4d79b01d21462ee67`, with #4558 open and ready.
 Issue #4550 is closed, despite the historical scope text describing it as open.
@@ -3305,12 +3335,12 @@ The retained revision, hosted-suite and byte-comparison evidence supports the
 same five checkbox corrections identified in prior rounds. No new full-suite
 execution is claimed and no downstream acceptance is inferred from those rows.
 
-The complete unfiltered [projected run inventory](runtime-4550/4558-round16-origin-inventory.json)
+The complete unfiltered [projected run inventory](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-origin-inventory.json)
 covers **03:30:44Z–03:39:48Z**, with **67/67** rows on one page, below the search
-cap. Its [producer replay](runtime-4550/4558-round16-producer-replay-stdout.log)
+cap. Its [producer replay](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-producer-replay-stdout.log)
 contains zero Maint 68 runs. Exact-path Maint 71 run **42557538415**, created
 **03:38:45Z**, completed successfully as a `workflow_dispatch` by
-`stranske-automation-bot`. The [native run readback](runtime-4550/4558-round16-merger-readback.json)
+`stranske-automation-bot`. The [native run readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-merger-readback.json)
 retains actor and triggering-actor metadata, but neither authenticates its caller
 or binds a producer artifact. Automation origin remains **UNKNOWN** and
 `chain_acceptance` remains **false**. No Maint 68, Maint 71 or Maint 82 dispatch
@@ -3329,7 +3359,7 @@ comment and `needs-human` label: `MCP tool call requires approval, but approval
 policy is never`. No remote checkbox was changed. The exact five-row correction
 is retained in the [proposed PR body](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-pr-body-reconciled.md),
 with a [concrete handoff](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-publication-blocker.md) and
-[publication receipt](runtime-4550/4558-round16-publication.json). Final readback
+[publication receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round16-publication.json). Final readback
 confirms PR 4558 is open and ready (`isDraft=false`) at incoming head
 `b818bbd881d5d9999937b2e2e2181e43d8092403`. The authenticated delivery chain
 and upstream non-PASS verification disposition remain unresolved.
