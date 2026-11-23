@@ -297,10 +297,12 @@ build_actionlint_ignore_args() {
     local -a ignore_args=()
 
     if [[ -f "$allowlist_file" ]]; then
-        mapfile -t allowlist_lines < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file")
-        for entry in "${allowlist_lines[@]}"; do
+        local entry
+        while IFS= read -r entry || [[ -n "$entry" ]]; do
             ignore_args+=("-ignore" "$entry")
-        done
+        done < <(
+            sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file"
+        )
     fi
 
     if [[ ${#ignore_args[@]} -gt 0 ]]; then
