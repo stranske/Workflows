@@ -19,30 +19,7 @@ if [[ -f ".github/workflows/autofix-versions.env" ]]; then
 fi
 BLACK_VERSION=${BLACK_VERSION:-25.11.0}
 
-ensure_package_version() {
-    local package_name="$1"
-    local pinned_version="$2"
-    local module_name="${3:-$1}"
-
-    if [[ -z "$pinned_version" ]]; then
-        return 0
-    fi
-
-    local current_version
-    current_version=$(python - <<PY 2>/dev/null
-try:
-    import ${module_name} as _pkg  # type: ignore[import]
-    print(getattr(_pkg, "__version__", ""))
-except Exception:
-    print("")
-PY
-)
-
-    if [[ "$current_version" != "$pinned_version" ]]; then
-        echo -e "${YELLOW}Installing ${package_name}==${pinned_version} to match CI${NC}"
-        python -m pip install --disable-pip-version-check --quiet "${package_name}==${pinned_version}"
-    fi
-}
+source scripts/local_validation_tools.sh
 
 # Check if we're in a git repository
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
