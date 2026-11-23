@@ -12,7 +12,7 @@ import pytest
 import yaml
 
 WORKFLOW_PATH = Path(".github/workflows/reusable-10-ci-python.yml")
-CONTRACT_FIXTURES = Path("tests/workflows/fixtures/reusable_ci_contract")
+CONTRACT_SCENARIOS = Path("tests/workflows/fixtures/reusable_ci_contract.json")
 
 
 def _matrix_candidates(python_versions: str, python_version: str) -> list[str]:
@@ -46,58 +46,225 @@ def _workflow_call_defaults(workflow: dict) -> dict[str, object]:
 
 
 def _contract_fixture(name: str) -> dict:
-    return json.loads((CONTRACT_FIXTURES / name).read_text(encoding="utf-8"))
+    return json.loads(CONTRACT_SCENARIOS.read_text(encoding="utf-8"))[name]
 
 
 def _merged_inputs(fixture: dict) -> dict[str, object]:
-    workflow = _load_workflow()
-    merged = _workflow_call_defaults(workflow)
-    merged.update(fixture.get("inputs", {}))
+    merged = _workflow_call_defaults(_load_workflow())
+    merged.update(fixture["inputs"])
     return merged
 
 
-def _expected_artifacts(
-    inputs: dict[str, object], matrix: list[str], run_attempt: int = 1
-) -> list[str]:
-    prefix = str(inputs.get("artifact-prefix", "gate-"))
-    primary = str(inputs.get("primary-python-version") or matrix[0])
-    artifacts: list[str] = []
-    for version in matrix:
-        artifacts.append(f"{prefix}coverage-{version}-{run_attempt}")
-        if version != primary:
-            continue
-        if inputs.get("enable-metrics") is True:
-            artifacts.append(f"{prefix}ci-metrics")
-        if inputs.get("enable-history") is True:
-            artifacts.append(f"{prefix}metrics-history")
-        if inputs.get("enable-classification") is True:
-            artifacts.append(f"{prefix}classification")
-        if inputs.get("coverage") is True and inputs.get("enable-coverage-delta") is True:
-            artifacts.append(f"{prefix}coverage-delta")
-        if inputs.get("coverage") is True and inputs.get("enable-soft-gate") is True:
-            artifacts.extend(
-                [
-                    f"{prefix}coverage-summary",
-                    f"{prefix}coverage-trend",
-                    f"{prefix}coverage-trend-history",
-                ]
-            )
-    return artifacts
+def _step_outputs(path: Path) -> dict[str, str]:
+    return dict(line.split("=", 1) for line in path.read_text(encoding="utf-8").splitlines())
 
 
-def _simulated_summary(inputs: dict[str, object], fixture: dict) -> dict[str, object]:
-    artifacts = fixture["summary"]
-    return {
-        "python_version": fixture["matrix"][0],
-        "checks": {
+def _run_ci_python(step: dict, cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    block = _block(step["run"], "python - <<'PY'", "PY")
+    code = "\n".join(block.splitlines()[1:-1])
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _assert_ci_contract(tmp_path: Path, inputs: dict[str, object], fixture: dict) -> None:
+    steps = {step["name"]: step for step in _load_workflow()["jobs"]["tests"]["steps"]}
+    stage = steps["Stage coverage artifact layout"]
+    summarize = steps["Record CI summary"]
+    payload = steps["Record staged artifact paths"]
+    minimum = steps["Enforce coverage minimum"]
+    coverage_condition = (
+        "inputs.coverage && (inputs['coverage-python-version'] == '' || "
+        "inputs['coverage-python-version'] == matrix.python-version)"
+    )
+    for step in (stage, summarize, payload):
+        assert _normalize_expr(step["env"]["COVERAGE_ENABLED"]) == _normalize_expr(
+            "${{ (" + coverage_condition + ") }}"
+        )
+    assert _normalize_expr(minimum["if"]) == _normalize_expr(
+        "${{ (" + coverage_condition + ") && inputs['coverage-min'] != '' }}"
+    )
+
+    matrix = _matrix_candidates(str(inputs["python-versions"]), str(inputs["python-version"]))
+    assert matrix == fixture["matrix"]
+    validation_output = tmp_path / "validated-inputs"
+    validated = subprocess.run(
+        [sys.executable, "-c", _validate_inputs_script()],
+        env={
+            "PYTHON_VERSIONS": str(inputs["python-versions"]),
+            "PYTHON_VERSION": str(inputs["python-version"]),
+            "PRIMARY_IN": str(inputs["primary-python-version"]),
+            "COVERAGE_PYTHON_VERSION": str(inputs["coverage-python-version"]),
+            "COVERAGE": str(inputs["coverage"]).lower(),
+            "GITHUB_OUTPUT": str(validation_output),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert validated.returncode == 0, validated.stdout + validated.stderr
+    resolve_primary = steps["Resolve primary python version"]
+    assert resolve_primary["env"]["RESOLVED_PRIMARY"] == (
+        "${{ needs.validate-inputs.outputs.primary_python }}"
+    )
+    runtime_env = tmp_path / "runtime-env"
+    resolved = subprocess.run(
+        ["bash", "-c", resolve_primary["run"]],
+        env={
+            "RESOLVED_PRIMARY": _step_outputs(validation_output)["primary_python"],
+            "GITHUB_ENV": str(runtime_env),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert resolved.returncode == 0, resolved.stderr
+    primary = _step_outputs(runtime_env)["PRIMARY_PYTHON_VERSION"]
+    payloads = {}
+    for runtime in matrix:
+        work = tmp_path / runtime
+        work.mkdir()
+        files = {
+            "coverage.xml": '<coverage line-rate="0.927"/>',
+            "coverage.json": '{"totals": {"percent_covered": 91.284}}',
+            "pytest-junit.xml": (
+                '<testsuites><testsuite><testcase classname="tests.example" '
+                'name="test_contract" time="0.01"/></testsuite></testsuites>'
+            ),
+        }
+        # Leave source coverage in disabled scenarios too. The authored staging
+        # step must exclude those files while retaining the pytest result.
+        for name, content in files.items():
+            (work / name).write_text(content, encoding="utf-8")
+
+        enabled = inputs["coverage"] is True and inputs["coverage-python-version"] in ("", runtime)
+        minimum_outcome = "skipped"
+        if enabled and inputs["coverage-min"]:
+            verdict = _run_ci_python(minimum, work, {"COVERAGE_MIN": str(inputs["coverage-min"])})
+            minimum_outcome = "success" if verdict.returncode == 0 else "failure"
+        output = work / "outputs"
+        env = {
+            "PATH": os.environ["PATH"],
+            "COVERAGE_ENABLED": str(enabled).lower(),
+            "PYTHON_VERSION": runtime,
+            "PYTEST_OUTCOME": "success",
+            "COVERAGE_MIN_OUTCOME": minimum_outcome,
+            "GITHUB_OUTPUT": str(output),
+        }
+        run = subprocess.run(
+            ["bash", "-c", stage["run"].replace("${{ matrix.python-version }}", runtime)],
+            cwd=work,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        assert run.returncode == 0, run.stderr
+        report = _run_ci_python(summarize, work, env)
+        assert report.returncode == 0, report.stderr
+
+        relative = Path("artifacts/coverage/runtimes") / runtime
+        paths = {
+            "coverage_xml": relative / "coverage.xml",
+            "coverage_json": relative / "coverage.json",
+            "pytest_junit": relative / "pytest-junit.xml",
+        }
+        summary_path = relative / "summary.json"
+        assert _step_outputs(output)["summary_path"] == summary_path.as_posix()
+        summary = json.loads((work / summary_path).read_text(encoding="utf-8"))
+        assert summary["python_version"] == runtime
+        assert summary["checks"] == {
             "tests": {"tool": "pytest", "outcome": "success"},
             "coverage_minimum": {
                 "tool": "threshold",
-                "outcome": "success" if inputs.get("coverage") is True else "skipped",
+                "outcome": fixture["coverage_minimum_outcome"],
             },
-        },
-        "artifacts": artifacts,
-    }
+        }
+        assert summary["artifacts"] == fixture["summary"]
+        for key, path in paths.items():
+            assert (work / path).is_file() is fixture["summary"][key]
+            if fixture["summary"][key]:
+                assert (work / path).read_text(encoding="utf-8") == files[path.name]
+        assert summary.get("coverage") == (
+            {"percent": 92.7, "source": "coverage.xml"} if enabled else None
+        )
+        index = work / "artifacts/coverage/index.ndjson"
+        assert [json.loads(line) for line in index.read_text(encoding="utf-8").splitlines()] == [
+            summary
+        ]
+
+        output.unlink()
+        result = _run_ci_python(payload, work, {**env, "SUMMARY_PATH": summary_path.as_posix()})
+        assert result.returncode == 0, result.stderr
+        paths_output = _step_outputs(output)
+        coverage_json = paths["coverage_json"] if fixture["summary"]["coverage_json"] else None
+        assert paths_output == {
+            "coverage_json": coverage_json.as_posix() if coverage_json else "",
+            "junit_path": paths["pytest_junit"].as_posix(),
+            "summary_path": summary_path.as_posix(),
+            "has_payload": "true",
+        }
+        payloads[runtime] = paths_output["has_payload"]
+
+    artifacts = _configured_artifact_names(steps, inputs, primary, payloads, coverage_condition)
+    assert artifacts == fixture["expected_artifacts"]
+
+
+def _configured_artifact_names(
+    steps: dict,
+    inputs: dict[str, object],
+    primary: str,
+    payloads: dict[str, str],
+    coverage_condition: str,
+) -> dict[str, list[str]]:
+    """Bind each runtime's names to the workflow's declared upload contract."""
+    primary_condition = "matrix.python-version == env.PRIMARY_PYTHON_VERSION"
+    prefix = str(inputs["artifact-prefix"])
+    uploads = (
+        ("Upload metrics artifact", "enable-metrics", False),
+        ("Upload metrics history artifact", "enable-history", False),
+        ("Upload classification artifact", "enable-classification", False),
+        ("Upload coverage delta artifact", "enable-coverage-delta", True),
+        ("Upload coverage summary artifact", "enable-soft-gate", True),
+        ("Upload coverage trend artifact", "enable-soft-gate", True),
+        ("Upload coverage trend history artifact", "enable-soft-gate", True),
+    )
+    coverage_upload = steps["Upload coverage artifact"]
+    assert _normalize_expr(coverage_upload["if"]) == _normalize_expr(
+        "${{ always() && steps.coverage_paths.outputs.has_payload == 'true' }}"
+    )
+    artifacts_by_runtime = {}
+    for runtime, has_payload in payloads.items():
+        artifacts: list[str] = []
+        artifacts_by_runtime[runtime] = artifacts
+        if has_payload == "true":
+            name = coverage_upload["with"]["name"]
+            artifacts.append(
+                re.sub(r"\s+", "", name)
+                .replace("${{inputs['artifact-prefix']}}", prefix)
+                .replace("${{matrix.python-version}}", runtime)
+                .replace("${{github.run_attempt}}", "1")
+            )
+        if runtime != primary:
+            continue
+        for name, toggle, requires_coverage in uploads:
+            upload = steps[name]
+            condition = f"inputs['{toggle}'] && {primary_condition}"
+            if requires_coverage:
+                condition = f"({coverage_condition}) && {condition}"
+            assert _normalize_expr(upload["if"]) == _normalize_expr("${{ " + condition + " }}")
+            if inputs[toggle] is True and (
+                not requires_coverage
+                or (
+                    inputs["coverage"] is True
+                    and inputs["coverage-python-version"] in ("", runtime)
+                )
+            ):
+                artifacts.append(
+                    upload["with"]["name"].replace("${{ inputs['artifact-prefix'] }}", prefix)
+                )
+    return artifacts_by_runtime
 
 
 def test_matrix_expression_supports_arrays_and_singletons() -> None:
@@ -213,46 +380,26 @@ def test_ruff_selection_probe_uses_nearest_config_and_parent_discovery(
     assert subprocess.run([sys.executable, "-c", probe], cwd=nested).returncode == 0
 
 
-def test_default_input_contract_fixture_matches_artifacts() -> None:
-    fixture = _contract_fixture("default_inputs.json")
+def test_default_input_contract_fixture_matches_artifacts(tmp_path: Path) -> None:
+    fixture = _contract_fixture("default_inputs")
     inputs = _merged_inputs(fixture)
-
-    assert (
-        _matrix_candidates(
-            str(inputs["python-versions"]),
-            str(inputs["python-version"]),
-        )
-        == fixture["matrix"]
-    )
     assert inputs["coverage"] is True
     assert inputs["typecheck"] is True
-    assert _expected_artifacts(inputs, fixture["matrix"]) == fixture["expected_artifacts"]
+    _assert_ci_contract(tmp_path, inputs, fixture)
 
 
-def test_modified_input_contract_fixture_matches_artifacts() -> None:
-    fixture = _contract_fixture("coverage_typecheck_disabled.json")
+def test_modified_input_contract_fixture_matches_artifacts(tmp_path: Path) -> None:
+    fixture = _contract_fixture("coverage_typecheck_disabled")
     inputs = _merged_inputs(fixture)
-
     assert inputs["coverage"] is False
     assert inputs["typecheck"] is False
     assert inputs["run-mypy"] is False
-    assert _expected_artifacts(inputs, fixture["matrix"]) == fixture["expected_artifacts"]
-    assert _simulated_summary(inputs, fixture)["artifacts"] == {
-        "coverage_xml": False,
-        "coverage_json": False,
-        "pytest_junit": True,
-    }
+    _assert_ci_contract(tmp_path, inputs, fixture)
 
 
-def test_observability_artifact_contract_fixture_matches_names() -> None:
-    fixture = _contract_fixture("observability_artifacts.json")
-    inputs = _merged_inputs(fixture)
-
-    assert _expected_artifacts(inputs, fixture["matrix"]) == fixture["expected_artifacts"]
-    assert _simulated_summary(inputs, fixture)["checks"]["coverage_minimum"] == {
-        "tool": "threshold",
-        "outcome": "success",
-    }
+def test_observability_artifact_contract_fixture_matches_names(tmp_path: Path) -> None:
+    fixture = _contract_fixture("observability_artifacts")
+    _assert_ci_contract(tmp_path, _merged_inputs(fixture), fixture)
 
 
 def test_artifact_names_normalized() -> None:

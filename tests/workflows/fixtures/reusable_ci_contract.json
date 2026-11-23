@@ -1,0 +1,84 @@
+{
+  "coverage_typecheck_disabled": {
+    "inputs": {
+      "coverage": false,
+      "typecheck": false,
+      "run-mypy": false
+    },
+    "matrix": [
+      "3.13",
+      "3.14"
+    ],
+    "expected_artifacts": {
+      "3.13": [
+        "gate-coverage-3.13-1"
+      ],
+      "3.14": [
+        "gate-coverage-3.14-1"
+      ]
+    },
+    "summary": {
+      "coverage_xml": false,
+      "coverage_json": false,
+      "pytest_junit": true
+    },
+    "coverage_minimum_outcome": "skipped"
+  },
+  "default_inputs": {
+    "inputs": {},
+    "matrix": [
+      "3.13",
+      "3.14"
+    ],
+    "expected_artifacts": {
+      "3.13": [
+        "gate-coverage-3.13-1"
+      ],
+      "3.14": [
+        "gate-coverage-3.14-1"
+      ]
+    },
+    "summary": {
+      "coverage_xml": true,
+      "coverage_json": true,
+      "pytest_junit": true
+    },
+    "coverage_minimum_outcome": "success"
+  },
+  "observability_artifacts": {
+    "inputs": {
+      "artifact-prefix": "ci-",
+      "enable-metrics": true,
+      "enable-history": true,
+      "enable-classification": true,
+      "enable-coverage-delta": true,
+      "enable-soft-gate": true,
+      "coverage": true
+    },
+    "matrix": [
+      "3.13",
+      "3.14"
+    ],
+    "expected_artifacts": {
+      "3.13": [
+        "ci-coverage-3.13-1"
+      ],
+      "3.14": [
+        "ci-coverage-3.14-1",
+        "ci-ci-metrics",
+        "ci-metrics-history",
+        "ci-classification",
+        "ci-coverage-delta",
+        "ci-coverage-summary",
+        "ci-coverage-trend",
+        "ci-coverage-trend-history"
+      ]
+    },
+    "summary": {
+      "coverage_xml": true,
+      "coverage_json": true,
+      "pytest_junit": true
+    },
+    "coverage_minimum_outcome": "success"
+  }
+}
