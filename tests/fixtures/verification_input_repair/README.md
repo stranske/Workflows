@@ -36,35 +36,36 @@ comment and GitHub App identities. The #4238 provenance test reads its own
 `4238-retained-states.json`.
 
 From the repository root, this offline command reconstructs both former loose
-copies in their original byte format and verifies their SHA-256 hashes:
+copies, verifies their SHA-256 hashes, and prints where it saved them:
 
 ```bash
-/opt/anaconda3/bin/python3 -B - <<'PYTHON'
+python3 -B - <<'PYTHON'
 import hashlib
 import json
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import mkdtemp
 
 fixtures = Path("tests/fixtures/verification_input_repair")
 expected = {
     4231: "2c3766faa0a1d34f5d9bfad086252412a555ed5bf8982efc2ea8bf3198877320",
     4235: "105e90a7ca27d3b2d5927f2c0e8c2777ea522247f706f85185a671f03e21b78d",
 }
-with TemporaryDirectory() as output:
-    for target, digest in expected.items():
-        source = fixtures / f"{target}-original/authenticated-readback.json"
-        history = json.loads(source.read_text(encoding="utf-8"))["history"]
-        records = [
-            {"url": row["html_url"], "author": row["user"]["login"],
-             "body": row["body"], "truncated": False}
-            for row in history
-        ]
-        path = Path(output) / f"{target}-retained-states.json"
-        path.write_bytes(json.dumps(records, indent=1).encode("utf-8"))
-        actual = hashlib.sha256(path.read_bytes()).hexdigest()
-        if actual != digest:
-            raise SystemExit(f"{target}: SHA-256 mismatch: {actual}")
-        print(f"{target} {actual}")
+output = Path(mkdtemp(prefix="retained-states-"))
+for target, digest in expected.items():
+    source = fixtures / f"{target}-original/authenticated-readback.json"
+    history = json.loads(source.read_text(encoding="utf-8"))["history"]
+    records = [
+        {"url": row["html_url"], "author": row["user"]["login"],
+         "body": row["body"], "truncated": False}
+        for row in history
+    ]
+    path = output / f"{target}-retained-states.json"
+    path.write_bytes(json.dumps(records, indent=1).encode("utf-8"))
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != digest:
+        raise SystemExit(f"{target}: SHA-256 mismatch: {actual}")
+    print(f"{target} {actual}")
+print(f"Verified copies: {output}")
 PYTHON
 ```
 
