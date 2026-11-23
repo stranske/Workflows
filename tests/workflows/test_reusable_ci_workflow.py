@@ -167,20 +167,17 @@ def _assert_ci_contract(tmp_path: Path, inputs: dict[str, object], fixture: dict
         result = _run_ci_python(payload, work, {**env, "SUMMARY_PATH": summary_path.as_posix()})
         assert result.returncode == 0, result.stderr
         paths_output = _step_outputs(output)
+        coverage_json = paths["coverage_json"] if fixture["summary"]["coverage_json"] else None
         assert paths_output == {
-            "coverage_json": paths["coverage_json"].as_posix()
-            if fixture["summary"]["coverage_json"]
-            else "",
+            "coverage_json": coverage_json.as_posix() if coverage_json else "",
             "junit_path": paths["pytest_junit"].as_posix(),
             "summary_path": summary_path.as_posix(),
             "has_payload": "true",
         }
         payloads[runtime] = paths_output["has_payload"]
 
-    assert (
-        _configured_artifact_names(steps, inputs, matrix, payloads, coverage_condition)
-        == (fixture["expected_artifacts"])
-    )
+    artifacts = _configured_artifact_names(steps, inputs, matrix, payloads, coverage_condition)
+    assert artifacts == fixture["expected_artifacts"]
 
 
 def _configured_artifact_names(
