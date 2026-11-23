@@ -142,3 +142,33 @@ to `shasum`.
   git show "${revision}:docs/workflow-updates/${filename}" | shasum -a 256
 )
 ```
+
+## Historical Python CI plan and January 2026 rate-limit report
+
+The Python CI plan recorded completion of the former `pr-10-ci-python.yml`.
+The [current Gate](../../.github/workflows/pr-00-gate.yml) calls the
+[reusable Python CI workflow](../../.github/workflows/reusable-10-ci-python.yml).
+The January report records API rate-limit incidents and follow-up work as of
+that week. Use [Health 75](../../.github/workflows/health-75-api-rate-diagnostic.yml)
+for current diagnostics.
+
+Both original documents are available at revision
+`3656fdf8d2d934f4da74c7f15361563ce512183a`.
+
+| Original file under `docs/ci/` | SHA-256 |
+| --- | --- |
+| `pr-10-ci-python-plan.md` | `6983d5aaf988efb119785dd78523b82fa78b43b493fd48b33cf42662d6cb9288` |
+| `api-rate-limit-fix-status-2026-01-31.md` | `bad09b1031c89b750575ed6e15213278e16f8f662ef36a0625dd9a3579b14eac` |
+
+To verify either file in a shallow checkout, set `filename` to its name above.
+Omit the final pipe to read the document.
+
+```bash
+(
+  set -euo pipefail
+  revision=3656fdf8d2d934f4da74c7f15361563ce512183a
+  filename=pr-10-ci-python-plan.md
+  git fetch --depth=1 origin "$revision"
+  git show "${revision}:docs/ci/${filename}" | shasum -a 256
+)
+```
