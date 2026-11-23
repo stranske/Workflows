@@ -2290,6 +2290,15 @@
   "bounded_review_validation_record": "bounded-review-validation.json",
   "bounded_review_reproduction": "python docs/evidence/issue-4426/bounded-review-mutation-driver.txt",
   "archive_reconciliation": {
+    "access": {
+      "archive_path": "archive-accounting-and-reconciliation.tar.gz",
+      "recovery_guide": "gate-check.md#recover-the-archived-reconciliation-and-accounting-records",
+      "original_records": {
+        "archive-reconciliation-mutations.json": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-reconciliation-mutations.json",
+        "archive-reconciliation-validation.json": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-reconciliation-validation.json",
+        "archive-reconciliation-mutation-driver.txt": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-reconciliation-mutation-driver.txt"
+      }
+    },
     "receipt_record": "archive-reconciliation-mutations.json",
     "validation_record": "archive-reconciliation-validation.json",
     "reproduction_command": "python docs/evidence/issue-4426/archive-reconciliation-mutation-driver.txt",

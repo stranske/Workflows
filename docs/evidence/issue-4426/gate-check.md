@@ -678,9 +678,28 @@ returned archive reference using Python failed with `URLError: Temporary
 failure in name resolution`. No final artifact bytes are available locally.
 The first task and both remaining acceptance criteria stay unchecked.
 
+### Recover the archived reconciliation and accounting records
+
+The [offline packet](archive-accounting-and-reconciliation.tar.gz) retains all eleven paths as originally
+published, including both sibling files bound by the reconciliation mutation
+receipt. From a Workflows checkout, extract into a separate directory and
+verify all eleven SHA-256 hashes. The checkout itself needs no Git history or
+network access.
+
+```bash
+restored=$(mktemp -d) &&
+  tar -xpzf docs/evidence/issue-4426/archive-accounting-and-reconciliation.tar.gz -C "$restored" &&
+  (cd "$restored" && shasum -a 256 -c SHA256SUMS) &&
+  printf 'Recovered evidence under %s/docs/evidence/issue-4426\n' "$restored"
+```
+
+Use the original links to browse individual records. The driver files and
+commands below describe the historical checks. The packed copies preserve
+those records without running the archived drivers.
+
 Final validation for this chunk is retained in
-`archive-reconciliation-validation.json` and
-`archive-reconciliation-shallow-validation.json`:
+[`archive-reconciliation-validation.json`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-reconciliation-validation.json) and
+[`archive-reconciliation-shallow-validation.json`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-reconciliation-shallow-validation.json):
 
 - Reconciler selection with targeted coverage: `21 passed in 0.59s`, exit 0;
   the Cover column for `scripts/reconcile_issue_4426_coverage.py` is 98.02%.
@@ -691,9 +710,13 @@ Final validation for this chunk is retained in
 - `python docs/evidence/issue-4426/archive-reconciliation-mutation-driver.txt`
   records 15 named mutation failures (exit 1) with restored passes (exit 0).
   Immutable source/test snapshots and complete outputs are retained in
-  `archive-reconciliation-mutations.json`; no mutation remains. Mutation
+  [`archive-reconciliation-mutations.json`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-reconciliation-mutations.json); no mutation remains. Mutation
   development exposed an assertion that accepted the wrong byte-limit error;
   the final test distinguishes compressed and expanded input limits.
+- The historical driver and its two source snapshots are available individually.
+  - [`archive-reconciliation-mutation-driver.txt`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-reconciliation-mutation-driver.txt)
+  - [`archive-reconciliation-source.py.txt`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-reconciliation-source.py.txt)
+  - [`archive-reconciliation-tests.py.txt`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-reconciliation-tests.py.txt)
 - Ruff and `git diff --check` pass. The required full-tree Black command
   fails at process-pool startup with sandbox `PermissionError`. Running the
   installed CLI with serial scheduling from `black-serial-driver.txt` via
@@ -813,9 +836,9 @@ The existing two-failure, 10-minute command, 20-minute step and under-two-minute
 focused limits remain in force. No further archive retrieval retries will be
 made in this chunk. Fixtures remain explicitly synthetic.
 
-Final results are retained in `archive-accounting-validation.json`,
-`archive-accounting-shallow-validation.json`, and
-`archive-accounting-mutations.json`:
+Final results are retained in [`archive-accounting-validation.json`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-accounting-validation.json),
+[`archive-accounting-shallow-validation.json`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-accounting-shallow-validation.json), and
+[`archive-accounting-mutations.json`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-accounting-mutations.json):
 
 - The targeted reconciler selection passes 42 tests in 0.94s, exit 0; its
   Cover column is 98.47%. This measures the ingestion utility, not the
@@ -838,7 +861,13 @@ Final results are retained in `archive-accounting-validation.json`,
   the installed formatter and safety checks:
   `PYTHONPATH=/tmp/issue4426-accounting-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`.
 
-Reproduce the recorded checks with:
+[Recover the offline packet](#recover-the-archived-reconciliation-and-accounting-records)
+for the co-located accounting records. Browse the original accounting drivers.
+
+- [`archive-accounting-validation-driver.txt`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-accounting-validation-driver.txt)
+- [`archive-accounting-mutation-driver.txt`](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/archive-accounting-mutation-driver.txt)
+
+The historical checks used these commands:
 
 ```bash
 python docs/evidence/issue-4426/archive-accounting-validation-driver.txt
