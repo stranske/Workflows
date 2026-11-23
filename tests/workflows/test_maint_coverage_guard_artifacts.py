@@ -25,7 +25,8 @@ def test_coverage_guard_selects_only_runs_with_payload_and_trend(workflow_path: 
     assert workflow.count("no gate-coverage artifacts were published") == 1
     assert workflow.count("published coverage artifact names did not match") == 1
     assert workflow.count("coverage payloads were published without ${trendArtifactName}") == 1
-    assert '"coverage_artifacts/payload/gate-coverage.json"' in workflow
+    assert '"gate-coverage.json"' in workflow
+    assert "coverage_artifacts/payload coverage_artifacts/coverage.json" in workflow
 
 
 @pytest.mark.parametrize(
