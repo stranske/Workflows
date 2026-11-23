@@ -1,6 +1,20 @@
 # Workflows cleanup tracker
 
-**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input. The [latest whole-repository checkpoint](#november-22-artifact-prefixes-and-documentation-indexes) follows.
+**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input. The [latest whole-repository checkpoint](#november-22-pr-health-handoffs-and-archived-setup-notes) follows.
+
+## November 22 PR Health handoffs and archived setup notes
+
+At [source `f3d8129235`](https://github.com/stranske/Workflows/tree/f3d8129235fb5301e4d20cbd9a5ff59e4dc8d709), the review covers **1,847/5,554 files, 192/487 folders and 131/198 workflows** (+23/+2/+5), leaving 3,707/295/67. Successors include 91 files and eight folders. The original checklist is **26/28**, pending an eligible reviewed Maint 84 stub removal and dependency-lock bot PR.
+
+- **PR Health.** The scan reports failing PRs, heads and checks at cap zero. Missing routing labels and three known status labels no longer take a slot. The #561 replay kept one eligible follow-up at cap one. Four earlier #561 calls skipped for missing `workflow_run`. Gate-triggered handling is unchanged. The first post-merge schedule reported all three #561 failures at the same head, selected no dispatch and skipped the fix. [Scheduled evidence](https://github.com/stranske/Orchestrator/actions/runs/45088215529/artifacts/14780256883) [Source #5005](https://github.com/stranske/Workflows/pull/5005) · [Prior skip](https://github.com/stranske/Orchestrator/actions/runs/45075898117/job/137372932338)
+- **Archive and guides.** Exact depth-one recovery replaces three setup notes, saving 3,733 bytes and three paths. The hook guides retain URLs and anchors, cover all three hooks and name the range for full validation, saving 13,272 bytes. [Archive #5004](https://github.com/stranske/Workflows/pull/5004) · [Recovery ledger](../archive/ARCHIVE_PLANS.md) · [Guides #5006](https://github.com/stranske/Workflows/pull/5006)
+- **Workflow placement.** Keep the central PR-context reusable: three receivers fetched real PR context in 10–11s. All 16 event hubs call central. Zero local calls across 607 workflows. Local Apply deleted only the distributed copy and restored it. Compatibility and delivery remain open. Keep both backplane routes. Actual producer success and emitter-failure skip were observed. Strict hosted rejection remains open. [Native PR context](https://github.com/stranske/trip-planner/actions/runs/44992348280/job/137115968136) · [Backplane receipt](https://github.com/stranske/Pension-Data/actions/runs/44988792362/job/137105334003)
+
+**Verification.** Docs-only runs passed. Net savings were 17,005 bytes for docs and 9,259 overall. Gate ran nine focused cases per primary (467s/547s). Full main kept 47,309 Python outcomes per version and added eight passes. Python took 873s/613s versus 780s/693s, within six-run ranges. JavaScript kept all 4,287 cases and the separate live replay in 38s versus 39s. [Exact Gate](https://github.com/stranske/Workflows/actions/runs/45084136251) · [Ordinary main](https://github.com/stranske/Workflows/actions/runs/45085826371)
+
+Four of the five first workflow decisions stand. Three same-repo PR reporters passed in 11–15s and the push used annotations in 14s. Nine Agents 70 parents selected no assignment child. Fork, assignment mismatch and Linux Actionlint remain open. Weekly workflow 16/16. Updated aggregator, guide, Gate helper and eligibility script 0/16 each. [Push lint](https://github.com/stranske/Workflows/actions/runs/45085826318/job/137404103615)
+
+**Next review.** Verify compatibility beyond the known consumers and the ordinary delivery path before retiring the distributed PR-context copy. Keep the hosted reusable and preserve indexed recovery for the removed setup notes.
 
 ## November 22 artifact prefixes and documentation indexes
 
