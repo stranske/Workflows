@@ -19,8 +19,6 @@ if [[ -f ".github/workflows/autofix-versions.env" ]]; then
 fi
 BLACK_VERSION=${BLACK_VERSION:-25.11.0}
 
-source scripts/local_validation_tools.sh
-
 # Check if we're in a git repository
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
     echo -e "${RED}Error: Not in a git repository${NC}"
@@ -40,6 +38,7 @@ if [[ -z "$VIRTUAL_ENV" ]]; then
     fi
 fi
 
+source scripts/local_validation_tools.sh
 ensure_package_version black "$BLACK_VERSION"
 
 # Parse command line arguments
