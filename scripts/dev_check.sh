@@ -427,31 +427,13 @@ run_actionlint_for_files() {
     build_actionlint_command actionlint_cmd "$2"
 
     local exit_code=0
-    if ! run_with_timeout "$CHECK_TIMEOUT" "${actionlint_cmd[@]}" > "$output_file" 2>&1; then
-        exit_code=$?
-    fi
+    run_with_timeout "$CHECK_TIMEOUT" "${actionlint_cmd[@]}" > "$output_file" 2>&1 || exit_code=$?
 
-    filter_actionlint_output "$output_file" "$filtered_file"
-    local filter_status=$?
+    local filter_status=0
+    filter_actionlint_output "$output_file" "$filtered_file" || filter_status=$?
 
-    local filtered_empty=true
-    if [[ -s "$filtered_file" ]]; then
-        filtered_empty=false
-    fi
-
-    if [[ $filter_status -eq 1 && $filtered_empty == true ]]; then
-        echo -e "${GREEN}✓ $name${NC}"
-        rm -f "$output_file" "$filtered_file"
-        return 0
-    fi
-
-    if [[ $exit_code -eq 0 && $filter_status -eq 0 ]]; then
-        echo -e "${GREEN}✓ $name${NC}"
-        rm -f "$output_file" "$filtered_file"
-        return 0
-    fi
-
-    if [[ $exit_code -ne 0 && $filter_status -eq 1 && $filtered_empty == true ]]; then
+    if [[ $exit_code -eq 0 && $filter_status -eq 0 ]] ||
+        [[ $exit_code -le 1 && $filter_status -eq 1 && ! -s "$filtered_file" ]]; then
         echo -e "${GREEN}✓ $name${NC}"
         rm -f "$output_file" "$filtered_file"
         return 0
@@ -462,17 +444,17 @@ run_actionlint_for_files() {
         if [[ "$VERBOSE_MODE" == false ]]; then
             echo -e "${YELLOW}  Re-run with --verbose or increase DEV_CHECK_TIMEOUT to see details.${NC}"
         fi
+    elif [[ $exit_code -gt 1 ]]; then
+        echo -e "${RED}✗ $name (actionlint exit status $exit_code)${NC}"
     else
         echo -e "${RED}✗ $name${NC}"
     fi
 
-    if [[ "$VERBOSE_MODE" == true ]]; then
-        echo -e "${YELLOW}Output:${NC}"
-        if [[ -f "$filtered_file" && -s "$filtered_file" ]]; then
-            head -10 "$filtered_file" | sed 's/^/  /'
-        elif [[ -f "$output_file" ]]; then
-            head -10 "$output_file" | sed 's/^/  /'
+    if [[ -s "$filtered_file" ]]; then
+        if [[ "$VERBOSE_MODE" == true ]]; then
+            echo -e "${YELLOW}Output:${NC}"
         fi
+        head -10 "$filtered_file" | sed 's/^/  /'
     fi
 
     rm -f "$output_file" "$filtered_file"
