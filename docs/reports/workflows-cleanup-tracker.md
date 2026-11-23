@@ -7,15 +7,15 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
-November 23 UTC. Decisions cover **2,206/5,554 files, 224/487 folders and 151/198 workflows**. This pass completed 12 file decisions and 2 workflow decisions. The original checklist is **26/28**. The first workflow group is **4/5** and awaits an Agents 64 nested mismatch. The [Health 42 fix #4785](https://github.com/stranske/Workflows/pull/4785) passed its called, manual and fork-token checks. An ordinary fork annotation remains open.
+November 23 UTC. Decisions cover **2,255/5,554 files, 226/487 folders and 151/198 workflows**. This checkpoint covers 49 additional files and two folders. The first workflow group remains **4/5**, awaiting an Agents 64 nested mismatch. The [Health 42 fix](https://github.com/stranske/Workflows/pull/4785) passed its called, manual and fork-token checks. An ordinary fork annotation remains open.
 
-- The installed macOS pre-push hook now reaches Actionlint on Apple Bash. Ten input comparisons preserved the expected behavior. [Hook fix #5043](https://github.com/stranske/Workflows/pull/5043)
-- The fixes index now recovers both integration repair patches offline. Only January reproduces the four delivered files. This saves 7,576 checkout bytes. [Repair index #5044](https://github.com/stranske/Workflows/pull/5044)
-- Two hosted/portable helper pairs have separate readers. All four files stay. Template regeneration batches its static checks and still validates each copy. An eight-path sample used 10 Python starts instead of 17. [Template sync #5045](https://github.com/stranske/Workflows/pull/5045)
-- The ordinary weekly tool report identified two available updates and six current pins. Its current setup took six seconds. The removal proposal remains open. [Maint 50 report](https://github.com/stranske/Workflows/actions/runs/45135260651/job/137559918172)
-- The weekly metrics job ran in 101s versus 1,005s the previous week. All 17 in-scope dashboard rows matched the report. On the same saved input, lookup fell from 57 pages to 15 with all 123 records preserved. [Maint 80 dashboard](https://github.com/stranske/Workflows/actions/runs/45144126685/job/137589079662)
+- The historical API audit now opens directly at its remediation section and its 71-row CSV table. Both originals can also be recovered offline. [Delivered audit index](https://github.com/stranske/Workflows/blob/905db6d5941f17187fb15f5103f7b5127f5678d5/docs/fixes/README.md#february-2026-high-volume-api-audit)
+- Two October production replays used the same 21 filenames, with different stored bytes in every pair. Their archive restores all 42 files, paths and modes. [Delivered replay guide](https://github.com/stranske/Workflows/blob/0564b2cde5130b3324c6305a2afe929fe208ef0f/docs/evidence/issue-3743/launch-boundaries/README.md#recover-the-two-production-replays)
+- The weekly verifier report needs both the disposition and coverage modules. On the same one-record input, the managed install and portable source ZIP produced identical reports. The separate ordinary job read 14 terminal records and covered all 12 expected sources. The separate closure mirror still needs a distribution decision. [Weekly report](https://github.com/stranske/Workflows/actions/runs/45123140028/job/137521300108)
+- Two scheduled Agents 70 runs found healthy quota and an idle backlog, then skipped dispatch. Repeated setup took 5–6 seconds. The two independent jobs enforce different quota checks. [Scheduled initializer](https://github.com/stranske/Workflows/actions/runs/45148536074)
 
-Next, check the remaining mirror pairs against both install routes and restore navigation between the historical API audit and its 71-row CSV. Preserve the two extended-autopilot plans while their active index and tests require the old paths. Check Maint 84 on an eligible deletion and dependency-lock fallback on a matching bot PR.
+The original cleanup checklist remains **26/28**. Its open inputs are a reviewed stub eligible for Maint 84 deletion and a matching bot PR for dependency-lock fallback. Next, resolve the February API setup audit's place alongside the current guard and trace the verifier event, pending-execution and CI-query readers in both install routes.
+
 
 ## November 23 receiving coverage and validation tools
 
