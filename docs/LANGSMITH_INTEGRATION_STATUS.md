@@ -1,6 +1,7 @@
 # LangSmith Integration Status
 
-> **Last Updated:** 2026-05-30
+> **Dashboard references updated:** 2026-11-23
+> **Implementation record through:** 2026-05-30
 > **Branch:** `main`
 > **Related Issue:** #974
 
@@ -18,19 +19,14 @@ LangSmith tracing infrastructure is now **100% complete (8 of 8 tasks)**. The tr
 
 ### Fleet rollup readiness
 
-The `langsmith-fleet/v1` contract, validator (`scripts/langsmith_fleet.py`),
-registry (`config/langsmith_fleet_registry.json`), and rollup are all built and
-unit-tested, and as of issue
-[#2183](https://github.com/stranske/Workflows/issues/2183) the rollup is **wired
-into a running workflow**: `maint-80-langsmith-metrics-dashboard.yml` now
-attempts a cross-repo download of each registered repo's `langsmith-fleet.ndjson`
-and renders a per-repo status table into the weekly issue + dashboard file.
+The weekly dashboard publishes local trace coverage and a separate fleet status table.
+The [current dashboard issue](https://github.com/stranske/Workflows/issues/2415)
+shows each registered surface’s evidence mode, status, record count and last
+observation. The [dashboard guide](dashboards/README.md#data-sources)
+explains how to interpret those fields and find the run artifacts.
 
-Honest current state: **no consumer repo uploads a `langsmith-fleet.ndjson` yet**,
-so the live table renders every registered repo as `missing`. That is expected
-"pending consumer adoption", not a failure — the rollup is live and will reflect
-`valid`/`stale`/`invalid` automatically as consumer repos begin uploading the
-artifact. Incomplete adoption surfaces as a `::warning`, never a hard failure.
+The original fleet rollout shipped the validator, registry and weekly rollup
+in [#2183](https://github.com/stranske/Workflows/issues/2183).
 
 ---
 
@@ -321,9 +317,7 @@ This run satisfies the “live workflow” acceptance criterion from Issue #974 
    - Test keepalive progress reviewer traces (8+ rounds)
    - Test capability check traces (autopilot pipeline)
 
-2. **Metrics dashboard (future enhancement):**
-   - Create weekly workflow using `scripts/aggregate_metrics.py`
-   - Report trace coverage % to team
+2. **Weekly metrics dashboard (delivered).** Read the trace coverage and fleet results in the [dashboard issue](https://github.com/stranske/Workflows/issues/2415).
 
 3. **Cost monitoring:**
    - Track LangSmith API usage via their dashboard
