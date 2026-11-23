@@ -3,7 +3,9 @@
 Use the [Workflows issue chooser](https://github.com/stranske/Workflows/issues/new/choose)
 to file an issue. The [structured Agent task form](../../.github/ISSUE_TEMPLATE/agent_task.yml)
 and [Markdown starter](../../.github/ISSUE_TEMPLATE/agent-task.md) show the live
-intake fields. For the full rules, see the [issue format guide](../ci/ISSUE_FORMAT_GUIDE.md).
+intake fields. The [validator](../../.github/scripts/issue_format.py) defines
+the accepted issue format. The [issue format guide](../ci/ISSUE_FORMAT_GUIDE.md)
+offers writing guidance.
 
 ## ⚠️ Critical Rule: Checkbox Conversion
 
@@ -31,7 +33,7 @@ observable result in **Acceptance Criteria**. Put execution details in
 ### Recommended Sections
 
 Use **Why**, **Scope**, **Non-Goals** and **Implementation Notes** for context.
-The [format guide](../ci/ISSUE_FORMAT_GUIDE.md) describes the section rules.
+The validator reports these sections as recommendations.
 
 ## Guidelines for Verifier Follow-Up Issues
 
@@ -76,7 +78,7 @@ Leave workflow behavior and branch protection unchanged.
 
 ## Acceptance Criteria
 
-- [ ] `python -m pytest tests/docs/test_archive_plans_index.py::test_operator_guide_links_current_branch_sync_recovery -q` exits 0.
+- [ ] `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -o addopts= -p no:cacheprovider tests/docs/test_archive_plans_index.py::test_operator_guide_links_current_branch_sync_recovery -q` exits 0.
 - [ ] The recovery link in `docs/agent-automation.md` opens the Orchestrator Contract section.
 
 ## Implementation Notes
@@ -113,7 +115,7 @@ Leave the branch-sync gate and workflow behavior unchanged.
 
 ## Acceptance Criteria
 
-- [ ] `python -m pytest tests/docs/test_archive_plans_index.py::test_operator_guide_links_current_branch_sync_recovery -q` exits 0.
+- [ ] `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -o addopts= -p no:cacheprovider tests/docs/test_archive_plans_index.py::test_operator_guide_links_current_branch_sync_recovery -q` exits 0.
 - [ ] The recovery link in `docs/agent-automation.md` opens the Orchestrator Contract section.
 
 ## Implementation Notes
@@ -124,7 +126,7 @@ Check the rendered section link as well as the file path.
 ## Parsing Notes
 
 Use the Markdown section headings shown above. From the repository root, check
-the issue body before filing with the [current validator](../../.github/scripts/issue_format.py):
+the issue body with the validator before filing:
 
 ```sh
 python .github/scripts/issue_format.py path/to/issue-body.md
