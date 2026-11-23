@@ -48,8 +48,55 @@ jobs:
             issue.pull_request.url && comment && comment.user &&
             comment.user.type == 'Bot' && comment.body != ''
 
-      - name: Checkout retry helpers
+      - name: Check moderation author
+        id: author
         if: steps.eligibility.outputs.should-run == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const normaliseList = (value) =>
+              String(value || '')
+                .split(',')
+                .map((entry) => entry.trim().toLowerCase())
+                .filter(Boolean);
+
+            const denyListRaw =
+              (process.env.MODERATION_DENY_LIST || '').trim() ||
+              'chatgpt-codex-connector[bot]';
+            const allowListRaw =
+              (process.env.MODERATION_ALLOW_LIST || '').trim() ||
+              'stranske,stranske-automation-bot,maintainers';
+
+            const deny = new Set(normaliseList(denyListRaw));
+            const allow = new Set(normaliseList(allowListRaw));
+
+            const comment = context.payload?.comment;
+            const issue = context.payload?.issue;
+
+            if (!comment || !issue?.number) {
+              core.info('Moderation skipped: missing comment or issue context.');
+              return false;
+            }
+
+            const login = String(comment?.user?.login || '').toLowerCase();
+            if (!login) {
+              core.info('Moderation skipped: comment author login unavailable.');
+              return false;
+            }
+
+            if (allow.has(login)) {
+              core.info(`Moderation skipped: @${login} is allow-listed.`);
+              return false;
+            }
+
+            if (!deny.has(login)) {
+              core.info(`Moderation skipped: @${login} not present in deny list.`);
+              return false;
+            }
+            return true;
+
+      - name: Checkout retry helpers
+        if: steps.author.outputs.result == 'true'
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
@@ -59,7 +106,7 @@ jobs:
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
       - name: Setup API client
-        if: steps.eligibility.outputs.should-run == 'true'
+        if: steps.author.outputs.result == 'true'
         uses: ./.github/actions/setup-api-client
         with:
           # named inputs, not the whole secrets context (see #3185)
@@ -79,10 +126,8 @@ jobs:
           app_2_id: ${{ secrets.APP_2_ID }}
           app_2_private_key: ${{ secrets.APP_2_PRIVATE_KEY }}
 
-
-
       - name: Evaluate comment for moderation
-        if: steps.eligibility.outputs.should-run == 'true'
+        if: steps.author.outputs.result == 'true'
         id: evaluate
         uses: actions/github-script@v9
         with:
@@ -100,50 +145,9 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-            const normaliseList = (value) =>
-              String(value || '')
-                .split(',')
-                .map((entry) => entry.trim().toLowerCase())
-                .filter(Boolean);
-
-            const denyListRaw =
-              (process.env.MODERATION_DENY_LIST || '').trim() ||
-              'chatgpt-codex-connector[bot]';
-            const allowListRaw =
-              (process.env.MODERATION_ALLOW_LIST || '').trim() ||
-              'stranske,stranske-automation-bot,maintainers';
-
-            const deny = new Set(normaliseList(denyListRaw));
-            const allow = new Set(normaliseList(allowListRaw));
-
-            const comment = context.payload?.comment;
-            const issue = context.payload?.issue;
+            const { comment, issue } = context.payload;
             const { owner, repo } = context.repo;
-
-            if (!comment || !issue?.number) {
-              core.info('Moderation skipped: missing comment or issue context.');
-              core.setOutput('delete', 'false');
-              return;
-            }
-
-            const login = String(comment?.user?.login || '').toLowerCase();
-            if (!login) {
-              core.info('Moderation skipped: comment author login unavailable.');
-              core.setOutput('delete', 'false');
-              return;
-            }
-
-            if (allow.has(login)) {
-              core.info(`Moderation skipped: @${login} is allow-listed.`);
-              core.setOutput('delete', 'false');
-              return;
-            }
-
-            if (!deny.has(login)) {
-              core.info(`Moderation skipped: @${login} not present in deny list.`);
-              core.setOutput('delete', 'false');
-              return;
-            }
+            const login = String(comment.user.login).toLowerCase();
 
             let hasDebugLabel = false;
             try {
