@@ -31,11 +31,13 @@ for target in "${format_targets[@]}"; do
     fi
 done
 
+if [[ ! -f pyproject.toml || -L pyproject.toml ]]; then
+    printf 'Expected a regular integration formatter configuration at pyproject.toml in %s.\n' \
+        "$PWD" >&2
+    exit 1
+fi
+
 if "$format_all"; then
-    if [[ ! -f pyproject.toml || -L pyproject.toml || ! -d tests ]]; then
-        echo 'Full-checkout formatting requires pyproject.toml and tests/.' >&2
-        exit 1
-    fi
     if ! command -v python3 >/dev/null 2>&1; then
         echo 'python3 is required for full-checkout formatting.' >&2
         exit 1

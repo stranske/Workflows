@@ -118,6 +118,7 @@ def test_full_formatting_uses_existing_python_modules(
     [
         ("legacy", ".github/workflows/notify-workflows.yml"),
         ("all", "pyproject.toml"),
+        ("narrow", "pyproject.toml"),
         ("legacy", TARGETS[0]),
         ("narrow", TARGETS[1]),
     ],
@@ -128,6 +129,9 @@ def test_invalid_inputs_fail_before_invoking_tools(
     checkout, _, _ = integration_checkout
     (checkout / missing).unlink()
     assert run_formatter(integration_checkout, mode) == (1, [])
+    for target in TARGETS:
+        if target != missing:
+            assert (checkout / target).read_text() == "original\n"
     assert (checkout / "outside.py").read_text() == "original\n"
 
 
