@@ -1,51 +1,36 @@
-# Cancelled reporter proof for issue 3872
+# Cancelled keepalive reporter evidence
 
-The authored root and consumer resolver scripts execute in Node with their own real
-`classifyReporterRun` helpers. A successful null immutable-index lookup followed by
-an unclassified cancelled origin now emits a notice and summary with `skip=true`
-and no PR lock. Failed/timed-out unclassified origins retain attributed visible
-failure. Indexed cancellations still resolve to reconciliation; unavailable or
-invalid index evidence stays fail-closed. Trigger and mutating-job conditions are
-unchanged.
+[Original proof packet](original-reporter-proof.tar.gz) contains the 17 files from commit `690ecd34cff68f29c50f65b2ae4ae4dd76970142` at their original repository-relative paths. They include the original commands, both failing and restored reporter runs, JUnit reports, the workflow hashes and the original manifest.
 
-## Commands and observed results
+Run from the checkout root. Set `WORKFLOWS_PYTHON` to the selected Workflows interpreter if the checkout has no `.venv`.
 
 ```bash
-python3 -m pytest tests/workflows/test_keepalive_reporter_unresolved.py -q -o addopts=
-python3 -m pytest tests/workflows/test_keepalive_authority_delivery.py tests/scripts/test_check_template_drift.py -q -o addopts=
-python3 scripts/check_template_drift.py
-python3 -m black --check tests/workflows/test_keepalive_reporter_unresolved.py
-python3 -m ruff check tests/workflows/test_keepalive_reporter_unresolved.py
+proof_dir="$(mktemp -d)"
+tar -xzpf docs/evidence/keepalive-cancellation-3872/original-reporter-proof.tar.gz -C "$proof_dir"
+packet="$proof_dir/docs/evidence/keepalive-cancellation-3872"
+"${WORKFLOWS_PYTHON:-.venv/bin/python}" - "$packet" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import stat
+import sys
+
+packet = Path(sys.argv[1])
+manifest = json.loads((packet / "manifest.json").read_text(encoding="utf-8"))
+expected = set(manifest) | {"manifest.json"}
+actual = {path.name for path in packet.iterdir()}
+if expected - actual:
+    raise SystemExit("Missing original files " + ", ".join(sorted(expected - actual)))
+if len(expected) != 17 or actual != expected:
+    raise SystemExit("Unexpected proof packet inventory")
+for name in sorted(expected):
+    path = packet / name
+    if not path.is_file() or path.is_symlink() or stat.S_IMODE(path.stat().st_mode) != 0o644:
+        raise SystemExit("Unexpected file type or mode for " + name)
+    if name in manifest and hashlib.sha256(path.read_bytes()).hexdigest() != manifest[name]:
+        raise SystemExit("SHA-256 mismatch for " + name)
+print("Verified all 17 original files")
+PY
 ```
 
-Final resolver suite: 75 PASS. Adjacent authority-delivery/drift tests: 28 PASS.
-Template drift: zero unallowlisted differences. Focused Black and Ruff pass.
-The initial regression baseline, before the cancellation guards and additional
-invalid-index cancellation controls, was 2 assertion failures and 63 passes;
-`baseline-red.log` and its JUnit preserve that historical result.
-
-## Production break and byte-identical restoration
-
-For each surface separately, remove only this clause from the resolver:
-
-```javascript
- &&
-                  context.payload.workflow_run.conclusion !== 'cancelled'
-```
-
-Run the named test with `[root]` or `[consumer]`, matching the changed file:
-
-```bash
-python3 -m pytest 'tests/workflows/test_keepalive_reporter_unresolved.py::test_cancelled_unresolvable_run_skips_with_notice[root]' -q -o addopts=
-python3 -m pytest 'tests/workflows/test_keepalive_reporter_unresolved.py::test_cancelled_unresolvable_run_skips_with_notice[consumer]' -q -o addopts=
-```
-
-Each mutated production script gives one intended assertion failure (exit 1),
-then restoring its saved exact bytes gives one PASS (exit 0). The paired raw
-logs/JUnit and `proof-hashes.json` record each independent mutation, corrected
-workflow SHA256, broken SHA256, and exit status. No classifier source was mutated.
-The named regression remained unchanged through the final suite expansion.
-
-This is bounded resolver and authority-control proof. Hosted CI, actual post-merge
-provider comparison, and fleet-wide reporter failure-rate improvement remain
-unverified until delivery and observation.
+The recovered `README.md` inside `$packet` gives the original replay commands and results.
