@@ -81,6 +81,8 @@ scripts and the consumer template for workflows, with no fallback to another
 tree. The sparse checkout includes the template coverage guard. Validation
 loads the delivered keepalive module from an empty target and compares the
 delivered guard bytes to its template source before shipment.
+Integration's coverage guard reads the Full 3.14 report and trend from a single successful
+default-branch CI push attempt. Changes to the guard template trigger Maint 69 on main.
 Maint 69 passes an absolute workspace path to the API setup action so its
 vendored dependency preparation and cleanup resolve the same directory after
 the action changes into it.
