@@ -13,6 +13,7 @@ import yaml
 
 WORKFLOW_PATH = Path(".github/workflows/reusable-10-ci-python.yml")
 CONTRACT_SCENARIOS = Path("tests/workflows/fixtures/reusable_ci_contract.json")
+TREND_MEASUREMENT_CONDITION = "(!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')"
 
 
 def _matrix_candidates(python_versions: str, python_version: str) -> list[str]:
@@ -217,6 +218,8 @@ def _configured_artifact_names(
     primary: str,
     payloads: dict[str, str],
     coverage_condition: str,
+    *,
+    trend_measured: bool = False,
 ) -> dict[str, list[str]]:
     """Bind each runtime's names to the workflow's declared upload contract."""
     primary_condition = "matrix.python-version == env.PRIMARY_PYTHON_VERSION"
@@ -250,10 +253,19 @@ def _configured_artifact_names(
             continue
         for name, toggle, requires_coverage in uploads:
             upload = steps[name]
-            condition = f"inputs['{toggle}'] && {primary_condition}"
+            condition = f"inputs['{toggle}'] && "
+            if toggle == "enable-soft-gate":
+                condition += f"{TREND_MEASUREMENT_CONDITION} && "
+            condition += primary_condition
             if requires_coverage:
                 condition = f"({coverage_condition}) && {condition}"
             assert _normalize_expr(upload["if"]) == _normalize_expr("${{ " + condition + " }}")
+            if (
+                toggle == "enable-soft-gate"
+                and inputs["require-measured-coverage-trend"]
+                and not trend_measured
+            ):
+                continue
             if inputs[toggle] is True and (
                 not requires_coverage
                 or (
@@ -1166,3 +1178,151 @@ def test_fresh_pytest_and_nested_tempfile_honor_job_temp_storage(
         # fixture and nested-tool checks can falsely certify the selected disk.
         assert result.returncode == 1, result.stdout + result.stderr
         assert "wrong-first-tempfile-location" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("case", "report", "require_measured", "coverage"),
+    [
+        ("missing", None, True, None),
+        ("invalid-json", "{", True, None),
+        ("no-measurement", "{}", True, None),
+        ("nonfinite", '{"totals":{"percent_covered":NaN}}', True, None),
+        ("boolean", '{"totals":{"percent_covered":false}}', True, None),
+        ("measured-zero", '{"totals":{"percent_covered":0},"files":{}}', True, 0.0),
+        ("legacy-missing", None, False, 0.0),
+    ],
+    ids=lambda value: value if isinstance(value, str) and value.isidentifier() else None,
+)
+def test_opt_in_trend_rejects_unmeasured_reports(
+    tmp_path: Path,
+    case: str,
+    report: str | None,
+    require_measured: bool,
+    coverage: float | None,
+) -> None:
+    steps = _load_workflow()["jobs"]["tests"]["steps"]
+    generate = next(s for s in steps if s.get("name") == "Generate coverage trend summary")
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "coverage_trend.py").symlink_to(Path("tools/coverage_trend.py").resolve())
+    if report is not None:
+        (tmp_path / "coverage.json").write_text(report, encoding="utf-8")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "python").symlink_to(sys.executable)
+    outputs = tmp_path / "outputs"
+    outputs.touch()
+    result = subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", generate["run"]],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+            "COVERAGE_MIN": "70",
+            "REQUIRE_MEASURED_COVERAGE_TREND": str(require_measured).lower(),
+            "GITHUB_WORKSPACE": str(tmp_path),
+            "WORKSPACE_ROOT": str(tmp_path),
+            "PROJECT_ROOT": str(tmp_path),
+            "GITHUB_OUTPUT": str(outputs),
+            "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    trend = tmp_path / "coverage-trend.json"
+    if coverage is None:
+        assert not trend.exists(), case
+        assert "not measured" in result.stdout
+    else:
+        assert json.loads(trend.read_text(encoding="utf-8"))["current"] == coverage
+    assert ("measured=true" in outputs.read_text(encoding="utf-8")) == (
+        require_measured and coverage is not None
+    )
+
+
+def test_integration_full_coverage_owns_the_measured_trend() -> None:
+    option = "require-measured-coverage-trend"
+    workflow = _load_workflow()
+    assert _workflow_call_defaults(workflow)[option] is False
+    template = Path("templates/integration-repo/.github/workflows/ci.yml")
+    jobs = yaml.safe_load(template.read_text(encoding="utf-8"))["jobs"]
+    assert jobs["full-coverage"]["with"]["enable-soft-gate"] is True
+    assert jobs["full-coverage"]["with"][option] is True
+    assert jobs["full-coverage"]["with"]["artifact-prefix"] == "full-"
+    for role in ("basic", "typecheck-only"):
+        assert jobs[role]["with"]["enable-soft-gate"] is False
+        assert option not in jobs[role]["with"]
+
+    steps = workflow["jobs"]["tests"]["steps"]
+    starts = next(i for i, step in enumerate(steps) if step.get("id") == "coverage_trend")
+    trend_steps = steps[starts : starts + 6]
+    assert all(
+        "matrix.python-version == env.PRIMARY_PYTHON_VERSION" in s["if"] for s in trend_steps
+    )
+    for step in trend_steps[1:]:
+        assert TREND_MEASUREMENT_CONDITION in step["if"]
+
+    inputs = {**_workflow_call_defaults(workflow), **jobs["full-coverage"]["with"]}
+    by_name = {step["name"]: step for step in steps if "name" in step}
+    coverage_condition = (
+        "inputs.coverage && (inputs['coverage-python-version'] == '' || "
+        "inputs['coverage-python-version'] == matrix.python-version)"
+    )
+    payloads = {"3.13": "true", "3.14": "true"}
+    payload_names = {"3.13": ["full-coverage-3.13-1"], "3.14": ["full-coverage-3.14-1"]}
+    args = (by_name, inputs, "3.14", payloads, coverage_condition)
+    assert _configured_artifact_names(*args) == payload_names
+    assert _configured_artifact_names(*args, trend_measured=True) == {
+        **payload_names,
+        "3.14": [
+            "full-coverage-3.14-1",
+            "full-coverage-summary",
+            "full-coverage-trend",
+            "full-coverage-trend-history",
+        ],
+    }
+
+
+def test_integration_coverage_helpers_ship_through_both_existing_paths(tmp_path: Path) -> None:
+    from scripts import publish_integration_sync
+    from scripts.sync_integration_manifest_subset import apply_subset, select_copy_sources
+    from tools.integration_repo import render_integration_repo
+
+    helpers = ("tools/coverage_trend.py", "scripts/coverage_history_append.py")
+    fresh = render_integration_repo(tmp_path / "fresh")
+    manifest = yaml.safe_load(Path(".github/sync-manifest.yml").read_text(encoding="utf-8"))
+    subset = {"scripts": [entry for entry in manifest["scripts"] if entry["source"] in helpers]}
+    assert set(select_copy_sources(subset)) == set(helpers)
+
+    workflow = yaml.safe_load(
+        Path(".github/workflows/maint-69-sync-integration-repo.yml").read_text(encoding="utf-8")
+    )
+    checkout = next(
+        step
+        for step in workflow["jobs"]["sync"]["steps"]
+        if step.get("name") == "Checkout Workflows delivery tree"
+    )
+    assert set(helpers) <= set(checkout["with"]["sparse-checkout"].split())
+    delivery = publish_integration_sync.DELIVERY_PATHS
+    assert all(
+        any(path == name or Path(path) in Path(name).parents for path in delivery)
+        for name in helpers
+    )
+
+    # Maint 69 upgrades an existing copy and materializes the other missing helper.
+    existing = tmp_path / "existing"
+    old_tool = existing / helpers[0]
+    old_tool.parent.mkdir(parents=True)
+    old_tool.write_text("# previous coverage helper\n", encoding="utf-8")
+    result = apply_subset(subset, Path.cwd(), existing)
+    assert result.ok and set(result.copied) == set(helpers)
+    for target in (fresh, existing):
+        for helper in helpers:
+            disk = target / helper
+            assert disk.read_bytes() == Path(helper).read_bytes()
+            assert disk.stat().st_mode == Path(helper).stat().st_mode
+
+    missing = apply_subset(subset, tmp_path / "missing-source", tmp_path / "failed")
+    assert not missing.ok and set(missing.missing_sources) == set(helpers)

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 from pathlib import Path
 
 DEFAULT_WORKFLOW_REF = "stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main"
 WORKFLOW_PLACEHOLDER = "__WORKFLOW_REF__"
-TEMPLATE_ROOT = Path(__file__).resolve().parent.parent / "templates" / "integration-repo"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+TEMPLATE_ROOT = REPO_ROOT / "templates" / "integration-repo"
+COVERAGE_TREND_HELPERS = ("tools/coverage_trend.py", "scripts/coverage_history_append.py")
 
 
 def render_integration_repo(destination: Path, workflow_ref: str | None = None) -> Path:
@@ -35,6 +38,11 @@ def render_integration_repo(destination: Path, workflow_ref: str | None = None) 
     if destination.exists() and any(destination.iterdir()):
         raise FileExistsError(f"Destination {destination} is not empty; refusing to overwrite.")
 
+    for helper in COVERAGE_TREND_HELPERS:
+        source = REPO_ROOT / helper
+        if not source.is_file():
+            raise FileNotFoundError(f"Integration coverage helper missing: {source}")
+
     destination.mkdir(parents=True, exist_ok=True)
 
     resolved_ref = workflow_ref or DEFAULT_WORKFLOW_REF
@@ -57,6 +65,11 @@ def render_integration_repo(destination: Path, workflow_ref: str | None = None) 
 
         rewritten = content.replace(WORKFLOW_PLACEHOLDER, resolved_ref)
         target.write_text(rewritten, encoding="utf-8")
+
+    for helper in COVERAGE_TREND_HELPERS:
+        target = destination / helper
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(REPO_ROOT / helper, target)
 
     return destination
 
