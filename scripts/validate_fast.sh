@@ -545,7 +545,6 @@ else
     echo ""
     echo -e "${YELLOW}Quick fixes:${NC}"
     echo "  • Run with --fix to auto-fix formatting/imports"
-    echo "  • Use ./scripts/fix_common_issues.sh for common problems"
     echo "  • Use ./scripts/check_branch.sh --verbose for detailed output"
     echo "  • Run with --full for comprehensive validation"
     exit 1
