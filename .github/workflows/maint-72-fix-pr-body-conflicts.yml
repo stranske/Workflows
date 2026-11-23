@@ -193,6 +193,7 @@ jobs:
 
             let needsFix = false;
             let actions = [];
+            const readFailures = [];
             const mutationFailures = [];
 
             // Step 1: Check if pr_body.md exists on main
@@ -215,6 +216,7 @@ jobs:
                 console.log(`✅ pr_body.md does not exist on main - good!`);
               } else {
                 console.log(`❌ Error checking pr_body.md: ${e.message}`);
+                readFailures.push(`pr_body.md (${e.message})`);
               }
             }
 
@@ -253,7 +255,13 @@ jobs:
                 actions.push('create .gitignore with pr_body.md');
               } else {
                 console.log(`❌ Error checking .gitignore: ${e.message}`);
+                readFailures.push(`.gitignore (${e.message})`);
               }
+            }
+
+            if (readFailures.length) {
+              core.setFailed(`${owner}/${repo}: unable to determine PR body configuration: ${readFailures.join('; ')}`);
+              return;
             }
 
             // Summary
