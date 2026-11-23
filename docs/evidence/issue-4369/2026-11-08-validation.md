@@ -1,5 +1,7 @@
 # Issue 4369 implementation report — 2026-11-08
 
+[Recover historical formatting and test outputs](runtime-4550/formatting-test-outputs.md), including the logs named by both binding manifests.
+
 The incoming checkout, `367b3f0e53fe8b10d43e27177662517af68e34cd`, already
 contains the credential-path fix in `tools/subscription_llm.py` and its exact
 consumer template. `_has_subscription_auth("claude")`, called by `available()`,
