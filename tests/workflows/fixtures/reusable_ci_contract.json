@@ -9,10 +9,14 @@
       "3.13",
       "3.14"
     ],
-    "expected_artifacts": [
-      "gate-coverage-3.13-1",
-      "gate-coverage-3.14-1"
-    ],
+    "expected_artifacts": {
+      "3.13": [
+        "gate-coverage-3.13-1"
+      ],
+      "3.14": [
+        "gate-coverage-3.14-1"
+      ]
+    },
     "summary": {
       "coverage_xml": false,
       "coverage_json": false,
@@ -26,10 +30,14 @@
       "3.13",
       "3.14"
     ],
-    "expected_artifacts": [
-      "gate-coverage-3.13-1",
-      "gate-coverage-3.14-1"
-    ],
+    "expected_artifacts": {
+      "3.13": [
+        "gate-coverage-3.13-1"
+      ],
+      "3.14": [
+        "gate-coverage-3.14-1"
+      ]
+    },
     "summary": {
       "coverage_xml": true,
       "coverage_json": true,
@@ -51,17 +59,21 @@
       "3.13",
       "3.14"
     ],
-    "expected_artifacts": [
-      "ci-coverage-3.13-1",
-      "ci-ci-metrics",
-      "ci-metrics-history",
-      "ci-classification",
-      "ci-coverage-delta",
-      "ci-coverage-summary",
-      "ci-coverage-trend",
-      "ci-coverage-trend-history",
-      "ci-coverage-3.14-1"
-    ],
+    "expected_artifacts": {
+      "3.13": [
+        "ci-coverage-3.13-1"
+      ],
+      "3.14": [
+        "ci-coverage-3.14-1",
+        "ci-ci-metrics",
+        "ci-metrics-history",
+        "ci-classification",
+        "ci-coverage-delta",
+        "ci-coverage-summary",
+        "ci-coverage-trend",
+        "ci-coverage-trend-history"
+      ]
+    },
     "summary": {
       "coverage_xml": true,
       "coverage_json": true,

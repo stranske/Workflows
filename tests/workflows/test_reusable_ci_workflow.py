@@ -91,6 +91,37 @@ def _assert_ci_contract(tmp_path: Path, inputs: dict[str, object], fixture: dict
 
     matrix = _matrix_candidates(str(inputs["python-versions"]), str(inputs["python-version"]))
     assert matrix == fixture["matrix"]
+    validation_output = tmp_path / "validated-inputs"
+    validated = subprocess.run(
+        [sys.executable, "-c", _validate_inputs_script()],
+        env={
+            "PYTHON_VERSIONS": str(inputs["python-versions"]),
+            "PYTHON_VERSION": str(inputs["python-version"]),
+            "PRIMARY_IN": str(inputs["primary-python-version"]),
+            "COVERAGE_PYTHON_VERSION": str(inputs["coverage-python-version"]),
+            "COVERAGE": str(inputs["coverage"]).lower(),
+            "GITHUB_OUTPUT": str(validation_output),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert validated.returncode == 0, validated.stdout + validated.stderr
+    resolve_primary = steps["Resolve primary python version"]
+    assert resolve_primary["env"]["RESOLVED_PRIMARY"] == (
+        "${{ needs.validate-inputs.outputs.primary_python }}"
+    )
+    runtime_env = tmp_path / "runtime-env"
+    resolved = subprocess.run(
+        ["bash", "-c", resolve_primary["run"]],
+        env={
+            "RESOLVED_PRIMARY": _step_outputs(validation_output)["primary_python"],
+            "GITHUB_ENV": str(runtime_env),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert resolved.returncode == 0, resolved.stderr
+    primary = _step_outputs(runtime_env)["PRIMARY_PYTHON_VERSION"]
     payloads = {}
     for runtime in matrix:
         work = tmp_path / runtime
@@ -176,20 +207,19 @@ def _assert_ci_contract(tmp_path: Path, inputs: dict[str, object], fixture: dict
         }
         payloads[runtime] = paths_output["has_payload"]
 
-    artifacts = _configured_artifact_names(steps, inputs, matrix, payloads, coverage_condition)
+    artifacts = _configured_artifact_names(steps, inputs, primary, payloads, coverage_condition)
     assert artifacts == fixture["expected_artifacts"]
 
 
 def _configured_artifact_names(
     steps: dict,
     inputs: dict[str, object],
-    matrix: list[str],
+    primary: str,
     payloads: dict[str, str],
     coverage_condition: str,
-) -> list[str]:
-    """Bind scenario names to the declared upload contract without running GitHub actions."""
+) -> dict[str, list[str]]:
+    """Bind each runtime's names to the workflow's declared upload contract."""
     primary_condition = "matrix.python-version == env.PRIMARY_PYTHON_VERSION"
-    primary = str(inputs["primary-python-version"] or matrix[0])
     prefix = str(inputs["artifact-prefix"])
     uploads = (
         ("Upload metrics artifact", "enable-metrics", False),
@@ -204,9 +234,11 @@ def _configured_artifact_names(
     assert _normalize_expr(coverage_upload["if"]) == _normalize_expr(
         "${{ always() && steps.coverage_paths.outputs.has_payload == 'true' }}"
     )
-    artifacts = []
-    for runtime in matrix:
-        if payloads[runtime] == "true":
+    artifacts_by_runtime = {}
+    for runtime, has_payload in payloads.items():
+        artifacts: list[str] = []
+        artifacts_by_runtime[runtime] = artifacts
+        if has_payload == "true":
             name = coverage_upload["with"]["name"]
             artifacts.append(
                 re.sub(r"\s+", "", name)
@@ -232,7 +264,7 @@ def _configured_artifact_names(
                 artifacts.append(
                     upload["with"]["name"].replace("${{ inputs['artifact-prefix'] }}", prefix)
                 )
-    return artifacts
+    return artifacts_by_runtime
 
 
 def test_matrix_expression_supports_arrays_and_singletons() -> None:
