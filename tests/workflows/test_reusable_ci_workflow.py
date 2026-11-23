@@ -13,6 +13,7 @@ import yaml
 
 WORKFLOW_PATH = Path(".github/workflows/reusable-10-ci-python.yml")
 CONTRACT_SCENARIOS = Path("tests/workflows/fixtures/reusable_ci_contract.json")
+TREND_MEASUREMENT_CONDITION = "(!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')"
 
 
 def _matrix_candidates(python_versions: str, python_version: str) -> list[str]:
@@ -217,6 +218,8 @@ def _configured_artifact_names(
     primary: str,
     payloads: dict[str, str],
     coverage_condition: str,
+    *,
+    trend_measured: bool = False,
 ) -> dict[str, list[str]]:
     """Bind each runtime's names to the workflow's declared upload contract."""
     primary_condition = "matrix.python-version == env.PRIMARY_PYTHON_VERSION"
@@ -250,10 +253,19 @@ def _configured_artifact_names(
             continue
         for name, toggle, requires_coverage in uploads:
             upload = steps[name]
-            condition = f"inputs['{toggle}'] && {primary_condition}"
+            condition = f"inputs['{toggle}'] && "
+            if toggle == "enable-soft-gate":
+                condition += f"{TREND_MEASUREMENT_CONDITION} && "
+            condition += primary_condition
             if requires_coverage:
                 condition = f"({coverage_condition}) && {condition}"
             assert _normalize_expr(upload["if"]) == _normalize_expr("${{ " + condition + " }}")
+            if (
+                toggle == "enable-soft-gate"
+                and inputs["require-measured-coverage-trend"]
+                and not trend_measured
+            ):
+                continue
             if inputs[toggle] is True and (
                 not requires_coverage
                 or (
@@ -1249,7 +1261,25 @@ def test_integration_full_coverage_owns_the_measured_trend() -> None:
     assert all(
         "matrix.python-version == env.PRIMARY_PYTHON_VERSION" in s["if"] for s in trend_steps
     )
-    required = "(!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')"
     for step in trend_steps[1:]:
-        assert required in step["if"]
-    assert trend_steps[-2]["with"]["name"].endswith("coverage-trend")
+        assert TREND_MEASUREMENT_CONDITION in step["if"]
+
+    inputs = {**_workflow_call_defaults(workflow), **jobs["full-coverage"]["with"]}
+    by_name = {step["name"]: step for step in steps if "name" in step}
+    coverage_condition = (
+        "inputs.coverage && (inputs['coverage-python-version'] == '' || "
+        "inputs['coverage-python-version'] == matrix.python-version)"
+    )
+    payloads = {"3.13": "true", "3.14": "true"}
+    payload_names = {"3.13": ["full-coverage-3.13-1"], "3.14": ["full-coverage-3.14-1"]}
+    args = (by_name, inputs, "3.14", payloads, coverage_condition)
+    assert _configured_artifact_names(*args) == payload_names
+    assert _configured_artifact_names(*args, trend_measured=True) == {
+        **payload_names,
+        "3.14": [
+            "full-coverage-3.14-1",
+            "full-coverage-summary",
+            "full-coverage-trend",
+            "full-coverage-trend-history",
+        ],
+    }
