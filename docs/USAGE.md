@@ -34,14 +34,30 @@ jobs:
 
 ### Composite Actions
 
-Use actions directly in your workflow steps:
+The legacy Autofix composite runs as a step in the caller's working tree.
+For standard PR formatting and commit or patch handling, call
+[Reusable 18](../.github/workflows/reusable-18-autofix.yml) as a workflow job.
+
+Before calling the composite, check out the consumer repository and copy the
+[tool-version file](../.github/workflows/autofix-versions.env) from the same
+Workflows revision to `.github/workflows/autofix-versions.env` in the consumer
+repository. Use the same path in a Workflows source checkout or ZIP. The consumer
+project must support `pip install -e ".[dev]"`.
 
 ```yaml
 steps:
-  - uses: stranske/Workflows/.github/actions/autofix@main
+  - uses: actions/checkout@v7
+  - name: Run the legacy Autofix step
+    id: autofix
+    uses: stranske/Workflows/.github/actions/autofix@main
     with:
-      token: ${{ secrets.GITHUB_TOKEN }}
+      python-version: "3.14"
 ```
+
+The step exposes `steps.autofix.outputs.changed`, `remaining_issues`, and
+`new_issues`. Use `changed` to check whether the fixers modified tracked files.
+Run Ruff separately if residual findings matter. The legacy report can return
+zero counts when Ruff finds issues or when the optional classifier is absent.
 
 ## Workflow Inputs
 
