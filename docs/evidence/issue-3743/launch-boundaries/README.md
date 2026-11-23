@@ -133,7 +133,7 @@ The [offline archive](review-recovery/production-replays.tar.gz) contains all 42
 
 ```sh
 recovered=$(mktemp -d)
-tar -xzf docs/evidence/issue-3743/launch-boundaries/review-recovery/production-replays.tar.gz -C "$recovered"
+tar -xpzf docs/evidence/issue-3743/launch-boundaries/review-recovery/production-replays.tar.gz -C "$recovered"
 cat "$recovered/final/production-replay/wf-mutations.json"
 ```
 
