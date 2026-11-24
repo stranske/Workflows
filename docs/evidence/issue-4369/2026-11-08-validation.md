@@ -2674,7 +2674,7 @@ zero active/blocking/nonblocking/unknown findings for candidate
 [the target report](runtime-4550/4557-maint71-target.json).
 Discussion **4434491702 is excluded**. A [fresh consumer PR thread read](runtime-4550/4558-seat-round8-consumer-threads.json)
 confirms the actual merge identity and **0** review threads with
-`hasNextPage=false`. The [complete issue-4369 comment observation](runtime-4550/4558-seat-round8-comments.json)
+`hasNextPage=false`. The [complete issue-4369 comment observation](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-comments.json) ([local recovery](#recover-the-seat-comment-captures))
 retains pages of **49 and 0**, 49 unique IDs, and explicit UTC boundary
 **2026-11-09T01:49:57Z**. No discussion is marked resolved or waived.
 
@@ -2945,7 +2945,7 @@ workflow identities. The bounded observer replays exit **0** and find no runs
 is established; original producer dispatch provenance remains UNKNOWN.
 
 Outcome **A4=observation refreshed**. The
-[complete issue-4369 comment observation](runtime-4550/4558-seat-round9-comments.json)
+[complete issue-4369 comment observation](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-comments.json) ([local recovery](#recover-the-seat-comment-captures))
 retains pages of **49 and 0**, **49 unique IDs**, explicit UTC boundary
 **2026-11-09T02:45:58Z**, and an empty terminal page. This is a comment
 observation boundary independent of workflow-run timing. The applicable
@@ -3282,7 +3282,7 @@ or Maint 71 was dispatched by this work. The drain remains read-only observation
 of the next qualifying producer and its artifact-bound merger; no schedule or
 writer lock changed.
 
-The fresh [issue-4369 comment receipt](runtime-4550/4558-seat-round10-comments.json)
+The fresh [issue-4369 comment receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-comments.json) ([local recovery](#recover-the-seat-comment-captures))
 retains all **49** comments through **2026-11-09T03:30:44Z**, with explicit page
 sizes **49, 0** and complete pagination. The fresh
 [consumer thread readback](runtime-4550/4558-seat-round10-consumer-threads.json)
@@ -3448,7 +3448,7 @@ subscription-payload producer/plan/candidate/merge chain. The
 retains report hashes and target results. Caller origin remains **UNKNOWN**;
 T5/A3 remain incomplete. No Maint 68/71/82 dispatch was performed by this seat.
 
-The fresh [issue-comment receipt](runtime-4550/4558-seat-round11-comments.json)
+The fresh [issue-comment receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-comments.json) ([local recovery](#recover-the-seat-comment-captures))
 retains all **49** comments through **2026-11-09T04:02:49.512954Z**, with explicit
 page sizes **49, 0** and complete pagination; no new comment since the preceding
 complete observation is present. The fresh
@@ -3507,7 +3507,7 @@ producer causality. T5/A3 remain incomplete. No qualifying next producer chain
 was observed; the existing source/plan/candidate/merge receipts remain partial
 with respect to automation origin.
 
-The fresh [issue-4369 comment receipt](runtime-4550/4558-seat-round12-comments.json)
+The fresh [issue-4369 comment receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-comments.json) ([local recovery](#recover-the-seat-comment-captures))
 retains all **49** comments through **2026-11-09T04:15:43.557153Z**, with explicit
 page sizes **49, 0** and complete pagination. The
 [consumer thread readback](runtime-4550/4558-seat-round12-consumer-threads.json)
@@ -3740,3 +3740,20 @@ since #4582. `tests/scripts/test_issue_4581_chain_evidence.py` checks that the
 map covers the directory exactly, that every hash matches, that the chain receipt
 digest is pinned, and that the dispatch lineage binds by continuation key, plan
 ID and source commit.
+
+## Recover the seat comment captures
+
+The [checksummed archive](runtime-4550/4558-seat-round8-12-comment-history.tar.gz) contains the original
+rounds 8–12 comment captures. Each capture retains its own observation cutoff,
+49 unique comments, and an empty second page.
+
+From the repository root, verify the archive and extract it into a fresh
+directory with the original paths and modes:
+
+```sh
+archive=docs/evidence/issue-4369/runtime-4550/4558-seat-round8-12-comment-history.tar.gz
+printf '%s  %s\n' '85a68291fbcfca3021646ff6c4436467f8493da8675a9dcc2d4327825479d244' "$archive" | shasum -a 256 -c &&
+    recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-4369-seat-comments.XXXXXX") &&
+    tar -xpzf "$archive" -C "$recovered" &&
+    printf '%s\n' "$recovered"
+```
