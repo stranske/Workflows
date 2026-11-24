@@ -31,7 +31,7 @@ input-controlled manual dispatch.
 - `.github/workflows/agents-70-orchestrator.yml`
 - `.github/workflows/agents-guard.yml`
 
-These three workflows anchor the repository ruleset and verification checklist.
+These three workflows anchor this policy and its verification checklist.
 The guard workflow (`agents-guard.yml`) is co-protected because it enforces the
 protected-workflow policy in CI; losing or renaming it would remove the
 automated safety net. At runtime, `.github/scripts/agents-guard.js` applies
@@ -108,16 +108,11 @@ enforce the following four-event behavior:
    Owner approval before merging changes to any covered file. **Require review
    from Code Owners** is the corresponding GitHub setting for automatic
    enforcement.
-2. **Repository ruleset** – create (or update) a ruleset that targets the
-   default branch (`Tests Pass to Merge`, ruleset ID `7880490`) and blocks
-   deletions or renames of the covered workflows (`restrict_file_updates` with
-   **Block deletions** and **Block renames** enabled). Use the protected file
-   patterns listed above and set the bypass mode to *Maintainers only* so
-   emergencies still require a deliberate maintainer action. Administrators can
-   provision the ruleset through the repository settings (**Settings → Code
-   security and analysis → Rulesets → New ruleset → Branch**). Capture
-   screenshots or API verification output in the incident log so auditors can
-   confirm the guardrail is in place.
+2. **Repository branch rules** – the effective rules for `main` include branch
+   deletion and non-fast-forward protection. The live branch readback below
+   shows which ruleset supplied each rule. A branch deletion rule applies to
+   the branch ref. File-level delete and rename enforcement for the covered
+   workflows is the job of the CI guard and this policy.
 3. **CI guardrail** – the `Health 45 Agents Guard` check (see
    `.github/workflows/agents-guard.yml`) fails any pull request that modifies,
    deletes, or renames a protected file without the required label and
@@ -152,29 +147,64 @@ enforce the following four-event behavior:
 
 ## How to verify required checks
 
-1. Read the effective rules for the default branch:
+1. Read the effective rules for `main` and identify each source ruleset.
 
    ```bash
    gh api repos/stranske/Workflows/rules/branches/main \
-     --jq '.[] | select(.type == "required_status_checks") | .parameters'
+     --jq '[.[] | {type, ruleset_id, ruleset_source, ruleset_source_type, parameters}]'
    ```
 
-   Expect one entry in `required_status_checks` with context `summary`, and
-   `strict_required_status_checks_policy: false`. The legacy
-   `branches/main/protection` endpoint can return HTTP 404 while the ruleset
-   still applies. Use the effective-rules endpoint for this comparison.
-   To inspect GitHub's review enforcement, query the same endpoint with
-   `--jq '.[] | select(.type == "pull_request") | .parameters'`.
-2. Open the pull request and confirm `summary` succeeded on the current head.
-   For a protected-file change, separately verify the required label, Code
-   Owner approval, and the Health 45 verdict on that head. Check any
-   documented guard-level exception against the actual protected-file diff.
-3. If the effective check list differs from the checked-in configuration,
-   record the readback and the latest
-   [Health 44 audit artifacts](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml)
-   in the incident record. Ask a repository maintainer to reconcile the rule
-   against the checked-in list, then repeat the effective-rules query to verify
-   the result.
+   The `required_status_checks` rule should list `summary` with
+   `strict_required_status_checks_policy: false`. The `pull_request` rule
+   shows GitHub's current review enforcement. If the legacy
+   `branches/main/protection` endpoint returns HTTP 404, use this effective
+   branch readback. Record rule types and sources before attributing
+   enforcement to a particular ruleset.
+2. Compare the configured requirements with the checked-in list. These
+   read-only commands work when
+   [Health 44](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml)
+   produces no artifact.
+
+   ```bash
+   main_sha=$(gh api repos/stranske/Workflows/git/ref/heads/main --jq .object.sha)
+   gh api "repos/stranske/Workflows/contents/.github/config/required-contexts.json?ref=$main_sha" \
+     --jq '.content | @base64d | fromjson | .required_contexts | sort'
+   gh api repos/stranske/Workflows/rules/branches/main \
+     --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | unique'
+   ```
+
+   Both lists should be `["summary"]`. Record the main SHA, rule output, and
+   the latest Health 44 run with any available artifacts if the lists differ.
+   Record absent artifacts explicitly. Ask a repository maintainer to
+   reconcile the discrepancy and repeat the readback.
+3. On the PR, confirm that `summary` succeeded on its current head. For a
+   protected-file change, separately verify the required label, Code Owner
+   approval, and Health 45 verdict on that head. Open the `guard` job from the
+   canonical [Health 45 run](https://github.com/stranske/Workflows/actions/workflows/agents-guard.yml).
+   Set `guard_job_id` and `guard_run_id` from the job URL and `pr_number`
+   from the pull request URL.
+
+   ```bash
+   gh api "repos/stranske/Workflows/actions/jobs/$guard_job_id" \
+     --jq '{head_sha, run_id, run_attempt, conclusion, evaluation: [.steps[] | select(.name == "Evaluate protected file changes") | .conclusion]}'
+   gh api "repos/stranske/Workflows/actions/runs/$guard_run_id" \
+     --jq '{path, head_sha, run_attempt}'
+   gh api "repos/stranske/Workflows/pulls/$pr_number" --jq .head.sha
+   gh api --paginate "repos/stranske/Workflows/pulls/$pr_number/files" \
+     --jq '.[] | {filename, previous_filename}'
+   ```
+
+   Match the job and canonical run to the PR head, and match the job's run
+   ID and attempt to the current run. A successful job with
+   `evaluation: ["skipped"]` is a green no-op. An empty
+   evaluation list is missing evidence. An evaluated pass requires both
+   `evaluation: ["success"]` and a successful job conclusion. Check the PR's
+   file list at the same head to establish whether the selected step examined
+   a protected-file change, including the previous path for a rename. Read
+   the PR head again after listing files. If the head or policy labels
+   changed, use the current verdict. For forks, inspect
+   the canonical guard run supplying the trusted publisher's exact-head
+   status. Check any documented guard-level exception against the actual diff.
 
 ## Allowlisted change reasons and label process
 
@@ -210,15 +240,15 @@ When one of these scenarios applies:
 
 1. Confirm the incident really requires editing or temporarily removing one of
    the protected workflows.
-2. A maintainer with admin access temporarily adjusts the repository ruleset
-   (or applies a bypass) via **Settings → Code security and analysis → Rulesets**.
-   Use the effective rules readback above to identify the rule involved.
-   Handle the independent Health 45 verdict through its documented policy.
+2. Use the effective rules readback to identify which GitHub rule, if any,
+   blocks the required action. Only a maintainer with admin access may
+   temporarily adjust that rule or apply a bypass. Handle the independent
+   Health 45 verdict through its documented policy.
 3. Apply and review the change in a dedicated pull request. Code Owner approval
    remains required even when a maintainer performs the edits.
-4. Re-enable the ruleset block and restore the CI guard immediately after the
-   change merges. Document the incident and restoration steps in the associated
-   issue or runbook entry.
+4. Restore any controls changed for the override immediately after the change
+   merges. Document the incident and restoration steps in the associated issue
+   or runbook entry.
 
 ## Troubleshooting
 
@@ -245,9 +275,8 @@ When one of these scenarios applies:
 - The effective default-branch rules match the checked-in required contexts.
   For protected-file changes, separately verify the label, Code Owner
   approval, and the Health 45 verdict.
-- The repository ruleset shows the three workflows in its “Protected file
-  patterns section (`agents-63-issue-intake.yml`,
-  `agents-70-orchestrator.yml`, and `agents-guard.yml`) with
-  **Block deletion** and **Block rename** enabled.
+- Record the effective branch rule types and source. For a covered-file
+  change, confirm the protected-file evaluation step ran on the exact PR head
+  and verify the verdict against the changed paths.
 - A maintainer can describe the override procedure without referencing this
   document (spot check during ops reviews).
