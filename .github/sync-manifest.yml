@@ -727,6 +727,7 @@ scripts:
   # (they live under `runtime_fetched:` below); see
   # tests/workflows/test_sync_manifest_delivery.py.
   - source: scripts/api_client.py
+    template_sync: exact
     description: "Shared GitHub API client used by synced Python automation scripts"
 
   # Issue optimization (Phase 1) - agents-issue-optimizer.yml
