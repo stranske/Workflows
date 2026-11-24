@@ -133,6 +133,34 @@ the printed checksums with the table.
 )
 ```
 
+## February 2026 coding-agent evaluations
+
+The [Codex label evaluation][feb-codex-label] follows issue intake from January 9
+through February 5. The [provider rollout assessment][feb-provider-rollout]
+records the February 17 implementation through PR #1534. Both links open the
+original report revision so its workflow references can be read in context.
+For current responsibilities and handoffs, see the [workflow catalog](../ci/WORKFLOWS.md).
+
+Read both reports offline from the [archive](audits/february-2026-agent-evaluations.tar.gz).
+From the repository root, restore their original paths in a temporary directory
+and verify both checksums. To follow repository-relative links locally, extract
+the archive at the root of a disposable Workflows checkout.
+
+```sh
+set -eu
+destination=$(mktemp -d)
+tar -xzf docs/archive/audits/february-2026-agent-evaluations.tar.gz -C "$destination"
+(cd "$destination" && shasum -a 256 -c <<'SUMS'
+56acfae678700cf056df394f69cf4de9734beaa56f0e4f2867fb0d7c0088d34d  docs/analysis/agent-codex-evaluation-feb-2026.md
+0020337492e6c9d14b3c3ab874c5c11550adedfdf2e064e318c0e71bba678b4e  docs/analysis/provider-agnostic-progress-evaluation-feb-2026.md
+SUMS
+)
+printf 'Reports restored in %s\n' "$destination"
+```
+
+[feb-codex-label]: https://github.com/stranske/Workflows/blob/b0e4d398e76899c90d1b240a1b3ee1fb003c90ed/docs/analysis/agent-codex-evaluation-feb-2026.md
+[feb-provider-rollout]: https://github.com/stranske/Workflows/blob/5b7e29384ab883e2acd8a121c3285dc689747cbc/docs/analysis/provider-agnostic-progress-evaluation-feb-2026.md
+
 ## Workflow audit reports
 
 Historical snapshots from the December 2025–January 2026 audit cycle. Monthly operators should follow [`docs/ci/WORKFLOW_AUDIT_PROCEDURE.md`](../ci/WORKFLOW_AUDIT_PROCEDURE.md) and the active workflow catalog instead of these reports.

@@ -67,6 +67,7 @@ def test_archive_plans_ledger_links_resolve() -> None:
         "audits/TEMPLATE_REPO_EVALUATION.md",
         "audits/issue-3060-verifier-evidence.md",
         "audits/issue-4427-wasm-pytest-handoff.md",
+        "audits/february-2026-agent-evaluations.tar.gz",
         *ARCHIVED_KEEPALIVE,
     }
     for target in MARKDOWN_LINK.findall(text):
