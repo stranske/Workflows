@@ -905,17 +905,22 @@ jobs:
                 return {issue, priority: 0};
               }
               const lines = issue.body.split(/\r?\n/).map(line => line.trim());
+              // Older generated issues can omit depth. Any explicit depth or source must agree.
+              const depths = lines.filter(line => /^<!--\s*follow-up-depth\b/i.test(line));
+              const fallbackScopes = lines.filter(line => /^Address verification concerns from\b/i.test(line));
+              const validDepth = depths.length === 0 ||
+                (depths.length === 1 && /^<!-- follow-up-depth: [12] -->$/.test(depths[0]));
+              const matchingScopes = fallbackScopes.every(line => prUrl && line === fallbackSource);
+              if (!validDepth || !matchingScopes) {
+                return {issue, priority: 0};
+              }
               const sourceLines = lines.filter(line => /^(?:-\s*)?Original PR:/i.test(line));
               if (sourceLines.length) {
                 const exactSource = /^(?:-\s*)?Original PR:\s*#(\d+)\s*$/i;
                 const exact = sourceLines.every(line => exactSource.exec(line)?.[1] === String(prNumber));
                 return {issue, priority: exact ? 2 : 0};
               }
-              // The original fallback used the same scope and footer before depth markers existed.
-              const depths = lines.filter(line => /^<!--\s*follow-up-depth\b/i.test(line));
-              const depthIsValid = depths.length === 0 ||
-                (depths.length === 1 && /^<!-- follow-up-depth: [12] -->$/.test(depths[0]));
-              const fallback = prUrl && depthIsValid && lines.includes(fallbackFooter) && lines.includes(fallbackSource);
+              const fallback = fallbackScopes.length > 0 && lines.includes(fallbackFooter);
               return {issue, priority: fallback ? 1 : 0};
             });
             const duplicate = candidates.find(candidate => candidate.priority === 2)?.issue ??

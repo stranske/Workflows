@@ -11,7 +11,7 @@ const surfaces=['.github/workflows/agents-verify-to-new-pr.yml','templates/consu
 // Both predecessor surfaces had these exact job bytes at 7c5ac26448ed6149ba984584ed1db821ce049371.
 const predecessorJob=gunzipSync(fs.readFileSync(path.join(root,
   'tests/fixtures/verifier_correction/ordinary-followup-predecessor.yml.gz'))).toString('utf8');
-const successorSha256='fa41081c172dcb89ddab437390855975c41c5e24f180db74e15f5076636a0574';
+const successorSha256='63a715cd7a8cb95128d5eba9ff39f4c8fa884064c73a6f9dde03364cf60d9e0d';
 
 for(const surface of surfaces) {
  test(`${surface}: typed effect job is unconditionally source-disabled independent of admitted outputs`,()=>{

@@ -14,6 +14,7 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const repo = {owner: 'stranske', repo: 'Workflows'};
 const url = `https://github.com/${repo.owner}/${repo.repo}`;
 const prUrl = number => `${url}/pull/${number}`;
+const fallbackScope = number => `Address verification concerns from [PR #${number}](${prUrl(number)}).`;
 const issueUrl = number => `${url}/issues/${number}`;
 const contextFor = number => ({repo, payload: {
   pull_request: {number, html_url: prUrl(number), labels: []},
@@ -123,6 +124,20 @@ const tests = [
   ['rejects fallback with an invalid continuation depth marker', 3564, ({title, body}) => [example(906, title, body.replace('<!-- follow-up-depth: 1 -->', '<!-- follow-up-depth: 0 -->')), standard], [3624, 0, 1]],
   ['reuses the retitled fallback rendered before continuation depth existed', 3564, () => [example(911, 'Investigate the old report', issues.legacyFallback.body)], [911, 0, 1]],
   ['rejects fallback containing an explicit contrary source', 3564, ({title, body}) => [example(910, title, `${body}\n- Original PR: #35640`), standard], [3624, 0, 1]],
+  ['creates a fresh issue when the only fallback claims two PRs', 3564, ({title, body}) => [
+    example(912, title, body.replace(fallbackScope(3564), fallbackScope(3564) + '\n' + fallbackScope(35640))),
+  ], [99000, 1, 1]],
+  ['rejects a structured match when the fallback identifies another PR', 3564, ({title, body}) => [
+    example(913, title, body.replace(fallbackScope(3564), fallbackScope(35640)) + '\n- Original PR: #3564'),
+    standard,
+  ], [3624, 0, 1]],
+  ['rejects a structured match with invalid explicit depth', 3564, () => [
+    example(914, standard.title, standard.body.replace('<!-- follow-up-depth: 1 -->', '<!-- follow-up-depth: 0 -->')),
+    standard,
+  ], [3624, 0, 1]],
+  ['accepts a retitled issue when both source declarations agree', 3564, ({body}) => [
+    example(915, 'Retitled', body + '\n- Original PR: #3564'),
+  ], [915, 0, 1]],
   ['keeps typed correction effects outside ordinary continuation selection', 3564, () => [example(908, 'Follow-up PR #3564', `${standard.body}\n<!-- closer-correction-effect/v1 {} -->`), standard], [3624, 0, 1]],
   ['creates exactly one issue when only unrelated candidates exist', 3564, () => [example(903, 'Follow-up PR #3564', 'Mentions PR #3564\n- Original PR: #35640')], [99000, 1, 1]],
   ['creates exactly one issue on a genuinely empty inventory', 3564, () => [], [99000, 1, 1]],
