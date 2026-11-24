@@ -169,7 +169,7 @@ not a Maint 68 template sync. Compiling `.github/sync-manifest.yml` confirms nei
 `pyproject.toml` nor `.github/workflows/pages-wasm-demo.yml` is a Maint 68 copy target;
 Maint 68 cannot repair the WASM install line. Development pins and the aligned workflow
 install are propagated by Maint 52 per
-[Autofix Tool Version Ownership](CONSUMER_REPO_MAINTENANCE.md#autofix-tool-version-ownership).
+[Autofix Tool Version Ownership](../../ops/CONSUMER_REPO_MAINTENANCE.md#autofix-tool-version-ownership).
 
 At the [original reported head](https://github.com/stranske/Trend_Model_Project/blob/73120b9a594e/.github/workflows/pages-wasm-demo.yml),
 `pages-wasm-demo.yml` directly installed `pytest==9.1.1` while the development

@@ -17,6 +17,7 @@ ARCHIVED_CANONICAL = [
     "docs/archive/audits/WORKFLOW_AUDIT_2026-11-19.md",
     "docs/archive/audits/TEMPLATE_REPO_EVALUATION.md",
     "docs/archive/audits/issue-3060-verifier-evidence.md",
+    "docs/archive/audits/issue-4427-wasm-pytest-handoff.md",
 ]
 
 ARCHIVED_KEEPALIVE = {
@@ -65,6 +66,7 @@ def test_archive_plans_ledger_links_resolve() -> None:
         "audits/WORKFLOW_AUDIT_2026-11-19.md",
         "audits/TEMPLATE_REPO_EVALUATION.md",
         "audits/issue-3060-verifier-evidence.md",
+        "audits/issue-4427-wasm-pytest-handoff.md",
         *ARCHIVED_KEEPALIVE,
     }
     for target in MARKDOWN_LINK.findall(text):
@@ -86,7 +88,7 @@ def test_archived_copies_keep_relative_links_resolvable() -> None:
         for target in MARKDOWN_LINK.findall(source.read_text(encoding="utf-8")):
             if target.startswith(("http://", "https://", "#", "mailto:")):
                 continue
-            path = _resolve_link(source, target)
+            path = _resolve_link(source, target.partition("#")[0])
             assert path.is_file(), f"broken archived-document link: {relative}: {target!r}"
 
 
