@@ -17,7 +17,7 @@ Each bucket below calls out the canonical workflows, the YAML entry point, and
 the policy guardrails that keep the surface safe. Keep this mental map handy:
 
 ```
-PR checks ──► Gate + Health 45 Agents Guard (branch protection bundle)
+PR checks ──► Gate (required summary) + Health 45 Agents Guard (eligible events)
     │                      │
     │                      └──► Reusable CI matrix
     ▼
@@ -35,8 +35,8 @@ the surface polished, and the agents stack orchestrates follow-up work.
 > topology those guardrails protect. Both documents now call out the universal
 > ruleset context **`summary`** (Gate's aggregate job), the duplicate **`Gate / gate`**
 > commit status the summary job still posts, and—separately—**Health 45 Agents Guard /
-> guard** on every pull request (fails only when protected agents workflow policy is
-> violated). They link back to the enforcement workflow
+> guard** on eligible events. A missing status or skipped job gives no Guard verdict.
+> The guides link back to the enforcement workflow
 > [`health-44-gate-branch-protection.yml`](../../.github/workflows/health-44-gate-branch-protection.yml)
 > so you can verify branch protection without guessing.
 
@@ -279,13 +279,12 @@ explain why a particular status appears in the Checks tab.
   with `agents:allow-change` for Dependabot, Renovate, or repository
   owner/member/collaborator authors without a separate Code Owner approval.
   When no protected files are in scope, the job exits cleanly.
-- **Fork status publication.** Fork `pull_request` tokens cannot write the required PR-head status. `agents-guard-fork-status.yml` is a trusted default-branch `workflow_run` publisher that validates the exact run, current fork head, latest attempt, and completed `guard` job before publishing `Health 45 Agents Guard / guard`; it never checks out PR code.
-- **Merge impact.** Required on every PR; the status context (**Health 45
-  Agents Guard / guard**) stays green unless a protected change violates the
-  guard policy.
-- **Where to read the policy.** The [Agents Workflow Protection
-  Policy](../AGENTS_POLICY.md) mirrors these requirements and documents the
-  branch-protection setup that keeps the guard enforced.
+- **Fork status publication.** The trusted publisher writes fork PR-head statuses. `agents-guard-fork-status.yml` is a trusted default-branch `workflow_run` publisher that validates the exact run, current fork head, latest attempt, and completed `guard` job before publishing `Health 45 Agents Guard / guard`; it never checks out PR code.
+- **Merge impact.** The effective main ruleset requires the Gate `summary`.
+  Health 45 applies its protected-file policy on eligible events. Inspect the
+  exact head and selected job to distinguish a pass, a failure, and a skip.
+  Missing trusted evidence can also fail evaluation. [Agents Workflow
+  Protection Policy](../AGENTS_POLICY.md#how-to-verify-required-checks)
 
 ### How to re-run only these workflows
 
@@ -773,7 +772,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Maint 85 Keepalive Durability Export** (`maint-85-keepalive-durability-export.yml`, maintenance bucket) | `schedule` (Mondays 09:45 UTC), `workflow_dispatch` | Classifies merged keepalive PRs after a grace period and emits Workflows-owned `langsmith-fleet/v1` durability records for Orchestrator outcome ingest. | ⚪ Scheduled/manual | [Keepalive durability export runs](https://github.com/stranske/Workflows/actions/workflows/maint-85-keepalive-durability-export.yml) |
 | **Maint 60 Release** (`maint-60-release.yml`, maintenance bucket) | `push` (tags `v*`) | Create GitHub releases automatically when version tags are pushed. | ⚪ Tag-triggered | [Release workflow runs](https://github.com/stranske/Workflows/actions/workflows/maint-60-release.yml) |
 | **Maint 61 Release Please** (`maint-61-release-please.yml`, maintenance bucket) | `push` (`main`) | Open or update the release-please Release PR from Conventional Commits using the manifest seeded at `1.1.2`; merges create changelog updates, tags, and GitHub releases. | ⚪ Automatic on main | [Release Please runs](https://github.com/stranske/Workflows/actions/workflows/maint-61-release-please.yml) |
-| **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (`opened`, `reopened`, `synchronize`, `ready_for_review`); `pull_request_target` (`labeled`/`unlabeled` for `agent:` labels) | Evaluate protected workflow policy on every PR; fail only when protected `agents-*.yml` edits lack guardrails. | ✅ Commit status **`Health 45 Agents Guard / guard`** | [Agents Guard run history](https://github.com/stranske/Workflows/actions/workflows/agents-guard.yml) |
+| **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (`opened`, `reopened`, `synchronize`, `ready_for_review`); `pull_request_target` (`labeled`/`unlabeled` for `agent:` labels) | Evaluate protected-file policy on eligible events. Inspect failures for missing policy requirements or trusted registry evidence. | Policy status **`Health 45 Agents Guard / guard`** | [Agents Guard run history](https://github.com/stranske/Workflows/actions/workflows/agents-guard.yml) |
 | **Agents Auto-Label** (`agents-auto-label.yml`, agents bucket) | `issues` (`opened`) | Automatically apply semantic labels to new issues based on content analysis using label_matcher.py. | ⚪ Event-driven | [Auto-label runs](https://github.com/stranske/Workflows/actions/workflows/agents-auto-label.yml) |
 | **Agents Auto-Pilot** (`agents-auto-pilot.yml`, agents bucket) | `issues` (labeled `agents:auto-pilot`), `pull_request` | End-to-end automation orchestrator that chains format → optimize → agent → verify when `agents:auto-pilot` label is applied. | ⚪ Event-driven | [Auto-pilot runs](https://github.com/stranske/Workflows/actions/workflows/agents-auto-pilot.yml) |
 | **Capability Check** (`agents-capability-check.yml`, agents bucket) | `issues` (labeled `agents:capability-check`) | Pre-flight check before agent assignment to identify blockers like ambiguous scope or missing context. | ⚪ Event-driven | [Capability check runs](https://github.com/stranske/Workflows/actions/workflows/agents-capability-check.yml) |
@@ -829,7 +828,7 @@ snapshots for audit trails.
 | --- | --- | --- |
 | **Gate summary job (ruleset)** | `summary` | [Health 44 enforcement logs](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml), Checks tab → **summary** under **Required**, `.github/config/required-contexts.json`, [Policy quick reference](../AGENTS_POLICY.md#required-checks-and-status-contexts) |
 | **Gate (duplicate commit status)** | `Gate / gate` | Checks tab (posted by the summary job; not a substitute for the `summary` ruleset context) |
-| **Health 45 Agents Guard (agents-surface)** | `Health 45 Agents Guard / guard` | Checks tab on every PR, [Policy quick reference](../AGENTS_POLICY.md#required-checks-and-status-contexts) |
+| **Health 45 Agents Guard (agents-surface)** | `Health 45 Agents Guard / guard` | Checks tab for an eligible event, [Policy quick reference](../AGENTS_POLICY.md#required-checks-and-status-contexts) |
 
 - **Docs-only detection.** Lives exclusively inside Gate—there is no separate
   docs-only workflow.
@@ -843,10 +842,9 @@ snapshots for audit trails.
   **`summary`**, not on the duplicate context alone. **Health 45 Agents Guard /
   guard** is enforced separately on pull requests that touch protected agents
   workflow files.
-- **Code Owner reviews.** Enable **Require review from Code Owners** so changes
-  to `agents-63-issue-intake.yml` and
-  `agents-70-orchestrator.yml` stay maintainer gated on top of the immutable
-  guardrails.
+- **Code Owner reviews.** CODEOWNERS routes notifications. The Workflows main
+  ruleset requires zero approvals. Health 45 separately evaluates its own
+  protected-file requirements on eligible changes.
 - **Types.** When mypy is pinned, run it in the pinned interpreter only to avoid
   stdlib stub drift. `reusable-10-ci-python.yml` reads the desired version from
   `pyproject.toml` and guards the mypy step with
@@ -907,233 +905,54 @@ profile and actual limits. Expanded does not weaken completeness or CI floors.
   incident that requires running the branch-protection playbook.
 - The duplicate **`Gate / gate`** commit status may also appear (posted by the summary
   job); verify it is not the only configured ruleset requirement.
-- **`Health 45 Agents Guard / guard`** publishes on every pull request and reports
-  ✅ unless a protected workflow edit violates policy (separate from the universal
-  `summary` ruleset list).
+- On an eligible event, inspect the exact-head Health 45 result against the
+  [protected-file policy](../AGENTS_POLICY.md#how-to-verify-required-checks).
 - Maintainers can point to the most recent [Workflow System Overview](../ci/WORKFLOW_SYSTEM.md) update in pull-request history, demonstrating that contributors can discover the guardrails without escalation.
 - Gate runs and passes on docs-only PRs; the **`summary`** job reports success and
   satisfies the ruleset requirement.
-- Agents Guard blocks unauthorized agents workflow edits via **`Health 45 Agents
-  Guard / guard`** on every pull request.
 - Health 41 and Health 44 confirm the effective default-branch ruleset requires
   **`summary`** (per `.github/config/required-contexts.json`).
 - Gate publishes the consolidated summary. Find formatter commits and artifacts in the [Autofix caller](WORKFLOWS.md#autofix-routes).
 
 ### Required vs informational checks on `main`
 
-> **Quick reference.** The default-branch ruleset requires the **`summary`** job
-> context on every pull request before merge (see
-> `.github/config/required-contexts.json`). The same job also publishes the
-> duplicate **`Gate / gate`** commit status for compatibility; do not configure branch
-> protection to require only that duplicate. **Health 45 Agents Guard / guard** publishes
-> on every PR (separate from the universal ruleset list). Every new pull
-> request into `main` should show **`summary`** under **Required checks**—treat a
-> missing `summary` entry as an incident and follow the branch-protection playbook.
-
-> 📌 **Definition of done for branch protection.**
-> - **`summary`** remains required on every pull request before merge (universal ruleset).
-> - **`Gate / gate`** may appear alongside `summary` as the duplicate commit status the
->   summary job posts; it is not the configured ruleset requirement.
-> - For an eligible PR, inspect **`Health 45 Agents Guard / guard`** for the policy result.
-> - The Gate summary timeline comment and coverage rollups remain available for triage
->   after the required **`summary`** check passes.
-
-| Context | Workflow | Required before merge? | Where it appears |
-| --- | --- | --- | --- |
-| **Gate summary job** / `summary` | [`pr-00-gate.yml`](../../.github/workflows/pr-00-gate.yml), job `summary` | ✅ Required (ruleset) | Checks tab → **Required** section |
-| **Gate (duplicate commit status)** / `Gate / gate` | Same summary job | ⚪ Duplicate (not ruleset) | Checks tab (alongside or below `summary`) |
-| **Health 45 Agents Guard** / `Health 45 Agents Guard / guard` | [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) | Policy check for eligible PRs | Checks tab |
-| **Gate summary comment** | Gate summary job (`pr-00-gate.yml`, job `summary`) | ❌ Informational | Pull request timeline comment |
-
-> 🆔 **Status context names to copy exactly.**
-> - **Gate summary job** reports the ruleset context **`summary`**. The default-branch
->   ruleset requires this context on every pull request.
-> - The same job publishes the duplicate commit status **`Gate / gate`**. Verify it on
->   the Checks tab but do not select it *instead of* **`summary`** in branch protection.
-> - **Agents Guard** reports as **`Health 45 Agents Guard / guard`**. Describe it
->   separately from the universal **`summary`** ruleset requirement.
-> - Cross-reference the status strings in
->   [Agents Workflow Protection Policy](../AGENTS_POLICY.md#required-checks-and-status-contexts)
->   whenever you draft review notes or open incidents.
-> - The Gate summary job also posts a timeline comment anchored with
->   `<!-- gate-summary:` so reviewers have a consolidated roll-up beyond the required
->   **`summary`** check.
-
-> 🛠️ **Quick start routine.** To confirm the configuration end-to-end, (1) open
-> **Settings → Branches** (or the repository ruleset UI) and verify **`summary`** is
-> among the effective required status checks on `main`, matching
-> `.github/config/required-contexts.json`, (2) raise or refresh a pull request and
-> confirm **`summary`** appears under **Required checks**, and (3) optionally confirm
-> **`Gate / gate`** appears as the duplicate commit status without replacing `summary`
-> in the ruleset.
-
-> ✅ **What to expect in the UI.** The Checks tab shows **`summary`** under the
-> **Required** heading for every PR into `main`. **`Gate / gate`** may appear as an
-> additional check from the same job. **Health 45 Agents Guard / guard** also appears
-> when configured. The pull-request template links here so authors confirm **`summary`**
-> is green before requesting review. If the PR UI shows a grey “Required checks” pill
-> with no **`summary`** entry, refresh to ensure Gate reported in; a missing `summary`
-> badge signals the branch-protection incident called out below.
+| Context | What to inspect |
+| --- | --- |
+| `summary` | Gate’s aggregate job. The effective Workflows main ruleset requires this context. |
+| `Gate / gate` | Compatibility status posted by the Gate summary job. |
+| `Health 45 Agents Guard / guard` | On an eligible event, read the protected-file policy result for the exact head. A skip or absent status gives no Guard verdict. |
 
 #### UI reference: verifying new pull requests
 
-1. Open the pull request and expand the **Checks** tab.
-2. Confirm the **Required** subsection lists **`summary`** with either the
-   ✅ (passing) or ⏳ (pending) indicator, and **`Health 45 Agents Guard / guard`**
-   when branch protection lists it. **`Gate / gate`** may appear as the duplicate commit status.
-3. Return to the **Conversation** tab after merge to locate the
-   **Gate summary job summary** timeline comment. It includes links back to the
-   Gate run so reviewers can audit the enforcement trail without leaving the PR.
-
-> 🚨 **Missing `summary`? Treat it as a branch-protection incident.** If a freshly
-> opened or rebased pull request fails to list **`summary`** under **Required checks**,
-> stop and follow the [branch protection playbook](#branch-protection-playbook). The
-> ruleset may have been edited, or branch protection may incorrectly require only
-> **`Gate / gate`**—restore **`summary`** per `.github/config/required-contexts.json`.
->
-> ✍️ **Author checklist.** When you open or update a pull request, confirm the
-> Checks tab shows **`summary`** under **Required checks** before requesting review.
-> Confirm **`Health 45 Agents Guard / guard`** is green on protected workflow edits.
-
-> 🧭 **Maintainer routine.** Before merging, verify the Checks tab shows **`summary`**
-> green (or actively running) on every PR and **`Health 45 Agents Guard / guard`** on
-> protected edits when applicable. After the merge lands,
-> locate the **Gate summary job summary** comment in the timeline to confirm the
-> roll-up posted and links back to the passing Gate run.
-
-- **Required before merge.** The **`summary`** job context must finish green on every
-  pull request into `main`. Branch protection (ruleset) enforces this context and every
-  PR shows the check under **Required** in the Checks tab. **`Health 45 Agents Guard /
-  guard`** is published for eligible PRs (separate from the universal ruleset list).
-- **Duplicate and informational surfaces.** The summary job also posts **`Gate / gate`**
-  and a timeline comment. Those surfaces support triage; merges block on **`summary`**,
-  not on the duplicate context alone.
+Open the PR's **Checks** tab. Locate `summary` under **Required**. For a
+protected-file edit, open the selected Guard job and check which rule it
+evaluated. Fork status publication is a separate trusted workflow.
 
 ### How to verify required checks
 
-Use this quick routine when you need proof that branch protection still blocks
-on the correct statuses:
-
-*The canonical list of required contexts lives in*
-`./.github/config/required-contexts.json`. Update the JSON file when a status
-name changes—the Health 44 enforcer and the Gate summary job both read it, so a
-single edit keeps enforcement and reporting in sync.
-
-1. Open the latest [Health 44 Gate Branch Protection run](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml)
-   and download the `enforcement.json` / `verification.json` snapshots. They
-   list the enforced contexts—expect **`summary`** only in the universal ruleset list
-   (per `.github/config/required-contexts.json`). Health 41 compares the same JSON
-   against combined ruleset and classic-protection reads.
-2. Cross-check the snapshots against the Checks tab on a fresh pull request.
-   Look for **`summary`** under **Required checks**. On an eligible PR, inspect the separate **`Health 45 Agents Guard / guard`** result. Confirm **`Gate / gate`** is not substituting for `summary` in the
-   effective ruleset.
-3. If the contexts drift, follow the [branch protection playbook](#branch-protection-playbook)
-   to restore enforcement, then re-run Health 44 to capture the remediation
-   snapshot.
-
-Keep [Agents Workflow Protection Policy](../AGENTS_POLICY.md#how-to-verify-required-checks)
-handy for the enforcement allowlist, status-context reference, and the matching
-verification routine from the policy perspective. The policy section mirrors
-this checklist so contributors can jump between the topology view and the
-branch-protection rulebook without re-learning the terminology.
+Read the effective rules for `main` with `gh api repos/stranske/Workflows/rules/branches/main`.
+Compare the `required_status_checks` rule with
+[`required-contexts.json`](../../.github/config/required-contexts.json).
+The [policy verification procedure](../AGENTS_POLICY.md#how-to-verify-required-checks)
+also covers a skipped Guard evaluation and a Health 44 run without an artifact.
 
 ## Branch protection playbook
 
-1. **Confirm the default branch.**
-   - Health 44 resolves the branch name automatically through `repos.get`. No
-     manual input is required for scheduled runs.
-   - For ad-hoc verification, run `gh api repos/<owner>/<repo> --jq .default_branch`
-     or read the repository settings (currently `main`).
-2. **Verify enforcement credentials.**
-   - Create a fine-grained personal access token with
-     `Administration: Read and write` on the repository.
-   - Store it as the `BRANCH_PROTECTION_TOKEN` secret. With the token present,
-     Health 44 applies the branch protection before verifying. Without it the
-     workflow performs a read-only check, uploads an observer-mode summary, and
-     still fails if Gate is not required.
-3. **Configure branch protection manually when adjusting via the UI.**
-   - Navigate to **Settings → Branches → Add branch protection rule** and target
-     the default branch (`main`). Review [GitHub’s branch protection
-     guide](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-protected-branches)
-     if any UI labels change.
-   - Enable **Require status checks to pass before merging**, then select
-     **`summary`** (the Gate workflow job name). Use the filter box to type
-     `summary` so the correct context is highlighted, then click the entry until a
-     check mark appears. Preserve **`summary`** in the effective ruleset—do not
-     deselect it in favor of **`Gate / gate`**. Include **`Health 45 Agents Guard /
-     guard`** when your ruleset UI lists agents-surface enforcement.
-   - Enable **Require branches to be up to date before merging** to match the
-     automation policy.
-   - Click **Save changes**, then open or refresh a pull request aimed at
-     `main` to confirm the **Checks** tab shows **`summary`** under **Required
-     checks**. If only **`Gate / gate`** is required, restore **`summary`** to match
-     `.github/config/required-contexts.json`.
-4. **Run the enforcement script locally when needed.**
-   - `python tools/enforce_gate_branch_protection.py --repo <owner>/<repo> --branch <default-branch> --check`
-     reports the current status.
-   - Add `--require-strict` to fail if the workflow token cannot confirm
-     “Require branches to be up to date” (needs admin scope).
-   - Add `--apply` to enforce the rule locally (requires admin token in
-     `GITHUB_TOKEN`/`GH_TOKEN`). Use `--snapshot path.json` to capture
-     before/after state for change control.
-5. **Audit the result.**
-   - Health 44 uploads JSON snapshots (`enforcement.json`, `verification.json`)
-     mirroring the script output and writes a step summary when it runs in
-     observer mode.
-   - In GitHub settings (or rulesets), confirm that **`summary`** appears under
-     required status checks for `main`, matching `.github/config/required-contexts.json`.
-     **`Gate / gate`** may still post on PRs as the duplicate commit status.
-   - From the command line, run
-     `gh api repos/stranske/Workflows/rules/branches/main --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | unique'`
-     and expect `["summary"]`. For classic protection APIs, use
-     `gh api repos/<owner>/<repo>/branches/<default-branch>/protection/required_status_checks/contexts`.
-     Capture the JSON output when filing incident reports.
-6. **Trigger Health 44 on demand.**
-   - Kick a manual run with `gh workflow run "Health 44 Gate Branch Protection" --ref <default-branch>`
-     whenever you change branch-protection settings.
-   - Scheduled executions run daily at 06:00 UTC; a manual dispatch confirms the
-     fix immediately after you apply it.
-7. **Verify with a test PR.**
-   - Open a throwaway PR against the default branch and confirm that the Checks
-     tab shows **`summary`** under “Required checks” and **`Health 45 Agents Guard /
-     guard`** when listed for your branch rules.
-   - Seeing **`Gate / gate`** without **`summary`** in the ruleset is drift—repair
-     branch protection before merging production changes.
-   - Close the PR after verification to avoid polluting history.
+Use the [Agents Workflow Protection Policy](../AGENTS_POLICY.md#how-to-verify-required-checks)
+for the operator commands and expected contexts. Preserve the single required
+`summary` context when repairing the Workflows main ruleset. Read its strictness
+and PR approval settings from the same effective rules. The presence of a Guard
+result in the Checks tab shows that an event was evaluated.
 
 ### Recovery scenarios
 
-- **Health 44 fails because a required check is missing.**
-  1. Confirm you have access to an admin-scoped token (see step 2 above) and
-     re-run the workflow with the token configured.
-  2. If the failure persists, run `python tools/enforce_gate_branch_protection.py --check`
-     locally to inspect the status and `--apply` to restore both required
-     contexts.
-  3. Re-dispatch Health 44 to record the remediation snapshots and attach them to
-     the incident report.
-- **Required check accidentally removed during testing.**
-  1. Restore the branch-protection snapshot from the most recent successful
-     Health 44 run (download from the workflow artifact, then feed into
-     `--apply --snapshot` to replay).
-  2. Notify the on-call in `#trend-ci` so they can watch the next scheduled job
-     for regressions.
-  3. Open a short-lived PR targeting the default branch to confirm that the required `summary` context is restored. On an eligible PR, verify the Guard policy result separately.
-- **Gate summary job comment missing or stale.**
-  1. Visit the [Gate summary job workflow history](https://github.com/stranske/Workflows/actions/workflows/gate-summary.yml)
-     and verify a run triggered from the Gate success you just merged. `workflow_run`
-     events always list the source Gate run in the summary—expand it to confirm
-     the linkage.
-  2. If the run failed or never triggered, use **Re-run all jobs** on the
-     workflow page or dispatch it manually with `gh workflow run "Gate summary job" --ref <default-branch>`.
-     For manual dispatches, keep the default branch checked out so the summary
-     references the merged commit.
-  3. Once Gate summary job finishes, confirm the pull-request timeline shows the new
-     Gate summary job summary comment (with links back to the Gate run and reusable
-     matrix). If the comment is still absent, note the remediation in the
-     incident issue and ping `#trend-ci` for follow-up.
-     Gate summary job summary comment (with links back to the Gate run and reusable
-     matrix). If the comment is still absent, note the remediation in the
-     incident issue and ping `#trend-ci` for follow-up.
+- **Required check missing.** Check the effective rules and the Gate summary for
+  the current PR head. Inspect Health 44’s job and any uploaded evidence using the
+  [policy procedure](../AGENTS_POLICY.md#how-to-verify-required-checks).
+- **Gate summary missing or stale.** Open the originating Gate run and re-run its
+  failed jobs to regenerate the summary. Confirm the new attempt and head in the PR.
+- **Guard status missing.** Check the event, its eligibility, and the publisher
+  for the current head. Inspect the [trusted fork Guard publisher](../../.github/workflows/agents-guard-fork-status.yml) for a fork PR.
 
 ### Verifier corpus provenance
 

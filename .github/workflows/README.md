@@ -9,7 +9,7 @@ and naming rules in the [routing guide](../../docs/WORKFLOW_GUIDE.md).
 Core layers:
 - [Gate and its summary job](../../docs/ci/WORKFLOWS.md#gate-job-map) own PR testing and the required `summary` check.
 - [Minimal invariant CI](../../docs/ci/WORKFLOWS.md#minimal-invariant-ci) owns the supplemental syntax check and PR source-context report.
-- Agents 70 calls `reusable-70-orchestrator-init.yml` and `reusable-70-orchestrator-main.yml` for its scheduled and manual runs. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the issue bridge listens for `agent:codex` and hands issues to the orchestrator. Legacy consumer shims remain removed following Issue #2650.
+- Agents 70 calls `reusable-70-orchestrator-init.yml` and `reusable-70-orchestrator-main.yml` for its scheduled and manual runs. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; Agents 63 starts the issue bridge in invite mode. The issue author opens the PR from the posted compare link. Legacy consumer shims remain removed following Issue #2650.
 - Model-profile trial (`agents-model-profile-trial.yml` + `reusable-model-profile-trial.yml`): Workflows-only manual transport for one immutable, read-only Sol/Terra/Luna instrumentation arm. A separately pinned helper requires the target to equal current remote `main` before auth and uploads v2 quarantine telemetry with source-manifest and GitHub provenance. It has no commit, push, comment, auth-refresh, evaluator, provider-resolution, or ordinary Keepalive path.
 - PR metadata management (`agents-pr-meta.yml`): serializes Codex activation commands and PR body decoration through dedicated jobs that share a concurrency group keyed by PR number. This prevents marker thrash while keeping activation dispatch responsive.
 - Agents intake and orchestration use `agents-63-issue-intake.yml` for ChatGPT topic imports and `agents-70-orchestrator.yml` for readiness and bridge sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the intake workflow handles both label-triggered bridges and manual dispatch while keeping parsing and bridge logic centralised.
@@ -154,9 +154,10 @@ The lifecycle is:
 
 1. Create an issue via the Agent task template and capture background, goals,
    and guardrails.
-2. Once the issue is labelled `agent:codex`, `agents-63-issue-intake.yml` calls
-   `reusable-agents-issue-bridge.yml` to open or refresh the automation branch/PR
-   and post the boilerplate `@codex start` comment when configured.
+2. On an issue labelled `agent:codex`, Agents 63 calls the issue bridge.
+   In invite mode it prepares the branch and posts a compare link on the issue.
+   Open that link and create the PR as its author. In PR mode the bridge can
+   open or reuse a PR and post the configured agent comment.
 3. `agents-70-orchestrator.yml` (`schedule` shadow or manual `workflow_dispatch`)
    runs the readiness/bootstrap pipeline through its reusable init and main
    workflows.
@@ -175,7 +176,7 @@ preview; put bootstrap settings in `params_json`:
 Use `options_json` for advanced overrides. `dry_run` is independent of bootstrap
 toggles—a preview must pass `--raw-field dry_run=true` explicitly.
 
-The guard test `tests/test_workflow_agents_consolidation.py` enforces the
+The guard test `tests/workflows/test_workflow_agents_consolidation.py` enforces the
 single-entry topology and ensures documentation references remain in sync with
 the orchestrator inputs.
 
@@ -369,8 +370,10 @@ keepalive, and watchdog implementation for workflow-call reuse.
    `AUTOFIX_OPT_IN_LABEL`) are set.
 3. Review Gate and its integrated summary jobs on a recent PR to familiarise yourself
    with the consolidated reporting.
-4. Trigger a manual Agents 70 Orchestrator preview (`dry_run=true`) to observe
-   readiness output and ensure secrets resolve.
+4. Use the manual bootstrap preview above to inspect the selected stages.
+   To select the separate readiness probe, set `"enable_readiness": true` in
+   `params_json` and inspect the readiness job for the result. The probe can
+   create and close a real issue even with `dry_run=true`.
 5. Consult `docs/ci/WORKFLOWS.md` for the authoritative workflow roster before
    adding or renaming jobs.
 
