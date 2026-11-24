@@ -8,6 +8,7 @@ const {
   snapshotOrchestratorRuns,
   dispatchOrchestrator,
   confirmDispatch,
+  runKeepaliveOrchestrator,
   dispatchKeepaliveCommand,
 } = require('../agents_pr_meta_orchestrator');
 
@@ -117,6 +118,7 @@ test('dispatchOrchestrator posts workflow dispatch with keepalive inputs', async
   assert.equal(result.ok, true);
   assert.equal(received.workflow_id, 'agents-70-orchestrator.yml');
   assert.equal(received.ref, 'main');
+  assert.equal(received.return_run_details, true);
   assert.equal(received.inputs.keepalive_enabled, 'true');
   assert.equal(received.inputs.pr_number, '34');
   const params = JSON.parse(received.inputs.params_json);
@@ -129,6 +131,55 @@ test('dispatchOrchestrator posts workflow dispatch with keepalive inputs', async
   assert.equal(options.keepalive_trace, 'trace-123');
   assert.equal(options.keepalive_instruction, 'Instruction text');
 });
+
+for (const runId of [41966561287, undefined, 0, '41966561287']) {
+  test(`200 dispatch response uses only a valid numeric run ID (${runId})`, async () => {
+    const reads = [];
+    const commands = [];
+    let posts = 0;
+    const inputs = {
+      issue: 4368, prNumber: 4445, branch: 'feature', base: 'main', round: 1,
+      trace: 'trace', commentId: 123, commentUrl: 'https://example.test/comment/123',
+      instructionBody: 'Review the change',
+    };
+    const github = {
+      rest: {
+        reactions: { async createForIssueComment() {} },
+        actions: {
+          async listWorkflowRuns() {
+            reads.push('list');
+            assert.equal(reads.length, 1, 'an HTTP 200 response must not start polling');
+            return { data: { workflow_runs: [] } };
+          },
+          async createWorkflowDispatch({ return_run_details: details }) {
+            posts += 1;
+            assert.equal(details, true);
+            return { status: 200, data: { workflow_run_id: runId, html_url: 'https://example.test/run' } };
+          },
+        },
+        repos: { async createDispatchEvent(command) { commands.push(command); } },
+      },
+    };
+    const result = await runKeepaliveOrchestrator({
+      github, context: baseContext, core: makeCore(), inputs, secrets: { AGENTS_AUTOMATION_PAT: true },
+    });
+    assert.equal(posts, 1);
+    assert.equal(reads.length, 1);
+
+    if (runId === 41966561287) {
+      assert.deepEqual(result, {
+        ok: true, reason: 'ok', runId: '41966561287', runUrl: 'https://example.test/run',
+      });
+      assert.equal(commands.length, 1);
+      assert.equal(commands[0].client_payload.issue, inputs.prNumber);
+      assert.equal(commands[0].client_payload.meta.comment_id, inputs.commentId);
+      assert.equal(commands[0].client_payload.instruction_body, inputs.instructionBody);
+    } else {
+      assert.deepEqual(result, { ok: false, reason: 'dispatch-unconfirmed' });
+      assert.deepEqual(commands, []);
+    }
+  });
+}
 
 test('dispatchOrchestrator retries transient errors before succeeding', async () => {
   const originalSetTimeout = global.setTimeout;
