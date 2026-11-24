@@ -155,6 +155,7 @@ Historical snapshots from the December 2025–January 2026 audit cycle. Monthly 
 
 - [Branch-Sync Automation Gaps](keepalive/BranchSyncAutomationGaps.md)
 - [Gap Assessment](keepalive/GapAssessment.md)
+- [Keepalive Reliability Plan](keepalive/Keepalive_Reliability_Plan.md) records the original design. See the [original revision][keepalive-reliability-original], [current integration guide](../keepalive/Keepalive_Integration.md), and [observability contract](../keepalive/Observability_Contract.md).
 - [Progress Log](keepalive/ProgressLog.md)
 - [Sync Checklist](keepalive/SyncChecklist.md)
 
@@ -232,3 +233,5 @@ Omit the final pipe to read the document.
   git show "${revision}:docs/ci/${filename}" | shasum -a 256
 )
 ```
+
+[keepalive-reliability-original]: https://github.com/stranske/Workflows/blob/36590718b0222de4cbb27ec7b5a4ddd93dbb3e17/docs/keepalive/Keepalive_Reliability_Plan.md
