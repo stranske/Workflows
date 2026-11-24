@@ -96,38 +96,38 @@ enforce the following four-event behavior:
      `.github/scripts/keepalive_gate.js`, `.github/scripts/agents-guard.js`, and
      operator runbooks) so removal or restoration does not strand dispatches or
      violate guard contracts.
-  3. **Explicit maintainer disposition** via a tracked issue and Code
-     Owner-approved pull request carrying `agents:allow-change`. Until that
-     decision lands, `agents-70-orchestrator.yml` remains protected under this
-     policy.
+  3. **Explicit maintainer disposition** in a tracked issue, with the
+     resulting pull request following the applicable Health 45 controls.
+     Until the decision lands, `agents-70-orchestrator.yml` remains
+     protected under this policy.
 
 ## Protection layers
 
-1. **CODEOWNERS gate** – the files above are owned by `@stranske` in
-   [`.github/CODEOWNERS`](../.github/CODEOWNERS). This policy requires Code
-   Owner approval before merging changes to any covered file. **Require review
-   from Code Owners** is the corresponding GitHub setting for automatic
-   enforcement.
+1. **CODEOWNERS notifications** – GitHub uses
+   [`.github/CODEOWNERS`](../.github/CODEOWNERS) to notify listed owners.
+   Workflows requires zero approving reviews and has no GitHub Code Owner
+   review requirement on `main`. The guard can read the same file for its
+   own authorization decisions on eligible protected-file changes. For
+   a receiving repository, verify its own effective review rules.
 2. **Repository branch rules** – the effective rules for `main` include branch
    deletion and non-fast-forward protection. The live branch readback below
    shows which ruleset supplied each rule. A branch deletion rule applies to
    the branch ref. File-level delete and rename enforcement for the covered
    workflows is the job of the CI guard and this policy.
 3. **CI guardrail** – the `Health 45 Agents Guard` check (see
-   `.github/workflows/agents-guard.yml`) fails any pull request that modifies,
-   deletes, or renames a protected file without the required label and
-   approvals. The only guard-level review exception is for dependency-only
-   `uses: owner/action@ref` updates on protected workflows when the PR has
-   `agents:allow-change` and is authored by Dependabot, Renovate, or a
-   repository owner/member/collaborator. This exception affects the guard
-   verdict only. The Code Owner approval policy and other required merge
-   reviews still apply.
+   `.github/workflows/agents-guard.yml`) applies its file and authorization
+   controls to eligible pull requests. For protected modifications, it accepts
+   Code Owner authorship or approval. It also accepts dependency-only
+   `uses: owner/action@ref` updates carrying `agents:allow-change` when the
+   author is Dependabot, Renovate, or a repository owner, member, or
+   collaborator. A label alone cannot authorize other protected edits.
+   The guard separately reports prohibited deletions or renames.
 4. **GitHub required status checks** – the active default-branch ruleset
    requires the Gate aggregate job `summary`. GitHub reports strict
    required-status-check enforcement disabled. GitHub's separate pull-request
    rule currently reports `require_code_owner_review: false` and
-   `required_approving_review_count: 0`. Protected-file labels, approvals,
-   and the guard verdict still apply under this policy.
+   `required_approving_review_count: 0`. Evaluate protected changes using
+   the applicable Health 45 controls above.
 
 ## Required checks and status contexts
 
@@ -178,8 +178,8 @@ enforce the following four-event behavior:
    Record absent artifacts explicitly. Ask a repository maintainer to
    reconcile the discrepancy and repeat the readback.
 3. On the PR, confirm that `summary` succeeded on its current head. For a
-   protected-file change, separately verify the required label, Code Owner
-   approval, and Health 45 verdict on that head. Open the `guard` job from the
+   protected-file change, verify the applicable Health 45 authorization
+   and verdict on that head. Open the `guard` job from the
    canonical [Health 45 run](https://github.com/stranske/Workflows/actions/workflows/agents-guard.yml).
    Set `guard_job_id` and `guard_run_id` from the job URL and `pr_number`
    from the pull request URL.
@@ -227,12 +227,8 @@ When one of these scenarios applies:
    **after** confirming the change reason fits the allowlist.
 3. Ensure the PR body includes the incident or policy context plus rollback
    steps.
-4. Secure Code Owner approval before merging changes to covered files. The
-   guard can pass before that approval if all protected workflow changes are
-   limited to `uses: owner/action@ref` reference updates, the PR has
-   `agents:allow-change`, and the author is Dependabot, Renovate, or a
-   repository owner/member/collaborator. That guard exception leaves Code
-   Owner approval and other merge review obligations in force.
+4. Verify the Health 45 result when its protected-file evaluation applies.
+   Act on any remaining guard finding using the controls above.
 5. Remove the label once merged so the guardrail resumes full enforcement on
    future PRs.
 
@@ -244,8 +240,8 @@ When one of these scenarios applies:
    blocks the required action. Only a maintainer with admin access may
    temporarily adjust that rule or apply a bypass. Handle the independent
    Health 45 verdict through its documented policy.
-3. Apply and review the change in a dedicated pull request. Code Owner approval
-   remains required even when a maintainer performs the edits.
+3. Apply the change in a dedicated pull request and verify the applicable
+   Health 45 and Gate results.
 4. Restore any controls changed for the override immediately after the change
    merges. Document the incident and restoration steps in the associated issue
    or runbook entry.
@@ -255,10 +251,10 @@ When one of these scenarios applies:
 - **Guard check failing for “missing agents:allow-change label”.** Add the label
   (maintainers only) or revert the workflow edits. The check re-evaluates once
   the label is present.
-- **Code Owner approval still pending.** Ask the Code Owner listed in
-  `.github/CODEOWNERS` (`@stranske`) for approval before merging a change to a
-  covered file. A pending review or a successful guard verdict leaves that
-  approval outstanding.
+- **Health 45 blocks a protected edit.** Read the exact-head evaluation
+  and follow the applicable authorization or file-restoration path in the
+  verdict. If the change cannot be made within that path, record the
+  guard failure and leave the protected change unmerged.
 - **Ruleset rejection on push.** Confirm you are operating on a maintainer-owned
   branch or request a maintainer to apply a temporary bypass while they assist
   with the change.
@@ -273,8 +269,8 @@ When one of these scenarios applies:
 ## Verification checklist
 
 - The effective default-branch rules match the checked-in required contexts.
-  For protected-file changes, separately verify the label, Code Owner
-  approval, and the Health 45 verdict.
+  For protected-file changes, verify the applicable authorization and
+  Health 45 verdict separately.
 - Record the effective branch rule types and source. For a covered-file
   change, confirm the protected-file evaluation step ran on the exact PR head
   and verify the verdict against the changed paths.
