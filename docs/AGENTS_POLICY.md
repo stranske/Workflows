@@ -49,24 +49,23 @@ reintroduced.
 ## Agents 70 Orchestrator event eligibility and shadow mode
 
 [`.github/workflows/agents-70-orchestrator.yml`](../.github/workflows/agents-70-orchestrator.yml)
-declares four triggers under `on:`, but `jobs.eligibility`
-(`.github/actions/agent-event-eligibility`) and `jobs.init`
-(`if: needs.eligibility.outputs.should_run == 'true'`, calling
-[`.github/workflows/reusable-70-orchestrator-init.yml`](../.github/workflows/reusable-70-orchestrator-init.yml))
-enforce the following four-event behavior:
+declares `schedule` and `workflow_dispatch`. The eligibility action
+(`expected-actions: workflow_dispatch,schedule`) checks events before
+`jobs.init`, which calls
+[`.github/workflows/reusable-70-orchestrator-init.yml`](../.github/workflows/reusable-70-orchestrator-init.yml).
 
-| Event | Declared in `on:`? | `jobs.eligibility` (`expected-actions: workflow_dispatch,schedule`) | Reaches `jobs.init` / `jobs.main`? | `jobs.init` `dry_run` behavior |
-| --- | --- | --- | --- | --- |
-| `schedule` (`*/30 * * * *`) | Yes | **Admitted** (`should_run == 'true'`) | Yes | **Forced dry-run shadow** (`'true'` via `(github.event_name == 'schedule' \|\| github.event_name == 'workflow_run') && 'true'`) |
-| `workflow_dispatch` | Yes | **Admitted** (`should_run == 'true'`) | Yes | **Input-controlled** (`github.event.inputs.dry_run`, default `'false'`; manual runs can execute live writes when `dry_run=false`) |
-| `workflow_run` (`Gate` `completed`) | Yes | **Denied before `init`** (`should_run != 'true'`) | No | Not reached (`init.with.dry_run` still mentions `workflow_run`, but `eligibility` blocks the event before `init`) |
-| `repository_dispatch` (`agents-orchestrator-ping`) | Yes | **Denied before `init`** (`should_run != 'true'`) | No | Not reached (`init.with` still contains `repository_dispatch` payload expressions, but `eligibility` blocks the event before `init`) |
+| Event | Trigger and behavior |
+| --- | --- |
+| `schedule` (`*/30 * * * *`) | Runs the shadow preview with forced `dry_run=true`, including the scheduled credential-budget probe. |
+| `workflow_dispatch` | Preserves operator and PR-meta calls. `inputs.dry_run` defaults to `'false'`; operators can request a preview. |
+| `workflow_run` (`Gate` `completed`) | The shared `agents-keepalive-loop.yml` handles the event. The old Agents 70 registration reached only the eligibility job. |
+| `repository_dispatch` (`agents-orchestrator-ping`) | The former registration was denied before `jobs.init`; callers use the `workflow_dispatch` inputs above. |
 
 ### Shadow rationale and undecided retirement decision
 
 - **Shadow rationale (historical attribution qualified).** Inline comments at
-  `.github/workflows/agents-70-orchestrator.yml:108-112` describe the `schedule`
-  `dry_run=true` clause as the A1 orchestrator-retirement shadow (historically
+  the original Agents 70 workflow describe scheduled `dry_run=true` as the A1
+  orchestrator-retirement shadow (historically
   attributed to commit `0ecdff0f3` / PR `#2351`; this attribution is qualified to
   authored git/workflow history until runtime shadow coverage is independently
   verified). The shadow forces scheduled orchestrator runs to execute without
@@ -258,13 +257,11 @@ When one of these scenarios applies:
 - **Ruleset rejection on push.** Confirm you are operating on a maintainer-owned
   branch or request a maintainer to apply a temporary bypass while they assist
   with the change.
-- **Unexpected orchestrator no-op on `workflow_run` or `repository_dispatch`.**
-  `agents-70-orchestrator.yml` admits only `workflow_dispatch` and `schedule` in
-  `jobs.eligibility`; `workflow_run` and `repository_dispatch` are denied before
-  `jobs.init`, and `schedule` runs force `dry_run=true`. Use manual
-  `workflow_dispatch` (with `dry_run=false` when live writes are intended) or
-  inspect `agents-keepalive-loop.yml` / `agents-keepalive-sweep.yml` for
-  keepalive progression.
+- **Troubleshooting a Gate or repository event.** Inspect the shared
+  `agents-keepalive-loop.yml` for Gate completions and
+  `agents-keepalive-sweep.yml` for scheduled recovery. Agents 70 accepts
+  `workflow_dispatch` for manual and PR-meta calls, and its `schedule` runs
+  with `dry_run=true` for the credential-budget probe and preview.
 
 ## Verification checklist
 

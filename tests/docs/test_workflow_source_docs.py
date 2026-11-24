@@ -82,19 +82,11 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
     )
     agents70_events = agents70.get("on") or agents70.get(True) or {}
     declared_events = set(agents70_events)
-    assert declared_events == {
-        "schedule",
-        "workflow_dispatch",
-        "workflow_run",
-        "repository_dispatch",
-    }
+    assert declared_events == {"schedule", "workflow_dispatch"}
     assert agents70_events["schedule"] == [{"cron": "*/30 * * * *"}]
     assert (
         str(agents70_events["workflow_dispatch"]["inputs"]["dry_run"]["default"]).lower() == "false"
     )
-    assert agents70_events["workflow_run"]["workflows"] == ["Gate"]
-    assert agents70_events["workflow_run"]["types"] == ["completed"]
-    assert agents70_events["repository_dispatch"]["types"] == ["agents-orchestrator-ping"]
 
     eligibility_steps = agents70["jobs"]["eligibility"]["steps"]
     eligibility_step = next(step for step in eligibility_steps if step.get("id") == "eligibility")
@@ -104,20 +96,15 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
         if item.strip()
     }
     custom_predicate = eligibility_step["with"]["custom-predicate"]
-    assert expected_actions == {"workflow_dispatch", "schedule"}
+    assert expected_actions == declared_events
     assert "event_name == 'workflow_dispatch' || event_name == 'schedule'" in custom_predicate
-    denied_events = declared_events - expected_actions
-    assert denied_events == {"workflow_run", "repository_dispatch"}
 
     init_job = agents70["jobs"]["init"]
     assert init_job["needs"] == "eligibility"
     assert init_job["if"] == "needs.eligibility.outputs.should_run == 'true'"
     dry_run_expr = init_job["with"]["dry_run"]
-    assert (
-        "(github.event_name == 'schedule' || github.event_name == 'workflow_run') && 'true'"
-        in dry_run_expr
-    )
-    assert "github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run" in dry_run_expr
+    assert "github.event_name == 'schedule' && 'true'" in dry_run_expr
+    assert "github.event.inputs.dry_run" in dry_run_expr
 
     keepalive_loop = yaml.safe_load(
         (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
@@ -181,10 +168,7 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
         in workflows_doc
     )
 
-    # All four docs (AGENTS_POLICY, WORKFLOWS, WORKFLOW_SYSTEM, WORKFLOW_GUIDE) must align on
-    # the four declared events, eligibility denial before init, forced scheduled dry_run shadow,
-    # input-controlled workflow_dispatch, qualified 0ecdff0f3 attribution, keepalive loop/sweep
-    # citations, authored-vs-observed separation, and the undecided retirement question.
+    # The remaining triggers, preview override, and shared keepalive routes are public contracts.
     for doc_name, content in (
         ("docs/AGENTS_POLICY.md", policy),
         ("docs/ci/WORKFLOWS.md", workflows_doc),
@@ -199,27 +183,21 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
         ), f"{doc_name} must cite eligibility expected-actions"
         assert (
             "before `jobs.init`" in normalized or "before `init`" in normalized
-        ), f"{doc_name} must state denied events stop before init"
+        ), f"{doc_name} must document eligibility before init"
         assert (
             "dry_run=true" in normalized or "Forced dry-run shadow" in normalized
         ), f"{doc_name} must document scheduled dry-run shadow behavior"
         assert (
             "inputs.dry_run" in normalized or "github.event.inputs.dry_run" in normalized
         ), f"{doc_name} must document input-controlled workflow_dispatch dry_run"
-        assert "0ecdff0f3" in normalized, f"{doc_name} must cite 0ecdff0f3"
-        assert "qualified" in normalized, f"{doc_name} must qualify 0ecdff0f3 attribution"
         assert (
             "agents-keepalive-loop.yml" in normalized
         ), f"{doc_name} must cite agents-keepalive-loop.yml"
         assert (
             "agents-keepalive-sweep.yml" in normalized
         ), f"{doc_name} must cite agents-keepalive-sweep.yml"
-        assert (
-            "production liveness" in normalized
-        ), f"{doc_name} must separate authored source from production liveness"
-        assert (
-            "undecided" in normalized
-        ), f"{doc_name} must retain the undecided retirement question"
+    for historical_policy_phrase in ("0ecdff0f3", "qualified", "production liveness", "undecided"):
+        assert historical_policy_phrase in re.sub(r"\s+", " ", policy)
 
 
 def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
