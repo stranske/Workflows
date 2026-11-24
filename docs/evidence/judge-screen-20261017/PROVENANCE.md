@@ -21,7 +21,12 @@ The [offline archive](approval-set-57.tar.gz) holds exact copies of the three re
   directory=docs/evidence/judge-screen-20261017
   packet=$directory/approval-set-57.tar.gz
   printf '%s  %s\n' 33896497b671e25380b8c139a398d44a2720cfab6dc192972fc1c7a8617a4f58 "$packet" | shasum -a 256 -c -
-  recovered=$(mktemp -d "${TMPDIR:-/tmp}/workflows-ensemble-reports.XXXXXXXX")
+  temp_root=${TMPDIR:-/tmp}
+  case "$temp_root" in
+    /*) ;;
+    *) temp_root=$checkout/$temp_root ;;
+  esac
+  recovered=$(mktemp -d "$temp_root/workflows-ensemble-reports.XXXXXXXX")
   output=$recovered/$directory
   mkdir -p "$output"
   tar --strip-components=1 -xpzf "$packet" -C "$output" \
