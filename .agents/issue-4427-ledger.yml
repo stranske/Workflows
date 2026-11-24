@@ -13,7 +13,7 @@ tasks:
   notes:
   - 'Investigation complete: Workflows pins pytest==9.2.0; the original 9.1.1 install
     was consumer-owned pages-wasm-demo.yml at 73120b9a594e, not a Maint 68 target.
-    Evidence: docs/ops/issue-4427-wasm-pytest-handoff.md.'
+    Evidence: https://github.com/stranske/Workflows/blob/4806e0de3b577327c1deee4d853481497cba3860/docs/ops/issue-4427-wasm-pytest-handoff.md.'
 - id: task-01
   title: Fix the source configuration in `pyproject.toml` so the WASM workflow's pytest pin
     matches the development dependency.
