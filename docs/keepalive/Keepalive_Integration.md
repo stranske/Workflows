@@ -21,26 +21,15 @@ Notes:
 - Warning thresholds are evaluated by ratio or remaining minutes. If either threshold is met,
   a warning is emitted in the keepalive summary and action logs.
 
-## Workflow Inputs
+## Manual runs
 
-Manual runs can override the configuration with workflow inputs:
-
-- `timeout_minutes` - overrides the full timeout for the run.
-- `timeout_warning_ratio` - overrides the warning threshold ratio.
-- `timeout_warning_minutes` - overrides the warning threshold for remaining minutes.
-
-Example workflow dispatch inputs:
-
-```yaml
-timeout_minutes: 75
-timeout_warning_ratio: 0.8
-timeout_warning_minutes: 10
-```
+Manual runs of Keepalive Loop and Gate Followups use the repository variables above.
+Set them on the repository before dispatching the workflow. The `timeout:extended`
+label selects the extended duration.
 
 ## How Warnings Work
 
-Keepalive computes elapsed time based on the workflow run start time (or an explicit `elapsed_ms`
-input) and compares it to the resolved timeout.
+Keepalive computes elapsed time from the workflow run start time and compares it to the resolved timeout.
 Warnings appear when:
 
 - elapsed time reaches 80% of the configured timeout, or
