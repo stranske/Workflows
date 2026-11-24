@@ -115,7 +115,9 @@ for (const source of sources) {
   test(`${source}: the exact Gate extension preserves manual classification`, async () => {
     const prefix = 'run-name: ${{ ';
     const gate = "(github.event_name == 'workflow_run' && format('keepalive-gate/v1 run={0} attempt={1} pr={2}', github.event.workflow_run.id, github.event.workflow_run.run_attempt, github.event.workflow_run.pull_requests[0].number || 'unbound')) || ";
-    const extend = (text, expression = gate) => text.replace(prefix, prefix + expression);
+    const extend = (text, expression = gate) => text
+      .replace(prefix + gate, prefix)
+      .replace(prefix, prefix + expression);
     const lookupTarget = async () => null;
     const original = 'keepalive-dispatch/v2 ordinary pr=1738';
     const approved = setup(source, original, {}, extend);
