@@ -124,6 +124,7 @@ async function dispatchOrchestrator({github, context, core, inputs}) {
     repo,
     workflow_id: workflowId,
     ref,
+    return_run_details: true,
     inputs: {
       keepalive_enabled: 'true',
       params_json: JSON.stringify(params),
@@ -138,8 +139,21 @@ async function dispatchOrchestrator({github, context, core, inputs}) {
     let lastError;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        await client.rest.actions.createWorkflowDispatch(dispatchPayload);
+        const response = await client.rest.actions.createWorkflowDispatch(dispatchPayload);
         core.info(`Dispatched ${workflowId} (${label}) for keepalive (pr=${prValue || 'n/a'}, trace=${trace || '-'}).`);
+        if (response?.status === 200) {
+          const runId = response.data?.workflow_run_id;
+          if (!Number.isSafeInteger(runId) || runId <= 0) {
+            core.warning('Workflow dispatch returned success without a valid run ID.');
+            return { ok: false, reason: 'dispatch-unconfirmed' };
+          }
+          return {
+            ok: true,
+            reason: 'ok',
+            runId: String(runId),
+            runUrl: typeof response.data.html_url === 'string' ? response.data.html_url : '',
+          };
+        }
         return { ok: true, reason: 'ok' };
       } catch (error) {
         lastError = error;
@@ -408,14 +422,21 @@ async function runKeepaliveOrchestrator({github, context, core, inputs, secrets}
     return { ok: false, reason: dispatchResult.reason };
   }
 
-  // Step 5: Confirm dispatch
-  const confirmResult = await confirmDispatch({
-    github, context, core,
-    baselineIds: snapshot.ids,
-    baselineTimestamp: snapshot.timestamp,
-    prNumber: Number(prNumber),
-    trace,
-  });
+  // Step 5: Prefer the run identified by GitHub's dispatch response.
+  // Clients returning the legacy no-content response still use the existing readback.
+  let confirmResult;
+  if (dispatchResult.runId) {
+    core.info(`DISPATCH_CONFIRMED: run ${dispatchResult.runId} (workflow-dispatch response)`);
+    confirmResult = { ...dispatchResult, confirmed: true };
+  } else {
+    confirmResult = await confirmDispatch({
+      github, context, core,
+      baselineIds: snapshot.ids,
+      baselineTimestamp: snapshot.timestamp,
+      prNumber: Number(prNumber),
+      trace,
+    });
+  }
 
   if (!confirmResult.confirmed) {
     return { ok: false, reason: confirmResult.reason };
