@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import asdict
@@ -185,11 +186,15 @@ def test_cli_records_per_criterion_failure_and_prepends_prompt(tmp_path):
 def test_stop_condition_refuses_failing_gate():
     """Exercise the JS stop path through the real Python extractor (mutation gate)."""
     repo = Path(__file__).resolve().parents[2]
+    test_name = (
+        "deterministic failing gate refuses tasks-complete and supplies failure to next round"
+    )
     result = subprocess.run(
         [
             "node",
             "--test",
-            "--test-name-pattern=deterministic failing gate",
+            "--test-reporter=tap",
+            f"--test-name-pattern=^{re.escape(test_name)}$",
             ".github/scripts/__tests__/keepalive-loop.test.js",
         ],
         cwd=repo,
@@ -199,6 +204,18 @@ def test_stop_condition_refuses_failing_gate():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+    # An unmatched filter can report a passing file-level subtest.
+    lines = result.stdout.splitlines()
+    passed_test = re.compile(rf"ok [0-9]+ - {re.escape(test_name)}")
+    if (
+        lines.count(f"# Subtest: {test_name}") != 1
+        or sum(passed_test.fullmatch(line) is not None for line in lines) != 1
+    ):
+        pytest.fail(
+            f"Expected exactly one passing Node testcase named {test_name!r}:\n"
+            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
 
 
 @pytest.mark.parametrize(

@@ -163,3 +163,13 @@ test('denies forbidden labels before expected label allow-list', () => {
   assert.equal(result.shouldRun, false);
   assert.equal(result.matchedLabel, 'needs-human');
 });
+
+test('consumer eligibility action matches the hosted action', () => {
+  const root = path.resolve(__dirname, '../../..');
+  const action = '.github/actions/agent-event-eligibility';
+  for (const file of ['action.yml', 'eligibility.js']) {
+    const hosted = fs.readFileSync(path.join(root, action, file));
+    const consumer = fs.readFileSync(path.join(root, 'templates/consumer-repo', action, file));
+    assert.ok(hosted.equals(consumer), `Eligibility action mirror differs for ${file}`);
+  }
+});

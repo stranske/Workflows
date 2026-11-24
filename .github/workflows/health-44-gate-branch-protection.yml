@@ -21,7 +21,8 @@ env:
   SNAPSHOT_DIR: gate-branch-protection
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Called runs inherit the parent workflow name. Give Health 44 its own group.
+  group: health-44-gate-branch-protection-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

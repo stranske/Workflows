@@ -27,6 +27,90 @@ markers were changed.
 | #4231 | 40143755394 / 12579928048 | `c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58` |
 | #4235 | 40155311407 / 12584318436 | `526dcef67f26160ece176b800e7a4d18a2e6d6883d7a2e4294b07570570486ab` |
 
+## Original state comments
+
+The #4231 and #4235 tests read the two original state comments from each
+`authenticated-readback.json` under `history`. PR [#4409](https://github.com/stranske/Workflows/pull/4409)
+switched these tests to the authenticated history, which also preserves the
+comment and GitHub App identities. The #4238 provenance test reads its own
+`4238-retained-states.json`.
+
+From the repository root, this offline command reconstructs both former loose
+copies, verifies their SHA-256 hashes, and prints where it saved them:
+
+```bash
+python3 -B - <<'PYTHON'
+import hashlib
+import json
+from pathlib import Path
+from tempfile import mkdtemp
+
+fixtures = Path("tests/fixtures/verification_input_repair")
+expected = {
+    4231: "2c3766faa0a1d34f5d9bfad086252412a555ed5bf8982efc2ea8bf3198877320",
+    4235: "105e90a7ca27d3b2d5927f2c0e8c2777ea522247f706f85185a671f03e21b78d",
+}
+output = Path(mkdtemp(prefix="retained-states-"))
+for target, digest in expected.items():
+    source = fixtures / f"{target}-original/authenticated-readback.json"
+    history = json.loads(source.read_text(encoding="utf-8"))["history"]
+    records = [
+        {"url": row["html_url"], "author": row["user"]["login"],
+         "body": row["body"], "truncated": False}
+        for row in history
+    ]
+    path = output / f"{target}-retained-states.json"
+    path.write_bytes(json.dumps(records, indent=1).encode("utf-8"))
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != digest:
+        raise SystemExit(f"{target}: SHA-256 mismatch: {actual}")
+    print(f"{target} {actual}")
+print(f"Verified copies: {output}")
+PYTHON
+```
+
+The immutable originals are [#4231](https://github.com/stranske/Workflows/blob/ed496b6d7285fbc13df916b4d1cc1af8ae6f44b9/tests/fixtures/verification_input_repair/4231-retained-states.json)
+and [#4235](https://github.com/stranske/Workflows/blob/ed496b6d7285fbc13df916b4d1cc1af8ae6f44b9/tests/fixtures/verification_input_repair/4235-retained-states.json).
+
+## Historical receipt archive
+
+The [historical archive](../../../docs/evidence/verification-input-repair-history.tar.gz)
+preserves each receipt’s original bytes and collection context. The immutable
+originals and member checksums are below.
+
+| Original receipt | SHA-256 |
+| --- | --- |
+| [November 2 digest gate](https://github.com/stranske/Workflows/blob/518e45d686b7f732372ab9d67e6f9e6d1cb5e0eb/tests/fixtures/verification_input_repair/2026-11-02-digest-gate.json) | `844a13d4a16e2d887cf70811e5430f2e41e0b7dd2f63135b9a4018e3fcab76bf` |
+| [November 2 live acceptance](https://github.com/stranske/Workflows/blob/518e45d686b7f732372ab9d67e6f9e6d1cb5e0eb/tests/fixtures/verification_input_repair/2026-11-02-live-receipts.json) | `7b018ddab2e70a34353f800adba6f55542ca3c85c2c0a7384e763054a27c672e` |
+| [November 6 offline classifier](https://github.com/stranske/Workflows/blob/e99195408b0d916c14c2c2f34a4b7a0a91ef8fb9/tests/fixtures/verification_input_repair/2026-11-06-expiry-receipts.json) | `b23979fec619213e0b061ff8cb321b552fe284d9e9286ca278963c81dec421cc` |
+
+Run from the repository root to verify the archive and recover the three
+receipts into a new temporary directory:
+
+```bash
+python3 -B - <<'PYTHON'
+from hashlib import sha256
+from io import BytesIO
+from pathlib import Path
+from tarfile import open as open_tar
+from tempfile import mkdtemp
+
+packet = Path("docs/evidence/verification-input-repair-history.tar.gz").read_bytes()
+if sha256(packet).hexdigest() != "d37e05f0be72c7c02fc0a47792426f3d9437a6efa7243849050745e39db5df09":
+    raise SystemExit("Historical receipt archive SHA-256 mismatch")
+output = Path(mkdtemp(prefix="verifier-receipts-"))
+with open_tar(fileobj=BytesIO(packet), mode="r:gz") as archive:
+    for name in (
+        "2026-11-02-digest-gate.json",
+        "2026-11-02-live-receipts.json",
+        "2026-11-06-expiry-receipts.json",
+    ):
+        with archive.extractfile(name) as member:
+            (output / name).write_bytes(member.read())
+print(f"Verified receipts: {output}")
+PYTHON
+```
+
 ## Operational acceptance, checked 2026-11-02 America/Chicago
 
 Before editing, the recorded real-input acceptance command was
@@ -35,7 +119,7 @@ retained events to pass complete supported collection and native admission after
 source delivery, with lineage, deduplication and no provider before admission.
 The stop rule was three acceptance attempts or 60 minutes. One live attempt ran.
 
-`2026-11-02-live-receipts.json` records that attempt using the current main
+The archived `2026-11-02-live-receipts.json` records that attempt using the then-current
 collector (`buildVerifierContext` and `fetchRequiredConversationComments`) through
 authenticated Octokit 20.0.2. The harness permitted only GitHub read operations
 (including read-only GraphQL) and local git diff. It constructed no provider
@@ -80,14 +164,14 @@ skipped 0
 exit 0
 ```
 
-`2026-11-02-digest-gate.json` records the hashes and exit statuses. The PR body
+The archived `2026-11-02-digest-gate.json` records the hashes and exit statuses. The PR body
 contains full command output. Separate broader regression validation passed
 122 tests, with one optional downloaded #4238 archive test skipped. Production
 source remains byte-exact; this change adds fixtures, coverage and receipts.
 
 ## Expiry classifier evidence
 
-Historical `2026-11-06-expiry-receipts.json`,
+The archived `2026-11-06-expiry-receipts.json`,
 `2026-11-10-retained-payload.json` and `2026-11-10-expiry-receipts.json` are
 preserved unchanged. The latter two reproduce an **offline** explicit
 expired-artifact classification. Their provider-call and acceptance fields are

@@ -14,6 +14,7 @@ ARCHIVED_CANONICAL = [
     "docs/archive/plans/LONG_TERM_PLAN.md",
     "docs/archive/audits/WORKFLOW_AUDIT_2025-12-25.md",
     "docs/archive/audits/WORKFLOW_AUDIT_2026-01-09.md",
+    "docs/archive/audits/WORKFLOW_AUDIT_2026-11-19.md",
     "docs/archive/audits/TEMPLATE_REPO_EVALUATION.md",
     "docs/archive/audits/issue-3060-verifier-evidence.md",
 ]
@@ -31,6 +32,7 @@ STUBS = [
     "docs/plans/LONG_TERM_PLAN.md",
     "docs/WORKFLOW_AUDIT_2025-12-25.md",
     "docs/WORKFLOW_AUDIT_2026-01-09.md",
+    "docs/WORKFLOW_AUDIT_2026-11-19.md",
 ]
 
 ACTIVE_PLANS = [
@@ -59,6 +61,7 @@ def test_archive_plans_ledger_links_resolve() -> None:
         "plans/LONG_TERM_PLAN.md",
         "audits/WORKFLOW_AUDIT_2025-12-25.md",
         "audits/WORKFLOW_AUDIT_2026-01-09.md",
+        "audits/WORKFLOW_AUDIT_2026-11-19.md",
         "audits/TEMPLATE_REPO_EVALUATION.md",
         "audits/issue-3060-verifier-evidence.md",
         *ARCHIVED_KEEPALIVE,

@@ -124,6 +124,17 @@ def test_source_pytest_lock_matches_development_pin() -> None:
     ), "requirements.lock and the development dependency select different pytest versions"
 
 
+def test_checked_in_dev_pins_are_aligned(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(Path(__file__).resolve().parents[1])
+
+    result = sync_dependencies(["--check", "--lockfile", "--pre-commit"])
+
+    output = capsys.readouterr()
+    assert result == 0, output.out + output.err
+
+
 def test_consumer_pytest_sync_matches_source_development_pin(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

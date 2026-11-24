@@ -196,21 +196,8 @@ If you need a faster subset (or want to run individual checks), see [docs/valida
 
 ### Optional Pre-Push Hook
 
-Install a git pre-push hook that blocks pushes when the CI style checks fail:
-
-```bash
-mkdir -p .git/hooks
-cat > .git/hooks/pre-push <<'EOF'
-#!/usr/bin/env bash
-# Abort push if CI style checks fail
-scripts/style_gate_local.sh || {
-  echo "[pre-push] CI style checks failed; push aborted." >&2
-  exit 1
-}
-EOF
-chmod +x .git/hooks/pre-push
-```
-
-Add this to your personal workflow; we do not version-control the hook file itself to avoid surprising contributors. For team-wide enforcement, a wrapper installer can be added to `scripts/git_hooks.sh` (future enhancement).
+Follow the [Git hooks installation guide](git-hooks/overview.md#installation)
+to install the configured pre-commit and pre-push hooks. To run a push check
+by hand, use the [stage-specific commands](git-hooks/overview.md#manual-hook-execution).
 
 Last updated: 2026-01-11 (update when modifying workflow inputs or scripts).

@@ -37,6 +37,10 @@ _MARKER_KEYS = {
 _MARKER_SPLIT_RE = re.compile(r"[\s,]+")
 
 
+class RepeatedFailureError(ValueError):
+    """The same testcase has multiple unresolved results in one report."""
+
+
 @dataclass(frozen=True)
 class FailureRecord:
     """Structured data describing a single failing test case."""
@@ -113,7 +117,9 @@ def _test_id(testcase: ET.Element, source: Path) -> str:
     return f"{source.name}::{testcase.tag}"
 
 
-def classify_reports(paths: Iterable[str | Path]) -> dict[str, object]:
+def classify_reports(
+    paths: Iterable[str | Path], *, reject_repeated_failures: bool = False
+) -> dict[str, object]:
     cosmetic: list[FailureRecord] = []
     runtime: list[FailureRecord] = []
     unknown: list[FailureRecord] = []
@@ -144,12 +150,16 @@ def classify_reports(paths: Iterable[str | Path]) -> dict[str, object]:
                 failure_node = testcase.find("error")
             if failure_node is None:
                 continue
-            marker_set = _extract_markers(testcase)
             case_id = _test_id(testcase, junit_path)
             dedupe_key = (case_id, str(junit_path))
             if dedupe_key in seen_ids:
+                if reject_repeated_failures:
+                    raise RepeatedFailureError(
+                        f"Repeated failed testcase in the original pytest report: {case_id}"
+                    )
                 continue
             seen_ids.add(dedupe_key)
+            marker_set = _extract_markers(testcase)
             message, failure_type = _failure_message(testcase)
             record = FailureRecord(
                 id=case_id,

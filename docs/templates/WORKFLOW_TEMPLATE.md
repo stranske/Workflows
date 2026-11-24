@@ -356,4 +356,4 @@ Brief explanation of how the workflow is structured internally:
 
 - [Master Documentation](../README.md)
 - [All Workflows](../workflows/)
-- [Examples](../examples/)
+- [Workflow examples](../USAGE.md#examples)

@@ -380,9 +380,15 @@ def test_build_dashboard_from_path_mixed_fleet_status(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    fleet_src = Path("tests/fixtures/langsmith_fleet/mixed.ndjson")
+    fixture_dir = Path(__file__).resolve().parents[1] / "fixtures" / "langsmith_fleet"
+    (workflows_record,) = (
+        line
+        for line in (fixture_dir / "valid.ndjson").read_text(encoding="utf-8").splitlines()
+        if json.loads(line)["run_id"] == "workflows-run-123"
+    )
+    invalid_record = (fixture_dir / "invalid.ndjson").read_text(encoding="utf-8")
     fleet_path = tmp_path / "langsmith-fleet-mixed.ndjson"
-    fleet_path.write_text(fleet_src.read_text(encoding="utf-8"), encoding="utf-8")
+    fleet_path.write_text(f"{workflows_record}\n{invalid_record}", encoding="utf-8")
 
     dashboard, errors = generator.build_dashboard_from_path(
         metrics_path,

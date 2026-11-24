@@ -262,14 +262,13 @@ def find_rollbacks(
         )
         if not result or result.get("status") != "failed":
             continue
-        prior = _latest_history(registry, profile, str(sel.get("provider", "")))
-        if (
-            prior is None
-            or prior.get("superseded_by") != active_id
-            or not str(prior.get("model_id", "")).strip()
-            or prior.get("model_id") == active_id
-        ):
+        history = registry.get("selection_history", [])
+        prior_index = _rollback_predecessor_index(
+            history, profile, str(sel.get("provider", "")), active_id
+        )
+        if prior_index is None:
             continue
+        prior = history[prior_index]
         breached = [k for k, ok in (result.get("gate_results") or {}).items() if ok is False]
         if not breached:
             continue
@@ -287,15 +286,20 @@ def find_rollbacks(
     return rollbacks
 
 
-def _latest_history(registry: dict[str, Any], profile: str, provider: str) -> dict[str, Any] | None:
+def _rollback_predecessor_index(
+    history: list[dict[str, Any]], profile: str, provider: str, active_id: str
+) -> int | None:
+    """Find the unique history edge into the active model, independent of row order."""
     provider = _normalize_provider(provider)
-    for entry in registry.get("selection_history", []):
-        if (
-            str(entry.get("profile", "")).strip() == profile
-            and _normalize_provider(str(entry.get("provider", ""))) == provider
-        ):
-            return entry
-    return None
+    matches = [
+        index
+        for index, entry in enumerate(history)
+        if entry.get("superseded_by") == active_id
+        and str(entry.get("profile", "")).strip() == profile
+        and _normalize_provider(str(entry.get("provider", ""))) == provider
+        and str(entry.get("model_id") or "").strip() not in ("", active_id)
+    ]
+    return matches[0] if len(matches) == 1 else None
 
 
 def apply_rollback(
@@ -303,25 +307,17 @@ def apply_rollback(
 ) -> dict[str, Any]:
     """Return a new registry with the active selection reverted to its prior model."""
     new_registry = copy.deepcopy(registry)
-    selection = _selection_for(new_registry, rollback["profile"], rollback["provider"])
+    profile = rollback["profile"]
+    provider = rollback["provider"]
+    active_id = rollback["from_model_id"]
+    selection = _selection_for(new_registry, profile, provider)
     history = new_registry.get("selection_history", [])
-    provider = _normalize_provider(rollback["provider"])
-    prior_index = next(
-        (
-            i
-            for i, entry in enumerate(history)
-            if str(entry.get("profile", "")).strip() == rollback["profile"]
-            and _normalize_provider(str(entry.get("provider", ""))) == provider
-        ),
-        None,
-    )
-    if selection is None or prior_index is None:  # pragma: no cover - guarded by find_rollbacks
-        raise ValueError("no prior selection to roll back to")
-    prior = history[prior_index]
+    prior_index = _rollback_predecessor_index(history, profile, provider, active_id)
     if (
-        selection.get("model_id") != rollback["from_model_id"]
-        or prior.get("superseded_by") != rollback["from_model_id"]
-        or prior.get("model_id") != rollback["to_model_id"]
+        selection is None
+        or str(selection.get("model_id", "")).strip() != active_id
+        or prior_index is None
+        or str(history[prior_index]["model_id"]).strip() != rollback["to_model_id"]
     ):
         raise ValueError("rollback no longer matches the active selection and promotion history")
     prior = history.pop(prior_index)

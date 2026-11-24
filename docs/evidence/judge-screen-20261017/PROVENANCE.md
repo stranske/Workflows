@@ -8,6 +8,42 @@ The committed exploratory ensemble analysis used these inputs in this order:
 
 That historical analyzer used last-wins duplicate observations. The raw files remain unchanged. In particular the two Muse CLI runs conflict; the corrected analyzer rejects that combined input rather than silently overwriting the earlier invalid/tool-using result. The historical aggregate is not a current authority qualification. Re-analysis requires a declared consistent corpus/prompt fingerprint and one nonconflicting observation per judge/case, preserving raw FAIL separately from CONCERNS. Missing raw verdicts cannot support tie-break claims. Approval additionally requires every configured statistical, category and paired incumbent gate.
 
+## Ensemble report recovery
+
+The [historical seven-judge report](https://github.com/stranske/Workflows/blob/59d75176da68a2a592ea0a2740382c9453d69b02/docs/evidence/judge-screen-20261017/ensemble-analysis.md) and its [machine-readable aggregate](https://github.com/stranske/Workflows/blob/59d75176da68a2a592ea0a2740382c9453d69b02/docs/evidence/judge-screen-20261017/ensemble-analysis.json) preserve the original last-wins result described above. The [current-prompt nine-judge report](https://github.com/stranske/Workflows/blob/59d75176da68a2a592ea0a2740382c9453d69b02/docs/evidence/judge-screen-20261017/current-prompt-ensemble.md) contains its full pair table and reproduction appendix. The [current-prompt JSON](current-prompt-ensemble.json) is used by the offline replay below.
+
+The [offline archive](approval-set-57.tar.gz) holds exact copies of the three reports under `reports/` alongside the original six approval screens. From the repository root, recover the reports without Git history or network access. The last line prints the directory containing the recovered files. The copied provenance page links to the original JSON, archive, and standards analysis through the checkout. Run the appendix’s replay command from the repository root.
+
+```sh
+(
+  set -eu
+  checkout=$(pwd -P)
+  directory=docs/evidence/judge-screen-20261017
+  packet=$directory/approval-set-57.tar.gz
+  printf '%s  %s\n' 33896497b671e25380b8c139a398d44a2720cfab6dc192972fc1c7a8617a4f58 "$packet" | shasum -a 256 -c -
+  temp_root=${TMPDIR:-/tmp}
+  case "$temp_root" in
+    /*) ;;
+    *) temp_root=$checkout/$temp_root ;;
+  esac
+  recovered=$(mktemp -d "$temp_root/workflows-ensemble-reports.XXXXXXXX")
+  output=$recovered/$directory
+  mkdir -p "$output"
+  tar --strip-components=1 -xpzf "$packet" -C "$output" \
+    reports/ensemble-analysis.json reports/ensemble-analysis.md reports/current-prompt-ensemble.md
+  cd "$output"
+  shasum -a 256 -c <<'SUMS'
+763b3063404c2bff4529dc1155419e581f7ccc0634dc7b17723a55a6db2e45d6  ensemble-analysis.json
+7c00458106c6c1cb3fc90d9adb61924640dfdc16079b9f34f904a630f8294706  ensemble-analysis.md
+7a93c1874df41fcf8a986611237b881cd0ca575bdb8a511729fae62243f02664  current-prompt-ensemble.md
+SUMS
+  cp "$checkout/$directory/PROVENANCE.md" .
+  ln -s "$checkout/$packet" "$checkout/$directory/current-prompt-ensemble.json" .
+  ln -s "$checkout/docs/ops" "$recovered/docs/ops"
+  pwd
+)
+```
+
 ## Standard Muse 1.3 current-prompt reconstruction
 
 **Recoverability finding:** per-case *result* rows for standard Muse 1.3 are
@@ -54,3 +90,31 @@ reports `{"cases": 8, "judges": 9, "pairs": 36, "tie_breaks": 252}`.
 `python -m pytest tests/tools/test_reproduce_muse13_screen.py -q`: 12 passed.
 Peer-input raw rewrites and policy digest changes are rejected. No model request
 is made.
+
+## October 17 approval-set and pilot results
+
+The six judges each evaluated the same 57 cases. Section 3 of the [standards analysis](../../ops/VERIFIER_STANDARDS_ANALYSIS.md) uses the 35 cases left after excluding the 22 failed-CI controls. The earlier 18-case pilot has six separate files matching `pilot-18-*.json` in this directory.
+
+[Browse the original six JSON files](https://github.com/stranske/Workflows/tree/33dc30842c744c2ff3904dedbbfd4bcbc1975050/docs/evidence/judge-screen-20261017) or [download the offline archive](approval-set-57.tar.gz). From the repository root, extract the approval-set files to a fresh directory and verify their original bytes.
+
+```sh
+(
+  set -eu
+  packet=docs/evidence/judge-screen-20261017/approval-set-57.tar.gz
+  printf '%s  %s\n' 33896497b671e25380b8c139a398d44a2720cfab6dc192972fc1c7a8617a4f58 "$packet" | shasum -a 256 -c -
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/workflows-approval-set.XXXXXXXX")
+  tar -xpzf "$packet" -C "$recovered" \
+    approval-set-57-claude.json approval-set-57-cursor.json approval-set-57-luna.json \
+    approval-set-57-muse12.json approval-set-57-muse12c.json approval-set-57-terra.json
+  cd "$recovered"
+  shasum -a 256 -c <<'SUMS'
+8555f8d0d6a399208fb0deedb19957713773098885b4d840343ff9af86a4d5d8  approval-set-57-claude.json
+66aca961dabfc6ff980a7338c21e081929e8e1b5e17c71b081a235d6a1dbce17  approval-set-57-cursor.json
+21bbedd38809fbf46f96ff16e552b0b2d5d2572e4d7216c535b57050e0807b82  approval-set-57-luna.json
+2bfa28b0f543fc6751fd841d2925a5e426d8f5954c1661b7aae40caa5168ed86  approval-set-57-muse12.json
+eca0ff2ba9630249fe6e8b6effebc07a93010c52cce1081d4f7e7d33c141f16f  approval-set-57-muse12c.json
+bc7a2e6dc1ed8b054a9af3cca7388f515405df937496d14166ed3a5284b285cb  approval-set-57-terra.json
+SUMS
+  pwd
+)
+```

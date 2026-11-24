@@ -8,16 +8,14 @@ holds `index.ndjson` and `runtimes/3.12/coverage.json` — extracting to
 candidate and matched by none of the seven. The old list also hardcoded the Python versions, so a
 matrix change would have broken it silently and later.
 
-The resolution is shell embedded in YAML, so these tests lift it out and run it under bash against
-real directory layouts rather than reimplementing it in Python, where a copy would keep passing
-while the shipped step broke.
+These tests run the report locator embedded in YAML against representative artifact layouts.
 """
 
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 
@@ -29,16 +27,11 @@ GUARDS = (
     REPO_ROOT / "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",
 )
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("bash") is None,
-    reason="bash is not installed, so the guard's embedded resolution cannot be executed",
-)
-
 
 def _resolution_source(path: Path) -> str:
     text = path.read_text(encoding="utf-8")
-    start = text.index("          for candidate in \\")
-    end = text.index("\n          # Build args", start)
+    start = text.index("<<'COVERAGE_LOCATOR'\n") + len("<<'COVERAGE_LOCATOR'\n")
+    end = text.index("\n          COVERAGE_LOCATOR", start)
     return textwrap.dedent(text[start:end])
 
 
@@ -50,19 +43,22 @@ def _resolve(guard: Path, tree: dict[str, object], root: Path) -> str:
         target.write_text(
             json.dumps(content) if isinstance(content, dict) else str(content), encoding="utf-8"
         )
-    script = root / "resolve.sh"
-    script.write_text(
-        'COVERAGE_PATH=""\n' + _resolution_source(guard) + '\necho "RESOLVED=${COVERAGE_PATH}"\n',
-        encoding="utf-8",
-    )
+    script = root / "resolve.py"
+    script.write_text(_resolution_source(guard), encoding="utf-8")
     proc = subprocess.run(
-        ["bash", str(script)], cwd=root, capture_output=True, text=True, timeout=120
+        [
+            sys.executable,
+            str(script),
+            "coverage_artifacts/payload",
+            "coverage_artifacts/coverage.json",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=True,
     )
-    assert proc.returncode == 0, proc.stderr
-    for line in proc.stdout.splitlines():
-        if line.startswith("RESOLVED="):
-            return line.split("=", 1)[1]
-    raise AssertionError(f"the step printed no verdict: {proc.stdout!r}")
+    return proc.stdout.strip()
 
 
 REAL_REPORT = {"totals": {"percent_covered": 85.9}, "files": {}}
@@ -167,3 +163,21 @@ def test_the_failure_lists_what_was_downloaded(guard):
     text = guard.read_text(encoding="utf-8")
     assert "files downloaded" in text
     assert "find coverage_artifacts -type f" in text
+
+
+@pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
+def test_a_results_bundle_without_a_measured_report_does_not_supply_a_path(guard, tmp_path):
+    tree = {
+        "coverage_artifacts/payload/coverage.json": {"totals": {"percent_covered": "not measured"}},
+        "coverage_artifacts/payload/runtimes/3.13/summary.json": {"coverage": {"percent": 90}},
+        "coverage_artifacts/trend/coverage-trend.json": {"current": 90},
+        "coverage_artifacts/other-run/runtimes/3.14/coverage.json": REAL_REPORT,
+    }
+    assert _resolve(guard, tree, tmp_path) == ""
+
+
+@pytest.mark.parametrize("guard", GUARDS, ids=lambda p: p.parts[-4])
+def test_a_legacy_numeric_string_is_a_measured_coverage_report(guard, tmp_path):
+    path = "coverage_artifacts/payload/gate-coverage.json"
+    tree = {path: {"totals": {"percent_covered": "87.654"}}}
+    assert _resolve(guard, tree, tmp_path) == path

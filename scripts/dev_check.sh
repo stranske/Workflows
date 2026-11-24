@@ -32,30 +32,7 @@ for required_var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSIO
     fi
 done
 
-ensure_package_version() {
-    local package_name="$1"
-    local pinned_version="$2"
-    local module_name="${3:-$1}"
-
-    if [[ -z "$pinned_version" ]]; then
-        return 0
-    fi
-
-    local current_version
-    current_version=$(python - <<PY 2>/dev/null
-try:
-    import ${module_name} as _pkg  # type: ignore[import]
-    print(getattr(_pkg, "__version__", ""))
-except Exception:
-    print("")
-PY
-)
-
-    if [[ "$current_version" != "$pinned_version" ]]; then
-        echo -e "${YELLOW}Installing ${package_name}==${pinned_version} to match CI${NC}"
-        python -m pip install --disable-pip-version-check --quiet "${package_name}==${pinned_version}"
-    fi
-}
+source scripts/local_validation_tools.sh
 
 # Command line options
 FIX_MODE=false
@@ -284,34 +261,6 @@ run_with_timeout() {
         "$@"
     fi
 }
-ensure_actionlint() {
-    if command -v actionlint >/dev/null 2>&1; then
-        ACTIONLINT_BIN=$(command -v actionlint)
-        return 0
-    fi
-
-    local cache_dir=".cache/tools"
-    mkdir -p "$cache_dir"
-    if [[ -x "$cache_dir/actionlint" ]]; then
-        ACTIONLINT_BIN="$cache_dir/actionlint"
-        return 0
-    fi
-
-    echo -e "${YELLOW}Downloading actionlint for workflow validation...${NC}"
-    local downloader="$cache_dir/download-actionlint.bash"
-    if ! curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash" -o "$downloader"; then
-        echo -e "${YELLOW}⚠ Unable to fetch actionlint downloader; skipping workflow linting${NC}"
-        return 1
-    fi
-
-    if bash "$downloader" 1.7.3 "$cache_dir" >/tmp/actionlint-download.log 2>&1 && [[ -x "$cache_dir/actionlint" ]]; then
-        ACTIONLINT_BIN="$cache_dir/actionlint"
-        return 0
-    fi
-
-    echo -e "${YELLOW}⚠ Failed to download actionlint; skipping workflow linting${NC}"
-    return 1
-}
 
 build_actionlint_ignore_args() {
     local allowlist_file=".github/actionlint-allowlist.txt"
@@ -427,31 +376,13 @@ run_actionlint_for_files() {
     build_actionlint_command actionlint_cmd "$2"
 
     local exit_code=0
-    if ! run_with_timeout "$CHECK_TIMEOUT" "${actionlint_cmd[@]}" > "$output_file" 2>&1; then
-        exit_code=$?
-    fi
+    run_with_timeout "$CHECK_TIMEOUT" "${actionlint_cmd[@]}" > "$output_file" 2>&1 || exit_code=$?
 
-    filter_actionlint_output "$output_file" "$filtered_file"
-    local filter_status=$?
+    local filter_status=0
+    filter_actionlint_output "$output_file" "$filtered_file" || filter_status=$?
 
-    local filtered_empty=true
-    if [[ -s "$filtered_file" ]]; then
-        filtered_empty=false
-    fi
-
-    if [[ $filter_status -eq 1 && $filtered_empty == true ]]; then
-        echo -e "${GREEN}✓ $name${NC}"
-        rm -f "$output_file" "$filtered_file"
-        return 0
-    fi
-
-    if [[ $exit_code -eq 0 && $filter_status -eq 0 ]]; then
-        echo -e "${GREEN}✓ $name${NC}"
-        rm -f "$output_file" "$filtered_file"
-        return 0
-    fi
-
-    if [[ $exit_code -ne 0 && $filter_status -eq 1 && $filtered_empty == true ]]; then
+    if [[ $exit_code -eq 0 && $filter_status -eq 0 ]] ||
+        [[ $exit_code -le 1 && $filter_status -eq 1 && ! -s "$filtered_file" ]]; then
         echo -e "${GREEN}✓ $name${NC}"
         rm -f "$output_file" "$filtered_file"
         return 0
@@ -462,17 +393,17 @@ run_actionlint_for_files() {
         if [[ "$VERBOSE_MODE" == false ]]; then
             echo -e "${YELLOW}  Re-run with --verbose or increase DEV_CHECK_TIMEOUT to see details.${NC}"
         fi
+    elif [[ $exit_code -gt 1 ]]; then
+        echo -e "${RED}✗ $name (actionlint exit status $exit_code)${NC}"
     else
         echo -e "${RED}✗ $name${NC}"
     fi
 
-    if [[ "$VERBOSE_MODE" == true ]]; then
-        echo -e "${YELLOW}Output:${NC}"
-        if [[ -f "$filtered_file" && -s "$filtered_file" ]]; then
-            head -10 "$filtered_file" | sed 's/^/  /'
-        elif [[ -f "$output_file" ]]; then
-            head -10 "$output_file" | sed 's/^/  /'
+    if [[ -s "$filtered_file" ]]; then
+        if [[ "$VERBOSE_MODE" == true ]]; then
+            echo -e "${YELLOW}Output:${NC}"
         fi
+        head -10 "$filtered_file" | sed 's/^/  /'
     fi
 
     rm -f "$output_file" "$filtered_file"
@@ -525,7 +456,7 @@ run_actionlint_checks() {
 # Quick syntax check first (fastest)
 if [[ "$DEV_CHECK_ACTIONLINT_ONLY" == true ]]; then
     echo -e "${BLUE}2. Workflow validation...${NC}"
-    if ensure_actionlint; then
+    if ensure_actionlint 1.7.3; then
         run_actionlint_checks
         exit $?
     else
@@ -554,7 +485,7 @@ else
 fi
 
 echo -e "${BLUE}2. Workflow validation...${NC}"
-if ensure_actionlint; then
+if ensure_actionlint 1.7.3; then
     run_actionlint_checks
 else
     echo -e "${YELLOW}⚠ actionlint not installed; skipping workflow validation${NC}"

@@ -889,21 +889,14 @@ The Workflows repository includes maintenance workflows that handle sync, update
 
 ---
 
-### `maint-sync-env-from-pyproject.yml` - Sync Environment Files
-**Purpose:** Keeps environment configs in sync with `pyproject.toml`
+### Shared development-tool pins
 
-**Trigger:** When `pyproject.toml` changes
-
-**What It Does:**
-- Generates `requirements.txt`
-- Updates `.python-version`
-- Syncs dev dependencies
-- Commits synchronized files
-
-**Use When:** After editing `pyproject.toml`
+Workflows maintains the canonical `autofix-versions.env` pins. Maint 52
+proposes receiving changes after the canonical version update merges. The manual
+source-repair workflow runs in Workflows on a maintainer-selected topic branch.
+Review the receiving PR for this repository's dependency changes.
 
 ---
-
 ## Health & Quality
 
 ### `health-40-repo-selfcheck.yml` - Repository Self-Check
@@ -956,18 +949,11 @@ The Workflows repository includes maintenance workflows that handle sync, update
 
 ---
 
-### `health-43-ci-signature-guard.yml` - CI Integrity Check
-**Purpose:** Ensures CI workflows haven't been tampered with
+### CI signature fixtures in Workflows
 
-**Trigger:** On CI workflow changes
-
-**What It Does:**
-- Computes checksums of CI workflows
-- Compares against known good signatures
-- Blocks PRs with unauthorized changes
-- Requires maintainer review
-
-**Security:** Prevents malicious CI modifications
+Workflows tests its own static jobs JSON and expected hash through its Gate
+scripts job and main Selftest. See the [Workflows signature fixture check](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures).
+Consumer Gate and branch rules govern pull requests in this repository.
 
 ---
 
@@ -1067,24 +1053,13 @@ The Workflows repository includes maintenance workflows that handle sync, update
 ## Maintenance Operations
 
 ### `maint-39-test-llm-providers.yml` - Test LLM Providers
-**Purpose:** Validates all LLM API integrations
+**Purpose:** Smoke-test the configured OpenAI credential with one task-completion analysis.
 
-**Trigger:** Daily scheduled or manual
+**Trigger:** Manual dispatch with `all` or `openai`. Both options run the OpenAI smoke test when a key is configured.
 
-**Tests:**
-- OpenAI API
-- Anthropic API
-- Google AI API
-- Azure OpenAI
-- Other configured providers
+**Availability:** The job logs which built-in providers are locally available. This check makes no API requests.
 
-**Checks:**
-- API keys valid
-- Models accessible
-- Rate limits okay
-- Response quality
-
-**Result:** Status report with any issues
+**Result:** The job summary reports whether the OpenAI test passed, skipped, failed, or was cancelled. A missing OpenAI key skips the network test and leaves the job successful if all other steps succeed.
 
 ---
 

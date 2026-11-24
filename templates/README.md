@@ -15,8 +15,24 @@ This directory contains workflow templates that consumer repositories can copy a
 |----------|---------|------------|
 | [ci-basic.yml](ci-basic.yml) | Basic Python CI: lint, type check, test | Simple |
 | [ci-full.yml](ci-full.yml) | Full CI: smoke test, lint, coverage, PR gate | Medium |
+| [ci-node-basic.yml](ci-node-basic.yml) | Shared CI for Node.js and TypeScript projects using npm and Jest by default | Simple |
 | [dependency-refresh.yml](dependency-refresh.yml) | Scheduled `requirements.lock` refresh | Simple |
 | [cosmetic-repair.yml](cosmetic-repair.yml) | Auto-fix formatting/cosmetic issues | Medium |
+
+### Standalone maintenance copies
+
+Copy either or both workflows from a Workflows checkout. Run the commands from
+your project root and set `workflows` to the checkout path.
+
+```bash
+workflows=/path/to/Workflows
+mkdir -p .github/workflows
+cp "$workflows/templates/cosmetic-repair.yml" .github/workflows/
+cp "$workflows/templates/dependency-refresh.yml" .github/workflows/
+```
+
+Your repository owns the copied workflows. Customize schedules and inputs there,
+and review upstream changes when you want to update your copy.
 
 ### Python CI starter for the GitHub Actions gallery
 
@@ -99,7 +115,7 @@ Use agent workflows for automated issue-to-PR pipelines:
 
 ## Template Synchronization
 
-The templates in this directory are the **source of truth** for configuration patterns. They are automatically synchronized with consumer repos through:
+The [consumer sync manifest](../.github/sync-manifest.yml) defines which files Maint 68 distributes to registered repositories. Standalone maintenance copies stay under the receiving repository’s ownership.
 
 ### Sync Architecture
 
@@ -133,7 +149,7 @@ Consumer Repos (Travel-Plan-Permission, Template)
 
 ### Key Sync Rules
 
-- **Templates → Consumer Repos**: When templates change here, maint-68 creates PRs in consumer repos
+- **Managed files → Consumer Repos**: Maint 68 creates PRs for files selected by the compiled consumer sync manifest.
 - **Templates → Integration-Tests**: health-67 validates Integration-Tests matches templates
 - **Integration-Tests → Templates**: When Integration-Tests changes, it notifies this repo
 - **Daily validation**: Scheduled runs catch any untracked drift

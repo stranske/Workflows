@@ -252,3 +252,42 @@ def test_main_fail_when_outdated_returns_one(tmp_path: Path) -> None:
     assert out_md.is_file()
     assert out_ndjson.is_file()
     assert json.loads(out_json.read_text(encoding="utf-8"))["status"] == "outdated"
+
+
+def test_actual_advisory_includes_each_locked_install_input(tmp_path: Path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    monkeypatch.chdir(repo_root)
+    output_json = tmp_path / "freshness.json"
+    output_md = tmp_path / "freshness.md"
+    output_ndjson = tmp_path / "freshness.ndjson"
+
+    assert (
+        check_codex_cli_freshness.main(
+            [
+                "--latest-version",
+                "0.171.0",
+                "--output-json",
+                str(output_json),
+                "--output-md",
+                str(output_md),
+                "--output-ndjson",
+                str(output_ndjson),
+            ]
+        )
+        == 0
+    )
+
+    report = json.loads(output_json.read_text(encoding="utf-8"))
+    assert json.loads(output_ndjson.read_text(encoding="utf-8")) == report
+    expected = [
+        ".github/workflows/reusable-agents-verifier.yml",
+        ".github/actions/verifier-codex-cli/package.json",
+        ".github/actions/verifier-codex-cli/package-lock.json",
+        "tests/workflows/test_verifier_terminal_disposition.py",
+    ]
+    assert [target["path"] for target in report["update_targets"]] == expected
+    markdown = output_md.read_text(encoding="utf-8")
+    for path in expected:
+        assert (repo_root / path).is_file()
+        assert f"`{path}`" in markdown
+    assert "Target install pin: `@openai/codex@0.171.0`" in markdown

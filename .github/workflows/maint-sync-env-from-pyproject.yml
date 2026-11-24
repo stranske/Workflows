@@ -1,18 +1,9 @@
-# Keeps pyproject.toml, templates, and requirements.lock aligned to the
-# canonical Workflows autofix pin file.
+# Repairs source pin drift on a maintainer-selected topic branch. Gate checks
+# the committed pins before merge, and the canonical updater prepares routine PRs.
 
 name: Maint - Sync pyproject from versions.env
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/autofix-versions.env'
-      - '.pre-commit-config.yaml'
-      - 'templates/consumer-repo/.github/workflows/autofix-versions.env'
-      - 'templates/integration-repo/.github/workflows/autofix-versions.env'
-      - 'pyproject.toml'
-      - 'requirements.lock'
   workflow_dispatch:
 
 permissions:
@@ -24,6 +15,10 @@ concurrency:
 
 jobs:
   sync-source-files:
+    if: >-
+      github.ref_type == 'branch' &&
+      github.event.repository.default_branch != '' &&
+      github.ref_name != github.event.repository.default_branch
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -38,7 +33,7 @@ jobs:
           python scripts/sync_tool_versions.py --apply
           python scripts/sync_dev_dependencies.py --apply --lockfile --pre-commit
 
-      - name: Commit and push if changed
+      - name: Commit and push to the selected topic if changed
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -63,4 +58,4 @@ jobs:
             templates/consumer-repo/.github/workflows/autofix-versions.env \
             templates/integration-repo/.github/workflows/autofix-versions.env
           git commit -m "chore: align autofix source pins"
-          git push
+          git push origin "HEAD:${GITHUB_REF}"

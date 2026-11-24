@@ -45,8 +45,15 @@ Bounded missing statements before:
 Bounded missing branches before, in `validate_run_contract.py`:
 145→148, 326→328, 730→733, 755→758, 774→775, 819→820, 826→827.
 Other targets have no missing branches. Full Gate before misses only drift
-statements 920 and 921. The per-phase `inventory.json` files enumerate every
-missing statement and branch, with the original coverage summary counts.
+statements 920 and 921. The [Gate baseline inventory](gate-before/inventory.json)
+and [shared final inventory](target-after/inventory.json) list each missing
+statement and branch. The shared inventory is byte-identical to the
+[original Gate final copy](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/gate-after/inventory.json).
+Restore that path offline from the repository root with this command.
+
+```bash
+cp docs/evidence/issue-4502/target-after/inventory.json docs/evidence/issue-4502/gate-after/inventory.json
+```
 
 The historical 226-unit baseline is a separate historical observation from
 #4423, not this branch's starting point. The bounded final count is 226 units
@@ -129,14 +136,47 @@ PY
 
 ## Deliberate-break evidence
 
-`python docs/evidence/issue-4502/run_mutation_probes.py` reproduces all 18 cases.
-Run it without another pytest process using these modules. Each of the nine
-transcripts under `mutations/` contains the complete deliberate diff, exact named
-pytest command, all failing output, exact reverse diff, restored SHA-256, and
-the same command's passing output. The matching `.md.gz` retains the complete
-byte-for-byte transcript; Markdown removes trailing whitespace for lint only.
-Every parameter case fails, not just
-one case in each function. Restorations run in `finally` and preserve bytes.
+The nine manifest-bound `.md.gz` files under `mutations/` hold the complete
+deliberate diff, exact named pytest command, failing output, exact reverse
+diff, restored SHA-256, and passing output for all 18 cases.
+
+Read an original Markdown transcript on GitHub or recreate the same view
+offline from its compressed file. The view removes trailing whitespace
+from each line. The compressed original keeps it.
+
+| Original Markdown view | Rendered SHA-256 |
+| --- | --- |
+| [`test_consumer_mirror_enforces_catalog_timestamp`](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/mutations/test_consumer_mirror_enforces_catalog_timestamp.md) | `7e396290d97ed3bbb960b6f1831e7d4b7012675e33b11c25727d4e8a713dba98` |
+| [`test_consumer_schema_fails_closed_without_required_format`](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/mutations/test_consumer_schema_fails_closed_without_required_format.md) | `ed71c39e0b8cbde90aabe7bf523133f90433d63d95abcbc7bec975d87c7817e8` |
+| [`test_main_caches_failed_blob_reads_by_repo_and_sha`](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/mutations/test_main_caches_failed_blob_reads_by_repo_and_sha.md) | `92edd2c3af34862a34fdf1cef0738866f00547c779b7a095cdf7ad3f726d4e8f` |
+| [`test_main_persists_valid_run_conformance`](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/mutations/test_main_persists_valid_run_conformance.md) | `31c72d3e606b6f889f384361f8c95d57e575967223e9f565a7cafaf3c4f1527e` |
+| [`test_main_rejects_unreadable_artifact_manifest`](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/mutations/test_main_rejects_unreadable_artifact_manifest.md) | `2770e544c7f426b7518a4d03906927d0849f2129a8144f4b59bc5242821ec762` |
+| [`test_mirror_cli_reports_without_optional_output_files`](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/mutations/test_mirror_cli_reports_without_optional_output_files.md) | `891b071d2676a3f6680aa112a8ddc503b4593c7b617e42d8f3b305d03696073a` |
+| [`test_remote_tree_transport_failure_preserves_unknown`](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/mutations/test_remote_tree_transport_failure_preserves_unknown.md) | `1ba57188f10bd0a6dde3193fd4254579a1b0c0f3bca45706e49257605c4295a4` |
+| [`test_self_smoke_rejects_incomplete_schema_inventory`](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/mutations/test_self_smoke_rejects_incomplete_schema_inventory.md) | `78e405da97779bc0559476b67d7d4a7e09dd83bedfdee301d740c625b1c58a8b` |
+| [`test_verifier_ledger_counts_escalations_without_duplicating_shared_followups`](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/mutations/test_verifier_ledger_counts_escalations_without_duplicating_shared_followups.md) | `15f6bd737767aca7f0afd6d9fff23193aa391d8f70bc70c6965114d6d54316ee` |
+
+From the repository root, set `transcript` to any one of the nine
+`.md.gz` files. This example writes the restored view to a temporary file.
+
+```bash
+transcript=docs/evidence/issue-4502/mutations/test_consumer_mirror_enforces_catalog_timestamp.md.gz
+(
+  view=$(mktemp "${TMPDIR:-/tmp}/issue-4502-view.XXXXXX") || exit 1
+  if python -c 'import gzip, sys; print("\n".join(line.rstrip() for line in gzip.open(sys.argv[1], "rt", encoding="utf-8").read().splitlines()))' "$transcript" > "$view"; then
+    shasum -a 256 "$view" && printf '%s\n' "$view"
+  else
+    rm -f "$view"
+    exit 1
+  fi
+)
+```
+
+To reproduce the original 18 fail/pass pairs, run
+`python docs/evidence/issue-4502/run_mutation_probes.py` from a disposable
+checkout of the [capture revision](https://github.com/stranske/Workflows/tree/49a88b3776e7cc60d13c670d52c81b8303dfec0a).
+Run it without another pytest process using these modules. The probe driver
+writes fresh compressed transcripts and restores the source bytes in `finally`.
 
 Source SHA-256 before/after all probes:
 
@@ -174,9 +214,80 @@ passed, 25 skipped, 3 xfailed**, in 420.20s. Its configured JSON/XML reports wer
 written directly by pytest-cov, with no recovery. All 18 new cases pass in that
 run. Comparing complete JUnit inventories finds **no new failing nodes**; two
 instrumentation tests and the baseline internal-error testcase are gone from the
-failure inventory. `failure-comparison.json` retains every baseline/final failure
-node. This confirms the scope of local regressions without asserting that the
+failure inventory. The [recovered Gate comparison](#restore-the-derived-json-views)
+lists every baseline and final failure node. This confirms the scope of local
+regressions without asserting that the
 83 pre-existing failures can be ignored by CI.
+
+## Restore the derived JSON views
+
+Read the [original target-before inventory](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/target-before/inventory.json)
+and [original Gate failure comparison](https://github.com/stranske/Workflows/blob/49a88b3776e7cc60d13c670d52c81b8303dfec0a/docs/evidence/issue-4502/failure-comparison.json) on GitHub.
+The target inventory comes from the three script entries in the bounded run's
+coverage JSON. The Gate comparison uses both complete Gate JUnits and includes
+86 baseline failures or errors, 83 final, zero new and three resolved.
+
+Run this command from the repository root to restore both views offline.
+It prints their hashes and paths under a temporary directory.
+
+```bash
+python - <<'PY'
+import gzip
+import hashlib
+import json
+import tempfile
+from pathlib import Path
+from xml.etree import ElementTree
+
+packet = Path("docs/evidence/issue-4502")
+with gzip.open(packet / "target-before/coverage.json.gz", "rt", encoding="utf-8") as source:
+    files = json.load(source)["files"]
+
+inventory = {}
+for module in ("validate_run_contract", "check_consumer_sync_drift", "aggregate_agent_metrics"):
+    name = f"scripts/{module}.py"
+    data = files[name]
+    inventory[name] = {
+        "summary": data["summary"],
+        "missing_statements": data["missing_lines"],
+        "missing_branches": data["missing_branches"],
+    }
+
+def failed_cases(phase):
+    with gzip.open(packet / phase / "pytest-junit.xml.gz") as source:
+        root = ElementTree.parse(source)
+    return {
+        f"{case.attrib['classname']}::{case.attrib['name']}"
+        for case in root.iter("testcase")
+        if case.find("failure") is not None or case.find("error") is not None
+    }
+
+before, after = failed_cases("gate-before"), failed_cases("gate-after")
+comparisons = {
+    "baseline_failures": sorted(before),
+    "final_failures": sorted(after),
+    "new_failure_nodes": sorted(after - before),
+    "resolved_failure_nodes": sorted(before - after),
+}
+
+# Read all inputs before creating the output directory.
+output = Path(tempfile.mkdtemp(prefix="issue-4502-views-"))
+for name, data in (
+    ("target-before/inventory.json", inventory),
+    ("failure-comparison.json", comparisons),
+):
+    path = output / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = (json.dumps(data, indent=2) + "\n").encode("utf-8")
+    path.write_bytes(payload)
+    print(f"{hashlib.sha256(payload).hexdigest()}  {path}")
+PY
+```
+
+The restored `target-before/inventory.json` has SHA-256
+`b56ea6d0c4d554053533917cc84bc3c4641b69cd327aee35d149a647a0ab6700`.
+The restored `failure-comparison.json` has SHA-256
+`0bf6c651e3baa58b82c72137955a09e028458afd69762afc578809126456f0f2`.
 
 ## Formatting validation
 

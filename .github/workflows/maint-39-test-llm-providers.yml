@@ -63,6 +63,7 @@ jobs:
           "
 
       - name: Test OpenAI
+        id: openai_test
         if: >-
           (inputs.provider == 'all' || inputs.provider == 'openai') &&
           steps.openai_key.outputs.available == 'true'
@@ -82,9 +83,18 @@ jobs:
           "
 
       - name: Summary
+        if: ${{ always() }}
+        env:
+          OPENAI_OUTCOME: ${{ steps.openai_test.outcome }}
         run: |
           {
             echo "## LLM Provider Test Results"
             echo ""
-            echo "Provider test completed successfully! ✅"
+            case "$OPENAI_OUTCOME" in
+              success) echo "OpenAI provider test passed." ;;
+              skipped) echo "OpenAI provider test skipped." ;;
+              failure) echo "OpenAI provider test failed." ;;
+              cancelled) echo "OpenAI provider test cancelled." ;;
+              *) echo "OpenAI provider test outcome unavailable." ;;
+            esac
           } >> "$GITHUB_STEP_SUMMARY"

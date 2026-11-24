@@ -5,6 +5,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +18,10 @@ RECEIPTS_PATH = ROOT / "docs/evidence/issue-4019/r3/mutations/mutation-receipts.
 RERUN_RECEIPTS_PATH = (
     ROOT / "docs/evidence/issue-4019/r3/integration-rerun/mutations/mutation-receipts.json"
 )
+METRICS_READER_PATH = "scripts/aggregate_agent_metrics.py"
+# The retained reader bytes are recoverable at 0513e66b7c91; the historical
+# integration-rerun commit is unavailable. CI's shallow checkout has neither.
+HISTORICAL_METRICS_SHA256 = "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
 
 
 def load_driver():
@@ -335,6 +340,23 @@ def test_target_missing_script_calculates_missing_totals(tmp_path):
     assert lines[4] == "TARGET_MISSING 5"
 
 
+def read_archived_transcripts(packet: Path, expected_ids: list[str]) -> dict[str, str]:
+    expected = {f"{mid}-{kind}.txt" for mid in expected_ids for kind in ("red", "green")}
+    with tarfile.open(packet, "r:gz") as archive:
+        members = archive.getmembers()
+        names = {member.name for member in members}
+        assert names == expected, f"{packet}: missing {expected - names}, extra {names - expected}"
+        assert len(members) == len(expected), f"{packet}: duplicate transcript names"
+        transcripts = {}
+        for member in members:
+            assert member.isfile(), f"{packet}: {member.name} is not a regular file"
+            stream = archive.extractfile(member)
+            assert stream is not None
+            with stream:
+                transcripts[member.name] = stream.read().decode("utf-8")
+        return transcripts
+
+
 def test_verified_mutation_receipts_inventory():
     """Verify the 27 mutation receipts on disk match MUTATIONS IDs, revisions, and proof_ok."""
     driver = load_driver()
@@ -346,16 +368,20 @@ def test_verified_mutation_receipts_inventory():
             RECEIPTS_PATH,
             "69e5b6d6cd3fb154be29890f2ae212772de8ce45",
             "tests/tools/test_llm_provider.py:2154: AssertionError",
+            "1f6fec55264444d1a4af93c43111e64cc6a95e2d12c3d56deafa90146b20cfe9",
             False,
         ),
         (
             RERUN_RECEIPTS_PATH,
             "c1f18728c6b215fa7a66353b311fa12277074437",
             "tests/tools/test_llm_provider.py:2178: AssertionError",
+            "49810fa8a095efb6adb0536febed759b439f4df591480d2b18310a5e23f6389b",
             True,
         ),
     )
-    for path, expected_rev, expected_04_line, verify_live_digest in expected_sets:
+    for path, expected_rev, expected_04_line, archive_sha256, verify_live_digest in expected_sets:
+        packet = path.with_name("transcripts.tar.gz")
+        transcripts = read_archived_transcripts(packet, expected_ids)
         assert path.is_file()
         receipts = json.loads(path.read_text())
         receipt_ids = [receipt["id"] for receipt in receipts]
@@ -377,14 +403,53 @@ def test_verified_mutation_receipts_inventory():
             assert receipt["green_exit"] == 0
             assert receipt["sha256_before"] == receipt["sha256_restored"]
             for kind in ("red", "green"):
-                transcript = (path.parent / f"{mid}-{kind}.txt").read_text()
-                assert transcript.startswith(f"# revision: {expected_rev}\n")
+                name = f"{mid}-{kind}.txt"
+                assert transcripts[name].startswith(
+                    f"# revision: {expected_rev}\n"
+                ), f"{packet}: {name} revision mismatch"
             live_bytes = (ROOT / rel_path).read_bytes()
             assert live_bytes.decode("utf-8").count(old) == count
-            if verify_live_digest:
+            if rel_path == METRICS_READER_PATH:
+                assert receipt["sha256_before"] == HISTORICAL_METRICS_SHA256
+            elif verify_live_digest:
                 assert hashlib.sha256(live_bytes).hexdigest() == receipt["sha256_before"]
-        red_04 = (path.parent / "04-red.txt").read_text()
-        assert expected_04_line in red_04
+        assert expected_04_line in transcripts["04-red.txt"]
+        assert (
+            hashlib.sha256(packet.read_bytes()).hexdigest() == archive_sha256
+        ), f"{packet}: archive digest differs from the original transcripts"
+
+
+@pytest.mark.parametrize(
+    ("mutation_id", "expected_error", "message"),
+    [("01", AssertionError, None), ("02", AssertionError, None), ("03", TypeError, "not iterable")],
+)
+def test_current_metrics_reader_mutation_still_has_named_failure(
+    tmp_path, monkeypatch, mutation_id, expected_error, message
+):
+    """Run the retained named proof against a temporary mutant and the actual current reader."""
+    _, node, rel_path, old, new, count = next(
+        mutation for mutation in load_driver().MUTATIONS if mutation[0] == mutation_id
+    )
+    assert rel_path == METRICS_READER_PATH
+    source = (ROOT / rel_path).read_text(encoding="utf-8")
+    assert source.count(old) == count
+    test_path, test_name = node.split("::")
+    tests_spec = importlib.util.spec_from_file_location("issue_4019_reader_tests", ROOT / test_path)
+    tests_module = importlib.util.module_from_spec(tests_spec)
+    tests_spec.loader.exec_module(tests_module)
+    probe = getattr(tests_module, test_name)
+
+    mutant = tmp_path / "aggregate_agent_metrics.py"
+    mutant.write_text(source.replace(old, new), encoding="utf-8")
+    mutant_spec = importlib.util.spec_from_file_location("issue_4019_metrics_mutant", mutant)
+    mutant_module = importlib.util.module_from_spec(mutant_spec)
+    with monkeypatch.context() as patch:
+        patch.setitem(sys.modules, mutant_spec.name, mutant_module)
+        mutant_spec.loader.exec_module(mutant_module)
+        patch.setattr(tests_module, "aggregate_agent_metrics", mutant_module)
+        with pytest.raises(expected_error, match=message):
+            probe()
+    probe()
 
 
 def test_driver_cli_validates_arguments_and_invokes_main(tmp_path, monkeypatch):

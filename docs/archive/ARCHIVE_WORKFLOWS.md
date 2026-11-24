@@ -16,6 +16,31 @@ Compare a path against the default branch and the workflow’s run history befor
 
 Maint 47 previously advertised a disable sweep. Its [manual workflow](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/.github/workflows/maint-47-disable-legacy-workflows.yml) invoked a [helper](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/tools/disable_legacy_workflows.py) with stubbed list and update methods and no command-line entry point. GitHub reported zero runs before retirement.
 
+### November 2026 retirement (Issue #4770 / PR #4771) {#november-2026-retirement-issue-4770--pr-4771}
+
+| Removed workflow | Reason | Replacement |
+|------------------|--------|-------------|
+| `maint-47-disable-legacy-workflows.yml` | Inert manual “disable legacy” sweep; helper never implemented end-to-end | Individual retirements continue via this ledger plus `gh workflow disable` |
+
+Verification (2026-11-21): the YAML file is absent from `.github/workflows/`. The November Maint 66 “not run” audit classified the remaining fleet via [`scripts/workflow_inventory_audit.py`](../../scripts/workflow_inventory_audit.py) and recorded dispositions in [`audits/WORKFLOW_AUDIT_2026-11-19.md`](audits/WORKFLOW_AUDIT_2026-11-19.md).
+
+### CI signature guard
+
+The standalone `health-43-ci-signature-guard.yml` verified a static fixture pair
+on selected PRs and main pushes. [PR #4934](https://github.com/stranske/Workflows/pull/4934)
+added the same verification command and committed fixtures to the ordinary
+[fixture test suite](../ci/WORKFLOWS.md#ci-signature-guard-fixtures) in
+`pr-00-gate.yml` and `selftest-ci.yml`.
+Health 44 continues to read the shared fixtures for its summary.
+
+The [original workflow](https://github.com/stranske/Workflows/blob/5fcd51d31705496c1d8d18d264dfce72767a1ba4/.github/workflows/health-43-ci-signature-guard.yml)
+has SHA-256 `d17dd0fc3785320ba919bd83b04f31fe772db623d33e687f68cf831d3a4fb70e`.
+Recover it from Git:
+
+```sh
+git show 5fcd51d31705496c1d8d18d264dfce72767a1ba4:.github/workflows/health-43-ci-signature-guard.yml
+```
+
 ### Legacy verify-to-issue v1
 
 The disabled [v1 definition](https://github.com/stranske/Workflows/blob/d884606ce6ec93b67029bf081ad509a25fdbe39c/archives/deprecated-workflows/agents-verify-to-issue.yml) is preserved in Git at `d884606ce6ec93b67029bf081ad509a25fdbe39c`. Its SHA-256 is `f9409273791aec983766cb9562d8fb36dd519bd3ce9da9c677977173afc95b63`. Recover the original bytes with `git show d884606ce6ec93b67029bf081ad509a25fdbe39c:archives/deprecated-workflows/agents-verify-to-issue.yml`.
@@ -33,7 +58,7 @@ In Workflows, [verify-to-issue v2](../../.github/workflows/agents-verify-to-issu
 - `check-failure-tracker.yml` → Gate summary job (`.github/workflows/pr-00-gate.yml`, job `summary`) — The post-CI summary now maintains the failure-tracker issue directly.
 - `repo-health-self-check.yml` → [`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml) — The WFv1 “health 40” refactor replaced the ad-hoc repo self-check job.
 - `repo-health-nightly.yml` → [`health-41-repo-health.yml`](../../.github/workflows/health-41-repo-health.yml) — Weekly repo-health audits now run under the numbered Health 41 workflow.
-- `ci-signature-guard.yml` → [`health-43-ci-signature-guard.yml`](../../.github/workflows/health-43-ci-signature-guard.yml) — Signature verification moved to the numbered health guard.
+- `ci-signature-guard.yml` first moved to the numbered health guard. The [signature fixture test](../ci/WORKFLOWS.md#ci-signature-guard-fixtures) now runs in Gate and main Selftest.
 - `agents-47-verify-codex-bootstrap-matrix.yml` → [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) — Orchestrator dispatch verifies bootstrap compatibility via the reusable agents toolkit.
 - `assign-to-agents.yml` → [`agents-63-issue-intake.yml`](../../.github/workflows/agents-63-issue-intake.yml) + [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) — Label-driven intake and orchestrator now assign Codex issues without the standalone helper.
 

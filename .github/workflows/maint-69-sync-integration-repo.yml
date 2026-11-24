@@ -10,6 +10,7 @@ on:
       - 'templates/integration-repo/**'
       - 'templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml'
       - 'templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml'
+      - 'templates/consumer-repo/.github/workflows/maint-coverage-guard.yml'
       - '.github/workflows/autofix-versions.env'
       - '.github/sync-manifest.yml'
       - 'scripts/sync_integration_manifest_subset.py'
@@ -79,6 +80,8 @@ jobs:
             .github/actions/setup-api-client
             templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
             tools/coverage_guard.py
+            tools/coverage_trend.py
+            scripts/coverage_history_append.py
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token

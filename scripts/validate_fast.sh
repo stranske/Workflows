@@ -58,30 +58,7 @@ for required_var in BLACK_VERSION RUFF_VERSION ISORT_VERSION DOCFORMATTER_VERSIO
     fi
 done
 
-ensure_package_version() {
-    local package_name="$1"
-    local pinned_version="$2"
-    local module_name="${3:-$1}"
-
-    if [[ -z "$pinned_version" ]]; then
-        return 0
-    fi
-
-    local current_version
-    current_version=$(python - <<PY 2>/dev/null
-try:
-    import ${module_name} as _pkg  # type: ignore[import]
-    print(getattr(_pkg, "__version__", ""))
-except Exception:
-    print("")
-PY
-)
-
-    if [[ "$current_version" != "$pinned_version" ]]; then
-        echo -e "${YELLOW}Installing ${package_name}==${pinned_version} to match CI${NC}"
-        python -m pip install --disable-pip-version-check --quiet "${package_name}==${pinned_version}"
-    fi
-}
+source scripts/local_validation_tools.sh
 
 # Configuration
 FULL_CHECK=false
@@ -314,44 +291,18 @@ PY
 
 ACTIONLINT_BIN=""
 ACTIONLINT_IGNORE_ARGS_STR=""
-ensure_actionlint() {
-    if command -v actionlint >/dev/null 2>&1; then
-        ACTIONLINT_BIN=$(command -v actionlint)
-        return 0
-    fi
-
-    local cache_dir=".cache/tools"
-    mkdir -p "$cache_dir"
-    if [[ -x "$cache_dir/actionlint" ]]; then
-        ACTIONLINT_BIN="$cache_dir/actionlint"
-        return 0
-    fi
-
-    echo -e "${YELLOW}Downloading actionlint for workflow validation...${NC}"
-    local downloader="$cache_dir/download-actionlint.bash"
-    if ! curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash" -o "$downloader"; then
-        echo -e "${YELLOW}⚠ Unable to fetch actionlint downloader; skipping workflow linting${NC}"
-        return 1
-    fi
-
-    if bash "$downloader" latest "$cache_dir" >/tmp/actionlint-download.log 2>&1 && [[ -x "$cache_dir/actionlint" ]]; then
-        ACTIONLINT_BIN="$cache_dir/actionlint"
-        return 0
-    fi
-
-    echo -e "${YELLOW}⚠ Failed to download actionlint; skipping workflow linting${NC}"
-    return 1
-}
 
 build_actionlint_ignore_args() {
     local allowlist_file=".github/actionlint-allowlist.txt"
     local -a ignore_args=()
 
     if [[ -f "$allowlist_file" ]]; then
-        mapfile -t allowlist_lines < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file")
-        for entry in "${allowlist_lines[@]}"; do
+        local entry
+        while IFS= read -r entry || [[ -n "$entry" ]]; do
             ignore_args+=("-ignore" "$entry")
-        done
+        done < <(
+            sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file"
+        )
     fi
 
     if [[ ${#ignore_args[@]} -gt 0 ]]; then
@@ -424,7 +375,7 @@ case "$VALIDATION_STRATEGY" in
         fi
 
         if [[ $TOTAL_WORKFLOW -gt 0 ]]; then
-            if ensure_actionlint; then
+            if ensure_actionlint latest; then
                 build_actionlint_ignore_args
                 if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN $ACTIONLINT_IGNORE_ARGS_STR -color {files}" "" "$WORKFLOW_FILES"; then
                     VALIDATION_SUCCESS=false
@@ -445,7 +396,7 @@ case "$VALIDATION_STRATEGY" in
             FAILED_CHECKS+=("Full linting")
         fi
 
-        if ensure_actionlint; then
+        if ensure_actionlint latest; then
             build_actionlint_ignore_args
             workflow_scope="$WORKFLOW_FILES"
             if [[ -z "$workflow_scope" ]]; then
@@ -487,7 +438,7 @@ case "$VALIDATION_STRATEGY" in
         fi
 
         workflow_scope=".github/workflows/*.yml .github/workflows/*.yaml"
-        if ensure_actionlint; then
+        if ensure_actionlint latest; then
             build_actionlint_ignore_args
             if ! run_fast_check "Workflow linting" "$ACTIONLINT_BIN $ACTIONLINT_IGNORE_ARGS_STR -color {files}" "" "$workflow_scope"; then
                 VALIDATION_SUCCESS=false
@@ -545,7 +496,6 @@ else
     echo ""
     echo -e "${YELLOW}Quick fixes:${NC}"
     echo "  • Run with --fix to auto-fix formatting/imports"
-    echo "  • Use ./scripts/fix_common_issues.sh for common problems"
     echo "  • Use ./scripts/check_branch.sh --verbose for detailed output"
     echo "  • Run with --full for comprehensive validation"
     exit 1

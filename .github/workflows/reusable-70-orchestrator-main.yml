@@ -129,6 +129,7 @@ jobs:
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
+        if: inputs.dry_run != 'true'
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
@@ -148,11 +149,11 @@ jobs:
         with:
           # named inputs, not the whole secrets context (see #3185)
           github_token: ${{ github.token }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
-          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          service_bot_pat: ${{ inputs.dry_run != 'true' && secrets.SERVICE_BOT_PAT || '' }}
+          actions_bot_pat: ${{ inputs.dry_run != 'true' && secrets.ACTIONS_BOT_PAT || '' }}
+          owner_pr_pat: ${{ inputs.dry_run != 'true' && secrets.OWNER_PR_PAT || '' }}
+          workflows_app_id: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_ID || '' }}
+          workflows_app_private_key: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
 
 
 
@@ -160,6 +161,7 @@ jobs:
         id: guard
         uses: actions/github-script@v9
         env:
+          DRY_RUN: ${{ inputs.dry_run }}
           KEEPALIVE_ENABLED: ${{ inputs.enable_keepalive }}
           KEEPALIVE_TRACE: ${{ inputs.keepalive_trace }}
           KEEPALIVE_ROUND: ${{ inputs.keepalive_round }}
@@ -168,9 +170,9 @@ jobs:
         with:
           github-token: >-
             ${{
-              steps.app_token.outputs.token ||
-              secrets.ACTIONS_BOT_PAT ||
-              secrets.SERVICE_BOT_PAT ||
+              (inputs.dry_run != 'true' && (
+                steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT
+              )) ||
               github.token
             }}
           script: |
@@ -578,6 +580,7 @@ jobs:
 
       - name: Mint GitHub App token (preferred)
         id: app_token
+        if: inputs.dry_run != 'true'
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
@@ -1086,7 +1089,7 @@ jobs:
             }
 
       - name: Persist keepalive head snapshot
-        if: steps.snapshot.outputs.head != ''
+        if: inputs.dry_run != 'true' && steps.snapshot.outputs.head != ''
         uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ steps.prepare.outputs.pr_number }}
@@ -1480,368 +1483,127 @@ jobs:
       - keepalive-guard
       - keepalive-prep
       - belt-dispatch
-      - belt-worker
     if: |
+      !cancelled() &&
+      needs.keepalive-guard.result == 'success' &&
+      needs.keepalive-prep.result == 'success' &&
       needs.keepalive-guard.outputs.proceed != 'false' &&
       inputs.enable_keepalive == 'true' &&
       (inputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true') &&
       needs.keepalive-prep.outputs.trace != '' &&
-      needs.keepalive-prep.outputs.pr_number != '' &&
-      needs.keepalive-prep.outputs.base_ref != '' &&
-      needs.keepalive-prep.outputs.head_ref != '' &&
-      needs.keepalive-prep.outputs.baseline_head != ''
+      needs.keepalive-prep.outputs.pr_number != ''
     runs-on: ubuntu-latest
     permissions:
-      actions: write
       contents: read
       pull-requests: read
     outputs:
-      run_url: ${{ steps.await.outputs.run_url || '' }}
-      run_conclusion: ${{ steps.await.outputs.conclusion || '' }}
-      run_id: ${{ steps.await.outputs.run_id || '' }}
-      head_updated: ${{ steps.head_check.outputs.updated || 'false' }}
-      new_head: ${{ steps.head_check.outputs.new_head || '' }}
-      pr_url: ${{ steps.head_check.outputs.pr_url || '' }}
+      preview_result: ${{ steps.preview.outputs.result || 'unknown' }}
+      observed_head: ${{ steps.preview.outputs.observed_head || '' }}
+      pr_url: ${{ steps.preview.outputs.pr_url || '' }}
     steps:
-      - name: Mint GitHub App token (preferred)
-        id: app_token
-        continue-on-error: true
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.WORKFLOWS_APP_ID }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
-
-      - name: Ensure branch-sync token available
-        env:
-          APP_TOKEN: ${{ steps.app_token.outputs.token }}
-          ACTIONS_TOKEN: ${{ secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT }}
-        run: |
-          if [ -n "${APP_TOKEN}" ]; then
-            exit 0
-          fi
-          if [ -z "${ACTIONS_TOKEN}" ]; then
-            echo "::error::Branch-sync validation requires a token." >&2
-            echo "::error::Need App token, ACTIONS_BOT_PAT, or SERVICE_BOT_PAT." >&2
-            exit 1
-          fi
-
-      - name: Dispatch keepalive branch sync
-        id: dispatch
+      - name: Preview branch sync without writes
+        id: preview
         uses: actions/github-script@v9
         env:
-          WORKFLOW_ID: agents-keepalive-branch-sync.yml
-          TARGET_REF: ${{ github.event.repository.default_branch }}
           PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
-          TRACE: ${{ needs.keepalive-prep.outputs.trace }}
           BASE_REF: ${{ needs.keepalive-prep.outputs.base_ref }}
           HEAD_REF: ${{ needs.keepalive-prep.outputs.head_ref }}
           HEAD_SHA: ${{ needs.keepalive-prep.outputs.baseline_head }}
           HEAD_REPO: ${{ needs.keepalive-prep.outputs.head_repo }}
-          ROUND: ${{ needs.keepalive-prep.outputs.round }}
-          AGENT: ${{ needs.keepalive-prep.outputs.agent }}
         with:
-          github-token: >-
-            ${{
-              steps.app_token.outputs.token ||
-              secrets.ACTIONS_BOT_PAT ||
-              secrets.SERVICE_BOT_PAT
-            }}
+          github-token: ${{ github.token }}
           script: |
             const { owner, repo } = context.repo;
-            const workflowId =
-              process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
-            const fs = require('fs');
-            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
-            const retryHelpers = fs.existsSync(retryHelperPath)
-              ? require(retryHelperPath)
-              : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
-                };
-            const { withRetry } = retryHelpers;
-            let ref = (process.env.TARGET_REF || '').trim();
-            if (!ref) {
-              ref = context.payload?.repository?.default_branch || '';
+            const pullNumber = Number(process.env.PR_NUMBER);
+            const sha = (value) => /^[0-9a-f]{40}$/.test(value || '');
+            const expectedHead = process.env.HEAD_SHA;
+            const baseRef = process.env.BASE_REF;
+            function unknown(reason) {
+              core.setOutput('result', 'unknown');
+              core.setFailed(reason);
             }
-            if (!ref) {
-              core.setFailed('Repository default branch not available');
-              return;
+            if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0) {
+              return unknown('Branch-sync preview is missing a valid PR number.');
             }
-            ref = ref.replace(/^refs\/heads\//, '');
-
-            const requiredKeys = [
-              'PR_NUMBER',
-              'TRACE',
-              'BASE_REF',
-              'HEAD_REF',
-              'HEAD_SHA',
-            ];
-            const missing = requiredKeys.filter((key) => {
-              return !(process.env[key] || '').trim();
-            });
-            if (missing.length) {
-              core.setFailed(
-                `Branch-sync dispatch missing inputs: ${missing.join(', ')}`,
-              );
-              return;
+            core.setOutput('pr_url', `${context.serverUrl}/${owner}/${repo}/pull/${pullNumber}`);
+            if (!baseRef || !process.env.HEAD_REF || !process.env.HEAD_REPO || !sha(expectedHead)) {
+              return unknown('Branch-sync preview is missing a ref, repository, or expected head.');
             }
 
-            const inputs = {
-              pr_number: String(process.env.PR_NUMBER || ''),
-              trace: String(process.env.TRACE || ''),
-              base_ref: String(process.env.BASE_REF || ''),
-              head_ref: String(process.env.HEAD_REF || ''),
-              head_sha: String(process.env.HEAD_SHA || ''),
-              head_repository: String(process.env.HEAD_REPO || ''),
-              head_is_fork: '',
-              agent: String(process.env.AGENT || ''),
-              round: String(process.env.ROUND || ''),
+            const baseRepo = `${owner}/${repo}`.toLowerCase();
+            const expectedRepo = process.env.HEAD_REPO?.toLowerCase();
+            const readPull = async () => (await github.rest.pulls.get({
+              owner, repo, pull_number: pullNumber,
+            })).data;
+            const readBase = async () => {
+              const { data } = await github.rest.git.getRef({ owner, repo, ref: `heads/${baseRef}` });
+              if (data?.ref === `refs/heads/${baseRef}` &&
+                  data.object?.type === 'commit' && sha(data.object.sha)) {
+                return data.object.sha;
+              }
+            };
+            const repository = (ref) => ref?.repo?.full_name?.toLowerCase();
+            const matches = (pr) => pr?.number === pullNumber && pr?.state === 'open' &&
+              pr?.base?.ref === baseRef && repository(pr.base) === baseRepo &&
+              pr?.head?.ref === process.env.HEAD_REF && repository(pr.head) === expectedRepo &&
+              pr.head.sha === expectedHead;
+            const observe = (pr) => {
+              if (sha(pr?.head?.sha)) core.setOutput('observed_head', pr.head.sha);
             };
 
-            const baseRepo = `${context.repo.owner}/${context.repo.repo}`
-              .toLowerCase();
-            const headRepo = (process.env.HEAD_REPO || '').toLowerCase();
-            if (headRepo && headRepo !== baseRepo) {
-              inputs.head_is_fork = 'true';
-            }
+            try {
+              const pr = await readPull();
+              observe(pr);
+              if (!matches(pr)) return unknown('Branch-sync preview inputs are stale or unavailable.');
 
-            await withRetry(() => {
-              return github.rest.actions.createWorkflowDispatch({
-                owner,
-                repo,
-                workflow_id: workflowId,
-                ref,
-                inputs,
+              const baseSha = await readBase();
+              if (!baseSha) return unknown('Branch-sync preview could not verify the live base ref.');
+
+              const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo, basehead: `${baseSha}...${expectedHead}`, per_page: 1,
               });
-            });
-
-            const now = new Date().toISOString();
-            core.setOutput('ref', ref);
-            core.setOutput('dispatched_at', now);
-
-      - name: Await branch-sync completion
-        id: await
-        uses: actions/github-script@v9
-        env:
-          WORKFLOW_ID: agents-keepalive-branch-sync.yml
-          REF: ${{ steps.dispatch.outputs.ref }}
-          DISPATCHED_AT: ${{ steps.dispatch.outputs.dispatched_at }}
-          TIMEOUT_SECONDS: 600
-          POLL_SECONDS: 15
-        with:
-          github-token: >-
-            ${{
-              steps.app_token.outputs.token ||
-              secrets.ACTIONS_BOT_PAT ||
-              secrets.SERVICE_BOT_PAT
-            }}
-          script: |
-            const { owner, repo } = context.repo;
-            const workflowId =
-              process.env.WORKFLOW_ID || 'agents-keepalive-branch-sync.yml';
-            const fs = require('fs');
-            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
-            const retryHelpers = fs.existsSync(retryHelperPath)
-              ? require(retryHelperPath)
-              : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
-                };
-            const { withRetry } = retryHelpers;
-            let ref = (process.env.REF || '').trim();
-            if (!ref) {
-              ref = context.payload?.repository?.default_branch || '';
-            }
-            if (!ref) {
-              core.setFailed('Repository default branch not available');
-              return;
-            }
-            const dispatchedAtRaw = process.env.DISPATCHED_AT || new Date().toISOString();
-            const dispatchedAt = Date.parse(dispatchedAtRaw);
-
-            const timeoutSeconds = Number(process.env.TIMEOUT_SECONDS) || 600;
-            const timeoutMs = timeoutSeconds * 1000;
-
-            const pollSeconds = Number(process.env.POLL_SECONDS) || 15;
-            const pollMs = pollSeconds * 1000;
-            const deadline = Date.now() + timeoutMs;
-
-            let runId = 0;
-            let run = null;
-
-            while (Date.now() < deadline) {
-              if (!runId) {
-                  const { data } = await withRetry(() => {
-                    return github.rest.actions.listWorkflowRuns({
-                      owner,
-                      repo,
-                      workflow_id: workflowId,
-                      event: 'workflow_dispatch',
-                      per_page: 20,
-                    });
-                  });
-
-                  const candidates = Array.isArray(data.workflow_runs)
-                    ? data.workflow_runs
-                    : [];
-                const candidate = candidates.find((entry) => {
-                    const created = Date.parse(entry.created_at || '');
-                    if (!Number.isFinite(created)) {
-                      return false;
-                    }
-                    const threshold = dispatchedAt - 2000;
-                    if (created + 1000 < threshold) {
-                    return false;
-                  }
-                  const headBranch = (entry.head_branch || '').trim();
-                  if (headBranch && headBranch !== ref) {
-                    return false;
-                  }
-                  return true;
-                });
-
-                if (candidate) {
-                  runId = candidate.id;
-                  run = candidate;
-                }
-              } else {
-                  const { data } = await withRetry(() => {
-                    return github.rest.actions.getWorkflowRun({
-                      owner,
-                      repo,
-                      run_id: runId,
-                    });
-                  });
-                run = data;
-                if (run.status === 'completed') {
-                  break;
-                }
+              if (comparison?.base_commit?.sha !== baseSha ||
+                  !sha(comparison?.merge_base_commit?.sha)) {
+                return unknown('Branch-sync preview could not verify the immutable comparison.');
               }
 
-              if (run && run.status === 'completed') {
-                break;
+              const current = await readPull();
+              observe(current);
+              if (!matches(current)) {
+                return unknown('The PR changed during branch-sync preview.');
               }
 
-                await new Promise((resolve) => {
-                  setTimeout(resolve, pollMs);
-                });
+              if (await readBase() !== baseSha) {
+                return unknown('The live base ref changed or became unavailable during branch-sync preview.');
+              }
+
+              core.setOutput('result', comparison.merge_base_commit.sha === baseSha
+                ? 'already-up-to-date' : 'would-require-sync');
+            } catch (error) {
+              const status = Number.isInteger(error?.status) ? ` (HTTP ${error.status})` : '';
+              return unknown(`Could not read branch-sync preview inputs${status}.`);
             }
 
-            if (!run) {
-              core.setFailed('Unable to locate branch-sync workflow run.');
-              return;
-            }
-
-            if (run.status !== 'completed') {
-                core.setFailed(
-                  `Branch-sync workflow did not complete before timeout (status=${run.status}).`,
-                );
-              return;
-            }
-
-            core.setOutput('run_id', String(run.id || ''));
-            core.setOutput('run_url', run.html_url || '');
-            core.setOutput('conclusion', run.conclusion || '');
-            core.setOutput('status', run.status || '');
-
-            if ((run.conclusion || '').toLowerCase() !== 'success') {
-                core.setFailed(
-                  `Branch-sync workflow concluded with ${run.conclusion || 'unknown'}.`,
-                );
-            }
-
-      - name: Check staging PR head
-        id: head_check
-        uses: actions/github-script@v9
-        env:
-          PR_NUMBER: ${{ needs.keepalive-prep.outputs.pr_number }}
-          BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head }}
-        with:
-          github-token: >-
-            ${{
-              steps.app_token.outputs.token ||
-              secrets.ACTIONS_BOT_PAT ||
-              secrets.SERVICE_BOT_PAT
-            }}
-          script: |
-            const normalise = (value) => String(value || '').trim();
-            const prNumber = Number.parseInt(
-              normalise(process.env.PR_NUMBER),
-              10,
-            );
-            const baseline = normalise(process.env.BASELINE_HEAD);
-            const fs = require('fs');
-            const retryHelperPath = './.github/scripts/github-api-with-retry.js';
-            const retryHelpers = fs.existsSync(retryHelperPath)
-              ? require(retryHelperPath)
-              : {
-                  withRetry: (fn) => fn(),
-                  paginateWithRetry: (githubInstance, method, params) =>
-                    githubInstance.paginate(method, params),
-                };
-            const { withRetry } = retryHelpers;
-
-            if (!Number.isFinite(prNumber) || prNumber <= 0) {
-              core.setOutput('updated', 'false');
-              core.setOutput('new_head', '');
-              core.setOutput('pr_url', '');
-              return;
-            }
-
-            const { owner, repo } = context.repo;
-            const { data: pr } = await withRetry(() => {
-              return github.rest.pulls.get({
-                owner,
-                repo,
-                pull_number: prNumber,
-              });
-            });
-            const newHead = normalise(pr?.head?.sha);
-            core.setOutput('new_head', newHead);
-            const updated = newHead && baseline && newHead !== baseline ? 'true' : 'false';
-            core.setOutput('updated', updated);
-            const fallbackUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}`;
-            core.setOutput('pr_url', pr?.html_url || fallbackUrl);
-
-      - name: Summarise branch-sync validation
+      - name: Summarise branch-sync preview
+        if: always()
         env:
           TRACE: ${{ needs.keepalive-prep.outputs.trace }}
           ROUND: ${{ needs.keepalive-prep.outputs.round }}
-          RUN_URL: ${{ steps.await.outputs.run_url }}
-          CONCLUSION: ${{ steps.await.outputs.conclusion }}
-          PR_URL: ${{ steps.head_check.outputs.pr_url }}
-          UPDATED: ${{ steps.head_check.outputs.updated }}
-          NEW_HEAD: ${{ steps.head_check.outputs.new_head }}
+          RESULT: ${{ steps.preview.outputs.result }}
+          PR_URL: ${{ steps.preview.outputs.pr_url }}
+          OBSERVED_HEAD: ${{ steps.preview.outputs.observed_head }}
         run: |
-          head_change='unchanged'
-          if [ "${UPDATED}" = 'true' ] && [ -n "${NEW_HEAD}" ]; then
-            head_change="advanced to ${NEW_HEAD:0:12}"
+          pr_link='(unavailable)'
+          if [ -n "$PR_URL" ]; then
+            pr_link="[link]($PR_URL)"
           fi
-
-          sync_link='(not available)'
-          if [ -n "${RUN_URL}" ]; then
-            sync_link="[run](${RUN_URL})"
-          fi
-
-          pr_link='(n/a)'
-          if [ -n "${PR_URL}" ]; then
-            pr_link="[link](${PR_URL})"
-          fi
-
-            r="${ROUND:-?}"
-            t="\`${TRACE:-n/a}\`"
-            res="${CONCLUSION:-unknown}"
-            s="${sync_link}"
-            p="${pr_link}"
-            h="${head_change}"
-
           cat <<EOF >>"$GITHUB_STEP_SUMMARY"
-          ## Branch-sync validation
-          | Round | Trace | Result | Sync run | PR | Head change |
-          |---|---|---|---|---|---|
-            | ${r} | ${t} | ${res} | ${s} | ${p} | ${h} |
+          ## Branch-sync validation (dry-run)
+          | Round | Trace | Preview result | PR | Observed head |
+          |---|---|---|---|---|
+          | ${ROUND:-?} | \`${TRACE:-n/a}\` | ${RESULT:-unknown} | $pr_link | ${OBSERVED_HEAD:-unknown} |
+
+          The preview checks whether the head contains the base. It does not test merge conflicts or dispatch a sync.
           EOF
 
   keepalive-post-work:
@@ -2013,17 +1775,15 @@ jobs:
           should_post='false'
           reason='post-work-unavailable'
 
-            if [ "${result}" = 'success' ] && \
+          if [ "${dry_run}" = 'true' ]; then
+            reason='dry-run'
+          elif [ "${result}" = 'success' ] && \
               [ "${success}" = 'true' ] && \
               [ "${changed}" = 'true' ]; then
             should_post='true'
             reason=''
           elif [ "${result}" = 'success' ] && [ "${success}" = 'true' ]; then
             reason='branch-not-advanced'
-          elif [ "${result}" = 'skipped' ] && [ "${dry_run}" = 'true' ]; then
-            reason='dry-run'
-          elif [ -z "${result}" ] && [ "${dry_run}" = 'true' ]; then
-            reason='dry-run'
           elif [ -z "${result}" ]; then
             reason='post-work-not-run'
           else
@@ -2793,6 +2553,7 @@ jobs:
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
+        if: inputs.dry_run != 'true'
         continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
@@ -2822,6 +2583,7 @@ jobs:
               ''
             }}
           BASELINE_HEAD: ${{ needs.keepalive-prep.outputs.baseline_head || '' }}
+          DRY_RUN: ${{ inputs.dry_run == 'true' || needs.belt-dispatch.outputs.dry_run == 'true' }}
           WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
           INSTRUCTION_RESULT: ${{ needs.keepalive-instruction.result || '' }}
         run: |
@@ -2847,6 +2609,12 @@ jobs:
           instr="${COMMENT_ID:-}"
           if [ -z "${instr}" ]; then
             instr='none'
+          fi
+
+          if [ "${DRY_RUN}" = 'true' ] && [ "${PROCEED}" = 'true' ] && [ "${CAP_OK}" = 'true' ]; then
+            printf 'WORKER PREVIEW: result=%s pr=%s head=%s trace=%s\n' \
+              "${WORKER_RESULT:-unknown}" "${pr_label}" "${head}" "${trace}" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
 
           action='skip'
@@ -2972,7 +2740,7 @@ jobs:
             }}
           WORKER_BRANCH: >-
             ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
-          WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
+          WORKER_DRY_RUN: ${{ inputs.dry_run == 'true' && 'true' || needs.belt-worker.outputs.dry_run || '' }}
           KEEPALIVE_ACTION: ${{ needs.belt-worker.outputs.keepalive_action || '' }}
           KEEPALIVE_REASON: ${{ needs.belt-worker.outputs.keepalive_reason || '' }}
         with:
@@ -3001,7 +2769,7 @@ jobs:
           WORKER_RESULT: ${{ needs.belt-worker.result || '' }}
           WORKER_BRANCH: >-
             ${{ needs.belt-worker.outputs.branch || needs.belt-dispatch.outputs.branch || '' }}
-          WORKER_DRY_RUN: ${{ needs.belt-worker.outputs.dry_run || '' }}
+          WORKER_DRY_RUN: ${{ inputs.dry_run == 'true' && 'true' || needs.belt-worker.outputs.dry_run || '' }}
           KEEPALIVE_ACTION: >-
             ${{ needs.belt-worker.outputs.keepalive_action || '' }}
           KEEPALIVE_REASON: >-
@@ -3015,9 +2783,9 @@ jobs:
         with:
           github-token: >-
             ${{
-              steps.app_token.outputs.token ||
-              secrets.ACTIONS_BOT_PAT ||
-              secrets.SERVICE_BOT_PAT ||
+              (inputs.dry_run != 'true' && (
+                steps.app_token.outputs.token || secrets.ACTIONS_BOT_PAT || secrets.SERVICE_BOT_PAT
+              )) ||
               github.token
             }}
           script: |
@@ -3067,7 +2835,7 @@ jobs:
             const lastInstructionHead = normalise(process.env.KEEPALIVE_LAST_INSTRUCTION_HEAD);
 
             const summary = core.summary;
-            summary
+            await summary
               .addHeading('Keepalive worker outcome')
               .addTable([
                 [
@@ -3099,6 +2867,8 @@ jobs:
               ])
               .write();
 
+            if (dryRun) return;
+
             if (!trace) {
               core.info('No keepalive trace detected; skipping worker outcome comment.');
               return;
@@ -3119,9 +2889,6 @@ jobs:
 
             const shortSha = headSha ? headSha.slice(0, 12) : 'unknown';
             let details = `worker ${workerResult}`;
-            if (dryRun) {
-              details += ' (dry run)';
-            }
             if (headSha) {
               details += ` – head ${shortSha}`;
             }
@@ -3146,35 +2913,21 @@ jobs:
             }
 
       - name: Record branch-sync validation outcome
-        if: needs.dry-run-branch-sync.result == 'success'
+        if: always() && needs.dry-run-branch-sync.result != 'skipped'
         env:
-          RUN_URL: ${{ needs.dry-run-branch-sync.outputs.run_url }}
-          CONCLUSION: ${{ needs.dry-run-branch-sync.outputs.run_conclusion }}
-          HEAD_UPDATED: ${{ needs.dry-run-branch-sync.outputs.head_updated }}
-          NEW_HEAD: ${{ needs.dry-run-branch-sync.outputs.new_head }}
+          RESULT: ${{ needs.dry-run-branch-sync.outputs.preview_result }}
+          OBSERVED_HEAD: ${{ needs.dry-run-branch-sync.outputs.observed_head }}
           PR_URL: ${{ needs.dry-run-branch-sync.outputs.pr_url }}
         run: |
-          head_change='unchanged'
-          if [ "${HEAD_UPDATED}" = 'true' ] && [ -n "${NEW_HEAD}" ]; then
-            head_change="advanced to ${NEW_HEAD:0:12}"
+          pr_link='(unavailable)'
+          if [ -n "$PR_URL" ]; then
+            pr_link="[link]($PR_URL)"
           fi
-
-          sync_link='(not available)'
-          if [ -n "${RUN_URL}" ]; then
-            sync_link="[run](${RUN_URL})"
-          fi
-
-          pr_link='(n/a)'
-          if [ -n "${PR_URL}" ]; then
-            pr_link="[link](${PR_URL})"
-          fi
-
           cat <<EOF >>"$GITHUB_STEP_SUMMARY"
           ## Branch-sync validation (dry-run)
-          * Result: ${CONCLUSION:-unknown}
-          * Workflow: ${sync_link}
+          * Preview result: ${RESULT:-unknown}
           * PR: ${pr_link}
-          * Head change: ${head_change}
+          * Observed head: ${OBSERVED_HEAD:-unknown}
           EOF
   belt-scan-ready-prs:
     name: Scan belt promotion queue
@@ -3201,11 +2954,11 @@ jobs:
         uses: ./.github/actions/setup-api-client
         with:
           github_token: ${{ github.token }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
-          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          service_bot_pat: ${{ inputs.dry_run != 'true' && secrets.SERVICE_BOT_PAT || '' }}
+          actions_bot_pat: ${{ inputs.dry_run != 'true' && secrets.ACTIONS_BOT_PAT || '' }}
+          owner_pr_pat: ${{ inputs.dry_run != 'true' && secrets.OWNER_PR_PAT || '' }}
+          workflows_app_id: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_ID || '' }}
+          workflows_app_private_key: ${{ inputs.dry_run != 'true' && secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
 
       - name: Preflight API budget and identify ready belt PRs
         id: scan

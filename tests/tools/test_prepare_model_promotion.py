@@ -504,6 +504,40 @@ def test_apply_rollback_rejects_stale_proposal(section, key):
     assert json.dumps(registry, sort_keys=True) == before
 
 
+def test_rollback_finds_predecessor_after_an_older_edge_and_rechecks_after_move():
+    registry = _promoted_registry()
+    prior = registry["selection_history"][0]
+    older = {**prior, "model_id": "claude-opus-4-5", "superseded_by": "claude-opus-4-6"}
+    registry["selection_history"].insert(0, older)
+    breach = _report([_result("claude-opus-4-8", "anthropic", status="failed", cost=0.08)])
+
+    (rollback,) = pmp.find_rollbacks(breach, registry)
+    assert rollback["to_model_id"] == "claude-opus-4-6"
+
+    unrelated = {**prior, "profile": "another-profile"}
+    registry["selection_history"].insert(0, unrelated)
+    reverted = pmp.apply_rollback(registry, rollback, today=TODAY)
+    assert reverted["selections"][0]["model_id"] == "claude-opus-4-6"
+    assert reverted["selections"][0]["evidence_ids"] == prior["evidence_ids"]
+    assert reverted["selection_history"] == [unrelated, older]
+    assert registry["selection_history"] == [unrelated, older, prior]
+
+
+@pytest.mark.parametrize("other_predecessor", ["claude-opus-4-5", "claude-opus-4-6"])
+def test_rollback_rejects_ambiguous_predecessors(other_predecessor):
+    registry = _promoted_registry()
+    breach = _report([_result("claude-opus-4-8", "anthropic", status="failed", cost=0.08)])
+    (rollback,) = pmp.find_rollbacks(breach, registry)
+    prior = registry["selection_history"][0]
+    registry["selection_history"].append({**prior, "model_id": other_predecessor})
+    before = json.dumps(registry, sort_keys=True)
+
+    assert pmp.find_rollbacks(breach, registry) == []
+    with pytest.raises(ValueError, match="no longer matches"):
+        pmp.apply_rollback(registry, rollback, today=TODAY)
+    assert json.dumps(registry, sort_keys=True) == before
+
+
 def test_main_breach_takes_precedence_over_promotion(tmp_path):
     registry = _promoted_registry()
     report = _report(

@@ -39,6 +39,7 @@ SUMMARY_FILE = Path(".cosmetic-repair-summary.json")
 
 from scripts.classify_test_failures import (  # noqa: E402
     FailureRecord,
+    RepeatedFailureError,
     classify_reports,
 )
 
@@ -188,8 +189,16 @@ def _format_value(data: dict[str, object]) -> str:
     raise CosmeticRepairError(f"Unsupported value type: {type(raw_value)!r}")
 
 
-def load_failure_records(report_path: Path) -> list[FailureRecord]:
-    summary = classify_reports([report_path])
+def load_failure_records(
+    report_path: Path, *, reject_repeated_failures: bool = False
+) -> list[FailureRecord]:
+    try:
+        if reject_repeated_failures:
+            summary = classify_reports([report_path], reject_repeated_failures=True)
+        else:
+            summary = classify_reports([report_path])
+    except RepeatedFailureError as exc:
+        raise CosmeticRepairError(str(exc)) from exc
     cosmetic_entries = summary.get("cosmetic", [])
     runtime_entries = summary.get("runtime", [])
     unknown_entries = summary.get("unknown", [])
@@ -209,10 +218,14 @@ def load_failure_records(report_path: Path) -> list[FailureRecord]:
     return records
 
 
-def collect_instructions(records: Iterable[FailureRecord]) -> list[RepairInstruction]:
+def collect_instructions(
+    records: Iterable[FailureRecord], *, require_all: bool = False
+) -> list[RepairInstruction]:
     instructions: list[RepairInstruction] = []
     for record in records:
         parsed = parse_failure_message(record.message, source=record.id)
+        if require_all and not parsed:
+            raise CosmeticRepairError(f"No repair instruction for original failure {record.id}")
         instructions.extend(parsed)
     return instructions
 
@@ -222,7 +235,9 @@ _FLOAT_GUARD_PATTERN = re.compile(
 )
 
 
-def apply_tolerance_update(path: Path, *, guard: str, key: str | None, value: str) -> bool:
+def apply_tolerance_update(
+    path: Path, *, guard: str, key: str | None, value: str, write: bool = True
+) -> bool:
     guard_token = f"{GUARD_PREFIX} {guard}"
     if key:
         guard_token = f"{guard_token} {key}"
@@ -248,22 +263,28 @@ def apply_tolerance_update(path: Path, *, guard: str, key: str | None, value: st
         raise CosmeticRepairError(f"Guard comment {guard_token} not found in {path}")
     if not changed:
         return False
-    path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+    if write:
+        path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
     return changed
 
 
-def apply_snapshot_update(path: Path, *, guard: str, key: str | None, replacement: str) -> bool:
+def apply_snapshot_update(
+    path: Path, *, guard: str, key: str | None, replacement: str, write: bool = True
+) -> bool:
     guard_token = f"{GUARD_PREFIX} {guard}"
     if key:
         guard_token = f"{guard_token} {key}"
     text = path.read_text(encoding="utf-8")
     if guard_token not in text:
         raise CosmeticRepairError(f"Snapshot guard {guard_token} not found in {path}")
-    path.write_text(replacement, encoding="utf-8")
+    if write:
+        path.write_text(replacement, encoding="utf-8")
     return True
 
 
-def apply_instructions(instructions: Sequence[RepairInstruction], *, root: Path) -> list[Path]:
+def apply_instructions(
+    instructions: Sequence[RepairInstruction], *, root: Path, write: bool = True
+) -> list[Path]:
     changed: list[Path] = []
     for instruction in instructions:
         target = instruction.absolute_path(root)
@@ -273,6 +294,7 @@ def apply_instructions(instructions: Sequence[RepairInstruction], *, root: Path)
                 guard=instruction.guard,
                 key=instruction.key,
                 value=str(instruction.value),
+                write=write,
             )
         elif instruction.kind == "snapshot":
             updated = apply_snapshot_update(
@@ -280,6 +302,7 @@ def apply_instructions(instructions: Sequence[RepairInstruction], *, root: Path)
                 guard=instruction.guard,
                 key=instruction.key,
                 replacement=str(instruction.value),
+                write=write,
             )
         else:  # pragma: no cover - defensive
             raise CosmeticRepairError(f"Unhandled instruction kind: {instruction.kind}")
@@ -435,6 +458,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Do not create a branch or PR (useful for tests)",
     )
+    parser.add_argument(
+        "--require-all",
+        action="store_true",
+        help="Require unique failed testcases with repair instructions and check guards in preview",
+    )
     return parser.parse_args(argv)
 
 
@@ -460,8 +488,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if not report_path.exists():
         raise CosmeticRepairError(f"JUnit report not found: {report_path}")
-    records = load_failure_records(report_path)
-    instructions = collect_instructions(records)
+    if ns.require_all:
+        records = load_failure_records(report_path, reject_repeated_failures=True)
+        instructions = collect_instructions(records, require_all=True)
+        root = ns.root.resolve()
+        for instruction in instructions:
+            if not instruction.absolute_path(root).resolve().is_relative_to(root):
+                raise CosmeticRepairError(
+                    f"Repair path is outside the checkout: {instruction.path}"
+                )
+    else:
+        instructions = collect_instructions(load_failure_records(report_path))
     if not instructions:
         if pytest_result is not None and pytest_result.returncode != 0:
             write_summary(
@@ -486,6 +523,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
     if mode == "dry-run":
+        if ns.require_all:
+            apply_instructions(instructions, root=ns.root, write=False)
         for instr in instructions:
             print(f"[dry-run] {instr.kind} -> {instr.path}")
         write_summary(

@@ -11,10 +11,9 @@
 #   - No existing workflow periodically scans for stale/stuck PRs
 #
 # Integrates with:
-#   - agents-keepalive-branch-sync.yml  (simple merges / lock files)
+#   - agents-81-gate-followups.yml      (consumer keepalive/conflict/failing-check receiver)
 #   - reusable-codex-run.yml            (Codex agent for complex conflicts)
 #   - reusable-claude-run.yml           (Claude agent for complex conflicts)
-#   - agents-autofix-loop.yml           (failing check re-dispatch)
 #   - .github/agents/registry.yml       (agent routing)
 #
 # Consumer repos call this via a thin wrapper: agents-pr-health.yml
@@ -177,6 +176,7 @@ jobs:
     outputs:
       conflict_count: ${{ steps.categorise.outputs.conflict_count }}
       failing_count: ${{ steps.categorise.outputs.failing_count }}
+      check_dispatch_count: ${{ steps.categorise.outputs.check_dispatch_count }}
       stalled_scan_count: ${{ steps.categorise.outputs.stalled_scan_count }}
       healthy_count: ${{ steps.categorise.outputs.healthy_count }}
       total_open: ${{ steps.categorise.outputs.total_open }}
@@ -266,6 +266,8 @@ jobs:
 
             const conflictPrs = [];
             const failingPrs = [];
+            // Match the receiver's non-routing labels in keepalive_loop.js.
+            const nonRoutingAgentKeys = new Set(['needs-attention', 'rate-limited', 'retry']);
             let healthyCount = 0;
 
             for (const pr of prs) {
@@ -327,21 +329,38 @@ jobs:
                       owner, repo, ref: pr.head.sha,
                     })
                   );
-                  if (status.state === 'failure') {
-                    failingPrs.push(prInfo);
-                    continue;
+                  const combinedFailure = status.state === 'failure';
+                  const failures = (combinedFailure ? status.statuses || [] : [])
+                    .filter(entry => entry.state === 'failure')
+                    .map(entry => entry.context);
+                  try {
+                    const { data: checks } = await withRetry((client) =>
+                      client.rest.checks.listForRef({
+                        owner, repo, ref: pr.head.sha, per_page: 100,
+                      })
+                    );
+                    failures.push(...checks.check_runs
+                      .filter(check => check.conclusion === 'failure' && check.name !== 'automerge')
+                      .map(check => check.name));
+                  } catch (error) {
+                    // Keep the observed status failure even if Check Runs are unavailable.
+                    if (!combinedFailure) throw error;
+                    core.warning(`Could not list check runs for PR #${pr.number}: ${error.message}`);
                   }
-                  // Also check check runs
-                  const { data: checks } = await withRetry((client) =>
-                    client.rest.checks.listForRef({
-                      owner, repo, ref: pr.head.sha, per_page: 100,
-                    })
-                  );
-                  const hasFailure = checks.check_runs.some(
-                    cr => cr.conclusion === 'failure' && cr.name !== 'automerge'
-                  );
-                  if (hasFailure) {
-                    failingPrs.push(prInfo);
+                  if (combinedFailure || failures.length > 0) {
+                    // The receiving keepalive route requires explicit agent participation.
+                    // Leave routing validity, pause and recovery decisions to that receiver.
+                    const hasAgentLabel = (pr.labels || []).some(label => {
+                      const name = String(label.name ?? '').trim().toLowerCase();
+                      const key = name.startsWith('agent:') ? name.slice('agent:'.length) : '';
+                      return key && !nonRoutingAgentKeys.has(key);
+                    });
+                    failingPrs.push({
+                      ...prInfo,
+                      head_sha: pr.head.sha,
+                      failed_checks: [...new Set(failures)],
+                      has_agent_label: hasAgentLabel,
+                    });
                     continue;
                   }
                 } catch (e) {
@@ -358,7 +377,13 @@ jobs:
             // simple auto-merges are free so we keep all of those in the
             // list and let the loop step handle them.
             const limitedConflicts = conflictPrs.slice(0, Math.min(maxPrs, maxDispatches));
-            const limitedFailing = failingPrs.slice(0, Math.min(maxPrs, maxDispatches));
+            const limitedFailing = failingPrs.slice(0, maxPrs);
+            // Reserve request slots for participants; reporting does not use this cap.
+            let checkDispatchCount = 0;
+            for (const pr of limitedFailing) {
+              pr.dispatch_selected = pr.has_agent_label && checkDispatchCount < maxDispatches;
+              if (pr.dispatch_selected) checkDispatchCount++;
+            }
 
             // ----- Second pass: detect stalled PRs with incomplete tasks -----
             function extractStatusSummary(body) {
@@ -499,6 +524,7 @@ jobs:
             // Only scalar counts as outputs (safe from masking)
             core.setOutput('conflict_count', String(limitedConflicts.length));
             core.setOutput('failing_count', String(limitedFailing.length));
+            core.setOutput('check_dispatch_count', String(checkDispatchCount));
             core.setOutput('stalled_scan_count', String(stalledPrs.length));
             core.setOutput('healthy_count', String(healthyCount));
             core.setOutput('total_open', String(prs.length));
@@ -524,8 +550,17 @@ jobs:
             }
             if (limitedFailing.length > 0) {
               summary += `### PRs with Failing Checks\n`;
+              const repoUrl = `${context.serverUrl || 'https://github.com'}/${owner}/${repo}`;
               for (const pr of limitedFailing) {
-                summary += `- #${pr.number} (\`${pr.head_ref}\`) → agent: **${pr.agent_type}**\n`;
+                const checks = pr.failed_checks.map(name => `\`${String(name).replace(/[\r\n`]/g, ' ')}\``);
+                summary += `- [#${pr.number}](${repoUrl}/pull/${pr.number}) — [checks at ${pr.head_sha.slice(0, 12)}](${repoUrl}/commit/${pr.head_sha}/checks): ${checks.join(', ') || 'combined status failed; details unavailable'}. `;
+                if (pr.dispatch_selected) {
+                  summary += 'Agent label present; see the dispatch job for the request status.\n';
+                } else if (pr.has_agent_label) {
+                  summary += 'Follow-up dispatch cap reached; review the failing checks on this head.\n';
+                } else {
+                  summary += 'No agent routing label; no dispatch. Review the failing checks on this head.\n';
+                }
               }
               summary += '\n';
             }
@@ -646,23 +681,19 @@ jobs:
                   continue;
                 }
 
-                // Get current head SHA for the dispatch
-                const { data: prData } = await github.rest.pulls.get({
-                  owner, repo, pull_number: pr.number,
-                });
-
                 core.info(`PR #${pr.number}: Dispatching ${pr.agent_type} agent for conflict resolution`);
 
-                await github.rest.repos.createDispatchEvent({
+                // Dispatch on the repository default/base branch rather than pr.head_ref so
+                // privileged agent-standard followups use the trusted workflow definition.
+                const dispatchRef =
+                  context.payload?.repository?.default_branch || pr.base_ref || 'main';
+                await github.rest.actions.createWorkflowDispatch({
                   owner, repo,
-                  event_type: `${pr.agent_type}-agent-fix`,
-                  client_payload: {
-                    pr_number: pr.number,
-                    head_ref: pr.head_ref,
-                    base_ref: pr.base_ref,
-                    head_sha: prData.head.sha,
-                    issue_type: 'merge-conflict',
-                    agent_type: pr.agent_type,
+                  workflow_id: 'agents-81-gate-followups.yml',
+                  ref: dispatchRef,
+                  inputs: {
+                    pr_number: String(pr.number),
+                    force_retry: 'false',
                   },
                 });
                 core.info(`PR #${pr.number}: Agent dispatched`);
@@ -682,7 +713,7 @@ jobs:
     needs: scan
     if: >-
       needs.scan.outputs.has_work == 'true'
-      && needs.scan.outputs.failing_count != '0'
+      && needs.scan.outputs.check_dispatch_count != '0'
       && inputs.skip_check_fix != 'true'
       && inputs.dry_run != 'true'
     runs-on: ubuntu-latest
@@ -727,7 +758,8 @@ jobs:
           script: |
             // # best-effort: this ancillary API failure is logged; reconciliation or the primary workflow result remains authoritative.
             const fs = require('fs');
-            const failing = JSON.parse(fs.readFileSync('/tmp/scan-data/failing_prs.json', 'utf8'));
+            const failing = JSON.parse(fs.readFileSync('/tmp/scan-data/failing_prs.json', 'utf8'))
+              .filter(pr => pr.dispatch_selected);
 
             if (failing.length === 0) {
               core.info('No failing PRs to fix');
@@ -741,20 +773,20 @@ jobs:
               core.info(`\n--- Processing PR #${pr.number} (${pr.head_ref}) ---`);
 
               try {
-                // Use keepalive loop which handles agent routing and can
-                // trigger autofix internally.  We do NOT dispatch
-                // agents-autofix-loop.yml directly because it requires
-                // gate_run_id (a required input we cannot supply here).
+                // Dispatch the installed consumer Gate followups workflow on the trusted
+                // default/base branch; it resolves the PR head ref and routes repair internally.
+                const dispatchRef =
+                  context.payload?.repository?.default_branch || pr.base_ref || 'main';
                 await github.rest.actions.createWorkflowDispatch({
                   owner, repo,
-                  workflow_id: 'agents-keepalive-loop.yml',
-                  ref: pr.head_ref,
+                  workflow_id: 'agents-81-gate-followups.yml',
+                  ref: dispatchRef,
                   inputs: {
                     pr_number: String(pr.number),
-                    force_retry: 'true',
+                    force_retry: 'false',
                   },
                 });
-                core.info(`PR #${pr.number}: Dispatched keepalive loop (agent: ${pr.agent_type})`);
+                core.info(`PR #${pr.number}: Dispatched gate followups (agent: ${pr.agent_type})`);
 
               } catch (err) {
                 core.warning(`PR #${pr.number}: Failed to dispatch — ${err.message}`);
@@ -764,7 +796,7 @@ jobs:
             core.info(`\nProcessed ${failing.length} failing PRs`);
 
   # -----------------------------------------------------------------------
-  # 4. Nudge stalled PRs (add agent:retry, remove blocking labels)
+  # 4. Nudge stalled PRs (add agent:retry, preserve owned blocking labels)
   # -----------------------------------------------------------------------
   nudge-stalled:
     name: Nudge stalled PRs
@@ -864,7 +896,7 @@ jobs:
                 }
 
                 if (dryRun) {
-                  core.info(`PR #${pr.number}: [DRY RUN] Would add agent:retry and remove blocking labels`);
+                  core.info(`PR #${pr.number}: [DRY RUN] Would add agent:retry and preserve blocking labels`);
                   continue;
                 }
 
@@ -895,24 +927,12 @@ jobs:
                 );
                 core.info(`PR #${pr.number}: Added label: agent:retry`);
 
-                // Remove each blocking label (404-safe — label may already be gone)
+                // Preserve agent:needs-attention and agent:rate-limited so
+                // authority-challenge and rate-limit receipt reconciliation
+                // remain owned by their keepalive recovery paths.
                 const blockingLabels = pr.blocking_labels || [];
-                for (const label of blockingLabels) {
-                  try {
-                    await withRetry((client) =>
-                      client.rest.issues.removeLabel({
-                        owner, repo, issue_number: pr.number,
-                        name: label,
-                      })
-                    );
-                    core.info(`PR #${pr.number}: Removed label: ${label}`);
-                  } catch (error) {
-                    if (error.status === 404) {
-                      core.info(`PR #${pr.number}: Label already absent: ${label}`);
-                    } else {
-                      throw error;
-                    }
-                  }
+                if (blockingLabels.length > 0) {
+                  core.info(`PR #${pr.number}: Preserved owned labels: ${blockingLabels.join(', ')}`);
                 }
 
                 core.info(`PR #${pr.number}: Nudged successfully`);
@@ -960,7 +980,7 @@ jobs:
             echo "|----------|-------|--------|"
             echo "| Total open PRs | $TOTAL | — |"
             echo "| Conflicting | $conflict_count | resolve-conflicts: **${CONFLICT_RESULT:-skipped}** |"
-            echo "| Failing checks | $failing_count | fix-checks: **${CHECK_RESULT:-skipped}** |"
+            echo "| Failing checks | $failing_count | Details in scan. Follow-up dispatch job: **${CHECK_RESULT:-skipped}** |"
             echo "| Stalled (nudged) | ${STALLED_COUNT:-0} | nudge-stalled: **${NUDGE_RESULT:-skipped}** |"
             echo "| Healthy | $HEALTHY | — |"
           } >> "$GITHUB_STEP_SUMMARY"

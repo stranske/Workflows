@@ -7,7 +7,7 @@ remains the required merge check, `agents-keepalive-loop.yml` and `agents-keepal
 summary of buckets, required checks, and automation roles, begin with
 [docs/ci/WORKFLOW_SYSTEM.md](ci/WORKFLOW_SYSTEM.md) before diving into the topology details below.
 
-Look up active workflow files in the [workflow catalog](ci/WORKFLOWS.md) and retired files in the [archive](archive/ARCHIVE_WORKFLOWS.md). This guide covers naming, routing and operator procedures.
+Look up active workflow files in the [workflow catalog](ci/WORKFLOWS.md) and retired files in the [archive](archive/ARCHIVE_WORKFLOWS.md). This guide covers naming, routing and operator procedures. For [Python dependency and cache setup](#workflow-integration-guide), follow the live workflow definitions.
 
 The reusable backplane conformance gate validates against the Workflows-owned
 registry and schemas. Its opt-in `manifest-evidence-closure/v1` policy validates
@@ -40,7 +40,7 @@ artifact count can continue rising until the shorter retention periods elapse.
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | [Gate and smoke checks](ci/WORKFLOWS.md#required-merge-gate) |
 | `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-46-post-ci.yml`, `maint-50-tool-version-check.yml`, `maint-52-validate-workflows.yml`, `maint-60-release.yml`, `maint-61-release-please.yml`, `maint-coverage-guard.yml` |
-| `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
+| `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
 | `agents-` | Agent orchestration entry points | `agents-63-issue-intake.yml`, `agents-64-verify-agent-assignment.yml`, `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-model-profile-trial.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-guard.yml`, `agents-pr-meta-v4.yml`, `agents-moderate-connector.yml`, `agents-keepalive-*.yml`, `agents-debug-issue-event.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-model-profile-trial.yml`, `reusable-agents-issue-bridge.yml` |
 | `selftest-` | Repository checks and reusable workflow tests | [Self-test workflows](ci/WORKFLOWS.md#self-test-harness) |
@@ -217,6 +217,53 @@ cat "$preview/topics.json"
 - Maint46's independent `failure-tracker` job handles completed same-repository Gate runs, including a successful summary with a failed upstream CI leg. Trusted current-run/attempt/head validation precedes issue writes; summary recovery remains a separate path.
 - Existing-signature issues are updated with occurrence/run metadata; cooldown appends avoid duplicates and recurrence comments are rate-limited. Healthy PR recovery and the inactivity scan close eligible issues without discarding other tracked PRs.
 - Both paths upload `artifacts/ci_failures_snapshot.json` with monitored run/attempt/head identity. See [CI Failure Tracker](ci-failure-tracker.md) for the executable replay, supported settings and controlled hosted receipt.
+
+## Workflow integration guide
+
+Use the checked-in workflows to find the current Python dependency and cache
+steps.
+
+| Workflow | Current dependency setup |
+| --- | --- |
+| [Auto Pilot](../.github/workflows/agents-auto-pilot.yml) and [consumer template](../templates/consumer-repo/.github/workflows/agents-auto-pilot.yml) | `Set up Python`, `Cache pip (LLM requirements)` and `Install Python dependencies`. The cache key uses the setup step's Python version and hashes `tools/requirements-llm.txt`. |
+| [Reusable verifier](../.github/workflows/reusable-agents-verifier.yml), called by the [consumer verifier](../templates/consumer-repo/.github/workflows/agents-verifier.yml) | The evaluate and compare branches each have their own Python setup, cache and install steps. Their keys use the corresponding setup step and `.workflows-lib/tools/requirements-llm.txt`. |
+| [Verify to New PR](../.github/workflows/agents-verify-to-new-pr.yml) and [consumer template](../templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml) | `Install dependencies` installs `langchain`, `langchain-openai`, `langchain-anthropic` and `requests` after the workflow checks out Workflows with `tools` in its sparse checkout. |
+
+### Pending dependency proposal
+
+The [Verify to New PR install snippet](workflow-snippets/agents-verify-to-new-pr-install.yml)
+proposes using the [seven pinned dependencies](../tools/requirements-llm.txt)
+for the four packages installed directly today. Adopting those pins introduces
+three additional direct dependencies. It requires separate validation on the
+follow-up workflow.
+
+### Deterministic verdict extraction
+
+Verify to New PR already runs `Extract verdict via verdict_policy` with step
+ID `extract-verdict`. It reads the generated `verification_data.txt` using the
+[verdict reader](../scripts/langchain/verdict_extract.py).
+
+```bash
+python -m scripts.langchain.verdict_extract \
+  --summary-path verification_data.txt \
+  --policy worst \
+  --emit github
+```
+
+The `github` emitter writes `verdict`, `needs_human`, `needs_human_reason`,
+`policy`, `verdict_kind`, `selected_provider`, `selected_model`,
+`selected_confidence`, `split_verdict`, `concerns_confidence` and
+`verdict_metadata` to `GITHUB_OUTPUT`. The workflow consumes the verdict and
+needs-human outputs through `steps.extract-verdict.outputs`.
+
+### Historical snippets
+
+The February examples remain available as reference material.
+
+- [Auto Pilot install](workflow-snippets/agents-auto-pilot-install.yml)
+- [Reusable verifier installs](workflow-snippets/reusable-agents-verifier-install.yml)
+- [Generic pip cache](workflow-snippets/pip-cache-step.yml)
+- [Optional pip freeze logging](workflow-snippets/pip-freeze-step.yml)
 
 ## Agent Operations
 - Use **Agents 70 Orchestrator** via manual `workflow_dispatch` (input-controlled `dry_run`, default `'false'`) for live readiness checks, Codex bootstrap, diagnostics, and keepalive sweeps; its 30-minute `schedule` runs in forced `dry_run=true` shadow mode and `jobs.eligibility` denies declared `workflow_run` and `repository_dispatch` events before `jobs.init` while retirement versus restoration remains undecided (see [AGENTS_POLICY.md](AGENTS_POLICY.md)). Authored Gate-completion and hourly keepalive sweeps run in `agents-keepalive-loop.yml` and `agents-keepalive-sweep.yml`, and the **Agents 71–73 Codex Belt** owns the queue automation loop—dispatcher selects issues, worker opens/refreshes the PR, conveyor merges after Gate, and the dispatcher is re-triggered. Historical consumer shims remain retired (see [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md)), and the Agent task issue template still auto-labels issues (`agents`, `agent:codex`) so the bridge can open the branch/PR before the belt takes over.

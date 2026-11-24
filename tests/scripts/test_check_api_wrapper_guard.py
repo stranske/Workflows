@@ -710,3 +710,11 @@ def test_scan_file_reports_unreadable_paths(
     monkeypatch.setattr(Path, "read_text", boom)
 
     assert guard._scan_file(path) == [f"{path}: unable to read file"]
+
+
+def test_restore_branch_snapshots_passes_api_guard() -> None:
+    """Regression: monthly audit flagged direct api.github.com at artifacts list/download URLs."""
+    path = guard.ROOT / ".github" / "scripts" / "restore_branch_snapshots.py"
+    assert path.is_file()
+    assert guard._is_target_file(path)
+    assert guard._scan_file(path) == []

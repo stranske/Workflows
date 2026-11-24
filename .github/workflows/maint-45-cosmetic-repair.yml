@@ -49,139 +49,137 @@ jobs:
       - name: Install dependencies
         run: |
           python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip
-          pip install pytest pyyaml black ruff
+          .venv/bin/python -m pip install --requirement requirements.lock
 
       - name: Run pytest (allow failures)
         id: pytest
         run: |
-          set +e
-          source .venv/bin/activate
-          pytest -q --junitxml=pytest-report.xml
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
-          exit 0
+          exit_code=0
+          # The classifier reads testcase marker properties from this report.
+          .venv/bin/python -m pytest -q -o junit_family=xunit1 \
+            --junitxml="$RUNNER_TEMP/pytest-report.xml" || exit_code=$?
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
 
-      - name: Run cosmetic repair script
+      - name: Run cosmetic repair on original report
+        id: repair
         env:
+          PYTEST_EXIT_CODE: ${{ steps.pytest.outputs.exit_code }}
           DRY_RUN: ${{ inputs['dry-run'] }}
-          BRANCH_SUFFIX: ${{ inputs['branch-suffix'] }}
-          BASE_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
-          cmd=("python" "scripts/ci_cosmetic_repair.py")
-          if [ "$DRY_RUN" = "true" ]; then
-            cmd+=("--dry-run" "--skip-pr")
-          else
-            cmd+=("--apply")
-          fi
-          if [ -n "$BRANCH_SUFFIX" ]; then
-            cmd+=("--branch-suffix" "$BRANCH_SUFFIX")
-          fi
-          cmd+=("--base" "$BASE_BRANCH")
-          echo "Running: ${cmd[*]}"
-          "${cmd[@]}"
-
-      - name: Capture cosmetic summary outputs
-        if: always()
-        id: cosmetic-summary
-        env:
-          SUMMARY_FILE: .cosmetic-repair-summary.json
-        run: |
-          python - <<'PYCODE'
-          import json
+          report="$RUNNER_TEMP/pytest-report.xml"
+          .venv/bin/python - "$report" <<'PYCODE'
           import os
+          import sys
           from pathlib import Path
+          from xml.etree import ElementTree
 
-          summary = Path(".cosmetic-repair-summary.json")
-          if not summary.exists():
-              raise SystemExit(0)
+          from scripts.classify_test_failures import _test_id
 
-          data = json.loads(summary.read_text(encoding="utf-8"))
-          output_path = os.environ.get("GITHUB_OUTPUT")
-          if not output_path:
-              raise SystemExit(0)
-
-          with open(output_path, "a", encoding="utf-8") as handle:
-              for key in ("status", "branch", "pr_url"):
-                  value = data.get(key)
-                  if value:
-                      handle.write(f"{key}={value}\n")
+          report = Path(sys.argv[1])
+          try:
+              root = ElementTree.parse(report).getroot()
+          except (OSError, ElementTree.ParseError) as exc:
+              sys.exit(f"Cannot read the original pytest report: {exc}")
+          cases = list(root.iter("testcase"))
+          if root.tag not in {"testsuites", "testsuite"} or not cases:
+              sys.exit("The original pytest report contains no test cases.")
+          exit_code = os.environ["PYTEST_EXIT_CODE"]
+          failures = [_test_id(case, report) for case in cases if case.find("failure") is not None]
+          errors = any(case.find("error") is not None for case in cases)
+          if errors or exit_code not in {"0", "1"} or bool(failures) != (exit_code == "1"):
+              sys.exit(f"Original pytest result is unresolved (exit {exit_code}).")
+          if len(failures) != len(set(failures)):
+              sys.exit("Repeated failed testcase in the original pytest report.")
           PYCODE
 
-      - name: Upload pytest report
+          mode=--apply
+          if [ "$DRY_RUN" = "true" ]; then
+            mode=--dry-run
+          fi
+          .venv/bin/python -m scripts.ci_cosmetic_repair "$mode" --skip-pr --require-all \
+            --report "$report" --base "$BASE_BRANCH"
+
+          .venv/bin/python - <<'PYCODE'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          data = json.loads(Path(".cosmetic-repair-summary.json").read_text(encoding="utf-8"))
+          status = data["status"]
+          if os.environ["PYTEST_EXIT_CODE"] == "0" and status == "clean":
+              sys.exit(0)
+          if os.environ["DRY_RUN"] == "true" and status == "dry-run" and data.get("instructions"):
+              sys.exit(0)
+          if os.environ["DRY_RUN"] == "true" or status != "applied-no-pr":
+              sys.exit(f"The original pytest failures remain unresolved (repair status: {status}).")
+
+          paths = data.get("changed_files")
+          changed = subprocess.check_output(["git", "diff", "--name-only", "-z", "HEAD"], text=True)
+          if not paths or set(paths) != set(changed.rstrip("\0").split("\0")):
+              sys.exit("The tracked diff does not match the reported repair files.")
+          if any(path != path.strip() or any(c in path for c in ",\r\n") for path in paths):
+              sys.exit("A repair path cannot be passed exactly to the pull request action.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              print("add_paths<<REPAIR_PATHS", file=output)
+              for path in paths:
+                  print(f":(literal){path}", file=output)
+              print("REPAIR_PATHS", file=output)
+          PYCODE
+
+      - name: Create cosmetic repair PR
+        if: steps.repair.outputs.add_paths != ''
+        id: publish
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: cosmetic-repair/${{ github.run_id }}${{ inputs['branch-suffix'] && format('-{0}', inputs['branch-suffix']) || '' }}
+          base: ${{ env.BASE_BRANCH }}
+          add-paths: ${{ steps.repair.outputs.add_paths }}
+          title: Cosmetic repair from original pytest report
+          commit-message: "ci: apply cosmetic repairs"
+          labels: 'testing,autofix:applied'
+          body: |
+            The original pytest report contains guarded cosmetic failures.
+            This PR applies the reported changes for review. The workflow did
+            not rerun pytest after applying the repair.
+
+      - name: Upload cosmetic repair evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           retention-days: 30
           name: cosmetic-repair-artifacts
           path: |
-            pytest-report.xml
+            ${{ runner.temp }}/pytest-report.xml
             .cosmetic-repair-summary.json
+          include-hidden-files: true
           if-no-files-found: ignore
 
-      - name: Evaluate repair outcome
-        id: outcome
+      - name: Summarize cosmetic repair
+        if: always()
         env:
           PYTEST_EXIT_CODE: ${{ steps.pytest.outputs.exit_code }}
-          SUMMARY_FILE: .cosmetic-repair-summary.json
+          REPAIR_OUTCOME: ${{ steps.repair.outcome }}
+          PR_URL: ${{ steps.publish.outputs.pull-request-url }}
+          ADD_PATHS: ${{ steps.repair.outputs.add_paths }}
         run: |
-          python - <<'PYCODE'
-          import json
-          import os
-          from pathlib import Path
-
-          exit_code = int(os.environ.get("PYTEST_EXIT_CODE") or 0)
-          summary_path = Path(".cosmetic-repair-summary.json")
-          should_fail = False
-          reason = ""
-
-          if exit_code != 0:
-              if summary_path.exists():
-                  summary = json.loads(summary_path.read_text(encoding="utf-8"))
-                  if summary.get("applied", 0) == 0:
-                      should_fail = True
-                      reason = "Pytest failures detected but no cosmetic fixes were applied."
-              else:
-                  should_fail = True
-                  reason = "Pytest failures detected but repair summary was not generated."
-
-          output = os.environ["GITHUB_OUTPUT"]
-          with open(output, "a", encoding="utf-8") as handle:
-              result = "true" if should_fail else "false"
-              handle.write(f"should_fail={result}\n")
-              if reason:
-                  handle.write(f"reason={reason}\n")
-          PYCODE
-
-      - name: Create cosmetic repair PR
-        if: ${{ inputs['dry-run'] != 'true' }}
-        uses: peter-evans/create-pull-request@v8
-        with:
-          branch: cosmetic-repair/${{ github.run_id }}
-          base: ${{ env.BASE_BRANCH }}
-          title: "Cosmetic repair: pytest drift"
-          commit-message: "ci: apply cosmetic repairs"
-          labels: 'testing,autofix:applied'
-          body: |
-            ## Cosmetic repair summary
-
-            * Pytest exit code: `${{ steps.pytest.outputs.exit_code }}`
-            * Workflow run: ${{ github.run_id }}
-
-            The cosmetic repair job detected cosmetic-only failures and attempted
-            automated fixes using `scripts/ci_cosmetic_repair.py`.
-
-      - name: Fail if unresolved failures remain
-        if: steps.outcome.outputs.should_fail == 'true'
-        run: |
-          summary_file=".cosmetic-repair-summary.json"
           {
             echo "### Cosmetic repair summary"
             echo
-            if [ -f "$summary_file" ]; then
-              python .github/scripts/render_cosmetic_summary.py "$summary_file"
-            else
-              git status --short || true
+            echo "- Original pytest exit: ${PYTEST_EXIT_CODE:-unavailable}"
+            if [ -f .cosmetic-repair-summary.json ]; then
+              .venv/bin/python .github/scripts/render_cosmetic_summary.py .cosmetic-repair-summary.json
+            fi
+            if [ "$REPAIR_OUTCOME" != "success" ]; then
+              echo "- Repair did not complete. See the original report and step logs."
+            elif [ -n "$PR_URL" ]; then
+              echo "- Repair pull request: $PR_URL"
+            elif [ -n "$ADD_PATHS" ]; then
+              echo "- A repair was applied locally, but no pull request was confirmed."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$ADD_PATHS" ] && [ -z "$PR_URL" ]; then
+            exit 1
+          fi

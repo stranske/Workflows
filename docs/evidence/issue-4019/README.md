@@ -64,11 +64,33 @@ byte-for-byte after each experiment. No production changes are shipped.
 All 11 retained new test functions were run separately under a deliberate
 behavior mutation (exit 1, named FAILED test), then after restoration (exit 0,
 1 passed). `mutation-receipts.json` records full node IDs, commands, exact source
-replacements and restored SHA256 hashes; `01-red.txt` through `11-green.txt`
-contain complete output. The unknown-provider mutation raises the wrong error
-class; the unavailable-provider mutation omits the required error. The other
-nine fail assertions about behavior. These are observed runs, not hypothetical
-mutation claims. Tests 06 and 11 specifically prove the two review repairs.
+replacements and restored SHA256 hashes. The compressed packet
+[`original-transcripts.tar.gz`](original-transcripts.tar.gz) preserves all 22
+complete outputs under their original `01-red.txt` through `11-green.txt` names.
+The unknown-provider mutation raises the wrong error class. The unavailable-provider
+mutation omits the required error. The other nine fail assertions about behavior.
+Tests 06 and 11 prove the two review repairs. The same files remain readable
+individually in the [original #4406 delivery](https://github.com/stranske/Workflows/tree/2bd1aa094698d3e9f2ce91f754f6b00fb748a52d/docs/evidence/issue-4019).
+
+From the repository root, list or read a member without extracting the packet.
+
+```sh
+archive=docs/evidence/issue-4019/original-transcripts.tar.gz
+tar -tzf "$archive"
+tar -xOzf "$archive" 06-red.txt
+```
+
+To recover all 22 files offline, check the packet before extracting it into a
+new temporary directory.
+
+```sh
+archive=docs/evidence/issue-4019/original-transcripts.tar.gz
+restore=$(mktemp -d) &&
+  printf '%s  %s\n' '2bb8bbfe834c6fa9236991e22562fae21d214a67557db45525bf74fd73edcc3e' "$archive" |
+    shasum -a 256 -c - &&
+  tar -xzf "$archive" -C "$restore" &&
+  printf 'Restored transcripts in %s\n' "$restore"
+```
 
 The exact acceptance commands and stop rule are in `acceptance.md`. Required
 three-file pytest: **242 passed in 1.20s**, exit 0. Black with line length 100
@@ -77,9 +99,27 @@ and release/verify pipelines were not run locally. Hosted CI is the full-suite
 authority; local focused coverage cannot establish whole-repository reduction.
 
 Focused Gate invocation: **242 passed in 31.55s**, exit 0, four workers.
-`focused-coverage.txt` contains its full output, and `focused-targets.json`
-contains diagnostic target counters. Its whole-source 5.53% is expected for
-three test files and must not be compared to the whole-suite baseline.
+[`focused-coverage.txt.gz`](focused-coverage.txt.gz) preserves the complete output.
+The [original #4406 text](https://github.com/stranske/Workflows/blob/2bd1aa094698d3e9f2ce91f754f6b00fb748a52d/docs/evidence/issue-4019/focused-coverage.txt)
+is readable in GitHub at the immutable delivery revision. The separate
+`focused-targets.json` contains the three target counters. The 5.53% whole-source
+figure comes from running only three test files. The whole-suite baseline is
+reported in the earlier comparable artifact section.
+
+From the repository root, verify the compressed bytes before printing the
+original text. Redirect the output to a file to keep an offline copy.
+
+```sh
+(
+  archive=docs/evidence/issue-4019/focused-coverage.txt.gz
+  expected=5c0e0eb442c2bf73569504066173c6ce49b4220c7f790045b3f2212b8d726270
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Focused coverage log checksum failed' >&2
+    exit 1
+  fi
+  gzip -dc "$archive"
+)
+```
 
 ## Exact hosted CI failure drained
 

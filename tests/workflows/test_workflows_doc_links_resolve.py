@@ -41,4 +41,15 @@ def test_workflows_doc_references_existing_workflow_files() -> None:
     print(f"dangling workflow references: {dangling}")
 
     assert references, "docs/ci/WORKFLOWS.md should reference at least one workflow file"
-    assert not dangling, f"Dangling workflow reference(s): {dangling}"
+    assert dangling == [], f"Dangling workflow reference(s): {dangling}"
+
+
+def test_november_2026_archived_workflow_audit_report() -> None:
+    """PR #4770 acceptance: archive audit report structure and workflow dispositions."""
+    from tests.docs import test_workflow_audit_2026_11_19 as audit_tests
+
+    audit_tests.test_november_2026_audit_report_exists()
+    audit_tests.test_november_2026_audit_report_sections()
+    audit_tests.test_november_2026_audit_covers_below_50_workflows()
+    audit_tests.test_november_2026_audit_covers_50_80_band()
+    audit_tests.test_november_2026_audit_records_not_run_inventory()

@@ -9,61 +9,16 @@ on:
     types:
       - autofix_gate_failure
 
-permissions:
-  actions: write
-  contents: read
+permissions: {}
 
 jobs:
   dispatch:
     if: ${{ github.event.client_payload.pr_number && github.event.client_payload.gate_run_id }}
     runs-on: ubuntu-latest
     steps:
-      - name: Mint GitHub App token
-        id: app_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        continue-on-error: true
-        with:
-          client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
-          owner: ${{ github.repository_owner }}
-
-      - name: Checkout workflow helpers
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          token: ${{ steps.app_token.outputs.token || github.token }}
-          sparse-checkout: |
-            .github/actions/setup-api-client
-            .github/scripts/error_classifier.js
-            .github/scripts/github-api-with-retry.js
-            .github/scripts/github-rate-limited-wrapper.js
-            .github/scripts/token_load_balancer.js
-          sparse-checkout-cone-mode: false
-          fetch-depth: 1
-
-      - name: Setup API client
-        uses: ./.github/actions/setup-api-client
-        with:
-          # named inputs, not the whole secrets context (see #3185)
-          github_token: ${{ steps.app_token.outputs.token || github.token }}
-          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
-          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
-          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-          agents_automation_pat: ${{ secrets.AGENTS_AUTOMATION_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
-          keepalive_app_id: ${{ secrets.KEEPALIVE_APP_ID }}
-          keepalive_app_private_key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
-          gh_app_id: ${{ secrets.GH_APP_ID }}
-          gh_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          app_1_id: ${{ secrets.APP_1_ID }}
-          app_1_private_key: ${{ secrets.APP_1_PRIVATE_KEY }}
-          app_2_id: ${{ secrets.APP_2_ID }}
-          app_2_private_key: ${{ secrets.APP_2_PRIVATE_KEY }}
-
       - name: Acknowledge consolidated autofix handling
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const payload = context.payload.client_payload || {};
             const prNumber = Number(payload.pr_number);

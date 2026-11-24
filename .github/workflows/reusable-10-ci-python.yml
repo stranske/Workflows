@@ -178,6 +178,11 @@ on:
         required: false
         default: false
         type: boolean
+      require-measured-coverage-trend:
+        description: Publish soft-gate trends only when coverage.json contains a measured percentage.
+        required: false
+        default: false
+        type: boolean
       artifact-prefix:
         description: Optional prefix applied to all uploaded artifact names.
         required: false
@@ -1695,18 +1700,23 @@ jobs:
       # when that test is in the checkout so other consumers stay shallow.
       # Fetching origin/main alone leaves the depth-1 pull merge commit
       # disconnected, so a commit that is present is not an ancestor of HEAD.
-      # Deepen the checkout ref too (issue #4426 inventory).
+      # Deepen the immutable checkout SHA too (issue #4426 inventory).
       - name: Fetch pinned verifier revision history
         if: ${{ hashFiles('tests/test_verifier_4422_audit.py') != '' }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
           since=2026-10-17T00:00:00Z
-          git fetch --no-tags --shallow-since="$since" origin main
-          if [ -n "${GITHUB_REF:-}" ] && [ "${GITHUB_REF}" != "refs/heads/main" ]; then
-            git fetch --no-tags --shallow-since="$since" origin "${GITHUB_REF}"
+          head_sha=$(git rev-parse HEAD)
+          if ! git fetch --no-tags --shallow-since="$since" origin main "$head_sha"; then
+            echo "::error::Unable to deepen exact checkout $head_sha"
+            exit 1
           fi
           git merge-base --is-ancestor 021ec67ef580c83a88402a1574e27ea34db14dde origin/main
+          if ! git merge-base --is-ancestor 5b1c6424716c413871d4eda7f6a125fa070e097f "$head_sha"; then
+            echo "::error::Unable to establish #4426 inventory ancestry for exact checkout $head_sha"
+            exit 1
+          fi
 
       # Bound this historical proof to its fixed source, rather than deepening
       # every consumer or fetching an ever-growing main history.
@@ -2997,6 +3007,7 @@ jobs:
           overwrite: true
 
       - name: Generate coverage trend summary
+        id: coverage_trend
         if: >-
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
@@ -3005,7 +3016,25 @@ jobs:
           }}
         env:
           COVERAGE_MIN: ${{ inputs['coverage-min'] }}
+          REQUIRE_MEASURED_COVERAGE_TREND: ${{ inputs['require-measured-coverage-trend'] }}
         run: |
+          if [[ "$REQUIRE_MEASURED_COVERAGE_TREND" == true ]]; then
+            if ! python - <<'PY'
+          import json
+          from pathlib import Path
+
+          try:
+              report = json.loads(Path("coverage.json").read_text(encoding="utf-8"))
+              percent = report["totals"]["percent_covered"]
+          except (OSError, ValueError, TypeError, KeyError):
+              raise SystemExit(1) from None
+          raise SystemExit(not (type(percent) in (int, float) and 0 <= percent <= 100))
+          PY
+            then
+              echo "::warning::Coverage trend skipped because coverage.json was not measured."
+              exit 0
+            fi
+          fi
           # shellcheck disable=SC2086
           MIN_ARG=""
           if [ -n "$COVERAGE_MIN" ]; then
@@ -3046,12 +3075,16 @@ jobs:
             --github-output coverage-trend.env \
             --soft \
             $MIN_ARG
+          if [[ "$REQUIRE_MEASURED_COVERAGE_TREND" == true ]]; then
+            echo "measured=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Annotate coverage trend record
         if: >-
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         run: |
@@ -3074,6 +3107,7 @@ jobs:
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         run: |
@@ -3087,6 +3121,7 @@ jobs:
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         continue-on-error: true
@@ -3103,6 +3138,7 @@ jobs:
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         continue-on-error: true
@@ -3119,6 +3155,7 @@ jobs:
           ${{
           (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version))
           && inputs['enable-soft-gate']
+          && (!inputs['require-measured-coverage-trend'] || steps.coverage_trend.outputs.measured == 'true')
           && matrix.python-version == env.PRIMARY_PYTHON_VERSION
           }}
         continue-on-error: true

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import tarfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -911,9 +912,14 @@ def test_real_retained_fixture_payload_and_receipts():
     repo_root = Path(__file__).resolve().parents[2]
     fix_dir = repo_root / "tests/fixtures/verification_input_repair"
 
-    historical_receipt = fix_dir / "2026-11-06-expiry-receipts.json"
-    assert historical_receipt.exists()
-    hist = json.loads(historical_receipt.read_text(encoding="utf-8"))
+    history_archive = repo_root / "docs/evidence/verification-input-repair-history.tar.gz"
+    with tarfile.open(history_archive, "r:gz") as archive:
+        member = archive.extractfile("2026-11-06-expiry-receipts.json")
+        assert member is not None
+        historical_receipt = member.read()
+    receipt_sha256 = "b23979fec619213e0b061ff8cb321b552fe284d9e9286ca278963c81dec421cc"
+    assert _sha(historical_receipt) == receipt_sha256
+    hist = json.loads(historical_receipt)
     assert hist["schema"] == "retained-artifact-report/v1"
     assert hist["operational_outcome"] == EXPLICIT_EXPIRED_ARTIFACT_REJECTION
     assert len(hist["results"]) == 2

@@ -103,5 +103,5 @@ Common issues and solutions...
 ## See Also
 
 - [Workflow Documentation](../workflows/)
-- [Examples](../examples/)
+- [Workflow examples](../USAGE.md#examples)
 - [Reference Documentation](../reference/)

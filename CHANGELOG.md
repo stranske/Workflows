@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.3](https://github.com/stranske/Workflows/compare/v1.52.2...v1.52.3) (2026-11-22)
+
+
+### Bug Fixes
+
+* **health-67:** skip drift issue creation on pull_request runs ([#4980](https://github.com/stranske/Workflows/issues/4980)) ([77de66e](https://github.com/stranske/Workflows/commit/77de66ef82573273c95eb4f44efff1ca3ec67527))
+
+## [1.52.2](https://github.com/stranske/Workflows/compare/v1.52.1...v1.52.2) (2026-11-22)
+
+
+### Bug Fixes
+
+* finish stranske/Workflows[#4770](https://github.com/stranske/Workflows/issues/4770) (closer repair) ([#4940](https://github.com/stranske/Workflows/issues/4940)) ([5af97e3](https://github.com/stranske/Workflows/commit/5af97e326c046304a2bba08b3b6df1cdb6fa3c7e))
+
 ## [1.52.1](https://github.com/stranske/Workflows/compare/v1.52.0...v1.52.1) (2026-11-19)
 
 

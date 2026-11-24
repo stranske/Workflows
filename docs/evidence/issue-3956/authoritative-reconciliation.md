@@ -24,14 +24,14 @@ node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
 # exit 0; 173 tests passed; zero failures, cancellations or skips
 git show 94d9f952dad19f4f8048ae82bb8301bc6baf6ef5:tests/test_followup_issue_generator.py > /tmp/issue4437-baseline-tests.py
 /opt/anaconda3/bin/python3 -m pytest tests/test_followup_issue_generator.py --collect-only -q > /tmp/issue4437-collected-tests.txt
-/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue4437-baseline-tests.py --collected-tests /tmp/issue4437-collected-tests.txt > docs/evidence/issue-3956/retained-mutation-audit.json
+/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue4437-baseline-tests.py --collected-tests /tmp/issue4437-collected-tests.txt > /tmp/issue-3956-regenerated-audit.json
 # exit 0; complete=true; problems=[]; 35 added functions; 45 added collected cases;
 # 50 Python receipts and two original Node receipts
 /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_audit_followup_mutations.py -q
 # exit 0; 66 passed in 0.41s
 ```
 
-The regenerated [retained audit](retained-mutation-audit.json) is byte-identical
+The regenerated [retained audit](https://github.com/stranske/Workflows/blob/5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44/docs/evidence/issue-3956/retained-mutation-audit.json) is byte-identical
 to the delivered audit (SHA256
 `508d4eb29d4a37a1a6934d51c5b2b44993784ede1621d7dfc574fd324168cc78`).
 All retained full RED/GREEN receipts were independently read in bounded groups:
@@ -68,8 +68,26 @@ pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-juni
 never substituted for missing destinations. ZIP SHA256 is
 `fedd97c894cb8466ca28afe22ffef76d184f5bd79dd00ed538f84f3792528312`.
 Exact revisions, configuration/source/test hashes, job/artifact identifiers,
-command and counts are appended to [hosted-coverage-receipt.json](hosted-coverage-receipt.json),
+command and counts are appended to [hosted-coverage-receipt.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/hosted-coverage-receipt.json),
 preserving its older `f77be1eee…` receipt fields as history.
+
+The original hosted receipt, hosted Gate readback and local comparison remain
+readable through the immutable links in this guide. The same three JSON files are in
+[`coverage-receipts.tar.gz`](coverage-receipts.tar.gz) for offline reading.
+From the repository root, verify the packet before printing a member. Use its
+original basename to choose another receipt.
+
+```sh
+(
+  archive=docs/evidence/issue-3956/coverage-receipts.tar.gz
+  expected=c711fbdaffa3992e4af835c0dfa5f92a5f214a2bfbbcea32d298f4a3b6762bf1
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Coverage receipt archive checksum failed' >&2
+    exit 1
+  fi
+  tar -xOzf "$archive" hosted-coverage-receipt.json
+)
+```
 
 The inspected baseline `94d9f952dad19f4f8048ae82bb8301bc6baf6ef5` Selftest run
 `38995688471`, job `117287656854`, uses Python 3.14.8, an explicit
@@ -291,7 +309,8 @@ that the inline-guard repair has not been delivered at the inspected revision.
 
 The following historical measurements were checked 2026-11-03 (America/Chicago).
 This record replaces the overlapping narratives in
-`pr-body-reconciled.md`, `followup-review-correction.md`, and historical receipts.
+[`pr-body-reconciled.md`](https://github.com/stranske/Workflows/blob/314895ec5d0b1e102fc80aff8001eae2545ed7fa/docs/evidence/issue-3956/pr-body-reconciled.md),
+[`followup-review-correction.md`](https://github.com/stranske/Workflows/blob/314895ec5d0b1e102fc80aff8001eae2545ed7fa/docs/evidence/issue-3956/followup-review-correction.md), and historical receipts.
 Historical records remain intact; their coverage figures are superseded by the matched
 **focused local** comparison below. Hosted Gate evidence is identified separately by
 exact tested revision and artifact. A local run never establishes hosted Gate success.
@@ -334,7 +353,7 @@ with each revision's source, tests, and support modules. Command:
 `coverage json` reads that run's data to obtain **missing branches**, rather than
 substituting the terminal report's partial-branch count. Full output, source/test
 hashes, missing lines/arcs, configuration revision and summaries are in
-[local-coverage-comparison.json](local-coverage-comparison.json).
+[local-coverage-comparison.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/local-coverage-comparison.json).
 
 | Focused local snapshot | Passed | Statements | Missing statements | Branches | Missing branches | Missing statements + branches | Combined |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -405,6 +424,42 @@ verified ranking results. `followup-coverage-round.md` explicitly records the
 missing canonical ranking and rejects issue-3743 proxy artifacts as substitutes.
 The contradictory checked ranking boxes in `pr-body-reconciled.md` and historical
 JSON contracts are superseded: independent ranking verification remains incomplete.
+
+### Read the historical prose and delivered audit offline
+
+The two historical Markdown snapshots linked above and the delivered audit are also available in
+[`historical-prose-and-audit.tar.gz`](historical-prose-and-audit.tar.gz). From the repository root, set
+`member` to one of the three names shown. The command checks the pack and member before printing the original bytes.
+The regeneration commands produce a new report for the selected checkout. Run them on
+`5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44` to reproduce the delivered audit.
+
+```bash
+(
+  archive=docs/evidence/issue-3956/historical-prose-and-audit.tar.gz
+  member=retained-mutation-audit.json
+  case "$member" in
+    followup-review-correction.md)
+      expected=5fd2152cf5cfb19fd4b5fccf231965787ff720c804fda596e5fddb460a568fc8 ;;
+    pr-body-reconciled.md)
+      expected=210abe08cf2a708cfae13a8fff9fd3bb868eb8628466350e7ded0fd8c340f701 ;;
+    retained-mutation-audit.json)
+      expected=508d4eb29d4a37a1a6934d51c5b2b44993784ede1621d7dfc574fd324168cc78 ;;
+    *) printf '%s\n' 'Unknown historical record' >&2; exit 1 ;;
+  esac
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "975a076c51dfd00b95cbf193434196c24aab45b5fef77d023016ee33f93f357c" ]; then
+    printf '%s\n' 'Historical record archive checksum failed' >&2
+    exit 1
+  fi
+  recovered=$(mktemp) || exit 1
+  trap 'rm -f "$recovered"' EXIT
+  if ! tar -xOzf "$archive" "$member" > "$recovered" ||
+     ! actual=$(shasum -a 256 "$recovered") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Historical record member checksum failed' >&2
+    exit 1
+  fi
+  cat "$recovered"
+)
+```
 
 ## Coverage values and contradictory completion claims
 
@@ -490,7 +545,7 @@ receipt digest are in
 [retained-mutation-unabridged-reruns.json](retained-mutation-unabridged-reruns.json).
 The restored production file in the checkout was never mutated.
 
-[retained-mutation-audit.json](retained-mutation-audit.json) enumerates every
+[retained-mutation-audit.json](https://github.com/stranske/Workflows/blob/5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44/docs/evidence/issue-3956/retained-mutation-audit.json) enumerates every
 Python parameter case and both Node cases, each replacement, assertion, restored
 GREEN summary and historical receipt index. With the bound replacements the
 audit exits 0: **35 added functions, 45 cases, 50 Python receipts, 2 Node receipts,
@@ -563,8 +618,40 @@ The two retained added JS tests and their separate mutations are indexed in
 `parseCheckboxStates captures numbered checklist completions` and
 `mergeCheckboxStates restores numbered contract checklist items across refresh`.
 Each independently fails with an assertion when its regex loses numbered support,
-then passes after restoration. Historical `numbered-checklist-state-proof.json`
+then passes after restoration. Historical [`numbered-checklist-state-proof.json`](https://github.com/stranske/Workflows/blob/314895ec5d0b1e102fc80aff8001eae2545ed7fa/docs/evidence/issue-3956/numbered-checklist-state-proof.json)
 remains the earlier receipt; its coverage/completion narrative is superseded here.
+
+### Numbered-checklist records offline
+
+The three distinct historical checklist records are also in [`numbered-checklist-history.tar.gz`](numbered-checklist-history.tar.gz). Select one member from the repository root. The active repair receipt above remains separate.
+
+```bash
+(
+  archive=docs/evidence/issue-3956/numbered-checklist-history.tar.gz
+  member=numbered-checklist-state-proof.json
+  case "$member" in
+    numbered-checklist-state-proof.json)
+      expected=919b3ee253f5a6b4512171c9d71b2e776b9685875808eaa0b5993ec1843dfedb ;;
+    numbered-checklist-summary-proof.json)
+      expected=2762b80024a3f81a22d5a7828c722277e76c621955ba3e0955b30f49e2abd26c ;;
+    numbered-checklist-whitespace-proof.json)
+      expected=044a150ac6383bf3a35e7892372be179d119c65a4e5dd2a00b3595dcc0eeb23a ;;
+    *) printf '%s\n' 'Unknown historical record' >&2; exit 1 ;;
+  esac
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "92f40b8716bfd8a3b0c8185d75e993bc827cd35567d9b5d851e65dbaa8759a09" ]; then
+    printf '%s\n' 'Historical record archive checksum failed' >&2
+    exit 1
+  fi
+  recovered=$(mktemp) || exit 1
+  trap 'rm -f "$recovered"' EXIT
+  if ! tar -xOzf "$archive" "$member" > "$recovered" ||
+     ! actual=$(shasum -a 256 "$recovered") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Historical record member checksum failed' >&2
+    exit 1
+  fi
+  cat "$recovered"
+)
+```
 
 ### Superseded claims and records
 
@@ -626,11 +713,11 @@ The historical receipt records download and inspection of
 for `f77be1eee`: 851 statements, 0 missing statements, 386 branches, **1 missing
 branch**, 99.92%. ZIP SHA256:
 `540949b4d94392b5d2daafc794f9acc6c1011155ac0cc24bf8f1bb6d635f4136`.
-Summary in [hosted-coverage-receipt.json](hosted-coverage-receipt.json).
+Summary in [hosted-coverage-receipt.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/hosted-coverage-receipt.json).
 
 The current publication head is `closer/issue-3956` at `9eaf43313…`, not the
 historical `closer-r3/issue-3956` branch. Fresh hosted job-log inspection is recorded
-separately in [hosted-gate-readback.json](hosted-gate-readback.json):
+separately in [hosted-gate-readback.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/hosted-gate-readback.json):
 
 | Tested revision | Gate run | Python 3.14 job | Coverage artifact | Hosted pytest result |
 | --- | --- | --- | --- | --- |
@@ -747,7 +834,7 @@ a merge regression. The existing two numbered tests remain unchanged. Generator
 source/tests, both production Node copies, templates and the sync manifest have
 no diff; no consumer payload changed.
 
-[numbered-checklist-whitespace-proof.json](numbered-checklist-whitespace-proof.json)
+[numbered-checklist-whitespace-proof.json](https://github.com/stranske/Workflows/blob/5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44/docs/evidence/issue-3956/numbered-checklist-whitespace-proof.json)
 maps both new tests to **8 assertion-failing RED / restored GREEN receipts**.
 Production source is pinned to `a5145aafbe1cf8bc6fc69bf6961eaf18a91b69d4`,
 SHA256 `3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f`
@@ -835,7 +922,7 @@ unchecked despite checked examples in fenced code or outside the managed block.
 The source and consumer regexes remain unchanged, including their different
 whitespace contracts. No consumer payload, Python file or protected file changed.
 
-[numbered-checklist-summary-proof.json](numbered-checklist-summary-proof.json)
+[numbered-checklist-summary-proof.json](https://github.com/stranske/Workflows/blob/5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44/docs/evidence/issue-3956/numbered-checklist-summary-proof.json)
 binds this additional Node case to base `3ab79ec1275d150bd32a2a414cd99d9a28981ce0`
 and test-overlay SHA256
 `05e6d51fef76575be14a373c34decc374455959e7d5d7e94b201165cf65e8bfb`.
@@ -889,6 +976,23 @@ to this round's edits. #4518 and #4401 were both read as open, `draft=false`.
 
 ## Historical-proof inspection and auditor portability (2026-11-07 UTC)
 
+The portability, single-case and pytest startup receipts linked in this guide
+are also in [`auditor-receipts.tar.gz`](auditor-receipts.tar.gz) for offline reading.
+From the repository root, run the following command with the original basename
+of the receipt you want to print.
+
+```sh
+(
+  archive=docs/evidence/issue-3956/auditor-receipts.tar.gz
+  expected=daf7494cd2c14ce73a1a5eed169242840d290d10d6edc506de87aa1f3da67719
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Auditor receipt archive checksum failed' >&2
+    exit 1
+  fi
+  tar -xOzf "$archive" auditor-portability-proof.json
+)
+```
+
 Before code edits at checkout `e0e027e6ae37683d2889a43b112fc5a7e453f7f8`,
 the requested `gh pr view 4401` read again failed to connect to `api.github.com`.
 Connected GitHub metadata independently returned OPEN, `draft=false`,
@@ -940,7 +1044,7 @@ The auditor now explicitly reads repository evidence, source/tests, supplements,
 baseline and collected cases as UTF-8. The collection command above fixes stdout
 encoding to match. New regressions simulate cp1252 decoding and independently
 reject assertion failures without a case identity or from another case.
-[auditor-portability-proof.json](auditor-portability-proof.json) binds the code/test
+[auditor-portability-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/auditor-portability-proof.json) binds the code/test
 overlay to base `e0e027e6…`: the original auditor fails the encoding regression;
 removing the case-identity guard fails both negative cases; restored source passes
 all three. These isolated temporary-package outputs were read in two bounded
@@ -1087,7 +1191,7 @@ executed by the auditor.
 
 Validation base: `264e9cc6503be2e1eef1c4a0c3851a6f777f6985`, plus the local
 source/test overlay identified by SHA256 in
-[auditor-single-case-proof.json](auditor-single-case-proof.json). All 13 new
+[auditor-single-case-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/auditor-single-case-proof.json). All 13 new
 parameter cases fail the baseline auditor with `assert True is False`, then
 pass the corrected auditor independently. Each full receipt records its selected
 command, RED exit 1, restored GREEN exit 0, and identical test/configuration
@@ -1165,7 +1269,7 @@ separate from the historical assertion-failing retained mutation mapping.
 
 The local validation base is `a678142249d1c588458635ee358640d9a70c8343`, plus
 the configuration/new-test overlay identified by SHA256 in
-[pytest-startup-proof.json](pytest-startup-proof.json). Generator source and its
+[pytest-startup-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/pytest-startup-proof.json). Generator source and its
 199-test retained set, both Node production copies and Node tests are unchanged.
 The independently rerun retained audit still reports 35 added functions, 45
 parameter cases, 50 Python receipts and two original Node receipts, with
@@ -1212,6 +1316,22 @@ unchanged head. The prepared local changes require a writer-capable run.
 
 ## Supplemental guard-source regressions (2026-11-07 UTC)
 
+The four guard receipts linked below are also in [`guard-receipts.tar.gz`](guard-receipts.tar.gz) for
+offline reading. From the repository root, verify the archive before printing
+a member. Substitute the original basename to read another receipt.
+
+```sh
+(
+  archive=docs/evidence/issue-3956/guard-receipts.tar.gz
+  expected=a6dd4f4a7765143c381c7560a1d9ea042911846ce78d9341af4b1cc2c5366007
+  if ! actual=$(shasum -a 256 "$archive") || [ "${actual%% *}" != "$expected" ]; then
+    printf '%s\n' 'Guard receipt archive checksum failed' >&2
+    exit 1
+  fi
+  tar -xOzf "$archive" guard-payload-source-proof.json
+)
+```
+
 The requested `gh pr view 4401 --repo stranske/Workflows --json
 state,headRefOid,mergeCommit,isDraft,statusCheckRollup` exited 1 connecting to
 `api.github.com`. Connected metadata still reports OPEN, `draft=false`,
@@ -1233,7 +1353,7 @@ unchanged. These cases supplement the existing repair rather than replace it.
 
 Local source revision: `3667ba73cc170b510fe1c5fcf665777bf962e9e3` plus the
 uncommitted new test overlay. The complete supplemental mutation mapping is
-[guard-payload-source-proof.json](guard-payload-source-proof.json); it records
+[guard-payload-source-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/guard-payload-source-proof.json); it records
 both parameter node IDs, full source revision, source/test/configuration hashes,
 mutation text and hash, restored source hash, commands and full RED/GREEN output.
 Each case independently fails with the relevant reason assertion when source
@@ -1309,7 +1429,7 @@ acceptance criterion. It fails by assertion against that immutable main-base
 source and passes against the existing repair, without changing production
 source or the retained test file. Full isolated RED/GREEN outputs, both source
 revisions/hashes, unchanged configuration hash, and the new test-overlay hash
-are in [guard-delivery-contract-proof.json](guard-delivery-contract-proof.json).
+are in [guard-delivery-contract-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/guard-delivery-contract-proof.json).
 The output was inspected in full. This new receipt supplements the earlier
 two payload-source receipts, which retain their original test-overlay hash;
 none is relabeled as current hosted or delivered-main evidence.
@@ -1379,7 +1499,7 @@ The new supplemental test `test_guard_stops_after_blocked_verification` verifies
 that a blocked first payload returns its source and prevents scanning the issue
 or log. The original three supplemental cases retain their names and bodies;
 the retained generator test set and production implementation are unchanged.
-[guard-first-payload-proof.json](guard-first-payload-proof.json) identifies the
+[guard-first-payload-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/guard-first-payload-proof.json) identifies the
 source revision above and test-overlay/configuration hashes. Its isolated mutation
 adds an extra issue scan before the blocked return: the new test fails specifically
 at the scan-list assertion (exit 1), then passes after restoration (exit 0).
@@ -1439,7 +1559,7 @@ Production source, the 199 retained generator tests, and the Node tests remain
 unchanged. These supplemental cases advance local regression verification;
 they do not deliver the existing repair to main.
 
-[guard-clean-payload-proof.json](guard-clean-payload-proof.json) records the
+[guard-clean-payload-proof.json](https://github.com/stranske/Workflows/blob/65bf81f0e7cf73ea82a8645db1907e58f1881ca6/docs/evidence/issue-3956/guard-clean-payload-proof.json) records the
 full source revision, source/configuration hashes, test-overlay hash, individual
 commands, mutation replacements and complete RED/GREEN output. All six receipts
 were read in bounded pairs 0–1, 2–3 and 4–5. Receipts 0/2 add an unexpected
@@ -1508,7 +1628,7 @@ Runnable commands (from the repository root):
 ```sh
 git show 94d9f952dad19f4f8048ae82bb8301bc6baf6ef5:tests/test_followup_issue_generator.py > /tmp/issue-4518-baseline.py
 /opt/anaconda3/bin/python3 -m pytest tests/test_followup_issue_generator.py --collect-only -q -m 'not slow' > /tmp/issue-4518-collected.txt
-/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-4518-baseline.py --collected-tests /tmp/issue-4518-collected.txt > docs/evidence/issue-3956/retained-mutation-audit.json
+/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-4518-baseline.py --collected-tests /tmp/issue-4518-collected.txt > /tmp/issue-3956-regenerated-audit.json
 ```
 
 The auditor exited 0 and printed `complete=true`, `problems=[]`, 35 added

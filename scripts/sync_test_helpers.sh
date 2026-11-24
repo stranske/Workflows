@@ -52,6 +52,17 @@ fi
 TARGET_REPO="$(cd "$TARGET_REPO" && pwd)"
 TARGET_HELPERS_DIR="$TARGET_REPO/tests/helpers"
 
+helper_files=()
+for helper_file in "$TEMPLATES_DIR"/*.py; do
+    if [[ -f "$helper_file" ]]; then
+        helper_files+=("$helper_file")
+    fi
+done
+if [[ ${#helper_files[@]} -eq 0 ]]; then
+    echo "❌ No Python test helpers found in $TEMPLATES_DIR" >&2
+    exit 1
+fi
+
 echo "Syncing test helpers..."
 echo "  Source: $TEMPLATES_DIR"
 echo "  Target: $TARGET_HELPERS_DIR"
@@ -80,11 +91,7 @@ fi
 
 # Sync each helper file
 changes=0
-for helper_file in "$TEMPLATES_DIR"/*.py; do
-    if [[ ! -f "$helper_file" ]]; then
-        continue
-    fi
-
+for helper_file in "${helper_files[@]}"; do
     filename="$(basename "$helper_file")"
     target_file="$TARGET_HELPERS_DIR/$filename"
 

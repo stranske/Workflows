@@ -1,14 +1,15 @@
 name: Health 67 Integration Sync Check
 
 # Validates that Workflows-Integration-Tests repo stays in sync with templates
-# Triggers on template changes and daily to catch external drift
+# Triggers after Maint 69 syncs main, on template PRs (summary-only),
+# on repository_dispatch from Integration-Tests, and daily to catch external drift
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'templates/integration-repo/**'
-      - '.github/workflows/autofix-versions.env'
+  # zizmor: ignore[dangerous-triggers] Trusted default-branch code only; Maint 69
+  # runs only on main/schedule/dispatch and check-sync enforces main + same repo.
+  workflow_run:
+    workflows: [Maint 69 Sync Integration Repo]
+    types: [completed]
   pull_request:
     branches: [main]
     paths:
@@ -47,6 +48,13 @@ concurrency:
 jobs:
   check-sync:
     name: Validate Integration-Tests sync
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
     runs-on: ubuntu-latest
     env:
       RUN_CI_CHECK: 'true'
@@ -284,12 +292,16 @@ jobs:
             --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Create drift issue
+        # Pull requests compare unmerged template edits before Maint 69 syncs main;
+        # only non-PR runs may open or comment on drift issues.
         if: >-
           ${{
-            failure() ||
-            (env.RUN_CI_CHECK != 'false' && steps.compare-ci.outputs.drift == 'true') ||
-            (env.RUN_VERSION_CHECK != 'false' && steps.compare-versions.outputs.drift == 'true') ||
-            (env.RUN_INPUT_CHECK != 'false' && steps.compare-inputs.outputs.drift == 'true')
+            !cancelled() && github.event_name != 'pull_request' && (
+              failure() ||
+              (env.RUN_CI_CHECK != 'false' && steps.compare-ci.outputs.drift == 'true') ||
+              (env.RUN_VERSION_CHECK != 'false' && steps.compare-versions.outputs.drift == 'true') ||
+              (env.RUN_INPUT_CHECK != 'false' && steps.compare-inputs.outputs.drift == 'true')
+            )
           }}
         uses: actions/github-script@v9
         with:
@@ -327,7 +339,7 @@ jobs:
             ### Sync Policy
             - Templates in this repo are the **source of truth**
             - Changes to Integration-Tests should be made here first, then synced
-            - Use \`maint-65-sync-label-docs.yml\` pattern for automated sync
+            - Automated sync runs via \`maint-69-sync-integration-repo.yml\` (following the \`maint-65-sync-label-docs.yml\` pattern)
             `;
 
             // Check for existing open issue

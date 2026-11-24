@@ -143,6 +143,34 @@ def test_health_40_sweep_permissions_cover_called_branch_protection_workflow():
         )
 
 
+def test_health_40_and_branch_protection_concurrency_use_distinct_keys():
+    sweep = yaml.safe_load((WORKFLOW_DIR / "health-40-sweep.yml").read_text(encoding="utf-8"))
+    branch_protection = yaml.safe_load(
+        (WORKFLOW_DIR / "health-44-gate-branch-protection.yml").read_text(encoding="utf-8")
+    )
+
+    def group(workflow, workflow_name, ref):
+        concurrency = workflow["concurrency"]
+        assert concurrency["cancel-in-progress"] is True
+        return (
+            concurrency["group"]
+            .replace("${{ github.workflow }}", workflow_name)
+            .replace("${{ github.ref }}", ref)
+            .casefold()
+        )
+
+    # A reusable workflow inherits github.workflow from its caller.
+    main_ref = "refs/heads/main"
+    sweep_group = group(sweep, sweep["name"], main_ref)
+    assert sweep_group == "health 40 sweep-refs/heads/main"
+    called_group = group(branch_protection, sweep["name"], main_ref)
+    direct_group = group(branch_protection, branch_protection["name"], main_ref)
+    pull_request_group = group(branch_protection, branch_protection["name"], "refs/pull/5033/merge")
+
+    assert called_group != sweep_group, "Health 40 run 45116596850 reported this deadlock"
+    assert len({sweep_group, called_group, direct_group, pull_request_group}) == 4
+
+
 def test_health_53_scorecard_uses_verified_release_commit():
     workflow = WORKFLOW_DIR / "health-53-scorecard.yml"
     data = yaml.safe_load(workflow.read_text(encoding="utf-8"))
@@ -245,7 +273,6 @@ EXPECTED_NAMES = {
     "health-40-sweep.yml": "Health 40 Sweep",
     "health-41-repo-health.yml": "Health 41 Repo Health",
     "health-42-actionlint.yml": "Health 42 Actionlint",
-    "health-43-ci-signature-guard.yml": "Health 43 CI Signature Guard",
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "health-codex-auth-check.yml": "Health 46 Codex Auth Check",
     "health-cursor-auth-check.yml": "Health 77 Cursor Auth Check",

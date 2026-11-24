@@ -111,14 +111,19 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/ci-
 
 **Pros:**
 - Full control
-- No external dependencies
+- The standalone Python templates define their jobs locally. The Node starter calls the shared Node workflow at `@main`.
 - Easy customization
 
 **Cons:**
 - Manual updates needed
 - Can drift from best practices
 
-First-party registered consumers use the managed form of this method. Maint 68
+For the cosmetic repair and dependency refresh workflows, follow the
+[standalone maintenance copy instructions](../templates/README.md#standalone-maintenance-copies).
+Your repository owns and updates its copies.
+
+For files selected by the [consumer sync manifest](../.github/sync-manifest.yml),
+registered first-party consumers use managed delivery. Maint 68
 coalesces copied-file changes into stable candidate/delivery PRs, and Maint 71
 alone merges them after bounded reviewer settlement, an exact-head seal, a
 fresh Gate, a valid GitHub-generated commit signature, and zero active review
@@ -418,8 +423,9 @@ Copy from `/templates/` and customize:
 |----------|----------|
 | `ci-basic.yml` | Simple projects: lint + test |
 | `ci-full.yml` | Production projects: full pipeline with gate |
-| `dependency-refresh.yml` | Keep `requirements.lock` updated |
-| `cosmetic-repair.yml` | Auto-fix formatting issues |
+| [ci-node-basic.yml](../templates/ci-node-basic.yml) | Run shared Node.js and TypeScript CI with npm and Jest by default |
+| [dependency-refresh.yml](../templates/dependency-refresh.yml) | Keep `requirements.lock` updated |
+| [cosmetic-repair.yml](../templates/cosmetic-repair.yml) | Auto-fix formatting issues |
 
 > **Consuming a `packages/` monorepo dependency (e.g. `app-baseline-kit`)?**
 > Exclude it from `requirements.lock` with `[tool.uv.pip] no-emit-package` so a
@@ -494,16 +500,18 @@ EOF
 
 ### Consumer Repo Setup: Required Scripts
 
-The reusable `reusable-10-ci-python.yml` workflow runs two scripts from the
-consumer repository. Add these files to your repo or CI will fail:
+Reusable Python CI loads its dependency checker and mypy version resolver from
+the consumer checkout. Follow the [consumer script installation instructions](../templates/consumer-repo/README.md#required-scripts-for-consumer-repos)
+to copy both files into their expected locations. To check the installation,
+run these commands from the consumer repository root.
 
-- `scripts/sync_test_dependencies.py` (validates test imports vs. dev deps)
-- `tools/resolve_mypy_pin.py` (selects the Python version used by mypy)
+```sh
+python scripts/sync_test_dependencies.py --verify
+python tools/resolve_mypy_pin.py
+```
 
-You can copy the reference implementations from:
-
-- `templates/integration-repo/scripts/sync_test_dependencies.py`
-- `templates/integration-repo/tools/resolve_mypy_pin.py`
+The first command reports undeclared test dependencies. The second prints the
+Python version selected for mypy.
 
 ### Consumer Repo Setup: .gitignore Entries
 

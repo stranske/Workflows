@@ -34,14 +34,34 @@ jobs:
 
 ### Composite Actions
 
-Use actions directly in your workflow steps:
+The legacy Autofix composite runs as a step in the caller's working tree.
+For standard PR formatting and commit or patch handling, call
+[Reusable 18](../.github/workflows/reusable-18-autofix.yml) as a workflow job.
+
+Before calling the composite, check out the consumer repository and copy the
+[tool-version file](../.github/workflows/autofix-versions.env) from the same
+Workflows revision to `.github/workflows/autofix-versions.env` in the consumer
+repository. Use the same path in a Workflows source checkout or ZIP. The consumer
+project must support `pip install -e ".[dev]"`.
 
 ```yaml
 steps:
-  - uses: stranske/Workflows/.github/actions/autofix@main
+  - uses: actions/checkout@v7
+  - name: Run the legacy Autofix step
+    id: autofix
+    uses: stranske/Workflows/.github/actions/autofix@main
     with:
-      token: ${{ secrets.GITHUB_TOKEN }}
+      python-version: "3.14"
 ```
+
+The step exposes `steps.autofix.outputs.changed`, `remaining_issues`, and
+`new_issues`. Use `changed` to check whether the fixers modified tracked files.
+`remaining_issues` counts Ruff findings after the fixers finish. The step reports
+findings without failing. If the checkout provides `scripts/classify_ruff.py`, it
+uses that script and the optional `.ruff-residual-allowlist.json` to count new
+findings. Otherwise, every remaining finding counts as new. Tool errors and
+invalid diagnostic, allowlist, count or per-code data fail the step before it
+emits counts.
 
 ## Workflow Inputs
 
@@ -108,11 +128,13 @@ jobs:
 
 ## Examples
 
-See the [examples directory](examples/) for complete working configurations:
+Copy a starter to your repository’s `.github/workflows/` and adapt its marked settings:
 
-- Python project CI
-- Multi-language projects
-- Docker-based projects
+- [Basic Python CI](../templates/ci-basic.yml) for formatting, lint and tests, or [Full Python CI](../templates/ci-full.yml) for coverage and a final gate.
+- [Node.js CI](../templates/ci-node-basic.yml) for npm projects. For a repository with both languages, give each copied workflow its own filename and set its project paths.
+- For Docker, follow the calling job in [Workflows Gate](../.github/workflows/pr-00-gate.yml) and the steps in [Reusable Docker Smoke](../.github/workflows/reusable-12-ci-docker.yml). Your repository needs a Dockerfile and a matching health endpoint.
+
+To set up the managed consumer scaffold, follow the [consumer setup checklist](../templates/consumer-repo/docs/SETUP_CHECKLIST.md). To contribute a new example, follow the [example contribution checklist](CONTRIBUTING.md#workflow-examples).
 
 ## Troubleshooting
 

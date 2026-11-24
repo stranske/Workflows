@@ -78,15 +78,6 @@ runs:
         black --line-length 100 .
         ruff check --fix --exit-zero .
 
-        echo "[autofix] Phase 2: collect remaining ruff diagnostics (non-fatal)"
-        # Capture diagnostics (text + JSON); never fail this job here
-        if ! ruff check . > ruff_remaining.log 2>&1; then
-          echo "[autofix] Ruff reported remaining issues (expected for non-auto-fixable codes)."
-        fi
-        if ! ruff check --output-format json . > ruff_diagnostics.json 2>/dev/null; then
-          echo "[]" > ruff_diagnostics.json
-        fi
-
         # --- Type hygiene (lightweight) ---
         echo "[autofix] Running auto_type_hygiene..."
         if [ -f scripts/auto_type_hygiene.py ]; then
@@ -164,33 +155,99 @@ runs:
       id: classify
       shell: bash
       run: |
-        echo "[autofix] Phase 3: classification (allowlist vs new)"
-        ALLOWLIST_FILE=.ruff-residual-allowlist.json
-        if [ ! -f "$ALLOWLIST_FILE" ]; then echo '{"allow":[]}' > "$ALLOWLIST_FILE"; fi
-        if [ -f scripts/classify_ruff.py ]; then
-          python scripts/classify_ruff.py ruff_diagnostics.json $ALLOWLIST_FILE ruff_classification.json || echo '{"error":"classification_failed"}' > ruff_classification.json
-        else
-          echo "[autofix] No classify_ruff.py script; generating minimal classification"
-          ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          echo '{"total":0,"allowed":0,"new":0,"by_code":{},"new_by_code":{},"timestamp":"'$ts'"}' > ruff_classification.json
+        echo "[autofix] Phase 3: collect and classify remaining Ruff diagnostics"
+        report_dir=$(mktemp -d "${RUNNER_TEMP:-.}/autofix-report.XXXXXX")
+        trap 'rm -rf -- "$report_dir"' EXIT
+        diagnostics="$report_dir/ruff_diagnostics.json"
+        classification="$report_dir/ruff_classification.json"
+
+        status=0
+        ruff check . > "$report_dir/ruff_remaining.log" 2>&1 || status=$?
+        if [ "$status" -gt 1 ]; then
+          cat "$report_dir/ruff_remaining.log" >&2
+          exit "$status"
         fi
-        echo "[autofix] Classification output:"; cat ruff_classification.json || true
-        remaining=$(jq -r '.total' ruff_classification.json 2>/dev/null || echo 0)
-        new=$(jq -r '.new' ruff_classification.json 2>/dev/null || echo 0)
-        echo "remaining_issues=$remaining" >> $GITHUB_OUTPUT
-        echo "new_issues=$new" >> $GITHUB_OUTPUT
-        if git diff --quiet; then changed=false; else changed=true; fi
-        jq -n --arg changed "$changed" --slurpfile cls ruff_classification.json '{changed:($changed=="true"), classification:$cls[0]}' > autofix_report_enriched.json || echo '{"changed":false}' > autofix_report_enriched.json
+        status=0
+        ruff check --output-format json . > "$diagnostics" || status=$?
+        if [ "$status" -gt 1 ]; then
+          exit "$status"
+        fi
+        if ! total=$(jq -ers --argjson status "$status" '
+          if length == 1 and (.[0] | type == "array" and
+            all(.[]; type == "object" and (.code | type == "string" and length > 0))) and
+            ((.[0] | length > 0) == ($status == 1))
+          then .[0] | length else empty end
+        ' "$diagnostics"); then
+          echo "::error::Ruff did not return a diagnostics array consistent with its exit status." >&2
+          exit 2
+        fi
+
+        if [ -f scripts/classify_ruff.py ]; then
+          allowlist=.ruff-residual-allowlist.json
+          if [ ! -e "$allowlist" ]; then
+            allowlist="$report_dir/$allowlist"
+            echo '{"allow":[]}' > "$allowlist"
+          fi
+          if ! jq -es '
+            length == 1 and (.[0] | type == "object" and
+              (if has("allow") then .allow | type == "array" and all(.[];
+                type == "object" and (.code | type == "string" and length > 0) and
+                (.path == null or (.path | type == "string"))) else true end))
+          ' "$allowlist" > /dev/null; then
+            echo "::error::Invalid Ruff residual allowlist." >&2
+            exit 2
+          fi
+          if ! python scripts/classify_ruff.py "$diagnostics" "$allowlist" "$classification"; then
+            echo "::error::Caller-local Ruff classification failed." >&2
+            exit 2
+          fi
+        else
+          echo "[autofix] No classify_ruff.py script; counting all residual findings as new"
+          jq '
+            (group_by(.code) | map({key: .[0].code, value: length}) | from_entries) as $codes |
+            {total:length, allowed:0, new:length, by_code:$codes, new_by_code:$codes,
+              timestamp:(now | todateiso8601)}
+          ' "$diagnostics" > "$classification"
+        fi
+
+        if ! new=$(jq -ers --argjson total "$total" '
+          def whole_count: type == "number" and . == floor and . >= 0;
+          def valid_breakdown:
+            . as $report |
+            all(["by_code", "new_by_code", "allowed_by_code"][];
+              . as $key |
+              if $report | has($key) then
+                $report[$key] | type == "object" and all(.[]; whole_count)
+              else true end);
+          if length == 1 and (.[0] |
+            type == "object" and (has("error") | not) and .total == $total and
+            (.new | whole_count and . <= $total) and
+            (if has("allowed") then .allowed == ($total - .new) else true end) and
+            valid_breakdown)
+          then .[0].new else empty end
+        ' "$classification"); then
+          echo "::error::Invalid Ruff classification or counts inconsistent with the diagnostics." >&2
+          exit 2
+        fi
+        diff_status=0
+        git diff --quiet -- || diff_status=$?
+        if [ "$diff_status" -gt 1 ]; then
+          exit "$diff_status"
+        fi
+        jq -n --argjson changed "$diff_status" --slurpfile cls "$classification" '
+          {changed:($changed == 1), classification:$cls[0]}
+        ' > "$report_dir/autofix_report_enriched.json"
+        for name in ruff_remaining.log ruff_diagnostics.json ruff_classification.json autofix_report_enriched.json; do
+          mv -- "$report_dir/$name" "$name"
+        done
+        printf 'remaining_issues=%s\nnew_issues=%s\n' "$total" "$new" >> "$GITHUB_OUTPUT"
         echo "[autofix] Wrote enriched report autofix_report_enriched.json"
     - name: Finalise diff summary
       id: finalize
       shell: bash
       run: |
-        if git diff --quiet; then
-          echo "changed=false" >> $GITHUB_OUTPUT
-        else
-          echo "changed=true" >> $GITHUB_OUTPUT
-        fi
+        changed=$(jq -r '.changed' autofix_report_enriched.json)
+        echo "changed=$changed" >> "$GITHUB_OUTPUT"
     - name: Summary
       shell: bash
       run: |

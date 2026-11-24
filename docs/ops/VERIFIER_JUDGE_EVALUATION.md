@@ -147,7 +147,7 @@ production Anthropic judge slot). Token counts are as reported by each backend; 
 | muse-cli | Muse CLI muse-wonder-1.0, subscription | 3/8 | 2 | 2 | 1 | 1 | 21s | not reported |
 | agy-cli | agy gemini-4-argon-medium, plan mode | 4/8 | 2 | 0 | 2 | 0 | 18s | 127,453 / 9,352 |
 
-The screen table counts false FAIL only for schema-valid verdicts; the historical ensemble table fails closed on invalid results. Historical ordering and conflicting Muse observations are documented in `../evidence/judge-screen-20261017/PROVENANCE.md`; that aggregate must not qualify a judge for authority. The corrected analyzer requires all approval-stage gates, category evidence and a paired recorded incumbent, and refuses conflicting observations or corpus/prompt identities.
+The screen table counts false FAIL only for schema-valid verdicts; the historical ensemble table fails closed on invalid results. Historical ordering and conflicting Muse observations are documented in the [evidence provenance](../evidence/judge-screen-20261017/PROVENANCE.md); that aggregate must not qualify a judge for authority. The corrected analyzer requires all approval-stage gates, category evidence and a paired recorded incumbent, and refuses conflicting observations or corpus/prompt identities.
 
 Reading the table:
 
@@ -211,7 +211,8 @@ enough to judge"). The analyzer refuses to mix prompt versions, so every judge b
 current prompt; the 2026-10-17 tables above are historical. `UNVERIFIABLE_INPUT` counts as non-PASS,
 so on a PASS case it is a false FAIL (cautious), never a false PASS.
 
-Same 8 cases (4 PASS, 4 NON_PASS), current prompt, evidence in `docs/evidence/judge-screen-20261017/`:
+The current-prompt screen uses the same eight cases (4 PASS, 4 NON_PASS). See the
+[full judge and pair tables, reproduction appendix, and offline report recovery](../evidence/judge-screen-20261017/PROVENANCE.md#ensemble-report-recovery).
 
 | Judge | Correct | False PASS | Cost for the 8 cases | Usage class |
 | --- | ---: | ---: | --- | --- |
