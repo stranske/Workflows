@@ -165,6 +165,13 @@ Run the decoder below before following the reconciliation's attachment paths.
 The [original revision](https://github.com/stranske/Workflows/tree/9a0219f361e4ba4b9072a554362ef378ff47ec4c/docs/evidence/issue-3743/runtime-probes/replay-validation)
 also retains the loose files.
 
+The earlier [revalidation capture](revalidation/) also keeps its original
+command receipts, console streams, baseline/candidate JUnit and coverage
+files in `revalidation/validation-run-artifacts.json.gz`. The decoder restores
+them alongside the readable comparison, source provenance and validation
+summaries. The [original revalidation revision](https://github.com/stranske/Workflows/tree/9a0219f361e4ba4b9072a554362ef378ff47ec4c/docs/evidence/issue-3743/runtime-probes/revalidation)
+retains the individual loose paths.
+
 Each archive is gzip JSON keyed by original relative filename, with `base64`,
 `bytes`, and `sha256`. From a clean checkout, restore the named paths with:
 
@@ -175,16 +182,23 @@ root = Path("docs/evidence/issue-3743/runtime-probes")
 capture = root / "replay-validation"
 driver = capture / "driver-phase-artifacts.json.gz"
 validation = capture / "validation-run-artifacts.json.gz"
+revalidation = root / "revalidation/validation-run-artifacts.json.gz"
 driver_prefixes = ("driver-0-", "driver-1-", "driver-2-")
-for archive in [*root.glob("*/replay-artifacts.json.gz"), driver, validation]:
+for archive in [*root.glob("*/replay-artifacts.json.gz"), driver, validation, revalidation]:
     records = json.loads(gzip.decompress(archive.read_bytes()))
     destination = archive.parent / "replay"
-    if archive in (driver, validation):
-        destination = capture
-        manifest = json.loads((capture / "manifest.json").read_text())
+    if archive in (driver, validation, revalidation):
+        destination = archive.parent
+        manifest = json.loads((destination / "manifest.json").read_text())
         if archive == driver:
             expected = {name: sha for name, sha in manifest.items()
                         if name.startswith(driver_prefixes)}
+        elif archive == revalidation:
+            expected = {name: sha for name, sha in manifest.items()
+                        if "/" not in name
+                        and (name.endswith((".command.json", ".stdout", ".stderr"))
+                             or name in ("baseline.json", "candidate.json",
+                                         "baseline.xml", "candidate.xml"))}
         else:
             expected = {name: sha for name, sha in manifest.items()
                         if "/" not in name and not name.startswith(driver_prefixes)
@@ -202,6 +216,8 @@ for archive in [*root.glob("*/replay-artifacts.json.gz"), driver, validation]:
         target = destination / member
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
+        if archive == revalidation:
+            target.chmod(0o644)
 ```
 
 All 255 original members were decoded and compared against their original Git
