@@ -174,7 +174,7 @@ explain why a particular status appears in the Checks tab.
 | **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
 | **Health 40 Sweep** (`health-40-sweep.yml`) | Monday 05:05 UTC schedule, workflow-file pull requests, manual dispatch | ❌ Informational hygiene | Combined Actionlint + branch-protection jobs under **Actions → Health 40 Sweep** | Actions tab → workflow → **Run workflow** |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`) | Manual dispatch (or via `workflow_call` from the sweep) | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
-| **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | Cron every 30 minutes (`*/30 * * * *`). Declared events are `schedule`, `workflow_dispatch`, `workflow_run` (Gate `completed`), `repository_dispatch` (`agents-orchestrator-ping`). Admitted: `schedule` (forced `dry_run=true` shadow) and `workflow_dispatch` only; `eligibility` denies the others before `init` | ⚪ Shadow/manual automation surface (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** (no Checks tab status) | Actions tab → workflow → **Run workflow** (`dry_run` / `params_json`) |
+| **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`) | `schedule` every 30 minutes in forced dry-run shadow and input-controlled `workflow_dispatch` | ⚪ Shadow/manual automation surface (not a PR status) | Workflow run in **Actions → Agents 70 Orchestrator** (no Checks tab status) | Actions tab → workflow → **Run workflow** (`dry_run` / `params_json`) |
 | **Health 45 Agents Guard** (`agents-guard.yml`) | PR lifecycle and label events. The eligibility step reads the routing labels from the registry. | Policy check for eligible PRs | Commit status **`Health 45 Agents Guard / guard`** | Checks tab → **Health 45 Agents Guard** → **Re-run** after updating labels/reviews |
 > ℹ️ **Merge-gating recap.**
 > - Gate's **`summary`** job blocks every pull request by default. Gate also
@@ -247,11 +247,11 @@ explain why a particular status appears in the Checks tab.
 
 #### Agents 70 Orchestrator (`agents-70-orchestrator.yml`)
 
-- **When it runs.** Every 30 minutes via cron (`*/30 * * * *`) and on manual
-  `workflow_dispatch`. Although `workflow_run` (`Gate` `completed`) and
-  `repository_dispatch` (`agents-orchestrator-ping`) remain declared under `on:`,
-  `jobs.eligibility` (`expected-actions: workflow_dispatch,schedule`) denies both
-  before `jobs.init`.
+- **When it runs.** Every 30 minutes via cron (`*/30 * * * *`) and on
+  `workflow_dispatch`. `jobs.eligibility` checks these events before
+  `jobs.init` using `expected-actions: workflow_dispatch,schedule`. Gate
+  `workflow_run` events go to the shared keepalive loop. The former
+  `repository_dispatch` registration stopped at eligibility.
 - **What it does.** Under `jobs.init`, `schedule` forces `dry_run=true` as an A1
   retirement shadow (attributed in workflow history to `0ecdff0f3`, qualified
   until runtime shadow coverage is verified), whereas `workflow_dispatch` uses
@@ -377,8 +377,7 @@ fires where” without diving into the full tables:
   - **Primary workflows.** `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`,
     the belt chain (`agents-71/72/73`), the shared intake (`agents-63-issue-intake.yml`),
     `agents-64-verify-agent-assignment.yml`, `agents-70-orchestrator.yml`
-    (scheduled `dry_run=true` shadow and input-controlled `workflow_dispatch`;
-    `workflow_run` and `repository_dispatch` denied by `eligibility` before `init`),
+    (scheduled `dry_run=true` shadow and input-controlled `workflow_dispatch`),
     and `agents-guard.yml`.
   - **Triggers.** Gate `workflow_run` and hourly sweep schedules for keepalive,
     belt `workflow_call` chains and `workflow_dispatch` wrappers (orchestrator
@@ -479,7 +478,7 @@ status updates:
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
 | Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-62-integration-consumer.yml`, `maint-65-sync-label-docs.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
-| Issue / agents automation | Agents 70 declared `schedule`, `workflow_dispatch`, `workflow_run` (Gate completed), `repository_dispatch` (`agents-orchestrator-ping`) with `schedule`/`workflow_dispatch` admitted; intake on `issues`; belt callables (`workflow_call`) plus dispatcher/worker `workflow_dispatch` wrappers | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-auto-pilot.yml`, `agents-model-profile-trial.yml`, `agents-moderate-connector.yml`, `agents-autofix-dispatcher.yml`, `agents-autofix-loop.yml`, `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`, `agents-keepalive-loop-reporter.yml`, `agents-keepalive-branch-sync.yml`, `agents-keepalive-dispatch-handler.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-issue-format-guard.yml`, `agents-issue-optimizer.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
+| Issue / agents automation | Agents 70 `schedule` and `workflow_dispatch`; intake on `issues`; belt callables (`workflow_call`) plus dispatcher/worker `workflow_dispatch` wrappers | `agents-70-orchestrator.yml`, `agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`, `agents-auto-pilot.yml`, `agents-model-profile-trial.yml`, `agents-moderate-connector.yml`, `agents-autofix-dispatcher.yml`, `agents-autofix-loop.yml`, `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`, `agents-keepalive-loop-reporter.yml`, `agents-keepalive-branch-sync.yml`, `agents-keepalive-dispatch-handler.yml`, `agents-74-pr-body-writer.yml`, `agents-63-*.yml`, `agents-64-pr-comment-commands.yml`, `agents-64-verify-agent-assignment.yml`, `agents-issue-format-guard.yml`, `agents-issue-optimizer.yml`, `agents-guard.yml` | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Autofix and manually dispatched CI callers | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-16-agents.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `reusable-70-orchestrator-init.yml`, `reusable-70-orchestrator-main.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
 Keep this table handy when you are triaging automation: it confirms which workflows wake up on which events, the YAML files to inspect, and the safety purpose each bucket serves.
@@ -585,11 +584,8 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 
 ### Issue / agents automation
 - **Agents 70 Orchestrator** – `.github/workflows/agents-70-orchestrator.yml`
-  declares `schedule` (`*/30 * * * *`), `workflow_dispatch`, `workflow_run`
-  (`Gate` `completed`), and `repository_dispatch` (`agents-orchestrator-ping`),
-  but `jobs.eligibility` (`expected-actions: workflow_dispatch,schedule`) admits
-  only `schedule` and `workflow_dispatch` and denies `workflow_run` and
-  `repository_dispatch` before `jobs.init`. In `jobs.init`, `schedule` forces
+  declares `schedule` (`*/30 * * * *`) and `workflow_dispatch`.
+  `jobs.eligibility` checks these events before `jobs.init`. `schedule` forces
   `dry_run=true` as an A1 retirement shadow (attributed to `0ecdff0f3`,
   qualified until runtime shadow coverage is verified) while `workflow_dispatch`
   is input-controlled via `inputs.dry_run` (default `'false'`). Authored
@@ -783,7 +779,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Agents Bot Comment Handler** (`agents-bot-comment-handler.yml`, agents bucket) | `pull_request` (labeled), `workflow_run` (Gate, `completed`), `workflow_dispatch` | Dispatch the reusable bot-comment handler to resolve automated review comments after Gate or manual triggers. | ⚪ Event-driven | [Bot comment handler runs](https://github.com/stranske/Workflows/actions/workflows/agents-bot-comment-handler.yml) |
 | **Agents Verifier** (`agents-verifier.yml`, agents bucket) | `pull_request` (`closed` → merged), `push` (`main`) | Build acceptance-context prompt (PR + linked issues), run Codex in verifier mode, and open a follow-up issue when the verdict is FAIL. | ⚪ Post-merge automation | [Agents verifier runs](https://github.com/stranske/Workflows/actions/workflows/agents-verifier.yml) |
 | **agents-weekly-metrics** (`agents-weekly-metrics.yml`, agents bucket) | `schedule` (weekly), `workflow_dispatch` | Aggregate agent metrics (keepalive, autofix, verifier) and generate markdown summary. | ⚪ Scheduled weekly | [Weekly metrics runs](https://github.com/stranske/Workflows/actions/workflows/agents-weekly-metrics.yml) |
-| **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`, agents bucket) | Declared: `schedule` (`*/30 * * * *`), `workflow_dispatch`, `workflow_run` (Gate completed), `repository_dispatch` (`agents-orchestrator-ping`). Admitted: `schedule` (forced `dry_run=true` shadow) and `workflow_dispatch`; `eligibility` denies the others before `init` | Run readiness, diagnostics, and keepalive/belt stages in scheduled dry-run shadow mode or input-controlled manual dispatch while `agents-keepalive-loop.yml` and `agents-keepalive-sweep.yml` own authored Gate/hourly keepalive triggers (retirement undecided); honours the `keepalive:paused` label and `keepalive_enabled` flag. `Execute` needs `init.has_work == 'true'`. | ⚪ Shadow/manual surface | [Orchestrator runs](https://github.com/stranske/Workflows/actions/workflows/agents-70-orchestrator.yml) |
+| **Agents 70 Orchestrator** (`agents-70-orchestrator.yml`, agents bucket) | `schedule` (`*/30 * * * *`, forced `dry_run=true` shadow) and `workflow_dispatch` | Run readiness, diagnostics, and keepalive/belt stages in scheduled dry-run shadow mode or input-controlled manual dispatch while `agents-keepalive-loop.yml` and `agents-keepalive-sweep.yml` own authored Gate/hourly keepalive triggers (retirement undecided); honours the `keepalive:paused` label and `keepalive_enabled` flag. `Execute` needs `init.has_work == 'true'`. | ⚪ Shadow/manual surface | [Orchestrator runs](https://github.com/stranske/Workflows/actions/workflows/agents-70-orchestrator.yml) |
 | **Agents Model Profile Trial** (`agents-model-profile-trial.yml`, agents bucket) | `workflow_dispatch` | Dispatch exactly one pinned, read-only Sol/Terra/Luna instrumentation arm with a frozen packet/source identity. | ⚪ Manual canary | [Model profile trial runs](https://github.com/stranske/Workflows/actions/workflows/agents-model-profile-trial.yml) |
 | **Agents 63 Issue Intake** (`agents-63-issue-intake.yml`, agents bucket) | `issues`, `workflow_call`, `workflow_dispatch` | Canonical front door for agent issue intake. Listens for `agent:codex` labels and services ChatGPT sync requests through the shared normalization pipeline. | ⚪ Critical surface (automation intake) | [Issue intake runs](https://github.com/stranske/Workflows/actions/workflows/agents-63-issue-intake.yml) |
 | **Agents 64 Verify Agent Assignment** (`agents-64-verify-agent-assignment.yml`, agents bucket) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | [Agents 64 audit history](https://github.com/stranske/Workflows/actions/workflows/agents-64-verify-agent-assignment.yml) |

@@ -90,7 +90,7 @@ workflow files.
 | `agents-72-codex-belt-worker.yml` | workflow_call | Validates the queued issue/branch, ensures divergence from base, and opens or refreshes the Codex automation PR with labels, assignees, and activation. |
 | `agents-72-codex-belt-worker-dispatch.yml` | workflow_dispatch | Forwards manual or Auto-Pilot dispatches to the reusable worker. |
 | `agents-73-codex-belt-conveyor.yml` | workflow_call | Checks the combined status of the supplied head, merges eligible PRs, removes the branch, closes the issue and requests the next dispatch. |
-| `agents-70-orchestrator.yml` | Declared: `schedule` (*/30), `workflow_dispatch`, `workflow_run` (Gate `completed`), `repository_dispatch` (`agents-orchestrator-ping`). Admitted: `schedule` (forced `dry_run=true` shadow) and `workflow_dispatch` only; `eligibility` denies the other two before `init` | Calls `reusable-70-orchestrator-init.yml` and `reusable-70-orchestrator-main.yml`. `Execute` additionally requires `init.has_work == 'true'`. |
+| `agents-70-orchestrator.yml` | `schedule` (*/30, forced `dry_run=true`) and input-controlled `workflow_dispatch` | Calls `reusable-70-orchestrator-init.yml` and `reusable-70-orchestrator-main.yml`. `Execute` additionally requires `init.has_work == 'true'`. |
 | `reusable-16-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs. |
 | `reusable-10-ci-python.yml` | workflow_call | Unified CI executor for the Python stack. |
 | `reusable-12-ci-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-00-gate.yml`. |

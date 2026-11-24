@@ -24,13 +24,6 @@ on:
       pr_number:
         description: 'Optional pull request number when targeting a specific branch.'
         required: false
-  workflow_run:
-    workflows:
-      - Gate
-    types: [completed]
-  repository_dispatch:
-    types:
-      - agents-orchestrator-ping
 
 permissions:
   actions: write
@@ -81,65 +74,12 @@ jobs:
       issues: write
     uses: ./.github/workflows/reusable-70-orchestrator-init.yml
     with:
-      params_json: >-
-        ${{
-          github.event_name == 'workflow_dispatch' && github.event.inputs.params_json ||
-          github.event_name == 'repository_dispatch' && (
-            github.event.client_payload &&
-            github.event.client_payload.params &&
-            toJson(github.event.client_payload.params) ||
-            github.event.client_payload && github.event.client_payload.params_json ||
-            ''
-          ) ||
-          '{}'
-        }}
-      options_json: >-
-        ${{
-          github.event_name == 'workflow_dispatch' && github.event.inputs.options_json ||
-          github.event_name == 'repository_dispatch' && (
-            github.event.client_payload &&
-            github.event.client_payload.options &&
-            toJson(github.event.client_payload.options) ||
-            github.event.client_payload && github.event.client_payload.options_json ||
-            ''
-          ) ||
-          ''
-        }}
-      # A1 orchestrator-retirement shadow: automatic runs (schedule / workflow_run) run
-      # dry (no writes) while we confirm the event-driven keepalive loop + hourly sweep
-      # cover the orchestrator's role, before deleting agents-70 + reusable-70-orchestrator-main.
-      # Manual `workflow_dispatch` with dry_run=false still runs live. Revert: remove the
-      # first clause below.
-      dry_run: >-
-        ${{
-          (github.event_name == 'schedule' || github.event_name == 'workflow_run') && 'true' ||
-          github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run ||
-          github.event_name == 'repository_dispatch' && (
-            github.event.client_payload && github.event.client_payload.dry_run || ''
-          ) ||
-          ''
-        }}
-      keepalive_enabled: >-
-        ${{
-          github.event_name == 'workflow_dispatch' && github.event.inputs.keepalive_enabled ||
-          github.event_name == 'repository_dispatch' && (
-            github.event.client_payload && github.event.client_payload.keepalive_enabled || ''
-          ) ||
-          ''
-        }}
-      pr_number: >-
-        ${{
-          github.event_name == 'workflow_dispatch' && github.event.inputs.pr_number ||
-          github.event_name == 'repository_dispatch' && (
-            github.event.client_payload && (
-              github.event.client_payload.pr ||
-              github.event.client_payload.pr_number ||
-              github.event.client_payload.issue ||
-              ''
-            )
-          ) ||
-          ''
-        }}
+      params_json: ${{ github.event.inputs.params_json || '{}' }}
+      options_json: ${{ github.event.inputs.options_json || '' }}
+      # Scheduled shadow previews never write. Dispatch callers retain their dry_run input.
+      dry_run: ${{ github.event_name == 'schedule' && 'true' || github.event.inputs.dry_run || '' }}
+      keepalive_enabled: ${{ github.event.inputs.keepalive_enabled || '' }}
+      pr_number: ${{ github.event.inputs.pr_number || '' }}
     secrets:
       ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
       SERVICE_BOT_PAT: ${{ secrets.SERVICE_BOT_PAT }}
