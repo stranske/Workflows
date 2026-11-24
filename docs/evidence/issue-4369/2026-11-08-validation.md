@@ -1993,7 +1993,7 @@ round-2 receipt; the earlier merge/main-reachability receipts retain delivery.
 
 T7/A4: the applicable exact-head Maint 71 dispositions recorded above remain
 zero active/blocking/nonblocking/unknown findings, with discussion 4434491702
-excluded. The [fresh comment observation](runtime-4550/4558-round2-comments.json)
+excluded. The [fresh comment observation](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round2-comments.json) ([local recovery](#recover-the-early-comment-captures))
 retains the complete raw comments and its explicit UTC boundary. Page 1 returned
 49 comments; page 2 returned 0; all IDs are unique. No new comment appeared since
 the preceding complete 49-comment observation. The round-2 receipt also links
@@ -2223,7 +2223,7 @@ Both blobs are `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`.
 [merged consumer bytes](runtime-4550/4558-seat-round4-consumer.txt) retain the
 identities and payloads independently of candidate metadata.
 
-The [fresh complete issue-4369 comment observation](runtime-4550/4558-seat-round4-comments.json)
+The [fresh complete issue-4369 comment observation](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-comments.json) ([local recovery](#recover-the-early-comment-captures))
 covers **2026-11-09T00:01:34Z**. Pages contain **49 and 0** comments; all IDs
 are unique, and the issue's comment count is stable at 49 before and after
 pagination. Applicable exact-head Maint 71 dispositions remain the retained
@@ -3757,3 +3757,23 @@ printf '%s  %s\n' '85a68291fbcfca3021646ff6c4436467f8493da8675a9dcc2d4327825479d
     tar -xpzf "$archive" -C "$recovered" &&
     printf '%s\n' "$recovered"
 ```
+
+## Recover the early comment captures
+
+The [checksummed archive](runtime-4550/4558-early-comment-history.tar.gz) contains the original
+round-2 and round-4 comment observations. Both retain their own UTC cutoff,
+49 unique comments, and an empty second page.
+
+From the repository root, verify the archive and extract it into a fresh
+directory with the original paths and modes.
+
+```sh
+archive=docs/evidence/issue-4369/runtime-4550/4558-early-comment-history.tar.gz
+printf '%s  %s\n' '82b83c73d50869b50661764f1b7aea2f2d8b92e90b6178e5becbfd263cd89018' "$archive" | shasum -a 256 -c &&
+    recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-4369-early-comments.XXXXXX") &&
+    tar -xpzf "$archive" -C "$recovered" &&
+    printf '%s\n' "$recovered"
+```
+
+For the round-2 command receipt, resolve its `issue_comment_receipt` filename
+inside `$recovered/docs/evidence/issue-4369/runtime-4550`.
