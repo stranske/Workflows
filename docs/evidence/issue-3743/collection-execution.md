@@ -42,6 +42,24 @@ interrupted. The previously retained serial dispatch adapter invokes Black's
 unchanged formatter and checks with the required CLI options; all **661 files**
 pass, as recorded in the [formatting log](automation/collection-execution/black-all.txt).
 
+## Recover the original attachments
+
+The [offline archive](automation/collection-evidence.tar.gz) contains the full coverage JSON and
+supporting records for both collection phases. It restores their original
+repository-relative paths and modes into a fresh directory. Use the
+[original execution capture](https://github.com/stranske/Workflows/tree/e0b42b28456b938b71a198efd6d0fdcf053398e4/docs/evidence/issue-3743/automation/collection-execution)
+to browse each file separately.
+
+From the repository root, verify the archive and extract both sets:
+
+```sh
+archive=docs/evidence/issue-3743/automation/collection-evidence.tar.gz
+printf '%s  %s\n' 'de94e8680d6a9065e33a69db58cec4bcb20aee79c4f1cd5aac0ae7c5e2fcc5e8' "$archive" | shasum -a 256 -c &&
+    recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-3743-collection.XXXXXX") &&
+    tar -xpzf "$archive" -C "$recovered" &&
+    printf '%s\n' "$recovered"
+```
+
 ## Acceptance reconciliation and handoff
 
 The recent commits `41920a5e`, `9b05de86`, and `3d1fb32f` already retain the
