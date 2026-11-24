@@ -76,3 +76,8 @@ skip. Four actual root/template conflict/negation source mutations each exited
 1, followed by exit 0 and byte-identical restoration. Those are current-main
 checks; the 185-test historical transcript above belongs to its recorded
 revision. They do not establish complete release topology or provider PASS.
+
+## Recover the recorded console output
+
+Follow the [transcript recovery command](../README.md#recover-the-original-console-transcripts)
+to restore the six closing-control text files at their original paths.
