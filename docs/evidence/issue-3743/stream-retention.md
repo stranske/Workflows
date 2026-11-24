@@ -61,6 +61,15 @@ the [serial Black result](automation/stream-retention/black-serial.txt) passes a
 formatter and validation routines. The
 [stock failure](automation/stream-retention/black-all.txt) is retained separately.
 
+## Recover the original attachments
+
+The [offline archive](automation/test-and-stream-receipts.tar.gz) contains the original
+coverage JSON and supporting stream retention attachments. Follow the
+[test execution recovery command](test-execution.md#recover-the-original-attachments)
+to restore both evidence sets to their original repository-relative paths
+and modes. The [original stream retention capture](https://github.com/stranske/Workflows/tree/8f7c9ed0966ef7c79d78c81fb3435ff0d5732d57/docs/evidence/issue-3743/automation/stream-retention)
+also provides direct browsing of each file.
+
 ## Verified local acceptance
 
 - [ ] The literal Anaconda-interpreter command passes and its output is retained.
