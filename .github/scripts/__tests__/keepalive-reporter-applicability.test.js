@@ -24,9 +24,9 @@ const sources = [
   'templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml',
 ];
 
-function setup(source, title, overrides = {}) {
+function setup(source, title, overrides = {}, prepareProducer = (text) => text) {
   const pathInRepo = source.replace(/^templates\/consumer-repo\//, '');
-  const producer = fs.readFileSync(path.join(root, source));
+  const producer = Buffer.from(prepareProducer(fs.readFileSync(path.join(root, source), 'utf8')));
   let reads = 0;
   const github = {
     rest: {
@@ -110,6 +110,34 @@ for (const source of sources) {
     });
     assert.equal(lookups, 1);
     assert.equal(reads(), 2);
+  });
+
+  test(`${source}: the exact Gate extension preserves manual classification`, async () => {
+    const prefix = 'run-name: ${{ ';
+    const gate = "(github.event_name == 'workflow_run' && format('keepalive-gate/v1 run={0} attempt={1} pr={2}', github.event.workflow_run.id, github.event.workflow_run.run_attempt, github.event.workflow_run.pull_requests[0].number || 'unbound')) || ";
+    const extend = (text, expression = gate) => text.replace(prefix, prefix + expression);
+    const lookupTarget = async () => null;
+    const original = 'keepalive-dispatch/v2 ordinary pr=1738';
+    const approved = setup(source, original, {}, extend);
+    assert.deepEqual(await classifyReporterRun({ github: approved.github, owner: 'stranske',
+      repo: 'repo', run, lookupTarget }), {
+      status: 'continue', prNumber: 1738, targetSource: 'ordinary-run-name',
+    });
+
+    const changed = setup(source, original, {}, (text) =>
+      extend(text, gate.replace('github.event.workflow_run.id', 'github.run_id')));
+    await assert.rejects(classifyReporterRun({ github: changed.github, owner: 'stranske',
+      repo: 'repo', run, lookupTarget }), /lacks the dispatch classification contract/);
+
+    const candidate = setup(source, 'keepalive-dispatch/v2 authority-candidate pr=1738', {}, extend);
+    await assert.rejects(classifyReporterRun({ github: candidate.github, owner: 'stranske',
+      repo: 'repo', run, lookupTarget }), /no immutable attempt index/);
+
+    const automatic = setup(source, original, { event: 'workflow_run' }, extend);
+    const result = await classifyReporterRun({ github: automatic.github, owner: 'stranske',
+      repo: 'repo', run, lookupTarget });
+    assert.equal(result.status, 'skip');
+    assert.equal(result.prNumber, undefined);
   });
 
   test(`${source}: authority candidate without index fails closed`, async () => {
