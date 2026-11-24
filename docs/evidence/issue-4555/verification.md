@@ -154,9 +154,10 @@ The unchecked "Additional PR tasks" in Workflows #4556 repeat the original
 task list with its sub-bullets split. The evidence above and in the sections
 before it covers them. There is no Workflows source change to make: the
 defect was in an Orchestrator-owned test fixture, which Orchestrator #1251
-fixed in its owning repo. `scripts/sync_core_shipment_finding.py` here is a
-one-off fingerprint check for #4508, not the classifier that produced this
-finding.
+fixed in its owning repo. The
+[#4508 clearance script](../../../evidence/issue-4508/sync-core-clearance/sync_core_shipment_finding.py)
+checks a separate, historical fingerprint. The live sync-core classifier
+produced the #4555 finding.
 
 ## Continuation round (2026-11-09): completed checks vs. missing outcomes
 

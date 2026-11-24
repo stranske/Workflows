@@ -9,8 +9,8 @@ GitHub Actions job logs prefix each line with a timestamp and often wrap
 command echo lines in ANSI color codes. Normalize before matching so both
 sanitized excerpts and raw downloaded job logs classify the same way::
 
-    python scripts/sync_core_shipment_finding.py path/to/typecheck-mypy.log
-    python scripts/sync_core_shipment_finding.py - < path/to/typecheck-mypy.log
+    python evidence/issue-4508/sync-core-clearance/sync_core_shipment_finding.py path/to/typecheck-mypy.log
+    python evidence/issue-4508/sync-core-clearance/sync_core_shipment_finding.py - < path/to/typecheck-mypy.log
 """
 
 from __future__ import annotations
