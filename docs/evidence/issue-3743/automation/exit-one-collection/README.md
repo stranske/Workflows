@@ -55,6 +55,15 @@ with the required check options and unchanged Black formatting. The native
 parallel launch fails because the sandbox denies worker sockets; its full
 failure is retained in [black-native.txt](black-native.txt).
 
+## Recover the original attachments
+
+The [offline archive](../collection-evidence.tar.gz) contains the full coverage JSON and
+supporting exit-one collection records. Follow the
+[recovery command](../../collection-execution.md#recover-the-original-attachments)
+to restore the archived files to their original repository-relative paths and
+modes. Use the [original exit-one capture](https://github.com/stranske/Workflows/tree/e0b42b28456b938b71a198efd6d0fdcf053398e4/docs/evidence/issue-3743/automation/exit-one-collection)
+to browse each file separately.
+
 ## Reconciliation and handoff
 
 Recent commit `ed99df79` strengthens execution witnesses for the eight archive
