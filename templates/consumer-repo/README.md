@@ -381,5 +381,5 @@ Key differences:
 
 - [Keepalive Goals & Plumbing](../../docs/keepalive/GoalsAndPlumbing.md) - Detailed keepalive architecture
 - [Workflow System Docs](../../docs/ci/WORKFLOWS.md) - Reusable workflow reference
-- [Agent Instructions Template](../.github/codex/AGENT_INSTRUCTIONS.md) - Example agent configuration
+- [Agent Instructions Template](.github/codex/AGENT_INSTRUCTIONS.md) - Example agent configuration
 - [Multi-Agent Routing](../../docs/keepalive/MULTI_AGENT_ROUTING.md) - Adding new agents
