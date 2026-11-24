@@ -240,14 +240,27 @@ class TestSimilarIssueReferenceHelpers:
             1967
         ]
 
+    @pytest.mark.parametrize(
+        ("title", "has_link"),
+        [
+            ("Dev-tool ] pin", False),
+            ("Parse `[` with ] fallback", False),
+            ("Handle `]` in title", True),
+            ("Handle ``]`[`` delimiters", True),
+            ("Unclosed `]", False),
+        ],
+    )
     def test_standalone_warning_requires_a_well_formed_markdown_link(
-        self, retained_standalone_warning: dict
+        self, retained_standalone_warning: dict, title: str, has_link: bool
     ) -> None:
+        original_title = (
+            "Dev-tool pin update breaks `Cross-Repo Smoke / cross-repo-full-product` (sync PR #1966)"
+        )
         comment = {
             **retained_standalone_warning,
-            "body": retained_standalone_warning["body"].replace("Dev-tool pin", "Dev-tool ] pin"),
+            "body": retained_standalone_warning["body"].replace(original_title, title),
         }
-        assert duplicate_detection.find_dedup_comment([comment]) is None
+        assert bool(duplicate_detection.find_dedup_comment([comment])) is has_link
 
     def test_extract_similar_issue_refs_handles_links_bare_refs_titles_and_ignored_lines(
         self,
