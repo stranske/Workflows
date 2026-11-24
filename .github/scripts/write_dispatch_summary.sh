@@ -49,10 +49,10 @@ normalise_reason() {
   case "${raw}" in
     ''|unspecified) printf 'gate-failed' ;;
     ok|success|keepalive-detected) printf 'ok' ;;
-    missing-label|keepalive-label-missing|missing-keepalive-label) printf 'missing-label' ;;
+    missing-label|keepalive-label-missing|missing-keepalive-label|gate-blocked:keepalive-label-missing) printf 'missing-label' ;;
     gate-pending|gate-not-concluded) printf 'gate-pending' ;;
     gate-not-success|gate-run-missing|gate-failed|gate-error|gate-missing|sync-required) printf 'gate-failed' ;;
-    run-cap-reached|cap-reached) printf 'cap-reached' ;;
+    run-cap-reached|cap-reached|gate-blocked:run-cap-reached) printf 'cap-reached' ;;
     no-linked-pr|missing-pr|missing-pr-number) printf 'no-linked-pr' ;;
     no-activation-found|missing-activation-comment|invalid-activation-comment|missing-pr-number|activation-comment-missing|no-human-comment) printf 'no-activation-found' ;;
     lock-held|duplicate-keepalive|lock-failed|lock-error) printf 'lock-held' ;;
