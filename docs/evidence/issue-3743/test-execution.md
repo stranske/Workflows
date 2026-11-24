@@ -70,6 +70,24 @@ The previously retained [serial dispatch adapter](automation/black-serial-dispat
 calls Black's unchanged formatting/check routines and passes all 661 files with
 the required options, as recorded in the [serial result](automation/test-execution/black-serial.txt).
 
+## Recover the original attachments
+
+The [offline archive](automation/test-and-stream-receipts.tar.gz) contains the full coverage
+JSON and the supporting test execution and stream retention attachments. It
+restores their original repository-relative paths and modes into a fresh
+directory. The [original test execution capture](https://github.com/stranske/Workflows/tree/8f7c9ed0966ef7c79d78c81fb3435ff0d5732d57/docs/evidence/issue-3743/automation/test-execution)
+also provides direct browsing of each file.
+
+From the repository root, verify the archive and extract both sets:
+
+```sh
+archive=docs/evidence/issue-3743/automation/test-and-stream-receipts.tar.gz
+printf '%s  %s\n' '98f955bd0dc49f953f920e5bb8d88b557108fd6c19ba270fb82f2d5b8f5fb92c' "$archive" | shasum -a 256 -c &&
+    recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-3743-automation.XXXXXX") &&
+    tar -xpzf "$archive" -C "$recovered" &&
+    printf '%s\n' "$recovered"
+```
+
 ## Verified local acceptance and handoff
 
 - [ ] Run and retain the literal Anaconda-interpreter acceptance command on a runner where that interpreter exists.
