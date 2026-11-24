@@ -30,6 +30,28 @@ succeeds offline (including in an empty `git init` repository) and records in
 `docs/evidence/issue-4426/coverage-measurement.json` (`controlled_whole_gate_comparison`
 and top-level fields):
 
+### Reverse-index recovery note, 2026-11-24
+
+The 136-byte optional reverse index
+`git-objects/pack/pack-3da11b8eefb5914f6de030f28f2cd7eabb28fe69.rev`
+was removed. The actual reader is `scripts/compare_gate_coverage.py`: it supplies
+the containing `git-objects` directory as an alternate object directory; no
+source, test, or documentation reader names the `.rev` sidecar. With the sidecar
+absent, both published commits (`682c12c02f24e2b8ee8d69da0d54dae28a87977d` and
+`4f2ad36497222425d6bea2135358f9c82a2f752d`) remained readable, `git verify-pack`
+reported all 21 packed objects, and the exact comparison command above completed
+offline. A damaged temporary pack failed `git verify-pack` as required.
+
+The retained pack SHA-256 is
+`6decd6395d5629c8589384df5672d975a81254af1f38b74319ccce0c6ba274c5`.
+Rebuilding sidecars from that pack with `git index-pack --rev-index -o rebuilt.idx
+input.pack` reproduced the retained index SHA-256
+`511995245570bfe6d335e1d26e0ad425f98beb1289770c38b9a69af815f32687` and the
+removed reverse-index SHA-256
+`45d4483ccf61d17ce58a5c1c5b8ba24cefd7774eb6ed99dfa39eeddea1b6ef0a`.
+The `.pack` and `.idx` remain the recovery inputs; the `.rev` is reproducible,
+not an additional historical object source.
+
 - `attributable_round_reduction`: `394` (`409` newly covered units minus `15` newly missing units across the six ranked targets: `0` in `scripts/sync_test_dependencies.py`, `9` in `scripts/langchain/issue_pr_context.py`, `15` in `scripts/langchain/verifier_config.py`, `22` in `tools/langchain_client.py`, `30` in `scripts/langchain/task_validator.py`, and `318` in `scripts/langchain/pr_verifier.py`).
 - `unmatched_baseline_units`: `244` (`12` unmatched baseline missing units: `1` in `verifier_config.py`, `2` in `langchain_client.py`, `9` in `pr_verifier.py`).
 - `unmatched_final_units`: `1440` (`53` unmatched final missing units in `pr_verifier.py`, yielding `unmatched_net_difference = -41` and `snapshot_difference = 394 + (-41) = 353`).
