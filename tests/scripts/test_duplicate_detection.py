@@ -253,9 +253,7 @@ class TestSimilarIssueReferenceHelpers:
     def test_standalone_warning_requires_a_well_formed_markdown_link(
         self, retained_standalone_warning: dict, title: str, has_link: bool
     ) -> None:
-        original_title = (
-            "Dev-tool pin update breaks `Cross-Repo Smoke / cross-repo-full-product` (sync PR #1966)"
-        )
+        original_title = "Dev-tool pin update breaks `Cross-Repo Smoke / cross-repo-full-product` (sync PR #1966)"
         comment = {
             **retained_standalone_warning,
             "body": retained_standalone_warning["body"].replace(original_title, title),
