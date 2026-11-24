@@ -127,7 +127,7 @@ before or after, in creation order). It is **not** the count of all cancelled ru
 
 **Superseded, unanchored dataset (kept for reference):** the earlier run used the
 synthetic `f1b1889` timestamp (2026-11-05T05:38:53Z → 2026-11-07T05:38:53Z). It is kept as
-`observation-evidence-unanchored-f1b1889.json`. It recounts to `(0, 476)` with `counts()`,
+[observation-evidence-unanchored-f1b1889.json](https://github.com/stranske/Workflows/blob/6324a78d924ce06eb56f1e8af3c2a7261aed0b6b/docs/evidence/issue-4082/observation-evidence-unanchored-f1b1889.json). It recounts to `(0, 476)` with `counts()`,
 which means 0 qualifying duplicate-trigger cancellations, but **30 of 476** runs ended
 `cancelled` (25 `pull_request`, 5 `push`). Its window does not start at a verified
 integration, so it does not support acceptance.
@@ -162,3 +162,23 @@ integration, so it does not support acceptance.
 
 Issue #4522 is complete on its substance (drift and observation). The literal PR-status
 criterion remains unmet unless PR #2456 is accepted as the equivalent integration.
+
+## Recover superseded Gate observations
+
+The [checksummed archive](superseded-gate-observations.tar.gz) contains the unanchored 48-hour
+capture and the [round-7 diagnostic](verification-round-7.md). Both remain
+available as individual files in the
+[original evidence tree](https://github.com/stranske/Workflows/tree/6324a78d924ce06eb56f1e8af3c2a7261aed0b6b/docs/evidence/issue-4082).
+Use the directly available [anchored capture](observation-evidence-final.json)
+for the accepted observation.
+
+From the repository root, verify the archive, then extract both records into a
+new directory with their original paths and modes.
+
+```sh
+archive=docs/evidence/issue-4082/superseded-gate-observations.tar.gz
+printf '%s  %s\n' 'bf1a85a828d6330e3257f48d1dd25b33dcf9a8d3ec1f1521784341f3ecc1d9f5' "$archive" | shasum -a 256 -c &&
+    recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-4082-observations.XXXXXX") &&
+    tar -xpzf "$archive" -C "$recovered" &&
+    printf '%s\n' "$recovered"
+```
