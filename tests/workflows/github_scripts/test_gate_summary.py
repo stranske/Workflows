@@ -648,6 +648,45 @@ def security_gate_summary(request):
 
 
 @pytest.mark.parametrize(
+    ("docker_result", "expected_state"),
+    [
+        pytest.param("failure", "failure", id="docker-failure"),
+        pytest.param("cancelled", "pending", id="docker-cancelled"),
+    ],
+)
+def test_optional_python_skip_preserves_selected_docker_verdict(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    docker_result: str,
+    expected_state: str,
+    security_gate_summary,
+) -> None:
+    output = tmp_path / "output"
+    summary = tmp_path / "summary"
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    for name, value in {
+        "DOC_ONLY": "false",
+        "RUN_CORE": "true",
+        "REASON": "code_changes",
+        "DOCS_GUARD_RESULT": "success",
+        "PYTHON_REQUIRED": "false",
+        "PYTHON_RESULT": "skipped",
+        "DOCKER_CHANGED": "true",
+        "DOCKER_RESULT": docker_result,
+        "TEST_QUALITY_RESULT": "skipped",
+        "DELIVERY_SEAL_RESULT": "success",
+        "GATE_ARTIFACTS_ROOT": str(tmp_path / "artifacts"),
+        "GITHUB_OUTPUT": str(output),
+        "GITHUB_STEP_SUMMARY": str(summary),
+    }.items():
+        monkeypatch.setenv(name, value)
+
+    assert security_gate_summary.main() == 0
+    assert f"state={expected_state}" in output.read_text().splitlines()
+    assert "Python CI skipped: no Python-code changes detected." in summary.read_text()
+
+
+@pytest.mark.parametrize(
     "state", ["reviewing\nstate=success", "$(touch injected)", {"state": "sealed"}]
 )
 def test_untrusted_delivery_state_is_not_echoed(

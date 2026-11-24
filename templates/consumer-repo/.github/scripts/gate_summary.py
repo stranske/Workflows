@@ -429,6 +429,7 @@ def summarize(context: SummaryContext) -> SummaryResult:
     description = "All Gate checks succeeded."
 
     python_result = _normalize(context.python_result or "success")
+    optional_python_skipped = not context.python_required and python_result == "skipped"
     docker_result_norm = _normalize(context.docker_result or "skipped")
     test_quality_result = _normalize(context.test_quality_result or "skipped")
     cosmetic_failure = False
@@ -443,7 +444,7 @@ def summarize(context: SummaryContext) -> SummaryResult:
         description = f"Docs guard result: {docs_guard_result}."
     # Python CI skipped is OK when path classification says no Python-relevant
     # files changed.
-    elif not context.python_required and python_result == "skipped":
+    elif optional_python_skipped:
         lines.append("- Python CI skipped: no Python-code changes detected.")
     elif python_result in {"cancelled", "abandoned"}:
         state = "pending"
@@ -459,14 +460,20 @@ def summarize(context: SummaryContext) -> SummaryResult:
             description = f"Python CI result: {python_result}."
             cosmetic_failure, failure_checks = _detect_cosmetic_failure(records)
             format_failure = "format" in failure_checks
-    elif context.docker_changed and docker_result_norm == "cancelled":
-        state = "pending"
-        description = "Docker smoke cancelled; waiting for rerun."
-    elif context.docker_changed and docker_result_norm != "success":
-        state = "failure"
-        description = f"Docker smoke result: {docker_result_norm}."
     elif not context.docker_changed:
         lines.append("- Docker smoke skipped: no Docker-related changes detected.")
+
+    if (
+        state == "success"
+        and context.docker_changed
+        and (not optional_python_skipped or docker_result_norm in {"failure", "cancelled"})
+    ):
+        if docker_result_norm == "cancelled":
+            state = "pending"
+            description = "Docker smoke cancelled; waiting for rerun."
+        elif docker_result_norm != "success":
+            state = "failure"
+            description = f"Docker smoke result: {docker_result_norm}."
 
     if state == "success":
         if test_quality_result == "cancelled":

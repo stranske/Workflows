@@ -12,12 +12,24 @@ const { getWorkerExecutionEvidence } = require('./keepalive_worker_evidence.js')
 const { withRetry } = require('./github-api-with-retry.js');
 
 const CONTRACT = /^run-name: \$\{\{ github\.event_name == 'workflow_dispatch' && format\('keepalive-dispatch\/v2 \{0\} pr=\{1\}', \(inputs\.authority_challenge_claim != '' \|\| inputs\.authority_challenge_fingerprint != ''\) && 'authority-candidate' \|\| 'ordinary', inputs\.pr_number\) \|\| 'Agents (?:Keepalive Loop|Gate Followups)' \}\}$/;
+const RUN_NAME_PREFIX = 'run-name: ${{ ';
+const GATE_RUN_NAME_PREFIX = RUN_NAME_PREFIX +
+  "(github.event_name == 'workflow_run' && format('keepalive-gate/v1 run={0} attempt={1} pr={2}', github.event.workflow_run.id, github.event.workflow_run.run_attempt, github.event.workflow_run.pull_requests[0].number || 'unbound')) || ";
 const TITLE_CONTRACT = /^keepalive-dispatch\/v2 (ordinary|authority-candidate) pr=([1-9][0-9]*)$/;
 const PRODUCERS = new Set([
   '.github/workflows/agents-keepalive-loop.yml',
   '.github/workflows/agents-81-gate-followups.yml',
 ]);
 const ACTIVE_RUN_STATUSES = new Set(['queued', 'in_progress', 'waiting', 'requested', 'pending']);
+
+function hasDispatchClassificationContract(line) {
+  // During producer migration the native Gate event can carry its own run-name branch.
+  // Accept only that exact prefix and require the remaining manual contract verbatim.
+  const dispatchLine = line.startsWith(GATE_RUN_NAME_PREFIX)
+    ? RUN_NAME_PREFIX + line.slice(GATE_RUN_NAME_PREFIX.length)
+    : line;
+  return CONTRACT.test(dispatchLine);
+}
 
 async function classifyReporterRun({ github, owner, repo, run, lookupTarget = findAuthorityPrForAttempt }) {
   if (Number(run.pull_requests?.[0]?.number || 0) > 0) return { status: 'continue' };
@@ -54,8 +66,8 @@ async function classifyReporterRun({ github, owner, repo, run, lookupTarget = fi
     ? Buffer.from(String(producer.content).replace(/\s/g, ''), 'base64').toString('utf8')
     : '';
   const producerLines = producerText.split(/\r?\n/);
-  if (!producerText || !CONTRACT.test(producerLines[1] || '') ||
-      producerLines.filter((line) => CONTRACT.test(line)).length !== 1) {
+  if (!producerText || !hasDispatchClassificationContract(producerLines[1] || '') ||
+      producerLines.filter(hasDispatchClassificationContract).length !== 1) {
     throw new Error('Originating workflow revision lacks the dispatch classification contract');
   }
   const title = String(origin.display_title || '');

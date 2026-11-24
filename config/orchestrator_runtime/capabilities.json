@@ -1,6 +1,0 @@
-{
-  "capability:reference-sync-hygiene-test-gate": {
-    "counterexamples": [],
-    "lifecycle": "shadow"
-  }
-}
