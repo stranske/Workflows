@@ -22,6 +22,7 @@ ARCHIVED_CANONICAL = [
 ARCHIVED_KEEPALIVE = {
     "keepalive/BranchSyncAutomationGaps.md",
     "keepalive/GapAssessment.md",
+    "keepalive/Keepalive_Reliability_Plan.md",
     "keepalive/ProgressLog.md",
     "keepalive/SyncChecklist.md",
 }
