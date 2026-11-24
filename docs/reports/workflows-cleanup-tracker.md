@@ -7,17 +7,15 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
-November 24, 2026 UTC. Decisions cover **2,443/5,554 files, 240/487 folders and 154/198 workflows** in the November 19 inventory. Of 27 original root files, 26 have placement decisions. The current root has 22 tracked files. The remaining root decision requires a receiving Linux lint assertion for the Actionlint executable. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md)
+November 24, 2026 UTC. Decisions cover **2,436/5,554 files, 241/487 folders and 143/198 workflows** in the November 19 inventory. Of 27 original root files, 26 have placement decisions. The current root has 22 tracked files. The remaining root decision requires a receiving Linux lint assertion for the Actionlint executable. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md)
 
-- **Workflow inventory.** The starting register covers 184 tracked definitions and 14 service-only records. The current Git tree contains 179 tracked definitions. The starter has a recorded move, four historical definitions were retired, and the Health 43 check moved into Gate and Selftest. [Grouped decisions and efficiency findings](workflow-decisions.md) · [Health 43 consolidation](https://github.com/stranske/Workflows/pull/4938)
-- **Exported playbook.** The Orchestrator exporter and both Workflows Gate checkers now identify either missing catalog file by name. Restoring the file clears the finding. A repeated export preserved the checked-in guidance. [Orchestrator #1468](https://github.com/stranske/Orchestrator/pull/1468) · [Workflows #5079](https://github.com/stranske/Workflows/pull/5079)
-- **Standalone maintenance.** On both documented installation routes, the formatter and dependency refresh supplied real change details to the PR action. Four changed inputs produced the intended bodies, and eight clean or dry inputs skipped publication. The full main suite preserved all 47,406 earlier Python cases per runtime and added four passing regressions. The two primary pull-request Gate jobs took 493s and 439s against the 600s limit. Ordinary publication in a receiving repository remains open. [Workflows #5080](https://github.com/stranske/Workflows/pull/5080) · [Main Selftest](https://github.com/stranske/Workflows/actions/runs/45397859202)
-- **Historical recovery.** The issue 4426 coverage packet now uses its Git pack and index. The documented offline comparison still reads both historical revisions and all 21 objects. Rebuilding the removed 136-byte reverse index reproduces its SHA-256. The existing execution-configuration comparison JSON also has a live test reader at its current path. [Workflows #5081](https://github.com/stranske/Workflows/pull/5081)
-- **Raw consumer tools.** The standalone proof-resource planner requires its raw gzip helper. Removing the helper broke a real compressed-diff input and restoring it reproduced the plan byte-for-byte. Four other raw copies still lack an observed standalone reader. All five managed copies passed omission and restoration checks. [Planner and raw tools](https://github.com/stranske/Workflows/tree/bade3498c469f8837c59cd2bb603a4e686dd2da3/templates/consumer-repo/tools)
-- **Scheduled results.** Integration’s first scheduled monitor after installation read the published artifacts and measured 100.00% against its 80.00% floor. Maint 62’s schedule completed its Basic, Full and Monorepo matrix and reported success. Template now has the corrected Docker reporter, but its subsequent Gate skipped Docker smoke. A selected receiving Docker failure remains open. [Integration monitor](https://github.com/stranske/Workflows-Integration-Tests/actions/runs/45343256677/job/138271734723) · [Maint 62](https://github.com/stranske/Workflows/actions/runs/45331753460) · [Template Gate](https://github.com/stranske/Template/actions/runs/45332490682)
-- **Other open work.** The proposed retitled-issue selector and historical judge archive have outstanding acceptance failures. Maint 69’s concurrent-writer retry, Maint 72’s first weekly diagnostic after installation and opted-in repair, and the external Autofix action’s full consuming invocation each need their own evidence. [Selector proposal](https://github.com/stranske/Workflows/pull/5076) · [Archive proposal](https://github.com/stranske/Workflows/pull/5072)
+- The scheduled GitHub seat will use the same controller and lane cores as the local seat. The opener judge owns issue shaping. This reopens ten previous workflow keeps. A separate review found 147 rejected Health 69 ingests and zero recorded shadow outcomes, reopening its keep decision as well. The 11 reopened decisions remain visible in the totals. Retire the Orchestrator ingest before removing the Workflows producer. [Hosted migration and acceptance](#hosted-orchestration-migration) · [Observed duplicate start](https://github.com/stranske/Orchestrator/issues/1472#issuecomment-7131841629) · [Health 69 producer](https://github.com/stranske/Workflows/actions/runs/45245061934)
+- Three historical judge reports now share their dated archive. The original reports recover with matching hashes under sh, Bash and Zsh, with unset, absolute and relative temporary directories. This removes three tracked files and 70,644 checkout bytes from that packet. The two judge CLIs retain their executable paths, including two runtime checks lost under a trial move. [Archive consolidation](https://github.com/stranske/Workflows/pull/5072)
+- The five incidental-coverage fixture files stay together. Moving them under documentation would skip their hosted test readers. Three agent-readiness guide files retain their published navigation, including the template and its worked example. [Fixture and readers](https://github.com/stranske/Workflows/tree/main/tests/fixtures/verifier_incidental_coverage) · [Agent-readiness guide](https://github.com/stranske/Workflows/tree/main/docs/guides/agent-readiness)
+- The protected-file guidance was checked against the rules effective on main, a selected Guard job, a skipped Guard evaluation and a Health 44 run with no artifact. The ruleset requires the aggregate summary and zero pull-request approvals. The proposed Maint 50 efficiency change has its own eight-row delivery check. [Operating guidance](https://github.com/stranske/Workflows/pull/4924) · [Maint 50](https://github.com/stranske/Workflows/pull/4922)
+- The manifest change remains paused over a single-receiver slowdown from 142.52 ms to 165.73 ms. The follow-up selector remains paused over three wrong-issue cases. The standalone maintenance templates already landed, and their first receiving publication remains open. [Manifest release condition](https://github.com/stranske/Workflows/pull/4849#issuecomment-7132918939) · [Selector release condition](https://github.com/stranske/Workflows/pull/5076#issuecomment-7132921846) · [Template delivery](https://github.com/stranske/Workflows/pull/5080)
 
-The original delivery checklist is **26/28**. The two outstanding cases need a reviewed Maint 84 stub deletion and a qualifying dependency-bot lockfile change. **Four of the first five** workflow decisions are complete. Agents 64 needs a genuine nested assignment mismatch. The separate Health 42 fix still needs an annotation on a real fork PR. The hourly review proceeds across stages 1A–5 while those inputs are pending. [Previous checkpoint](https://github.com/stranske/Workflows/blob/bade3498c469f8837c59cd2bb603a4e686dd2da3/docs/reports/workflows-cleanup-tracker.md#current-structure-review)
+The original delivery checklist is **26/28**. The two outstanding cases need a reviewed Maint 84 stub deletion and a qualifying dependency-bot lockfile change. **Three of the first five** workflow decisions are complete. Auto-Pilot reopened under the shared-seat decision. Agents 64 needs a genuine nested assignment mismatch. The separate Health 42 fix still needs an annotation on a real fork PR. The hourly review proceeds across stages 1A–5 while those inputs are pending. [Previous checkpoint](https://github.com/stranske/Workflows/blob/6f8961771dc4ab1709e9e000f93de178d72c2141/docs/reports/workflows-cleanup-tracker.md#current-structure-review)
 
 
 ## Stage progress and workflow decisions
@@ -26,28 +24,41 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 154/198 |
+| 1A · Workflow purpose and efficiency | — | — | 143/198 |
 | 1B · Root files | 26/27 | — | — |
-| 2 · Evidence and archives | 1,236/2,901 | 92/220 | — |
-| 3 · Scripts, tools and packages | 261/752 | 20/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 761/1,540 | 105/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 159/334 | 23/47 | — |
-| **Total** | **2,443/5,554** | **240/487** | **154/198** |
+| 2 · Evidence and archives | 1,239/2,901 | 93/220 | — |
+| 3 · Scripts, tools and packages | 255/752 | 19/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 753/1,540 | 105/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 163/334 | 24/47 | — |
+| **Total** | **2,436/5,554** | **241/487** | **143/198** |
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 126 |
+| [Keep in current role](workflow-decisions.md#keep) | 115 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 5 |
 | [Other verified decisions](workflow-decisions.md#verified) | 23 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 29 |
-| [In review](workflow-decisions.md#review) | 13 |
-| [Proposed changes](workflow-decisions.md#proposed) | 2 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 26 |
+| [In review](workflow-decisions.md#review) | 6 |
+| [Proposed changes](workflow-decisions.md#proposed) | 23 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
 
 [Read all 198 workflow decisions, their outputs and outstanding checks](workflow-decisions.md).
+
+## Hosted orchestration migration
+
+**The selected design is a scheduled GitHub Actions seat running the same controller, opener, closer and sync code as the local seat. The lanes and Orchestrator own the seat build.** The shared opener judge shapes the issue and records checkable acceptance criteria. Hosted starts use keepalive. The shared closer owns verification and guarded disposition. Sync classifies and hands off work, and Maint 71 retains merge authority for sync PRs. Gate, the verifier, and the Maint 68/71/82 delivery path serve both seats. [Existing lane contracts](../ops/LOCAL_LANES.md)
+
+| Order | Work | Evidence needed before switching routes |
+|---|---|---|
+| 1 | The lane-side fix is for sync-core to stop applying agents:auto-pilot to new handoff issues. The shared opener selects and starts work in both modes. Account for existing labelled work during the transition. | Zero issues with competing starts among the next five eligible handoff issues. On Orchestrator #1472 the local opener started Gemini at 12:35:36 UTC and the belt created a second branch at 12:43:53 UTC. [Local start](https://github.com/stranske/Orchestrator/issues/1472#issuecomment-7131654725) · [Belt branch](https://github.com/stranske/Orchestrator/issues/1472#issuecomment-7131841629) |
+| 2 | Run the same versioned cores in Actions. Give both hosts a durable, shared record of claims and outcomes. | First compare decisions on the same recorded input. Then, with the local seat idle, trace a genuine issue through one shaping pass, one hosted keepalive start, exact-head verification and guarded closure. Trace a sync handoff to its receiving head. A retry or concurrent local wake must produce one claim and one effect. |
+| 3 | Move Auto-Pilot and belt responsibilities to the shared cores. Move automatic formatting and rewriting to the opener judge. | Preserve the format validator, relevant manual modes, distinct capability and duplicate warnings, and in-flight work. Verify source and receiving defaults and their normal events before retiring Auto-Pilot orchestration and Decompose, the hosted and template copies of Agents 71/72/73, and Auto-Pilot-only retry, metrics, timing, summary, guard and label references. The issue bridge and format guard retain their shared functions. |
+| 4 | Proceed now with migrating the older Agents 70, Reusable 70 init/main and Reusable 16 callers. This work can run in parallel with the seat project. | Move PR-meta dispatch and keepalive concurrency references at source and at receivers. Preserve required manual and reusable behavior. After retirement, observe seven days with zero old Agents 70 runs and compare keepalive throughput and merged agent PRs. |
+
+The architecture decision is complete. Hosted operation, consumer cutover and retirement remain open. Existing keep findings remain evidence of what must survive migration. [Workflow decisions and next checks](workflow-decisions.md#proposed)
 
 ## November 23 receiving coverage and validation tools
 
