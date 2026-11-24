@@ -137,8 +137,22 @@ def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
     canonical = workflow["jobs"]["python-ci"]
     assert canonical["uses"] == "./.github/workflows/reusable-10-ci-python.yml"
     assert "github.event_name != 'pull_request'" in canonical["if"]
+    assert (
+        """needs.classify.outputs.guide_only == 'true' && '["3.14"]' || '["3.13", "3.14"]'"""
+        in canonical["with"]["python-versions"]
+    )
+    guides = workflow["jobs"]["guide-python"]
+    assert guides["uses"] == canonical["uses"]
+    assert guides["with"]["python-versions"] == '["3.13"]'
+    assert guides["with"]["coverage"] is False
+    assert "tests/docs/test_workflow_source_docs.py" in guides["with"]["pytest_args"]
+    routing = workflow["jobs"]["classify"]
+    probe = next(step for step in routing["steps"] if step.get("id") == "guide_scope")
+    assert probe["continue-on-error"] is True
+    assert "steps.guide_scope.outcome == 'success'" in routing["outputs"]["guide_only"]
+    assert "'conservative-full:'" in routing["outputs"]["is_docs_only"]
+    assert gate["jobs"]["python-ci"]["with"]["python-versions"] == '["3.13", "3.14"]'
     for job in (canonical, gate["jobs"]["python-ci"]):
-        assert job["with"]["python-versions"] == '["3.13", "3.14"]'
         assert job["with"]["pytest-workers"] == "4"
         assert job["with"]["coverage-min"] == "70"
         # Gate splits the verifier grammar suites into python-ci-grammar; together the
@@ -204,9 +218,27 @@ def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
 def test_selftest_python_check_requires_applicable_results(
     event, docs, canonical, compatibility, classify, success
 ):
+    result = _selftest_python_check(event, docs, canonical, compatibility, classify)
+    assert (result.returncode == 0) is success, result.stderr
+
+
+@pytest.mark.parametrize(
+    "guide_result,success",
+    [("success", True), ("failure", False), ("cancelled", False), ("skipped", False)],
+)
+def test_selftest_python_check_requires_guide_results(guide_result, success):
+    result = _selftest_python_check(
+        "push", "false", "success", "success", "success", guide_only="true", guides=guide_result
+    )
+    assert (result.returncode == 0) is success, result.stderr
+
+
+def _selftest_python_check(
+    event, docs, canonical, compatibility, classify, *, guide_only="false", guides="skipped"
+):
     workflow = yaml.safe_load((ROOT / ".github/workflows/selftest-ci.yml").read_text())
     script = workflow["jobs"]["test-python"]["steps"][0]["run"]
-    result = subprocess.run(
+    return subprocess.run(
         ["bash", "-e", "-c", script],
         env={
             **os.environ,
@@ -214,9 +246,10 @@ def test_selftest_python_check_requires_applicable_results(
             "DOCS_ONLY": docs,
             "CANONICAL": canonical,
             "COMPATIBILITY": compatibility,
+            "GUIDE_ONLY": guide_only,
+            "GUIDES": guides,
             "EVENT_NAME": event,
         },
         capture_output=True,
         text=True,
     )
-    assert (result.returncode == 0) is success, result.stderr
