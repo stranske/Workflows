@@ -33,3 +33,23 @@ After guarded merge, Reviewed Repo Orphan PR Steward owns exactly one repaired-i
 comparison for each release3769/3787 with complete source-context/artifact inventories.
 Reviewed Repo Merge Verify Closer then dispositions source3770 against actual
 provider verdicts. This source issue remains OPEN until all follow-through is met.
+
+## Recover the original console transcripts
+
+The [checksummed transcript archive](console-transcripts.tar.gz) contains the initial and
+closing-control text captures. The [initial manifest](manifest.json), the
+[closing replay manifest](closing-controls/manifest.json), and their receipts
+remain directly available. Browse individual files in the
+[original capture](https://github.com/stranske/Workflows/tree/f9c26992bb3eb8ffe424ced0a166b44f73d0f639/docs/evidence/issue-3770/plural-release-provenance).
+
+From the repository root, verify the archive and extract it into a new directory.
+The output path contains the original repository-relative transcript paths and
+modes. Use the manifests to check the transcripts at those paths.
+
+```sh
+archive=docs/evidence/issue-3770/plural-release-provenance/console-transcripts.tar.gz
+printf '%s  %s\n' '8e1f95416353bd7e85aceb638beafcc4c18cba748a7d9ab30933eb232ff8e946' "$archive" | shasum -a 256 -c &&
+    recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-3770-transcripts.XXXXXX") &&
+    tar -xpzf "$archive" -C "$recovered" &&
+    printf '%s\n' "$recovered"
+```
