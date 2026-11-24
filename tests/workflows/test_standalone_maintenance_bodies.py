@@ -1,0 +1,133 @@
+"""Exercise the standalone maintenance templates' authored PR body steps."""
+
+import os
+import subprocess
+from pathlib import Path
+
+import pytest
+import yaml
+
+CHECKOUT = Path(__file__).resolve().parents[2]
+
+
+def _git(repo, *args):
+    return subprocess.check_output(["git", "-C", str(repo), *args], text=True)
+
+
+def _steps(template):
+    workflow = yaml.safe_load(
+        (CHECKOUT / "templates" / f"{template}.yml").read_text(encoding="utf-8")
+    )
+    (job,) = workflow["jobs"].values()
+    return {step["name"]: step for step in job["steps"]}
+
+
+def _commit(repo, message):
+    _git(
+        repo,
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-qm",
+        message,
+    )
+
+
+def _fixture(tmp_path, name, text):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    artifact = repo / name
+    artifact.write_text(text, encoding="utf-8")
+    _git(repo, "init", "-q")
+    _git(repo, "add", "--", name)
+    _commit(repo, "fixture")
+    return repo, artifact
+
+
+def _shell(repo, step, **env):
+    subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", step["run"]],
+        cwd=repo,
+        env={**os.environ, **env},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _capture_body(repo, steps, tmp_path):
+    render = steps["Write pull request body"]
+    publish = steps["Create pull request"]
+    assert render["if"] == publish["if"]
+    assert publish["uses"] == "peter-evans/create-pull-request@v8"
+    assert "body" not in publish["with"]
+    body_path = publish["with"]["body-path"].replace("${{ runner.temp }}", str(tmp_path))
+    _shell(repo, render, RUNNER_TEMP=str(tmp_path))
+    return Path(body_path).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("template", "filename", "before", "after", "expected"),
+    [
+        (
+            "cosmetic-repair",
+            "odd ``` name\nEOF.py",
+            "x=1\n",
+            "x = 1\n",
+            '    "odd ``` name\\nEOF.py"',
+        ),
+        (
+            "dependency-refresh",
+            "requirements.lock",
+            "demo==1\n# old\n",
+            "demo==2\n# ```\n",
+            "    -demo==1\n    -# old\n    +demo==2\n    +# ```",
+        ),
+    ],
+    ids=["cosmetic-odd-name", "dependency-multiline"],
+)
+def test_standalone_pr_body_reads_real_changes(
+    tmp_path, template, filename, before, after, expected
+):
+    repo, artifact = _fixture(tmp_path, filename, before)
+    steps = _steps(template)
+    output = tmp_path / "step-output"
+    _shell(repo, steps["Check for changes"], GITHUB_OUTPUT=str(output))
+    assert output.read_text() == "changed=false\n"
+    # Exercise the renderer's fallback independently of its clean-run gate.
+    assert "    See diff for details" in _capture_body(repo, steps, tmp_path)
+    artifact.write_text(after, encoding="utf-8")
+    output.write_text("")
+    _shell(repo, steps["Check for changes"], GITHUB_OUTPUT=str(output))
+    assert output.read_text() == "changed=true\n"
+    body = _capture_body(repo, steps, tmp_path)
+    assert expected in body
+    assert "See diff for details" not in body
+
+
+@pytest.mark.parametrize("template", ["cosmetic-repair", "dependency-refresh"])
+def test_standalone_pr_body_bounds_large_detail(tmp_path, template):
+    if template == "cosmetic-repair":
+        repo, _ = _fixture(tmp_path, "initial.py", "x = 1\n")
+        for index in range(110):
+            path = repo / f"fixture-{index:03}.py"
+            path.write_text("x = 1\n")
+        _git(repo, "add", "--", ".")
+        # The authored detector considers unstaged differences to tracked files.
+        _commit(repo, "many paths")
+        for path in repo.glob("fixture-*.py"):
+            path.write_text("x = 2\n")
+        early, late = "fixture-000.py", "fixture-109.py"
+    else:
+        repo, lock = _fixture(tmp_path, "requirements.lock", "demo==1\n")
+        lock.write_text("demo==2\n# " + "é" * 12000 + "\n# late lock entry\n", encoding="utf-8")
+        early, late = "+demo==2", "late lock entry"
+    body = _capture_body(repo, _steps(template), tmp_path)
+    assert early in body
+    assert late not in body
+    assert body.count("Details truncated. See the pull request diff.") == 1
+    assert len(body.encode()) < 12500
