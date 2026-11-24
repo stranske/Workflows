@@ -88,7 +88,7 @@ gh api -H 'Accept: application/vnd.github.raw+json' \
   'repos/stranske/Workflows/contents/docs/reports/ci-budget.json?ref=06b72b2ff4226c3dda82c693ff435a29b93d5d6f' \
   > /tmp/issue-4619-published-budget.json
 
-python -m scripts.issue_4619_completion \
+python -m docs.evidence.issue-4619.issue_4619_completion \
   --issue-view docs/evidence/issue-4619/issue-view-4619.json \
   --gate-evidence docs/evidence/issue-4619/gate-run-42820421600.json \
   --budget docs/evidence/issue-4619/ci-budget-report.json \

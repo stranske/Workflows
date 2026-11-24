@@ -5,21 +5,22 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from datetime import UTC, date, datetime, timedelta
+from importlib import import_module
 from pathlib import Path
 
 import pytest
 from scripts.health85_budget_observations import HEALTH85_PATH, build_report, report_json
-from scripts.issue_4619_completion import (
-    DEFAULT_POST_CHANGE_RUN_ID,
-    DEFAULT_PRE_CHANGE_RUN_ID,
-    compare_before_after_gate_runs,
-    evaluate_native_daily_observations,
-    gate_run_supported,
-    main,
-    reconcile_completion,
-    verify_native_daily_observations_match,
-    verify_published_ci_budget_alignment,
-)
+
+completion = import_module("docs.evidence.issue-4619.issue_4619_completion")
+DEFAULT_POST_CHANGE_RUN_ID = completion.DEFAULT_POST_CHANGE_RUN_ID
+DEFAULT_PRE_CHANGE_RUN_ID = completion.DEFAULT_PRE_CHANGE_RUN_ID
+compare_before_after_gate_runs = completion.compare_before_after_gate_runs
+evaluate_native_daily_observations = completion.evaluate_native_daily_observations
+gate_run_supported = completion.gate_run_supported
+main = completion.main
+reconcile_completion = completion.reconcile_completion
+verify_native_daily_observations_match = completion.verify_native_daily_observations_match
+verify_published_ci_budget_alignment = completion.verify_published_ci_budget_alignment
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs" / "evidence" / "issue-4619"
@@ -307,7 +308,7 @@ def test_compare_before_after_edge_cases() -> None:
 
 
 def test_gate_run_supported_and_cli_error_branches(tmp_path: Path) -> None:
-    from scripts.issue_4619_completion import _flag, gate_run_supported
+    _flag = completion._flag
 
     assert _flag("other") == "other"
     ok, failures = gate_run_supported(
@@ -626,7 +627,7 @@ def test_gate_run_supported_rejects_invalid_durations() -> None:
 
 def test_load_object_catches_oserror_and_valueerror(tmp_path: Path) -> None:
     """_load_object must catch OSError and ValueError."""
-    from scripts.issue_4619_completion import _load_object
+    _load_object = completion._load_object
 
     # Test with non-existent file (OSError)
     nonexistent = tmp_path / "nonexistent.json"
