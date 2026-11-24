@@ -20,7 +20,13 @@ jobs:
     name: classify changed paths
     runs-on: ubuntu-latest
     outputs:
-      is_docs_only: ${{ steps.classify.outputs.is-docs-only || 'false' }}
+      is_docs_only: >-
+        ${{ steps.classify.outputs.is-docs-only == 'true' &&
+        !startsWith(steps.classify.outputs.classification-rationale, 'conservative-full:') }}
+      guide_only: >-
+        ${{ steps.guide_scope.outcome == 'success' && steps.guide_scope.outputs.guide-only == 'true' &&
+        steps.classify.outputs.is-docs-only == 'false' &&
+        startsWith(steps.classify.outputs.classification-rationale, 'classified:') }}
       classification_rationale: >-
         ${{ steps.classify.outputs.classification-rationale || 'path classifier unavailable' }}
     steps:
@@ -32,6 +38,14 @@ jobs:
         uses: ./.github/actions/path-classifier
         with:
           force-full: ${{ github.event_name == 'workflow_dispatch' }}
+      - name: Check for in-place operator guide edits
+        id: guide_scope
+        if: github.event_name == 'push'
+        continue-on-error: true
+        env:
+          SELFTEST_BEFORE: ${{ github.event.before }}
+          SELFTEST_FORCED: ${{ github.event.forced }}
+        run: node .github/scripts/selftest-guide-scope.js
 
   test-javascript:
     name: JavaScript Tests
@@ -89,8 +103,8 @@ jobs:
           PATH_CLASSIFIER_REPLAY: '1'
         run: node --test .github/scripts/__tests__/path-classifier-replay.test.js
 
-  # Gate owns the full PR matrix. Main pushes and explicit Selftest dispatches
-  # still exercise that same canonical suite instead of a separately maintained subset.
+  # Gate owns the full PR matrix. Exact operator-guide pushes keep the full
+  # suite and coverage on 3.14 and run the guide checks on 3.13 below.
   python-ci:
     name: canonical Python suite
     needs: classify
@@ -103,8 +117,9 @@ jobs:
       actions: read
     with:
       workflows_ref: ${{ github.sha }}
-      primary-python-version: '3.13'
-      python-versions: '["3.13", "3.14"]'
+      primary-python-version: ${{ needs.classify.outputs.guide_only == 'true' && '3.14' || '3.13' }}
+      python-versions: >-
+        ${{ needs.classify.outputs.guide_only == 'true' && '["3.14"]' || '["3.13", "3.14"]' }}
       pytest_markers: 'not quarantine and not slow'
       pytest-workers: '4'
       lint: false
@@ -114,6 +129,36 @@ jobs:
       coverage: true
       coverage-min: '70'
       artifact-prefix: 'selftest-'
+
+  guide-python:
+    name: operator guide tests (Python 3.13)
+    needs: classify
+    if: github.event_name == 'push' && needs.classify.outputs.guide_only == 'true'
+    uses: ./.github/workflows/reusable-10-ci-python.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      workflows_ref: ${{ github.sha }}
+      primary-python-version: '3.13'
+      python-versions: '["3.13"]'
+      pytest_markers: 'not quarantine and not slow'
+      pytest_args: >-
+        tests/docs/test_labels_template_sync.py
+        tests/docs/test_workflow_source_docs.py
+        tests/workflows/test_agents_guard.py
+        tests/workflows/test_codex_belt_pipeline.py
+        tests/workflows/test_maint_metrics_retention.py
+        tests/workflows/test_workflow_agents_consolidation.py
+        tests/workflows/test_workflow_naming.py
+        tests/workflows/test_workflow_selftest_consolidation.py
+      pytest-workers: '4'
+      lint: false
+      format_check: false
+      typecheck: false
+      run-mypy: false
+      coverage: false
+      artifact-prefix: 'selftest-guide-'
 
   autofix-compatibility:
     name: slow compatibility (${{ matrix.python }})
@@ -166,7 +211,7 @@ jobs:
     # Keep the established check name while its assertions move to canonical CI
     # and the intentionally separate autofix/PyPI slow compatibility matrix.
     name: Python Tests
-    needs: [classify, python-ci, autofix-compatibility]
+    needs: [classify, python-ci, guide-python, autofix-compatibility]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -175,10 +220,17 @@ jobs:
           CLASSIFY: ${{ needs.classify.result }}
           DOCS_ONLY: ${{ needs.classify.outputs.is_docs_only }}
           CANONICAL: ${{ needs.python-ci.result }}
+          GUIDE_ONLY: ${{ needs.classify.outputs.guide_only }}
+          GUIDES: ${{ needs.guide-python.result }}
           COMPATIBILITY: ${{ needs.autofix-compatibility.result }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           test "$CLASSIFY" = success
+          if [ "$GUIDE_ONLY" = true ]; then
+            test "$GUIDES" = success
+          else
+            test "$GUIDES" = skipped
+          fi
           if [ "$DOCS_ONLY" = true ] && [ "$EVENT_NAME" != workflow_dispatch ]; then
             test "$CANONICAL" = skipped
             test "$COMPATIBILITY" = skipped
