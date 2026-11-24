@@ -51,7 +51,7 @@ Post-edit results:
   all 16 Gates were explicitly unknown in stdout, JSON and summary.
 - At 2026-11-06T23:32:10Z, the normal command returned 1 in 0.39 seconds;
   all 16 Gates remained unknown because GitHub networking was unavailable.
-- `drift-report-round-3.json` retains both reports' repository coverage, errors,
+- [drift-report-round-3.json](https://github.com/stranske/Workflows/blob/6324a78d924ce06eb56f1e8af3c2a7261aed0b6b/docs/evidence/issue-4082/drift-report-round-3.json) retains both reports' repository coverage, errors,
   Gate lines and safe read diagnostics. Neither command establishes live equality.
 - `gh pr view` / `gh pr diff` for Portable-Alpha-Extension-Model#2390 and
   `gh api repos/stranske/Travel-Plan-Permission/contents/.github/workflows/pr-00-gate.yml --jq .sha`
@@ -99,3 +99,5 @@ tests, contract doc and evidence failed with exit 128:
 `.git/index.lock` cannot be created because `.git` is read-only. No commit or
 push was possible. An authorized parent must stage and commit these changes;
 unrelated untracked node_modules and session files were left untouched.
+
+[Recover both historical drift reports from a local checkout](verification-round-2.md#recover-the-historical-drift-reports).

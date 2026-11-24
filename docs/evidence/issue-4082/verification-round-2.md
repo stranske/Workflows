@@ -34,7 +34,7 @@ when read preflight prevents the comparisons. Do not imply all-match.
 Post-edit scan collected: 2026-11-06T23:10:06.912355+00:00.
 Same command: exit 1 in 0.27 seconds, repo_count=16, errors=1, all 16 Gate
 statuses unknown in stdout, JSON and the requested summary. No successful
-consumer reads and no all-match claim. The retained drift-report-round-2.json
+consumer reads and no all-match claim. The retained [drift-report-round-2.json](https://github.com/stranske/Workflows/blob/6324a78d924ce06eb56f1e8af3c2a7261aed0b6b/docs/evidence/issue-4082/drift-report-round-2.json)
 records the unavailable network diagnostics without credential values.
 Manager-Database is skipped for file delivery but remains in the Gate FYI
 comparison scope per the current maintenance contract (16, not 15, compared).
@@ -89,3 +89,20 @@ failed with exit 128: .git/index.lock cannot be created (read-only file system).
 No commit or push was possible. These working-tree changes require the
 parent automation to stage and commit; unrelated untracked session/node_modules
 files were left untouched. No PR was created or changed by this run.
+
+## Recover the historical drift reports
+
+The [checksummed archive](historical-drift-reports.tar.gz) contains the round-2 and round-3
+reports. The [post-merge report](drift-report-post-merge.json) remains the
+direct reference for the successful Gate readback.
+
+From the repository root, verify the archive and extract both files into a new
+directory with their original paths and modes.
+
+```sh
+archive=docs/evidence/issue-4082/historical-drift-reports.tar.gz
+printf '%s  %s\n' '3d16fdd706405d4fa5fc48f708283af29cb4710aa2450338a7f54c4a334f0889' "$archive" | shasum -a 256 -c &&
+    recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-4082-drift.XXXXXX") &&
+    tar -xpzf "$archive" -C "$recovered" &&
+    printf '%s\n' "$recovered"
+```
