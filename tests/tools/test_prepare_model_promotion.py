@@ -437,6 +437,71 @@ def test_main_auto_writes_and_signals(tmp_path, capsys):
     assert json.loads(out.read_text())["selections"][0]["model_id"] == "claude-opus-4-8"
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param(
+            {"schema": "workflows-verifier-model-eval-plan/v1", "benchmark_inputs_ready": True},
+            id="maint78-readiness",
+        ),
+        pytest.param({"profile": "verifier-balanced", "candidates": []}, id="unevaluated-input"),
+        pytest.param([], id="non-object"),
+        pytest.param({"results": []}, id="empty-results"),
+        pytest.param({"results": ["not a model result"]}, id="invalid-result"),
+        pytest.param({"results": [{"model_id": "model"}]}, id="incomplete-result"),
+    ],
+)
+def test_main_rejects_non_benchmark_report(tmp_path, capsys, payload):
+    bench, reg, out = (tmp_path / name for name in ("bench.json", "registry.json", "out.json"))
+    bench.write_text(json.dumps(payload))
+    registry = json.dumps(_registry())
+    reg.write_text(registry)
+
+    rc = pmp.main(
+        [
+            "--benchmark",
+            str(bench),
+            "--registry",
+            str(reg),
+            "--mode",
+            "rollback",
+            "--write",
+            str(out),
+        ]
+    )
+
+    assert rc == 2
+    assert "benchmark report" in capsys.readouterr().err
+    assert not out.exists()
+    assert reg.read_text() == registry
+
+
+def test_main_treats_valid_report_for_other_profile_as_no_change(tmp_path, capsys):
+    bench, reg, out = (tmp_path / name for name in ("bench.json", "registry.json", "out.json"))
+    report = _report([_result("claude-opus-4-8", "anthropic", status="failed", cost=0.08)])
+    report.update(schema="workflows-model-benchmark-evidence/v1", profile="verifier-other")
+    bench.write_text(json.dumps(report))
+    reg.write_text(json.dumps(_promoted_registry()))
+
+    assert (
+        pmp.main(
+            [
+                "--benchmark",
+                str(bench),
+                "--registry",
+                str(reg),
+                "--mode",
+                "rollback",
+                "--write",
+                str(out),
+            ]
+        )
+        == 0
+    )
+    assert "benchmark profile 'verifier-other'" in capsys.readouterr().out
+    assert not out.exists()
+
+
 def test_main_noop_when_nothing_qualifies(tmp_path):
     report = _report(
         [
