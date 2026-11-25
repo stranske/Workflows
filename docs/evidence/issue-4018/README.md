@@ -115,7 +115,7 @@ line 232 and branch gaps around LLM client import failure paths and CLI
 in `pyproject.toml` `exclude_also`). Meaningful additional coverage without
 policy changes would be low value.
 
-Raw JSON and break/revert transcripts: `proof.tar.gz` in this directory.
+Raw JSON and break/revert transcripts remain in the [original proof bundle](https://github.com/stranske/Workflows/blob/4cbdbac8b54f4fe1b2479ce79c855489e9f4d168/docs/evidence/issue-4018/proof.tar.gz). [Recovery command](#recover-the-historical-proof-bundle).
 
 ## Break-and-revert proof (all four #4023 tests)
 
@@ -126,4 +126,27 @@ Raw JSON and break/revert transcripts: `proof.tar.gz` in this directory.
 | `test_triage_helpers_handle_unknown_and_malformed_llm_data` | `_format_suggested_fix` empty-file placeholder → `WRONG` | `AssertionError: assert 'fix WRONG' == 'fix the reported files'` | `1 passed` |
 | `test_llm_prompt_client_and_cli_paths` | Prefixed CLI empty output with ` BROKEN` | `AssertionError` on `capsys.readouterr().out` | `1 passed` |
 
-Full terminal captures are in `proof.tar.gz` (`break-revert/*.txt`).
+Full terminal captures are in the original proof bundle under `break-revert/*.txt`.
+
+## Recover the historical proof bundle
+
+Run from a Workflows checkout. If the original revision is absent, the
+command fetches it from `origin`. It verifies the recovered archive and prints
+the temporary directory containing `proof.tar.gz`.
+
+```bash
+(
+  set -e
+  revision=4cbdbac8b54f4fe1b2479ce79c855489e9f4d168
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 origin "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/proof-4018.XXXXXX")
+  git show "$revision:docs/evidence/issue-4018/proof.tar.gz" > "$recovered/proof.tar.gz"
+  (
+    cd "$recovered"
+    printf '%s  %s\n' 03705c1da7d0873cabd5029fa3bc30a67e0601b83a10a66756afe6e3c4842851 proof.tar.gz | shasum -a 256 -c -
+  )
+  printf '%s\n' "$recovered"
+)
+```

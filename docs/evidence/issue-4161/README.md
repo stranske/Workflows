@@ -156,10 +156,33 @@ restored GREEN has exit 0. The final restored historical suite reports **391
 passed**. Both mutation archives match the merged commit byte for byte for all
 four production targets. See `acceptance.json` in the bundle.
 
-Bundle: [proof.tar.gz](proof.tar.gz), SHA-256 `6bcf1abac025a171fd6650f0d222bbabdde55b634b83eb1f759c81273cbe3056`.
-The internal `SHA256SUMS.json` validates every payload file.
+The [original proof bundle](https://github.com/stranske/Workflows/blob/c3f3fc5dca7cd4a86e11b8d56c70961d0219f5e6/docs/evidence/issue-4161/proof.tar.gz) has SHA-256 `6bcf1abac025a171fd6650f0d222bbabdde55b634b83eb1f759c81273cbe3056`.
+The internal `SHA256SUMS.json` validates every payload file. [Recovery command](#recover-the-historical-proof-bundle).
 
 The bundle retains the four-target coverage extraction; full coverage JSON and
 context data remain in the local recovery directory. Regenerate them with the
 recorded parent/merged commands (including `--cov-context=test` for merged)
 before rerunning the exploratory mutation selector.
+
+## Recover the historical proof bundle
+
+Run from a Workflows checkout. If the original revision is absent, the
+command fetches it from `origin`. It verifies the recovered archive and prints
+the temporary directory containing `proof.tar.gz`.
+
+```bash
+(
+  set -e
+  revision=c3f3fc5dca7cd4a86e11b8d56c70961d0219f5e6
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 origin "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/proof-4161.XXXXXX")
+  git show "$revision:docs/evidence/issue-4161/proof.tar.gz" > "$recovered/proof.tar.gz"
+  (
+    cd "$recovered"
+    printf '%s  %s\n' 6bcf1abac025a171fd6650f0d222bbabdde55b634b83eb1f759c81273cbe3056 proof.tar.gz | shasum -a 256 -c -
+  )
+  printf '%s\n' "$recovered"
+)
+```
