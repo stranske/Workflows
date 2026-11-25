@@ -2220,7 +2220,7 @@ produce identical 7,087-byte files. The retained `cmp` command exits **0**.
 Both blobs are `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`.
 [Comparison receipt](runtime-4550/4558-seat-round4-bytes.json),
 [source bytes](runtime-4550/4558-seat-round4-source.txt), and
-[merged consumer bytes](runtime-4550/4558-seat-round4-consumer.txt) retain the
+[merged consumer bytes](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-consumer.txt) ([recover this filename](#recover-identical-seat-receipts)) retain the
 identities and payloads independently of candidate metadata.
 
 The [fresh complete issue-4369 comment observation](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-comments.json) ([local recovery](#recover-the-early-comment-captures))
@@ -2922,7 +2922,7 @@ Outcome **A2=0 (equal bytes)**: source template at selected main and consumer
 `tools/subscription_llm.py` at actual PR 2486 merge
 `1ff9e11cd51a456333c626cb354543b63202bef6` both contain **7,087 bytes** and blob
 `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`
-([fresh consumer blob](runtime-4550/4558-seat-round9-consumer-blob.json),
+([fresh consumer blob](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-consumer-blob.json) ([recover this filename](#recover-identical-seat-receipts)),
 [original source/consumer receipts and comparison](runtime-4550/4558-byte-comparison.json)).
 Applicable exact-head Maint 71 finding disposition remains the
 [terminal target report](runtime-4550/4557-maint71-target.json)'s zero
@@ -3510,7 +3510,7 @@ with respect to automation origin.
 The fresh [issue-4369 comment receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-comments.json) ([local recovery](#recover-the-seat-comment-captures))
 retains all **49** comments through **2026-11-09T04:15:43.557153Z**, with explicit
 page sizes **49, 0** and complete pagination. The
-[consumer thread readback](runtime-4550/4558-seat-round12-consumer-threads.json)
+[consumer thread readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-consumer-threads.json) ([recover this filename](#recover-identical-seat-receipts))
 confirms candidate `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, actual PR 2486
 merge `1ff9e11cd51a456333c626cb354543b63202bef6`, and zero review threads with
 `hasNextPage=false`. Applicable exact-head Maint 71 findings remain zero;
@@ -3777,3 +3777,34 @@ printf '%s  %s\n' '82b83c73d50869b50661764f1b7aea2f2d8b92e90b6178e5becbfd263cd89
 
 For the round-2 command receipt, resolve its `issue_comment_receipt` filename
 inside `$recovered/docs/evidence/issue-4369/runtime-4550`.
+
+## Recover identical seat receipts
+
+The round 4 consumer payload matches the retained source bytes. The round 9
+consumer blob metadata matches round 8. The round 12 review-thread receipt
+matches round 11. Each dated observation keeps its original link above.
+
+Run from the Workflows root to recover the three original filenames in a
+temporary directory. This also works in a shallow checkout without Git history.
+
+```sh
+(
+  set -e
+  source_dir=docs/evidence/issue-4369/runtime-4550
+  for name in \
+    4558-seat-round4-source.txt \
+    4558-seat-round8-consumer-blob.json \
+    4558-seat-round11-consumer-threads.json
+  do
+    if [ ! -f "$source_dir/$name" ]; then
+      printf 'Missing retained receipt: %s\n' "$name" >&2
+      exit 1
+    fi
+  done
+  out=$(mktemp -d "${TMPDIR:-/tmp}/workflows-seat-receipts.XXXXXX")
+  cp "$source_dir/4558-seat-round4-source.txt" "$out/4558-seat-round4-consumer.txt"
+  cp "$source_dir/4558-seat-round8-consumer-blob.json" "$out/4558-seat-round9-consumer-blob.json"
+  cp "$source_dir/4558-seat-round11-consumer-threads.json" "$out/4558-seat-round12-consumer-threads.json"
+  printf '%s\n' "$out"
+)
+```
