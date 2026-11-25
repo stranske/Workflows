@@ -5,9 +5,9 @@
 # with other PR branches that have their own version.
 #
 # Solution: This workflow:
-# 1. Removes pr_body.md from main branch (if it exists)
-# 2. Ensures pr_body.md is in .gitignore
-# 3. Can be run manually or scheduled to clean up repos
+# 1. Previews the tracked PR body and ignore rule on main
+# 2. On explicit apply, opens a cleanup PR for protected main
+# 3. Retains direct apply for confirmed unprotected main
 #
 # The root cause fix is in reusable-codex-run.yml which unstages pr_body.md
 # before committing. This workflow handles the cleanup of historical commits.
@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run - show what would be changed without making changes'
+        description: 'Preview only (false applies directly on unprotected main or opens a cleanup PR)'
         required: false
         default: 'true'
         type: choice
@@ -131,6 +131,7 @@ jobs:
             .github/actions/setup-api-client
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/maint72-pr-body-cleanup.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
@@ -165,7 +166,7 @@ jobs:
           github-token: ${{ steps.app_token.outputs.token }}
           script: |
             const [owner, repo] = process.env.REPO_FULL.split('/');
-            const dryRun = process.env.DRY_RUN === 'true';
+            const dryRun = process.env.DRY_RUN !== 'false';
             const fs = require('fs');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
@@ -181,25 +182,35 @@ jobs:
             console.log(`Processing ${owner}/${repo} (dry_run=${dryRun})`);
             console.log(`${'='.repeat(60)}\n`);
 
-            let needsFix = false;
-            let actions = [];
+            let base;
+            try {
+              ({ data: base } = await withRetry(() => github.rest.repos.getBranch({
+                owner, repo, branch: 'main'
+              })));
+              if (!base.commit?.sha || typeof base.protected !== 'boolean') {
+                throw new Error('missing exact main head or protection status');
+              }
+            } catch (e) {
+              core.setFailed(`${owner}/${repo}: unable to determine main head and protection: ${e.message}`);
+              return;
+            }
+            const ref = base.commit.sha;
+            const actions = [];
             const readFailures = [];
             const mutationFailures = [];
 
             // Step 1: Check if pr_body.md exists on main
-            let prBodyExists = false;
             let prBodySha = null;
             try {
               const { data } = await withRetry(() => github.rest.repos.getContent({
                 owner,
                 repo,
                 path: 'pr_body.md',
-                ref: 'main'
+                ref
               }));
-              prBodyExists = true;
+              if (data.type !== 'file' || !data.sha) throw new Error('expected a tracked pr_body.md file');
               prBodySha = data.sha;
               console.log(`⚠️  pr_body.md EXISTS on main (sha: ${prBodySha.substring(0, 8)})`);
-              needsFix = true;
               actions.push('delete pr_body.md from main');
             } catch (e) {
               if (e.status === 404) {
@@ -219,9 +230,14 @@ jobs:
                 owner,
                 repo,
                 path: '.gitignore',
-                ref: 'main'
+                ref
               }));
-              gitignoreContent = Buffer.from(data.content, 'base64').toString('utf8');
+              const ignoreBytes = Buffer.from(data.content, 'base64');
+              gitignoreContent = ignoreBytes.toString('utf8');
+              if (data.type !== 'file' || data.encoding !== 'base64' || !data.sha ||
+                  !Buffer.from(gitignoreContent).equals(ignoreBytes)) {
+                throw new Error('expected a readable UTF-8 .gitignore file');
+              }
               gitignoreSha = data.sha;
 
               // Check for pr_body.md pattern
@@ -235,13 +251,11 @@ jobs:
                 console.log(`✅ pr_body.md is in .gitignore`);
               } else {
                 console.log(`⚠️  pr_body.md is NOT in .gitignore`);
-                needsFix = true;
                 actions.push('add pr_body.md to .gitignore');
               }
             } catch (e) {
               if (e.status === 404) {
                 console.log(`⚠️  No .gitignore file found - will create one`);
-                needsFix = true;
                 actions.push('create .gitignore with pr_body.md');
               } else {
                 console.log(`❌ Error checking .gitignore: ${e.message}`);
@@ -256,7 +270,7 @@ jobs:
 
             // Summary
             console.log(`\n--- Summary ---`);
-            if (!needsFix) {
+            if (!actions.length) {
               console.log(`✅ ${owner}/${repo} is already configured correctly`);
               return;
             }
@@ -269,7 +283,30 @@ jobs:
               return;
             }
 
-            // Step 3: Make the fixes
+            const ignoreEntry = '\n# PR-specific file - should not be tracked\npr_body.md\n';
+            const newIgnore = prBodyInGitignore ? null :
+              (gitignoreSha ? gitignoreContent : '# Auto-generated .gitignore\n') + ignoreEntry;
+            if (base.protected) {
+              const { openCleanupPullRequest } = require('./.github/scripts/maint72-pr-body-cleanup.js');
+              try {
+                const url = await openCleanupPullRequest({
+                  github, core, owner, repo, baseSha: ref, prBodySha, gitignoreSha, newIgnore
+                });
+                core.notice(`${owner}/${repo}: Cleanup PR ready for normal review: ${url}`);
+              } catch (e) {
+                core.setFailed(`${owner}/${repo}: unable to publish cleanup PR: ${e.message}`);
+              }
+              return;
+            }
+
+            // Retain the existing direct maintenance behavior on unprotected main.
+            const { data: current } = await withRetry(() => github.rest.repos.getBranch({
+              owner, repo, branch: 'main'
+            }));
+            if (current.commit.sha !== ref || current.protected !== false) {
+              core.setFailed(`${owner}/${repo}: main changed; preview the current head again`);
+              return;
+            }
             console.log(`\n--- Applying fixes ---`);
 
             const deletePrBodyMessage =
@@ -285,7 +322,7 @@ jobs:
               'Prevent merge conflicts from PR-specific content.';
 
             // Delete pr_body.md if it exists
-            if (prBodyExists && prBodySha) {
+            if (prBodySha) {
               try {
                 await withRetry(() => github.rest.repos.deleteFile({
                   owner,
@@ -304,12 +341,7 @@ jobs:
             }
 
             // Add to .gitignore if not present
-            if (!prBodyInGitignore) {
-              const ignoreEntry = '\n# PR-specific file - should not be tracked\npr_body.md\n';
-              const newContent = gitignoreSha
-                ? gitignoreContent + ignoreEntry
-                : `# Auto-generated .gitignore\n${ignoreEntry}`;
-
+            if (newIgnore !== null) {
               try {
                 if (gitignoreSha) {
                   await withRetry(() => github.rest.repos.createOrUpdateFileContents({
@@ -317,7 +349,7 @@ jobs:
                     repo,
                     path: '.gitignore',
                     message: addIgnoreMessage,
-                    content: Buffer.from(newContent).toString('base64'),
+                    content: Buffer.from(newIgnore).toString('base64'),
                     sha: gitignoreSha,
                     branch: 'main'
                   }));
@@ -327,7 +359,7 @@ jobs:
                     repo,
                     path: '.gitignore',
                     message: createIgnoreMessage,
-                    content: Buffer.from(newContent).toString('base64'),
+                    content: Buffer.from(newIgnore).toString('base64'),
                     branch: 'main'
                   }));
                 }
@@ -339,9 +371,10 @@ jobs:
               }
             }
 
-            core.notice(`${owner}/${repo}: Fixed - ${actions.join(' and ')}`);
             if (mutationFailures.length) {
               core.setFailed(
                 `${owner}/${repo}: incomplete repair: ${mutationFailures.join('; ')}`,
               );
+              return;
             }
+            core.notice(`${owner}/${repo}: Fixed - ${actions.join(' and ')}`);
