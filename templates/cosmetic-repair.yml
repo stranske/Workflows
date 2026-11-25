@@ -45,17 +45,33 @@ jobs:
 
       # CUSTOMIZE: Update paths to match your project
       - name: Apply Black formatting
-        run: black src/ tests/ scripts/ || true
+        run: black src/ tests/ scripts/
 
       - name: Apply isort import sorting
-        run: isort src/ tests/ scripts/ || true
+        run: isort src/ tests/ scripts/
 
       - name: Apply Ruff fixes
-        run: ruff check --fix src/ tests/ scripts/ || true
+        run: |
+          diagnostics=$(mktemp)
+          trap 'rm -f "$diagnostics"' EXIT
+          status=0
+          ruff check --fix --output-format json src/ tests/ scripts/ > "$diagnostics" || status=$?
+          if [ "$status" -eq 1 ]; then
+            cat "$diagnostics"
+            # Ruff also returns 1 for unreadable files and syntax errors.
+            jq -se 'length == 1 and (.[0] | type == "array" and length > 0 and all(.[];
+              (.code | test("^[A-Z]+[0-9]+$")) and .code != "E902" and .code != "E999"
+            ))' "$diagnostics" > /dev/null || { echo "::error::Ruff could not check all files."; exit 1; }
+          else
+            exit "$status"
+          fi
 
       - name: Apply docformatter
         run: |
-          docformatter --in-place --recursive src/ || true
+          status=0
+          docformatter --in-place --recursive src/ || status=$?
+          # In-place mode returns 3 when it successfully rewrites files.
+          if [ "$status" -ne 3 ]; then exit "$status"; fi
 
       - name: Check for changes
         id: diff
