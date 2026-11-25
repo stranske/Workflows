@@ -2093,9 +2093,13 @@ function parseReviewReassessmentRequest(raw = '') {
   try { request = JSON.parse(raw); } catch (_) {
     throw new Error('Reviewer reassessment input is not valid JSON');
   }
+  const outdated = request?.request_stage === 'outdated-reassessment';
+  const expectedFields = outdated
+    ? [...REASSESSMENT_FIELDS, 'source_fix_pr', 'finding_sha256']
+    : REASSESSMENT_FIELDS;
   if (!request || typeof request !== 'object' || Array.isArray(request)
     || Object.keys(request).filter((field) => field !== 'request_stage').sort().join(',')
-      !== [...REASSESSMENT_FIELDS].sort().join(',')) {
+      !== [...expectedFields].sort().join(',')) {
     throw new Error('Reviewer reassessment input has missing or extra fields');
   }
   if (request.schema !== REASSESSMENT_SCHEMA
@@ -2109,7 +2113,9 @@ function parseReviewReassessmentRequest(raw = '') {
     || typeof request.originating_reviewer !== 'string'
     || !/^[a-z][a-z0-9-]*$/.test(request.originating_reviewer)
     || (request.request_stage !== undefined
-      && !['disposition', 'retry', 'conversation-disposition'].includes(request.request_stage))) {
+      && !['disposition', 'retry', 'conversation-disposition', 'outdated-reassessment'].includes(request.request_stage))
+    || (outdated && (!Number.isSafeInteger(request.source_fix_pr) || request.source_fix_pr <= 0
+      || !/^[0-9a-f]{64}$/.test(request.finding_sha256)))) {
     throw new Error('Reviewer reassessment input has invalid identity fields');
   }
   return request;
@@ -2159,6 +2165,53 @@ function hasSubsequentExactHeadReviewerAnswer(thread, request, profiles, request
       || /^\s*(?:\*\*)?REJECT\b/i.test(String(item?.body || ''))));
 }
 
+async function requireOutdatedReassessmentEvidence({ request, current, owner, repo, withRetry }) {
+  const branch = current.pr.base?.ref;
+  if (!branch) throw new Error('Outdated reassessment requires a known consumer base branch');
+  const targetPath = current.thread.path;
+  const originalCommit = current.thread.comments.nodes[0].commit?.oid;
+  if (!/^\.github\/workflows\/[a-z0-9][a-z0-9-]*\.ya?ml$/i.test(targetPath || '')
+    || !/^[0-9a-f]{40}$/.test(originalCommit || '') || originalCommit === request.head_sha) {
+    throw new Error('Outdated reassessment requires a mapped workflow finding and original commit');
+  }
+  const sourcePath = `templates/consumer-repo/${targetPath}`;
+  const source = { owner: 'stranske', repo: 'Workflows' };
+  const { data: sourcePr } = await withRetry((client) => client.rest.pulls.get({
+    ...source, pull_number: request.source_fix_pr,
+  }));
+  if (sourcePr?.number !== request.source_fix_pr || sourcePr?.merged !== true
+    || sourcePr?.state !== 'closed' || sourcePr.base?.ref !== 'main'
+    || sourcePr.base?.repo?.full_name !== 'stranske/Workflows'
+    || sourcePr.merge_commit_sha !== request.source_commit) {
+    throw new Error('Outdated reassessment requires the exact merged Workflows source PR');
+  }
+  const files = await withRetry((client) => client.paginate(client.rest.pulls.listFiles, {
+    ...source, pull_number: request.source_fix_pr, per_page: 100,
+  }));
+  if (!Array.isArray(files) || !files.some((file) =>
+    file.filename === sourcePath && ['added', 'modified'].includes(file.status))) {
+    throw new Error('Outdated reassessment source PR did not change the finding template');
+  }
+  const blob = async (args) => {
+    const { data } = await withRetry((client) => client.rest.repos.getContent(args));
+    return data?.type === 'file' && data.path === args.path && /^[0-9a-f]{40}$/.test(data.sha) ? data.sha : null;
+  };
+  const [corrected, delivered, original] = await Promise.all([
+    blob({ ...source, path: sourcePath, ref: request.source_commit }),
+    blob({ owner, repo, path: targetPath, ref: request.head_sha }),
+    blob({ owner, repo, path: targetPath, ref: originalCommit }),
+  ]);
+  if (!corrected || corrected !== delivered || !original || original === delivered) {
+    throw new Error('Outdated reassessment correction is absent from the exact generated head');
+  }
+  const gate = await repositoryConversationGate({
+    connection: current.connection, owner, repo, branch, read: withRetry,
+  });
+  if (gate.reason !== 'merge_blocked_repository_policy' || gate.required !== true) {
+    throw new Error('Outdated reassessment requires native conversation resolution');
+  }
+}
+
 // A separate workflow job calls this function only for an explicit trusted
 // repository_dispatch. It never enters the ordinary resolution/merge/cleanup run.
 async function runReviewReassessment({
@@ -2183,6 +2236,7 @@ async function runReviewReassessment({
   const dispositionOnly = request.request_stage === 'disposition';
   const retryFailed = request.request_stage === 'retry';
   const nativeConversation = request.request_stage === 'conversation-disposition';
+  const outdated = request.request_stage === 'outdated-reassessment';
   const nativePolicy = profile?.conversation_disposition;
   const command = String((nativeConversation ? nativePolicy?.inline_comment : dispositionOnly ? profile?.disposition_comment
     : profile?.reassessment_comment) || '').trim();
@@ -2200,13 +2254,13 @@ async function runReviewReassessment({
     if (pr?.state !== 'open' || pr?.draft || pr?.auto_merge
       || pr?.head?.sha !== request.head_sha
       || !isTrustedGeneratedDeliveryPr(pr, [...trustedWriters])
-      || (generatedDeliveryLane(pr?.head?.ref) !== 'dev-tool-sync'
+      || ((outdated || generatedDeliveryLane(pr?.head?.ref) !== 'dev-tool-sync')
         && !isStableSyncBranchName(pr?.head?.ref))
       || record?.repository !== request.repository
       || record?.plan_id !== request.plan_id
       || record?.generation !== request.generation
       || record?.source_commit !== request.source_commit
-      || (record?.head_observed_sha && record.head_observed_sha !== request.head_sha)
+      || ((outdated || record?.head_observed_sha) && record?.head_observed_sha !== request.head_sha)
       || !Number.isFinite(Date.parse(record?.lease_expires_at || ''))
       || Date.parse(record.lease_expires_at) <= Date.now()) {
       throw new Error('Generated delivery changed or lease is invalid');
@@ -2218,7 +2272,7 @@ async function runReviewReassessment({
             reviewThreads(first: 100) {
               pageInfo { hasNextPage }
               nodes {
-                id isResolved isOutdated
+                id path isResolved isOutdated
                 comments(first: 100) {
                   pageInfo { hasNextPage }
                   nodes { fullDatabaseId author { login } body createdAt url commit { oid } }
@@ -2230,21 +2284,27 @@ async function runReviewReassessment({
       }`, { owner, repo, number: request.pr },
     ));
     const connection = data?.repository?.pullRequest?.reviewThreads;
-    if (!hasCompleteReviewThreadEvidence(connection)) {
+    if (!hasCompleteReviewThreadEvidence(connection) || (outdated && connection.nodes.some((item) =>
+      item.comments?.pageInfo?.hasNextPage !== false || !Array.isArray(item.comments?.nodes)))) {
       throw new Error('Review-thread inventory is incomplete');
     }
     const thread = connection.nodes.find((item) => item.id === request.thread_id);
-    if (!thread || thread.isResolved || thread.isOutdated
+    if (!thread || thread.isResolved || thread.isOutdated !== outdated
       || thread.comments?.pageInfo?.hasNextPage !== false
       || !Array.isArray(thread.comments?.nodes)
       || thread.comments.nodes.length === 0) {
-      throw new Error('Requested active review thread is absent or incomplete');
+      throw new Error(outdated ? 'Requested outdated review thread is absent or incomplete'
+        : 'Requested active review thread is absent or incomplete');
     }
     const origin = thread.comments.nodes[0]?.author?.login;
     if (reviewerProfileForLogin(origin, profiles) !== request.originating_reviewer) {
       throw new Error('Review thread origin does not match requested reviewer');
     }
-    return { pr, thread, threads: connection.nodes };
+    if (outdated && require('node:crypto').createHash('sha256')
+      .update(String(thread.comments.nodes[0].body || '')).digest('hex') !== request.finding_sha256) {
+      throw new Error('Outdated review finding digest changed');
+    }
+    return { pr, thread, threads: connection.nodes, connection };
   }
   await readBoundState();
   const { data: writer } = await withRetry((client) => client.rest.users.getAuthenticated());
@@ -2256,6 +2316,17 @@ async function runReviewReassessment({
   // POST; a trusted request may have appeared since the initial read.
   // GitHub's APIs are non-transactional, so an ambiguous POST is never retried.
   let current = await readBoundState();
+  if (outdated) {
+    await requireOutdatedReassessmentEvidence({ request, current, owner, repo, withRetry });
+    const evidence = current;
+    current = await readBoundState();
+    const original = evidence.thread.comments.nodes[0];
+    const latest = current.thread.comments.nodes[0];
+    if (current.pr.base?.ref !== evidence.pr.base?.ref || current.thread.path !== evidence.thread.path
+      || latest.fullDatabaseId !== original.fullDatabaseId || latest.commit?.oid !== original.commit?.oid) {
+      throw new Error('Outdated review finding identity changed');
+    }
+  }
   let found = null;
   for (const comment of current.thread.comments.nodes) {
     if (trustedWriters.has(comment?.author?.login)
@@ -2384,10 +2455,13 @@ async function runReviewReassessment({
       ...(retryFailed ? ['One bounded retry after the originating provider reported a verified terminal failure on this exact head. This is not acceptance and grants no resolution or merge authority.'] : []),
       ...(dispositionOnly ? ['This is a disposition-only task, not another general review. Answer the original finding with explicit ACCEPT or REJECT in this existing thread; do not create a separate finding thread.'] : []),
       ...(nativeConversation ? ['This is a native-conversation disposition request. A configured native conversation response may be used only when it supplies the exact protocol marker and exact acceptance token below; it grants no resolution or merge authority.'] : []),
-      `Maint 71 requests ${request.originating_reviewer} to reassess active thread ` +
+      ...(outdated ? [
+        `The unresolved outdated finding is still subject to repository conversation policy. Workflows #${request.source_fix_pr} changed its template; the exact generated head has the corresponding blob. This is a request for reassessment only.`,
+      ] : []),
+      `Maint 71 requests ${request.originating_reviewer} to reassess ${outdated ? 'outdated' : 'active'} thread ` +
         `${request.thread_id} on exact generated head ${request.head_sha}. ` +
         `The thread remains merge-blocking until reviewer disposition.`,
-      `If the finding is satisfied, reply in that active thread on this exact head with ` +
+      `If the finding is satisfied, reply in that existing thread on this exact head with ` +
         `<!-- sync-review-accepted:${request.head_sha} -->; otherwise leave actionable feedback.`,
       `Original finding (untrusted review text): ${String(current.thread.comments.nodes[0].body || '').slice(0, 6000)}`,
       `Source validation is bound to Workflows commit ${request.source_commit}; inspect that fix and the exact generated head. Explicitly accept or reject in this thread. No unrelated edits, resolution or merge actions.`,
@@ -2417,7 +2491,7 @@ async function runReviewReassessment({
   let reviewRequested = null;
   const reviewRequestLogins = Array.isArray(profile.reassessment_review_request)
     ? profile.reassessment_review_request.filter((login) => typeof login === 'string' && login) : [];
-  if (!found && !dispositionOnly && !retryFailed && !nativeConversation && reviewRequestLogins.length) {
+  if (!found && !outdated && !dispositionOnly && !retryFailed && !nativeConversation && reviewRequestLogins.length) {
     try {
       await withRetry((client) => client.rest.pulls.requestReviewers({
         owner, repo, pull_number: request.pr, reviewers: reviewRequestLogins,
@@ -2434,7 +2508,7 @@ async function runReviewReassessment({
   let taskSuppressed = false;
   const taskKind = nativeConversation ? 'native-conversation-disposition' : dispositionOnly ? 'disposition' : 'reassessment';
   const taskTransport = nativeConversation ? nativePolicy.task_transport : profile[`${taskKind}_task_transport`];
-  const initialTask = !dispositionOnly && !retryFailed && !nativeConversation;
+  const initialTask = !outdated && !dispositionOnly && !retryFailed && !nativeConversation;
   if ((dispositionOnly || initialTask || nativeConversation) && taskTransport) {
     const taskCommand = String(nativeConversation ? nativePolicy.task_comment : profile[`${taskKind}_task_comment`] || '').trim();
     if (taskTransport !== 'pr-conversation'
@@ -2505,7 +2579,15 @@ async function runReviewReassessment({
       throw new Error(`${taskKind} task lacks durable URL, ID, timestamp or trusted author`);
     }
   }
-  await readBoundState();
+  const final = await readBoundState();
+  if (outdated) {
+    const requests = final.thread.comments.nodes.filter((item) => trustedWriters.has(item?.author?.login)
+      && String(item?.body || '').includes(marker));
+    if (requests.length !== 1 || String(requests[0].fullDatabaseId) !== String(comment.id)
+      || requests[0].url !== comment.html_url) {
+      throw new Error('Outdated reassessment request readback unknown; inspect exact marker before retry');
+    }
+  }
   return {
     ...request,
     status: found ? 'review_blocked_reassessment_reused' : 'review_blocked_reassessment_requested',

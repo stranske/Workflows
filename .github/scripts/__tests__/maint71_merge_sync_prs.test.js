@@ -4828,3 +4828,112 @@ test('cleanup absence requires both a missing ref and retained repository access
   client.rest.git.deleteRef = async () => {};
   assert.deepEqual(await deleteSyncBranch(args), { already_absent: false });
 });
+
+test('outdated reassessment requests one review of the corrected generated workflow', async () => {
+  const { createHash } = require('node:crypto');
+  const head = 'a'.repeat(40);
+  const source = 'b'.repeat(40);
+  const priorHead = 'c'.repeat(40);
+  const correctedBlob = 'd'.repeat(40);
+  const priorBlob = 'e'.repeat(40);
+  const finding = 'Use the generated workflow correction';
+  const threadPath = '.github/workflows/agents-verify-to-new-pr.yml';
+  const sourcePath = `templates/consumer-repo/${threadPath}`;
+  const threadId = 'PRRT_outdated';
+  const repository = 'stranske/Ready';
+  const prNumber = 2536;
+  const sourceNumber = 5135;
+  const request = { schema: 'maint71-review-reassessment/v1', repository, pr: prNumber,
+    head_sha: head, thread_id: threadId, plan_id: 'plan-1', generation: 'generation-1',
+    source_commit: source, originating_reviewer: 'codex', request_stage: 'outdated-reassessment',
+    source_fix_pr: sourceNumber, finding_sha256: createHash('sha256').update(finding).digest('hex') };
+  const record = { schema: 'sync-pr-delivery-record/v1', repository, plan_id: request.plan_id,
+    generation: request.generation, source_commit: source, head_observed_sha: head,
+    durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    desired_tree_hash: 'tree-1', head_observed_at: '2026-11-25T09:49:00Z',
+    lease_expires_at: '2099-01-01T00:00:00Z' };
+  const initial = { state: 'open', draft: false, auto_merge: null, user: { login: 'stranske' },
+    base: { ref: 'main' }, head: { ref: 'sync/workflows-candidate', sha: head },
+    body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->` };
+  const reviewer = { login: 'chatgpt-codex-connector' };
+  const original = { fullDatabaseId: '4690614016', body: finding, author: reviewer,
+    commit: { oid: priorHead } };
+  const sourcePr = { data: { number: sourceNumber, state: 'closed', merged: true,
+    merge_commit_sha: source, base: { ref: 'main', repo: { full_name: 'stranske/Workflows' } } } };
+  let defect;
+  let posts = 0;
+  let proofReads = 0;
+  const comments = [original];
+  const getBranchRules = async () => [];
+  const listFiles = async () => [{ filename: defect === 'unrelated-source' ? '.github/workflows/other.yml' : sourcePath,
+    status: 'modified' }];
+  const client = {
+    rest: {
+      pulls: {
+        get: async ({ repo }) => repo === 'Workflows'
+          ? (defect === 'wrong-source' ? { data: { ...sourcePr.data, merge_commit_sha: priorHead } } : sourcePr)
+          : { data: { ...initial, head: { ...initial.head, sha: defect === 'stale-head' ||
+            (defect === 'post-proof-head-race' && proofReads > 0) ? priorHead : head } } },
+        listFiles,
+        createReplyForReviewComment: async ({ repo, pull_number, comment_id, body }) => {
+          assert.deepEqual([repo, pull_number, comment_id], ['Ready', prNumber, original.fullDatabaseId]);
+          assert.match(body, /outdated thread/);
+          assert.match(body, /This is a request for reassessment only/);
+          assert.match(body, /maint71-review-reassessment:v1/);
+          posts++;
+          const url = `https://github.com/${repository}/pull/${prNumber}#discussion_r77`;
+          const createdAt = '2026-11-25T09:50:00Z';
+          comments.push({ fullDatabaseId: '77', author: { login: 'stranske' }, body, createdAt, url });
+          return { data: { id: 77, user: { login: 'stranske' }, created_at: createdAt, html_url: url } };
+        },
+      },
+      users: { getAuthenticated: async () => ({ data: { login: defect === 'invalid-writer' ? 'someone' : 'stranske' } }) },
+      repos: {
+        getBranchRules,
+        getBranchProtection: async () => {
+          if (defect === 'unknown-policy') throw new Error('unavailable');
+          return { data: { required_conversation_resolution: { enabled: defect !== 'not-required' } } };
+        },
+        getContent: async ({ repo, path: requested, ref }) => {
+          proofReads++;
+          assert.equal(requested, repo === 'Workflows' ? sourcePath : threadPath);
+          return { data: { type: 'file', path: requested,
+            sha: ref === priorHead || (ref === head && defect === 'incorrect-blob') ? priorBlob : correctedBlob } };
+        },
+      },
+    },
+    paginate: (fn) => fn(),
+    graphql: async () => ({ repository: { pullRequest: { reviewThreads: {
+      pageInfo: { hasNextPage: false },
+      nodes: [{ id: threadId, path: threadPath, isOutdated: defect !== 'active', isResolved: defect === 'resolved',
+        comments: { pageInfo: { hasNextPage: defect === 'partial' }, nodes: defect === 'different-finding'
+          ? [{ ...original, body: 'Changed finding' }] : comments } }],
+    } } } }),
+  };
+  const invoke = (input = request) => runReviewReassessment({
+    context: { eventName: 'repository_dispatch', payload: { action: 'maint71-review-reassessment' },
+      ref: 'refs/heads/main', actor: 'stranske' },
+    withRetry: (fn) => fn(client), rawRequest: JSON.stringify(input), registeredRepos: [repository],
+    policyPath: path.join(__dirname, '..', '..', '..', 'config', 'consumer_sync_review_policy.json'),
+  });
+  for (const [condition, expected] of [
+    ['stale-head', /delivery changed/], ['post-proof-head-race', /delivery changed/],
+    ['active', /outdated review thread/], ['resolved', /outdated review thread/],
+    ['partial', /inventory is incomplete/], ['different-finding', /digest changed/],
+    ['invalid-writer', /writer identity/], ['wrong-source', /exact merged Workflows source/],
+    ['unrelated-source', /did not change the finding template/], ['incorrect-blob', /correction is absent/],
+    ['not-required', /requires native conversation resolution/],
+    ['unknown-policy', /requires native conversation resolution/],
+  ]) {
+    defect = condition;
+    proofReads = 0;
+    await assert.rejects(invoke(), expected, condition);
+    assert.equal(posts, 0, condition);
+  }
+  defect = undefined;
+  const { request_stage, source_fix_pr, finding_sha256, ...ordinary } = request;
+  await assert.rejects(invoke(ordinary), /active review thread is absent/);
+  assert.equal((await invoke()).status, 'review_blocked_reassessment_requested');
+  assert.equal((await invoke()).status, 'review_blocked_reassessment_reused');
+  assert.equal(posts, 1);
+});
