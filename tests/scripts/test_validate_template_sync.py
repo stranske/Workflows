@@ -60,7 +60,18 @@ def test_validator_passes_when_files_match(tmp_path):
     # Create matching files
     (source / "test.js").write_text("console.log('test');")
     (template / "test.js").write_text("console.log('test');")
-    write_manifest(tmp_path, ["test.js"])
+    (template / "template_owned.js").write_text("console.log('template');")
+    write_raw_manifest(
+        tmp_path,
+        """version: 1
+scripts:
+  - source: .github/scripts/test.js
+    description: root mirror
+  - source: .github/scripts/template_owned.js
+    source_tree: template
+    description: template-owned consumer script
+""",
+    )
 
     result = subprocess.run(
         [sys.executable, "scripts/validate_template_sync.py"],

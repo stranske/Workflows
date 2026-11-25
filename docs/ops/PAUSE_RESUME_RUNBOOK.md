@@ -1,7 +1,7 @@
 # Pause And Resume Runbook
 
-Workflows has three pause spellings with different scopes. Pick the label by
-scope first; do not treat the names as interchangeable.
+The active PR pause and its legacy spelling have a single-PR scope. The
+former repository-wide pause is documented separately below.
 
 ## One PR: `agents:paused`
 
@@ -14,18 +14,14 @@ Use `agents:paused` when a single pull request should stop keepalive dispatch.
   keepalive event to run.
 - Pair with a PR comment when a human decision is required.
 
-## One Repo: `keepalive:paused`
+## Former Repository-Wide Pause: `keepalive:paused`
 
-Use `keepalive:paused` when every keepalive run in a repository should stop.
+The retired Agents 70 resolver paused a repository's keepalive when this label
+existed, regardless of whether it was applied to a PR. Its summary exposed
+`keepalive_pause_label`.
 
-- Scope: one repository.
-- Consumer: `.github/scripts/agents_orchestrator_resolve.js`
-  (`KEEPALIVE_PAUSE_LABEL`).
-- Pause: create the `keepalive:paused` label in the repository. The orchestrator
-  pauses when the label exists, even if it is not applied to any issue or PR.
-- Resume: delete the `keepalive:paused` label from the repository.
-- Verify: rerun or inspect the orchestrator summary for the
-  `keepalive_pause_label` output.
+Restoring that repository-wide control remains open after Agents 70 retirement.
+The current keepalive routes have no verified equivalent for this label.
 
 ## Legacy Alias: `agents:pause`
 

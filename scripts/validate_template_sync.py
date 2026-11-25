@@ -41,6 +41,8 @@ def hash_directory(path: Path) -> str:
 def _manifest_template_sync_sources(compiled: CompiledManifest) -> list[str]:
     sources: list[str] = []
     for entry in compiled.section("scripts"):
+        if entry.source_tree != "root":
+            continue
         if entry.source.startswith(".github/scripts/"):
             sources.append(entry.source)
             continue

@@ -695,6 +695,7 @@ scripts:
     delivery: copy
 
   - source: .github/scripts/agents_orchestrator_resolve.js
+    source_tree: template
     description: "Resolves agent orchestrator state"
 
   - source: .github/scripts/agents_pr_meta_keepalive.js

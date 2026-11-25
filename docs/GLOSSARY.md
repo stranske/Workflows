@@ -214,9 +214,9 @@ default at most one agent run is in progress per PR; see Run Cap Enforcement in
 Pauses **all keepalive activity on one PR**. Scope: a single PR. Resume by
 removing the label. Consumer: `.github/scripts/keepalive_gate.js` (`PAUSE_LABEL`).
 This is the canonical per-PR pause spelling — see the
-[Pause/Resume Runbook](ops/PAUSE_RESUME_RUNBOOK.md) for the related
-repo-scoped `keepalive:paused` (existence-semantics) and the legacy
-`agents:pause` alias.
+[Pause/Resume Runbook](ops/PAUSE_RESUME_RUNBOOK.md) for the legacy
+`agents:pause` alias and the repository-wide control formerly provided by
+`keepalive:paused`.
 
 ### `needs-human`
 A durable human blocker on an issue or PR. Stops automation until a human removes

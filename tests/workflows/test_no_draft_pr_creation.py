@@ -121,9 +121,14 @@ def test_legacy_draft_inputs_are_inert_and_absent_from_operator_ui() -> None:
         / "workflows"
         / "agents-issue-intake.yml"
     ).read_text(encoding="utf-8")
-    resolver = (REPO_ROOT / ".github" / "scripts" / "agents_orchestrator_resolve.js").read_text(
-        encoding="utf-8"
-    )
+    resolver = (
+        REPO_ROOT
+        / "templates"
+        / "consumer-repo"
+        / ".github"
+        / "scripts"
+        / "agents_orchestrator_resolve.js"
+    ).read_text(encoding="utf-8")
 
     assert "inputs.agent_pr_draft" not in bridge
     dispatch_inputs = intake.split("workflow_dispatch:", 1)[1].split("workflow_call:", 1)[0]
