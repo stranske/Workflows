@@ -47,7 +47,12 @@
       "disposition_completion_prefixes": [
         "Codex Review: Didn't find any major issues."
       ],
-      "disposition_reviewed_commit_prefix": "**Reviewed commit:** "
+      "disposition_reviewed_commit_prefix": "**Reviewed commit:** ",
+      "inline_targeted_stock_completion": {
+        "bot_id": 199175422,
+        "bot_node_id": "BOT_kgDOC98s_g",
+        "marker": "<!-- codex-review-receipt:v1 -->"
+      }
     },
     {
       "id": "coderabbit",

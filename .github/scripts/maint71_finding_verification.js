@@ -3,11 +3,22 @@
 const { createHash } = require('node:crypto');
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 
+function readSingleMarker(body, pattern) {
+  const matches = [...String(body || '').matchAll(pattern)];
+  if (matches.length !== 1) return null;
+  try { return JSON.parse(matches[0][1]); } catch { return null; }
+}
+
+const findingVerification = (body) => readSingleMarker(body,
+  /<!-- maint71-finding-verification:v1 ([\s\S]*?) -->/g);
+const targetedRequest = (body) => readSingleMarker(body,
+  /<!-- maint71-review-(?:reassessment|disposition):v1 ([\s\S]*?) -->/g);
+
 // An explicitly authorized owner attests an independent, completed assessment.
 // This is NOT a fabricated originating-reviewer reply or a generic clean review.
 function validateIndependentFindingVerification({
   proof, record, thread, threads, comment, policy, reviewerProfiles,
-  topLevelComments, now = Date.now(),
+  topLevelComments, inlineCompletion, now = Date.now(),
 }) {
   const deny = (reason) => ({ ok: false, reason });
   const fallback = policy?.finding_verification_fallback;
@@ -73,7 +84,10 @@ function validateIndependentFindingVerification({
     ...(topLevelComments?.nodes || [])].find((item) =>
     item.url === result.originating_completion_url && profile.logins.includes(item.author?.login)
     && item.commit?.oid === proof.head_sha
-    && profile.disposition_completion_prefixes?.some((prefix) => item.body?.startsWith(prefix)));
+    && profile.disposition_completion_prefixes?.some((prefix) => item.body?.startsWith(prefix)))
+    || (inlineCompletion && inlineCompletion.url === result.originating_completion_url
+      && inlineCompletion.requestUrl === request.url && inlineCompletion.head === proof.head_sha
+      && inlineCompletion.threadId === thread.id ? inlineCompletion : null);
   let completedAt = completion?.createdAt;
   if (!completion) {
     // Reviewer-unanswered path (owner decision 2026-11-06): a reviewer that is out of
@@ -123,6 +137,134 @@ function validateIndependentFindingVerification({
   if (reviewerComments.some((item) => profile.logins.includes(item.author?.login)
     && Date.parse(item.createdAt || '') > times[2])) return deny('reviewer_changed_after_verification');
   return { ok: true, assessment_id: result.assessment_id, binding };
+}
+
+function stockReviewedCommit(body, profile) {
+  const [marker, gap, summary, secondGap, reference, ...details] = String(body || '').trimEnd().split(/\r?\n/);
+  if (marker !== profile.inline_targeted_stock_completion.marker || gap !== '' || secondGap !== ''
+    || !profile.disposition_completion_prefixes?.some((item) => summary?.startsWith(item))) return null;
+  const prefix = profile.disposition_reviewed_commit_prefix;
+  if (!prefix || !reference?.startsWith(prefix) || details.some((line) => line.startsWith(prefix))) return null;
+  const suffix = details.join('\n').trim();
+  if (suffix && !/^<details>(?: <summary>[^<\n]+<\/summary>)?\n[\s\S]*\n<\/details>$/.test(suffix)) return null;
+  return /^`([0-9a-f]{10,40})`$/.exec(reference.slice(prefix.length))?.[1] || null;
+}
+
+// This is completion evidence for the independent assessment only. The native
+// inline commit is the diff anchor. The enclosing PR review records the head.
+async function collectAuthenticatedInlineStockCompletion({
+  proof, record, thread, comment, policy, reviewerProfiles, owner, repo, number, head, headRef, body, read,
+}) {
+  const result = findingVerification(comment?.body);
+  const profile = reviewerProfiles.find((item) => item.id === proof.originating_reviewer);
+  const provenance = profile?.inline_targeted_stock_completion;
+  const publishers = policy.finding_verification_fallback?.trusted_publishers;
+  if (!result?.originating_completion_url || result.reviewer_unanswered === true
+    || !Number.isSafeInteger(provenance?.bot_id) || !provenance.bot_node_id || !provenance.marker
+    || proof.repository !== `${owner}/${repo}` || proof.pr !== number || proof.head_sha !== head
+    || !headRef || typeof body !== 'string' || record?.head_observed_sha !== head
+    || thread?.id !== proof.thread_id || thread.isOutdated !== true
+    || thread.isResolved !== false || thread.comments?.pageInfo?.hasNextPage !== false
+    || !Array.isArray(thread.comments?.nodes) || !publishers?.includes(comment?.user?.login)) return null;
+  const [original, ...replies] = thread.comments.nodes;
+  if (!profile.logins?.includes(original?.author?.login)
+    || result.finding_sha256 !== sha256(String(original.body || ''))) return null;
+  const requests = replies.filter((item) => {
+    if (!publishers.includes(item.author?.login)) return false;
+    const binding = targetedRequest(item.body);
+    return binding?.repository === proof.repository && binding.pr === number
+      && binding.thread_id === thread.id && binding.originating_reviewer === profile.id;
+  });
+  const [request] = requests;
+  if (requests.length !== 1 || request.url !== result.reassessment_request_url) return null;
+  const binding = targetedRequest(request.body);
+  if (binding.head_sha !== head || binding.plan_id !== record.plan_id
+    || binding.generation !== record.generation || binding.source_commit !== record.source_commit) return null;
+  const laterReplies = replies.filter((item) => profile.logins.includes(item.author?.login)
+    && Date.parse(item.createdAt) > Date.parse(request.createdAt));
+  const [reply] = laterReplies;
+  if (laterReplies.length !== 1 || reply.url !== result.originating_completion_url
+    || replies.indexOf(request) >= replies.indexOf(reply)) return null;
+  const ref = stockReviewedCommit(reply.body, profile);
+  if (!ref || !head.startsWith(ref)) return null;
+
+  const webPull = `https://github.com/${owner}/${repo}/pull/${number}`;
+  const id = (item) => String(item.fullDatabaseId || '');
+  if ([original, request, reply].some((item) => !/^[1-9]\d*$/.test(id(item))
+    || item.url !== `${webPull}#discussion_r${id(item)}`)) return null;
+  const scope = { owner, repo };
+  const lookup = async (operation) => {
+    try { return (await read(operation)).data; } catch (error) {
+      if ([404, 422].includes(error.status)) return null;
+      throw error;
+    }
+  };
+  const nativeComment = (item) => lookup((client) => client.rest.pulls.getReviewComment({
+    ...scope, comment_id: id(item),
+  }));
+  const [nativeOriginal, nativeRequest, nativeReply] = await Promise.all(
+    [original, request, reply].map(nativeComment),
+  );
+  const sameComment = (native, item) => String(native?.id || '') === id(item)
+    && native.html_url === item.url
+    && native.body === item.body && native.created_at === item.createdAt && native.updated_at === item.updatedAt;
+  const isOriginatingBot = (actor) => actor?.id === provenance.bot_id && actor.node_id === provenance.bot_node_id
+    && actor.type === 'Bot' && profile.logins.includes(actor.login);
+  if (!sameComment(nativeOriginal, original) || !sameComment(nativeRequest, request)
+    || !sameComment(nativeReply, reply) || nativeOriginal.in_reply_to_id != null
+    || !nativeOriginal.path || nativeRequest.path !== nativeOriginal.path || nativeReply.path !== nativeOriginal.path
+    || String(nativeRequest.in_reply_to_id) !== id(original) || String(nativeReply.in_reply_to_id) !== id(original)
+    || nativeRequest.user?.login !== request.author.login || !Number.isSafeInteger(nativeRequest.user?.id)
+    || !nativeRequest.user.node_id || !isOriginatingBot(nativeOriginal.user) || !isOriginatingBot(nativeReply.user)
+    || !(Date.parse(original.createdAt) < Date.parse(request.createdAt))
+    || ![nativeRequest, nativeReply].every((item) => Number.isSafeInteger(item.pull_request_review_id)
+      && item.pull_request_review_id > 0)) return null;
+  const nativeReview = (item) => lookup((client) => client.rest.pulls.getReview({
+    ...scope, pull_number: number, review_id: item.pull_request_review_id,
+  }));
+  const [requestReview, replyReview, commit] = await Promise.all([
+    nativeReview(nativeRequest), nativeReview(nativeReply),
+    lookup((client) => client.rest.repos.getCommit({ ...scope, ref })),
+  ]);
+  const exactReview = (review, native) => review?.id === native.pull_request_review_id
+    && review.html_url === `${webPull}#pullrequestreview-${review.id}`
+    && review.state === 'COMMENTED' && review.commit_id === head
+    && review.submitted_at === native.created_at && review.user?.id === native.user.id
+    && review.user.node_id === native.user.node_id && review.user.login === native.user.login;
+  if (!exactReview(requestReview, nativeRequest) || !exactReview(replyReview, nativeReply)
+    || !isOriginatingBot(replyReview.user) || commit?.sha !== head) return null;
+  const current = await lookup((client) => client.rest.pulls.get({ ...scope, pull_number: number }));
+  if (current?.state !== 'open' || current.number !== number || current.head?.sha !== head
+    || current.head.ref !== headRef || current.body !== body) return null;
+  return { url: reply.url, requestUrl: request.url, threadId: thread.id, head, createdAt: reply.createdAt };
+}
+
+async function validateIndependentFindingFromNative(args) {
+  const resolution = validateIndependentFindingVerification(args);
+  if (resolution.reason !== 'originating_completion_missing') return resolution;
+  const inlineCompletion = await collectAuthenticatedInlineStockCompletion(args);
+  if (!inlineCompletion) return resolution;
+
+  // Stock lookups happen after the initial conversation snapshot. Refresh any
+  // originating reviewer activity before trusting that snapshot for resolution.
+  const { owner, repo, number, head, read, reviewerProfiles } = args;
+  const topLevelComments = await collectOriginatingCompletions({
+    owner, repo, number, head, profiles: reviewerProfiles, read,
+  });
+  const latest = await collectFindingReviewState({ owner, repo, number, read });
+  const threads = latest.reviewThreads;
+  const thread = threads.nodes.find((item) => item.id === args.thread.id);
+  const prior = args.thread.comments.nodes;
+  const observed = thread?.comments?.nodes;
+  if (latest.headRefOid !== head || latest.headRefName !== args.headRef || latest.body !== args.body
+    || thread?.isOutdated !== true || thread.isResolved !== false || observed?.length !== prior.length
+    || !observed.every((item, index) => item.fullDatabaseId === prior[index].fullDatabaseId
+      && item.url === prior[index].url && item.body === prior[index].body
+      && item.createdAt === prior[index].createdAt && item.updatedAt === prior[index].updatedAt
+      && item.author?.login === prior[index].author?.login && item.commit?.oid === prior[index].commit?.oid)) {
+    return { ok: false, reason: 'originating_completion_evidence_changed' };
+  }
+  return validateIndependentFindingVerification({ ...args, thread, threads, topLevelComments, inlineCompletion });
 }
 
 function nativeAnswerLines(body, markers) {
@@ -365,4 +507,5 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
 }
 
 module.exports = { sha256, nativeAnswerLines, validateIndependentFindingVerification, validateNativeConversationDisposition,
-  collectFindingReviewState, collectOriginatingCompletions };
+  collectFindingReviewState, collectOriginatingCompletions, collectAuthenticatedInlineStockCompletion,
+  validateIndependentFindingFromNative };
