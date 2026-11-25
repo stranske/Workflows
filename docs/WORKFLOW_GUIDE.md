@@ -435,7 +435,7 @@ These outputs land in the Actions run summary, with any follow-up issue filed in
 
 
 ### Manual dispatch quick steps
-1. **Belt promotion preview:** **Actions → Agents 73 Codex Belt Conveyor Dispatch → Run workflow** with default `dry_run=true`.
+1. **Belt promotion preview:** **Actions → Agents 73 Dispatch Codex Belt Conveyor → Run workflow** with default `dry_run=true`.
 2. **Issue assignment check:** **Actions → Agents 64 Verify Agent Assignment** with `issue_number`.
 3. Review the run summary for eligibility decisions, conveyor hand-off, or verification tables.
 4. CLI example:

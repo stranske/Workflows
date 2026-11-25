@@ -319,7 +319,7 @@ Branch protection requires the Gate **`summary`** job per `.github/config/requir
 - Tag releases for stable reuse.
 
 1. Navigate to **Actions → Agents 64 Verify Agent Assignment → Run workflow** for
-   spot issue verification, or **Agents 73 Codex Belt Conveyor Dispatch** for belt
+   spot issue verification, or **Agents 73 Dispatch Codex Belt Conveyor** for belt
    promotion preview (`dry_run` default).
 2. For belt promotion preview:
 
@@ -340,7 +340,7 @@ Branch protection requires the Gate **`summary`** job per `.github/config/requir
    `AUTOFIX_OPT_IN_LABEL`) are set.
 3. Review Gate and its integrated summary jobs on a recent PR to familiarise yourself
    with the consolidated reporting.
-4. Use **Agents 73 Codex Belt Conveyor Dispatch** with `dry_run=true` to preview
+4. Use **Agents 73 Dispatch Codex Belt Conveyor** with `dry_run=true` to preview
    belt promotion before a live conveyor call.
 5. Consult `docs/ci/WORKFLOWS.md` for the authoritative workflow roster before
    adding or renaming jobs.

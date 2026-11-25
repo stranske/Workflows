@@ -5,11 +5,11 @@ This checklist will track optimization, consolidation, or archival work for ever
 | --- | --- | --- |
 | [x] | `agents-63-issue-intake.yml` | Still required as the Codex issue front door; removed four unused GitHub App token mints so queue sync + bridge runs stay within the shared token balancer. |
 | [x] | `agents-64-verify-agent-assignment.yml` | Still useful for belt/orchestrator sanity checks; removed the unused GitHub App token mint so it relies solely on the shared token-balanced client. |
-| [x] | `agents-70-orchestrator.yml` | Still required; delegates to the reusable init/main stack and just sequences cron/manual dispatch without extra token churn. |
 | [x] | `agents-71-codex-belt-dispatcher.yml` | Keeps GitHub App → PAT → `GITHUB_TOKEN` precedence, dry-run controls, and per-agent concurrency intact—no workflow edits needed. |
 | [x] | `agents-72-codex-belt-worker-dispatch.yml` | Wrapper that forwards workflow_dispatch inputs to the belt worker; documented behavior (no YAML change needed). |
 | [x] | `agents-72-codex-belt-worker.yml` | Worker already re-validates labels, enforces token fallback order, guards concurrency, and exposes dry-run flags. |
 | [x] | `agents-73-codex-belt-conveyor.yml` | Conveyor already checks Gate status, blocks bootstrap-only placeholders, mirrors token/dry-run protections, and re-dispatches the queue. |
+| [x] | `agents-73-codex-belt-conveyor-dispatch.yml` | Use the manual source-side scan to preview eligible belt PRs before requesting a live promotion. |
 | [x] | `agents-auto-label.yml` | Still the LangChain-based labeler; removed the redundant App mint so it runs entirely on the shared API client. |
 | [x] | `agents-auto-pilot.yml` | Remains the canonical issue-to-PR pipeline and now validates `runner:*` overrides against the registry before honoring them so stray runner labels can’t misroute agent selection. |
 | [x] | `agents-autofix-dispatcher.yml` | Dispatch path still needed (Gate autofix failure → loop); kept as-is and documented that it simply forwards run metadata using the App token. |
@@ -88,11 +88,8 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `reusable-10-ci-python.yml` | Python lint/type/test reusable already supports uv caching + PAT/App fallback; the optional App token mint remains useful for repos that installed the Workflows app, so only documentation updates were needed. |
 | [x] | `reusable-11-ci-node.yml` | Node lint/type/test reusable stays the JS/TS CI entry point (ESLint, Prettier, tsc, Jest/Vitest) and now relies solely on the default workflow token since it never touches other repos. |
 | [x] | `reusable-12-ci-docker.yml` | Docker smoke reusable builds the repo image and curls the health endpoint; dropped the unused GitHub App mint so it runs entirely with the default token. |
-| [x] | `reusable-16-agents.yml` | Shared agents toolkit invoked by orchestrator; now adds `preflight_overrides_json` plus registry-driven multi-agent preflight probes while still gating readiness, diagnostics, bootstrap, watchdog, keepalive, and verify flows with PAT/App fallbacks + `options_json` for dry-runs. |
 | [x] | `reusable-18-autofix.yml` | Gate’s formatter harness already handles App/PAT/default-token fallback, writes commits for same-repo PRs, uploads patches when push is blocked, and surfaces delivery metadata—no YAML changes required. |
 | [x] | `reusable-20-pr-meta.yml` | Consumer PR meta/keepalive reusable; removed GitHub App token mints so comment/gate/PR-body lanes rely on the provided PATs/default token only. |
-| [x] | `reusable-70-orchestrator-init.yml` | Handles rate-limit checks, idle detection, keepalive token selection, and parameter resolution; uses GitHub App token only when needed for keepalive writes, so no changes were required. |
-| [x] | `reusable-70-orchestrator-main.yml` | Runs the orchestrator stages (keepalive gate, readiness, bootstrap, keepalive, etc.) using the init outputs; App token mint is still required when PATs are absent because keepalive writes must run as `agents-workflows-bot`. |
 | [x] | `reusable-agents-issue-bridge.yml` | Multi-agent issue → PR bridge already reads the agent registry; removed the unused GitHub App token mint so it runs on the provided PAT/default token chain only. |
 | [x] | `reusable-agents-verifier.yml` | Verifier reusable now mints the Workflows App token up front so it can clone both the caller repo and the Workflows scripts even for private consumers, with automatic fallback to the caller token when App creds aren’t wired, and its CI wait loop tracks every configured workflow until each one has both started and completed. |
 | [x] | `reusable-bot-comment-handler.yml` | Multi-agent bot comment resolver; callers now pass `GH_APP_CLIENT_ID`, the reusable records whether client-ID, legacy App ID, or no App auth was selected, and the legacy path stays warning-only until all installs migrate. |

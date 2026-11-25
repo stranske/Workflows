@@ -577,7 +577,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   accepts a reusable call from the belt chain or dispatch wrapper. It checks
   the issue and branch, opens or updates the automation PR, and posts the
   activation and issue link.
-- **Agents 73 Codex Belt Conveyor Dispatch** –
+- **Agents 73 Dispatch Codex Belt Conveyor** –
   `.github/workflows/agents-73-codex-belt-conveyor-dispatch.yml` is manual-only
   belt promotion (`dry_run` default preview, no schedule) with live eligibility
   selection before calling the conveyor callable.
