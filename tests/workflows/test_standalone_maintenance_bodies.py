@@ -131,3 +131,32 @@ def test_standalone_pr_body_bounds_large_detail(tmp_path, template):
     assert late not in body
     assert body.count("Details truncated. See the pull request diff.") == 1
     assert len(body.encode()) < 12500
+
+
+@pytest.mark.parametrize(
+    ("step", "tool", "status", "output", "ok"),
+    [
+        ("Apply Black formatting", "black", 2, "", False),
+        ("Apply isort import sorting", "isort", 1, "", False),
+        ("Apply Ruff fixes", "ruff", 1, '[{"code":"F841"}]', True),
+        ("Apply Ruff fixes", "ruff", 1, '[{"code":"E902"}]', False),
+        ("Apply Ruff fixes", "ruff", 1, '[{"code":"F841"},{"code":"invalid-syntax"}]', False),
+        ("Apply Ruff fixes", "ruff", 1, "[]", False),
+        ("Apply Ruff fixes", "ruff", 1, "invalid JSON", False),
+        ("Apply Ruff fixes", "ruff", 1, "", False),
+        ("Apply Ruff fixes", "ruff", 2, "", False),
+        ("Apply docformatter", "docformatter", 3, "", True),
+        ("Apply docformatter", "docformatter", 1, "", False),
+    ],
+)
+def test_cosmetic_repair_formatter_completion(tmp_path, step, tool, status, output, ok):
+    command = tmp_path / tool
+    command.write_text('#!/bin/sh\nprintf "%s\\n" "$OUTPUT"\nexit "$STATUS"\n')
+    command.chmod(0o755)
+    env = {"PATH": f"{tmp_path}:{os.environ['PATH']}", "STATUS": str(status), "OUTPUT": output}
+    steps = _steps("cosmetic-repair")
+    if ok:
+        _shell(tmp_path, steps[step], **env)
+    else:
+        with pytest.raises(subprocess.CalledProcessError):
+            _shell(tmp_path, steps[step], **env)
