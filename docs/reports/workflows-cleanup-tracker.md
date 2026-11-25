@@ -51,15 +51,13 @@ November 25, 2026 UTC. Decisions cover **2,874/5,554 files, 266/487 folders and 
 The original delivery checklist is **26/28**. Maint 84 stub deletion and the dependency-bot lockfile case each have ordinary November 30 and December 7 UTC opportunities. After December 7, close any case still without an eligible input as replay-verified, production delivery unobserved for lack of demand. An eligible failure remains actionable. **Three of the first five** workflow decisions are complete. Auto-Pilot reopened under the shared-seat decision. Agents 64 keeps its verified standalone opt-in assignment check. The redundant nested route follows the Agents 70 caller migration. The separate Health 42 fix still needs an annotation on a real fork PR. The hourly review proceeds across stages 1A–5 while those inputs are pending. [Previous checkpoint](https://github.com/stranske/Workflows/blob/5cec05ecaa2fbd56325fa5584637102a1c349b32/docs/reports/workflows-cleanup-tracker.md#current-structure-review)
 
 
-Of the **50 unresolved original workflows**, **17 are drainable** on a real input or active correction and **33 are blocked** on a named event, receiving installation, or observation period. The grouped index records the next check. A dated recheck preserves the actual qualification requirement.
-
 ## Stage progress and workflow decisions
 
 Counts use the November 19 inventory. A completed decision has evidence for keeping an item or verifying its change. Each file and folder is counted once by its original location. Stage 1A measures workflow behavior separately, including 14 GitHub registry records without a tracked source at that revision.
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 148/198 |
+| 1A · Workflow purpose and efficiency | — | — | 148/198 completed · 17 drainable now · 33 blocked |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
 | 3 · Scripts, tools and packages | 307/752 | 22/43 | — |
