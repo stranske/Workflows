@@ -8,7 +8,7 @@ The requested `gh run list --workflow maint-71-merge-sync-prs.yml --repo
 stranske/Workflows --limit 3` and `gh issue view 4364 --repo stranske/Workflows
 --comments` commands were attempted but could not connect to `api.github.com`.
 The connected GitHub API supplied equivalent observations. The
-[latest receipt](../../tests/fixtures/issue_4455/latest_runs_evidence.json)
+[latest receipt](../../../tests/fixtures/issue_4455/latest_runs_evidence.json)
 retains the unfiltered API-order prefix through the third maint-71 match,
 a separate successful-run read, and projections of every issue comment.
 The workflow-specific runs endpoint was unavailable through this connector;
@@ -35,7 +35,7 @@ These are observations at collection time, not a continuing workflow-health clai
   `81e575a008db219b8b63761014025d182d095128`. All six active findings concern
   other paths; none concerns `scripts/langchain/_llm_client.py` or original
   threads `r4434482074` and `r4434491654`. The
-  [original receipt](../../tests/fixtures/issue_4455/post_merge_evidence.json)
+  [original receipt](../../../tests/fixtures/issue_4455/post_merge_evidence.json)
   preserves that successful run and report. Its consumer blockers are historical
   observations and were not re-evaluated during this follow-up.
 - [x] Confirm no sync-core comment on #4364 follows the verified run.
@@ -77,7 +77,7 @@ ancestry requirement. The
 [comparison](https://github.com/stranske/Workflows/compare/81e575a008db219b8b63761014025d182d095128...ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9)
 reports main's run head as 38 commits ahead and zero behind the fix, with
 the fix's merge commit itself as merge base. The new
-[ancestry receipt](../../tests/fixtures/issue_4455/main_ancestry_evidence.json)
+[ancestry receipt](../../../tests/fixtures/issue_4455/main_ancestry_evidence.json)
 retains that response projection and three post-merge maint-71 starts. A new
 test binds both the earlier successful run and these newer starts to that exact
 comparison, so a timestamp alone cannot establish that a run contains the fix.

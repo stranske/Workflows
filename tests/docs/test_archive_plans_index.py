@@ -18,6 +18,7 @@ ARCHIVED_CANONICAL = [
     "docs/archive/audits/TEMPLATE_REPO_EVALUATION.md",
     "docs/archive/audits/issue-3060-verifier-evidence.md",
     "docs/archive/audits/issue-4427-wasm-pytest-handoff.md",
+    "docs/archive/audits/issue-4455-post-merge-evidence.md",
 ]
 
 ARCHIVED_KEEPALIVE = {
@@ -67,6 +68,7 @@ def test_archive_plans_ledger_links_resolve() -> None:
         "audits/TEMPLATE_REPO_EVALUATION.md",
         "audits/issue-3060-verifier-evidence.md",
         "audits/issue-4427-wasm-pytest-handoff.md",
+        "audits/issue-4455-post-merge-evidence.md",
         "audits/february-2026-agent-evaluations.tar.gz",
         *ARCHIVED_KEEPALIVE,
     }
