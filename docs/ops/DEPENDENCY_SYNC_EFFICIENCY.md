@@ -80,6 +80,6 @@ one inexpensive delivery attempt.
 
 The dedicated durable tracker
 ([#2897](https://github.com/stranske/Workflows/issues/2897)) receives a comment
-only when the report's material-evidence fingerprint changes. Health 83 must not
-post onto `#1836` (Sync/Dependency campaign queue). A timestamp-only refresh
-therefore does not create another tracker comment or agent handoff.
+only when the report's material-evidence fingerprint changes. For current sync
+work, use the [campaign queue in the durable tracker inventory](DURABLE_TRACKING_ISSUES.md#current-durable-trackers).
+A timestamp-only refresh does not create another tracker comment or agent handoff.

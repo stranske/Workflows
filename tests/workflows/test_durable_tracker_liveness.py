@@ -18,7 +18,7 @@ EXPECTED_TRACKERS = {
     ("stranske/Counter_Risk", "agents-weekly-metrics.yml"): (499, 336),
     ("stranske/Inv-Man-Intake", "agents-weekly-metrics.yml"): (330, 336),
     ("stranske/Pension-Data", "agents-weekly-metrics.yml"): (343, 336),
-    ("stranske/Workflows", "maint-82-sync-dependency-campaign.yml"): (1836, 1),
+    ("stranske/Workflows", "maint-82-sync-dependency-campaign.yml"): (3926, 1),
     ("stranske/Workflows", "health-83-dependency-sync-efficiency.yml"): (2897, 192),
     ("stranske/Workflows", "maint-80-langsmith-metrics-dashboard.yml"): (2415, 192),
     ("stranske/Workflows", "maint-77-model-registry-freshness.yml"): (2905, 192),
@@ -54,6 +54,11 @@ def test_liveness_config_has_literal_expected_tracker_contract() -> None:
         for entry in config["trackers"]
     }
     assert observed == EXPECTED_TRACKERS
+
+    campaign_issue, _ = observed[("stranske/Workflows", "maint-82-sync-dependency-campaign.yml")]
+    campaign_url = f"https://github.com/stranske/Workflows/issues/{campaign_issue}"
+    campaign_row = f"| [#{campaign_issue}]({campaign_url}) | Sync/Dependency campaign queue |"
+    assert campaign_row in TRACKER_DOC.read_text(encoding="utf-8")
 
 
 def test_consumer_metrics_tracker_uses_its_configured_repository(monkeypatch) -> None:
