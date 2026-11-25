@@ -86,12 +86,20 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
         RUNNER_TEMP=str(report.parent),
     )
     if case == "cosmetic":
+        shutil.copy2(launcher, checkout / ".venv/bin/python3")
+        outer_bin = tmp_path / "outer-bin"
+        outer_bin.mkdir()
+        outer_python = outer_bin / "python3"
+        outer_python.write_text("#!/bin/bash\nexit 125\n")
+        outer_python.chmod(0o755)
         (checkout / "pytest.ini").write_text("[pytest]\nfilterwarnings = error\n")
         message = "COSMETIC_TOLERANCE " + json.dumps(
             {"path": TARGET, "guard": "float", "key": "EXPECTED", "value": "1.23456"}
         )
         (checkout / "test_cosmetic.py").write_text(
+            "import subprocess\n"
             "def test_guarded_drift(record_property):\n"
+            "    subprocess.run(['python3', '-c', 'pass'], check=True)\n"
             "    record_property('markers', 'cosmetic')\n"
             f"    assert False, {message!r}\n"
         )
@@ -99,7 +107,11 @@ def test_maint45_uses_original_report(tmp_path, case, dry_run, expected_status, 
         subprocess.run(
             ["bash", "-eo", "pipefail", "-c", steps["Run pytest (allow failures)"]["run"]],
             cwd=checkout,
-            env={**env, "GITHUB_OUTPUT": str(pytest_outputs)},
+            env={
+                **env,
+                "PATH": f"{outer_bin}{os.pathsep}{env['PATH']}",
+                "GITHUB_OUTPUT": str(pytest_outputs),
+            },
             check=True,
             capture_output=True,
         )

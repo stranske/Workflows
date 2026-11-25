@@ -55,6 +55,8 @@ jobs:
         id: pytest
         run: |
           exit_code=0
+          # Keep test subprocesses on the same Python as the original report.
+          export PATH="$PWD/.venv/bin:$PATH"
           # The classifier reads testcase marker properties from this report.
           .venv/bin/python -m pytest -q -o junit_family=xunit1 \
             --junitxml="$RUNNER_TEMP/pytest-report.xml" || exit_code=$?
