@@ -5,12 +5,16 @@ const fs = require('fs');
 const { detectKeepalive } = require('../../../../.github/scripts/agents_pr_meta_keepalive.js');
 
 async function main() {
-  const [, , scenarioPath] = process.argv;
+  const [, , scenarioPath, scenarioName] = process.argv;
   if (!scenarioPath) {
     throw new Error('Scenario path is required');
   }
 
-  const scenario = JSON.parse(fs.readFileSync(scenarioPath, 'utf8'));
+  const document = JSON.parse(fs.readFileSync(scenarioPath, 'utf8'));
+  if (scenarioName !== undefined && !Object.hasOwn(document, scenarioName)) {
+    throw new Error(`Scenario not present: ${scenarioName}`);
+  }
+  const scenario = scenarioName === undefined ? document : document[scenarioName];
 
   const info = [];
   const warnings = [];
