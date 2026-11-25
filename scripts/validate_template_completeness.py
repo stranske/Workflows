@@ -35,6 +35,8 @@ WORKFLOWS_ONLY = {
     # Debug/testing workflows
     "agents-debug-issue-event.yml",
     "agents-model-profile-trial.yml",  # Workflows-owned remote trial transport
+    # Only the hosted repository previously offered the optional belt promotion scan.
+    "agents-73-codex-belt-conveyor-dispatch.yml",
     # Internal dispatch handlers
     "agents-keepalive-branch-sync.yml",
     "agents-keepalive-dispatch-handler.yml",
@@ -43,7 +45,6 @@ WORKFLOWS_ONLY = {
     # Older versions superseded in consumer repos
     "agents-63-issue-intake.yml",  # consumers have agents-issue-intake.yml
     "agents-64-verify-agent-assignment.yml",  # verification is different
-    "agents-70-orchestrator.yml",  # retired from consumers; agents-80/81 replace it
     "agents-pr-meta-v4.yml",  # consumers have agents-80-pr-event-hub.yml
     # First-party workflows retained in Workflows; consumer templates use
     # agents-80-pr-event-hub.yml and agents-81-gate-followups.yml instead.

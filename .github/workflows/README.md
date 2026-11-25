@@ -9,10 +9,10 @@ and naming rules in the [routing guide](../../docs/WORKFLOW_GUIDE.md).
 Core layers:
 - [Gate and its summary job](../../docs/ci/WORKFLOWS.md#gate-job-map) own PR testing and the required `summary` check.
 - [Minimal invariant CI](../../docs/ci/WORKFLOWS.md#minimal-invariant-ci) owns the supplemental syntax check and PR source-context report.
-- Agents 70 calls `reusable-70-orchestrator-init.yml` and `reusable-70-orchestrator-main.yml` for its scheduled and manual runs. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; Agents 63 starts the issue bridge in invite mode. The issue author opens the PR from the posted compare link. Legacy consumer shims remain removed following Issue #2650.
+- Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; Agents 63 starts the issue bridge in invite mode. The issue author opens the PR from the posted compare link. The standalone Codex belt (`agents-71/72/73`) and Auto-Pilot own queue and issue-to-PR automation. Legacy consumer shims remain removed following Issue #2650.
 - Model-profile trial (`agents-model-profile-trial.yml` + `reusable-model-profile-trial.yml`): Workflows-only manual transport for one immutable, read-only Sol/Terra/Luna instrumentation arm. A separately pinned helper requires the target to equal current remote `main` before auth and uploads v2 quarantine telemetry with source-manifest and GitHub provenance. It has no commit, push, comment, auth-refresh, evaluator, provider-resolution, or ordinary Keepalive path.
 - PR metadata management (`agents-pr-meta.yml`): serializes Codex activation commands and PR body decoration through dedicated jobs that share a concurrency group keyed by PR number. This prevents marker thrash while keeping activation dispatch responsive.
-- Agents intake and orchestration use `agents-63-issue-intake.yml` for ChatGPT topic imports and `agents-70-orchestrator.yml` for readiness and bridge sweeps. Use the [Agent task issue template][agent-task-template] (auto-labels `agents` + `agent:codex`) to raise work for Codex; the intake workflow handles both label-triggered bridges and manual dispatch while keeping parsing and bridge logic centralised.
+- Agents intake uses `agents-63-issue-intake.yml` for ChatGPT topic imports and label bridges. Gate-driven keepalive runs in `agents-keepalive-loop.yml` / `agents-keepalive-sweep.yml`; PR-meta submits worker commands directly ([#5162](https://github.com/stranske/Workflows/pull/5162), [#5163](https://github.com/stranske/Workflows/pull/5163)).
 - Codex belt automation claims a ready issue, opens or refreshes its PR, and promotes eligible PRs when aggregate commit status on the supplied head is `success` (PR head is the fallback). Optional activation/assignment may apply. The workflow table below lists the dispatcher, worker, manual dispatch wrapper and conveyor.
 - Cosmetic repair (`maint-45-cosmetic-repair.yml`): manual pytest run plus guardrail fixer that opens labelled repair PRs when drift is detected.
 - Governance & Health: `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-43-ci-signature-guard.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml`, `health-51-zizmor.yml`, `health-52-semgrep.yml`, `health-53-scorecard.yml`, labelers, dependency review, CodeQL.
@@ -84,14 +84,13 @@ workflow files.
 | `health-40-repo-selfcheck.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection; defaults to verify-only mode and escalates to enforce+verify when `BRANCH_PROTECTION_TOKEN` is present while keeping a single failure tracker issue current.
 | `health-42-actionlint.yml` | pull_request (workflows), push (`main`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
 | `health-43-ci-signature-guard.yml` | pull_request/push (`main`) | Validates the signed job manifest for `pr-00-gate.yml`.
-| `agents-63-issue-intake.yml` | issues, workflow_dispatch, workflow_call | Canonical intake workflow that normalizes ChatGPT topic lists and bridges `agent:codex` issues into the orchestrator. |
+| `agents-63-issue-intake.yml` | issues, workflow_dispatch, workflow_call | Canonical intake workflow that normalizes ChatGPT topic lists and bridges `agent:codex` issues into the belt or intake paths. |
 | `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift. |
-| `agents-71-codex-belt-dispatcher.yml` | workflow_call, workflow_dispatch | Picks the next `agent:codex` + `status:ready` issue, creates the `codex/issue-*` branch and marks the issue in progress. Its callers arrange the worker (`reusable-70-orchestrator-main.yml`, `agents-auto-pilot.yml`). |
+| `agents-71-codex-belt-dispatcher.yml` | workflow_call, workflow_dispatch | Picks the next `agent:codex` + `status:ready` issue, creates the `codex/issue-*` branch and marks the issue in progress. Its callers arrange the worker (`agents-auto-pilot.yml`, manual dispatch). |
 | `agents-72-codex-belt-worker.yml` | workflow_call | Validates the queued issue/branch, ensures divergence from base, and opens or refreshes the Codex automation PR with labels, assignees, and activation. |
 | `agents-72-codex-belt-worker-dispatch.yml` | workflow_dispatch | Forwards manual or Auto-Pilot dispatches to the reusable worker. |
 | `agents-73-codex-belt-conveyor.yml` | workflow_call | Checks the combined status of the supplied head, merges eligible PRs, removes the branch, closes the issue and requests the next dispatch. |
-| `agents-70-orchestrator.yml` | `schedule` (*/30, forced `dry_run=true`) and input-controlled `workflow_dispatch` | Calls `reusable-70-orchestrator-init.yml` and `reusable-70-orchestrator-main.yml`. `Execute` additionally requires `init.has_work == 'true'`. |
-| `reusable-16-agents.yml` | workflow_call | Composite implementing readiness, bootstrap, diagnostics, and watchdog jobs. |
+| `agents-73-codex-belt-conveyor-dispatch.yml` | workflow_dispatch | Source-only manual belt promotion: preview by default (`dry_run`), live eligibility filter, calls `agents-73-codex-belt-conveyor.yml`. No schedule. |
 | `reusable-10-ci-python.yml` | workflow_call | Unified CI executor for the Python stack. |
 | `reusable-12-ci-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-00-gate.yml`. |
 | `reusable-18-autofix.yml` | workflow_call | Executes fixes for opted-in [Autofix callers](../../docs/ci/WORKFLOWS.md#autofix-routes). |
@@ -129,26 +128,14 @@ autofix workflow automatically switches to a patch-only fallback that relies on 
 uploads `autofix-patch-pr-<PR>` artifacts, and records the delivery path in the PR status comment
 so maintainers know where to fetch the fix.
 
-```yaml
-name: Agents utilities
-on:
-  workflow_dispatch:
-jobs:
-  call:
-    uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@v1
-    with:
-      enable_readiness: true
-      enable_preflight: true
-      enable_watchdog: true
-      enable_diagnostic: false
-```
 Prefer a tagged ref (`@v1`) in consumer repos; reserve `@main` for intentional unreleased testing.
 
 ### Agents Orchestration (Issue #2615)
-Issue #2615 centralises orchestration: **Agents 70 Orchestrator** is the
-scheduled and manual readiness entry point; **Agents 63 Issue Intake** plus
-`reusable-agents-issue-bridge.yml` own issue-driven bridge work. Begin Codex work
-with an [Agent task issue][agent-task-template] (`agents` + `agent:codex` labels).
+Issue #2615 centralises issue-driven automation: **Agents 63 Issue Intake** plus
+`reusable-agents-issue-bridge.yml` own bridge work; the **Codex belt**
+(`agents-71/72/73`) and **Auto-Pilot** own queue and issue-to-PR paths.
+Begin Codex work with an [Agent task issue][agent-task-template]
+(`agents` + `agent:codex` labels).
 
 The lifecycle is:
 
@@ -158,27 +145,15 @@ The lifecycle is:
    In invite mode it prepares the branch and posts a compare link on the issue.
    Open that link and create the PR as its author. In PR mode the bridge can
    open or reuse a PR and post the configured agent comment.
-3. `agents-70-orchestrator.yml` (`schedule` shadow or manual `workflow_dispatch`)
-   runs the readiness/bootstrap pipeline through its reusable init and main
-   workflows.
+3. Apply `agents:auto-pilot` for full inline automation, or let the belt claim
+   `status:ready` issues via `agents-71-codex-belt-dispatcher.yml`.
 
-Manual dispatch exposes `dry_run`, `params_json`, `options_json`, `keepalive_enabled`,
-and `pr_number` (no top-level `enable_bootstrap` field). Set `dry_run=true` for
-preview; put bootstrap settings in `params_json`:
+For manual belt promotion after Gate success, dispatch
+`agents-73-codex-belt-conveyor-dispatch.yml` with `dry_run=true` (default preview)
+before a live run.
 
-```json
-{
-  "enable_bootstrap": true,
-  "bootstrap_issues_label": "agent:codex"
-}
-```
-
-Use `options_json` for advanced overrides. `dry_run` is independent of bootstrap
-toggles—a preview must pass `--raw-field dry_run=true` explicitly.
-
-The guard test `tests/workflows/test_workflow_agents_consolidation.py` enforces the
-single-entry topology and ensures documentation references remain in sync with
-the orchestrator inputs.
+The guard test `tests/workflows/test_workflow_agents_consolidation.py` enforces
+topology invariants for keepalive, belt, and intake surfaces.
 
 ### Cosmetic Repair (Maint 45)
 `maint-45-cosmetic-repair.yml` is the manual guardrail fixer that partners with Post CI. It exists for maintainers to re-run the pytest suite, apply formatting or low-risk hygiene patches via `scripts/ci_cosmetic_repair.py`, and open a labelled follow-up PR when drift is detected.
@@ -343,23 +318,18 @@ Branch protection requires the Gate **`summary`** job per `.github/config/requir
 - Tune dependency severity gating.
 - Tag releases for stable reuse.
 
-1. Navigate to **Actions → Agents 70 Orchestrator → Run workflow**.
-2. For a safe preview, pass `dry_run=true` and nest bootstrap settings in
-   `params_json` (defaults leave `dry_run` false):
+1. Navigate to **Actions → Agents 64 Verify Agent Assignment → Run workflow** for
+   spot issue verification, or **Agents 73 Dispatch Codex Belt Conveyor** for belt
+   promotion preview (`dry_run` default).
+2. For belt promotion preview:
 
    ```bash
-   gh workflow run agents-70-orchestrator.yml \
-     --raw-field dry_run=true \
-     --raw-field params_json='{"enable_bootstrap":true,"bootstrap_issues_label":"agent:codex"}'
+   gh workflow run agents-73-codex-belt-conveyor-dispatch.yml \
+     --raw-field dry_run=true
    ```
 
-3. Review **Dispatch Agents Toolkit** → **Agents Toolkit Run Summary** in the
-   run summary (under **Execute** in `reusable-70-orchestrator-main.yml`).
-4. Rerun as needed; Gate summary jobs echo failing runs in the `ci-failure`
-   rollup when Gate is affected.
-
-`reusable-16-agents.yml` provides the callable readiness, diagnostics, bootstrap,
-keepalive, and watchdog implementation for workflow-call reuse.
+3. Review the dispatch run summary for eligibility decisions and conveyor hand-off.
+4. Gate summary jobs echo failing runs in the `ci-failure` rollup when Gate is affected.
 
 ---
 ## 6. Onboarding Checklist (~7 min)
@@ -370,10 +340,8 @@ keepalive, and watchdog implementation for workflow-call reuse.
    `AUTOFIX_OPT_IN_LABEL`) are set.
 3. Review Gate and its integrated summary jobs on a recent PR to familiarise yourself
    with the consolidated reporting.
-4. Use the manual bootstrap preview above to inspect the selected stages.
-   To select the separate readiness probe, set `"enable_readiness": true` in
-   `params_json` and inspect the readiness job for the result. The probe can
-   create and close a real issue even with `dry_run=true`.
+4. Use **Agents 73 Dispatch Codex Belt Conveyor** with `dry_run=true` to preview
+   belt promotion before a live conveyor call.
 5. Consult `docs/ci/WORKFLOWS.md` for the authoritative workflow roster before
    adding or renaming jobs.
 
@@ -387,6 +355,6 @@ keepalive, and watchdog implementation for workflow-call reuse.
   remain archived in `ARCHIVE_WORKFLOWS.md`.
 
 Refer to the archive if you need to resurrect behaviour for forensic analysis;
-otherwise, prefer the consolidated orchestrator and reusable workflows.
+otherwise, prefer Auto-Pilot, the Codex belt, and keepalive workflows.
 
 [agent-task-template]: https://github.com/stranske/Workflows/issues/new?template=agent_task.yml

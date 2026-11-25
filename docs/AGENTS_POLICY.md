@@ -20,85 +20,65 @@ standalone issue-to-PR queue automation runs through the Codex belt
 ([`.github/workflows/agents-71-codex-belt-dispatcher.yml`](../.github/workflows/agents-71-codex-belt-dispatcher.yml),
 [`.github/workflows/agents-72-codex-belt-worker-dispatch.yml`](../.github/workflows/agents-72-codex-belt-worker-dispatch.yml),
 [`.github/workflows/agents-72-codex-belt-worker.yml`](../.github/workflows/agents-72-codex-belt-worker.yml),
-and [`.github/workflows/agents-73-codex-belt-conveyor.yml`](../.github/workflows/agents-73-codex-belt-conveyor.yml)),
-and [`.github/workflows/agents-70-orchestrator.yml`](../.github/workflows/agents-70-orchestrator.yml)
-remains protected while operating in scheduled dry-run shadow mode with
-input-controlled manual dispatch.
+[`.github/workflows/agents-73-codex-belt-conveyor.yml`](../.github/workflows/agents-73-codex-belt-conveyor.yml),
+and [`.github/workflows/agents-73-codex-belt-conveyor-dispatch.yml`](../.github/workflows/agents-73-codex-belt-conveyor-dispatch.yml)
+for source-only manual belt promotion),
+PR-meta keepalive commands dispatch workers directly
+([#5162](https://github.com/stranske/Workflows/pull/5162)),
+and measured worker capacity is enforced at dispatch
+([#5163](https://github.com/stranske/Workflows/pull/5163)).
 
 ## Covered files
 
 - `.github/workflows/agents-63-issue-intake.yml`
-- `.github/workflows/agents-70-orchestrator.yml`
 - `.github/workflows/agents-guard.yml`
 
-These three workflows anchor this policy and its verification checklist.
+These workflows anchor this policy and its verification checklist.
 The guard workflow (`agents-guard.yml`) is co-protected because it enforces the
 protected-workflow policy in CI; losing or renaming it would remove the
 automated safety net. At runtime, `.github/scripts/agents-guard.js` applies
 `DEFAULT_PROTECTED_PATHS = ['.github/workflows/agents-*.yml']` across the
 `agents-*.yml` surface (excluding the utility workflow
 `agents-64-verify-agent-assignment.yml` and allowlisted legacy or
-consumer-template removals; `.github/workflows/agents-70-orchestrator.yml` and
-`.github/workflows/agents-keepalive-loop.yml` are allowlisted for removal only in
-consumer repositories, where `agents-80-pr-event-hub.yml` and
-`agents-81-gate-followups.yml` replace them, and remain blocked from deletion in
-`stranske/Workflows`). Former consumer wrappers (`agents-61-consumer-compat.yml`,
+consumer-template removals; `.github/workflows/agents-keepalive-loop.yml` is
+allowlisted for removal only in consumer repositories, where
+`agents-80-pr-event-hub.yml` and `agents-81-gate-followups.yml` replace it, and
+remains blocked from deletion in `stranske/Workflows`. The guard allows deletion of the retired Agents 70 dispatcher in Workflows and in consumers. Other protected workflow deletions retain their existing rules. Former consumer wrappers (`agents-61-consumer-compat.yml`,
 `agents-62-consumer.yml`) and `agents-63-chatgpt-issue-sync.yml` must not be
 reintroduced.
 
-## Agents 70 Orchestrator event eligibility and shadow mode
+## Retired Agents 70 orchestrator stack (qualified historical)
 
-[`.github/workflows/agents-70-orchestrator.yml`](../.github/workflows/agents-70-orchestrator.yml)
-declares `schedule` and `workflow_dispatch`. The eligibility action
-(`expected-actions: workflow_dispatch,schedule`) checks events before
-`jobs.init`, which calls
-[`.github/workflows/reusable-70-orchestrator-init.yml`](../.github/workflows/reusable-70-orchestrator-init.yml).
+The following Workflows-local workflows were retired from the active control
+plane: `agents-70-orchestrator.yml`, `reusable-70-orchestrator-init.yml`,
+`reusable-70-orchestrator-main.yml`, and `reusable-16-agents.yml`. Consumer sync
+tombstones and archive entries for the former consumer-facing orchestrator
+shim remain authoritative for receiver repos; local versus hosted consumer seat
+cutover is unchanged by this retirement.
 
-| Event | Trigger and behavior |
-| --- | --- |
-| `schedule` (`*/30 * * * *`) | Runs the shadow preview with forced `dry_run=true`, including the scheduled credential-budget probe. |
-| `workflow_dispatch` | Preserves operator and PR-meta calls. `inputs.dry_run` defaults to `'false'`; operators can request a preview. |
-| `workflow_run` (`Gate` `completed`) | The shared `agents-keepalive-loop.yml` handles the event. The old Agents 70 registration reached only the eligibility job. |
-| `repository_dispatch` (`agents-orchestrator-ping`) | The former registration was denied before `jobs.init`; callers use the `workflow_dispatch` inputs above. |
-
-### Shadow rationale and undecided retirement decision
-
-- **Shadow rationale (historical attribution qualified).** Inline comments at
-  the original Agents 70 workflow describe scheduled `dry_run=true` as the A1
-  orchestrator-retirement shadow (historically
-  attributed to commit `0ecdff0f3` / PR `#2351`; this attribution is qualified to
-  authored git/workflow history until runtime shadow coverage is independently
-  verified). The shadow forces scheduled orchestrator runs to execute without
-  writes while evaluating whether replacement workflows cover Agents 70's roles.
-- **Authored replacement sources vs. observed coverage.** In workflow source,
-  Gate-completion keepalive evaluations and manual retries are authored in
-  [`.github/workflows/agents-keepalive-loop.yml`](../.github/workflows/agents-keepalive-loop.yml)
-  (`workflow_run` on `Gate` `completed`, `pull_request` `labeled`, and
-  `workflow_dispatch`), and hourly level-based stalled-PR resyncs are authored in
-  [`.github/workflows/agents-keepalive-sweep.yml`](../.github/workflows/agents-keepalive-sweep.yml)
-  (`schedule` `23 * * * *` and `workflow_dispatch`). Inspecting workflow YAML
-  establishes only this authored configuration; it does **not** prove production
-  liveness or complete runtime coverage of the replacement loop and sweep.
-- **Undecided delete-versus-restore question and required evidence.** Whether to
-  retire (`delete` `agents-70-orchestrator.yml` and
-  `reusable-70-orchestrator-main.yml`) or `restore` live automatic execution
-  remains **undecided**. Before making a delete-versus-restore decision,
-  maintainers must gather:
-  1. **Observed runtime coverage evidence** from production Actions runs and
-     artifacts showing that `agents-keepalive-loop.yml`,
-     `agents-keepalive-sweep.yml`, and the standalone `agents-71/72/73` belt
-     workflows sustain keepalive progression, stalled-PR recovery, readiness /
-     bootstrap / diagnostics, and belt handoffs without unrecovered stalls.
-  2. **Caller and guard dependency audit** covering remaining references to
-     `agents-70-orchestrator.yml` (such as
-     `.github/scripts/agents_pr_meta_orchestrator.js`,
-     `.github/scripts/keepalive_gate.js`, `.github/scripts/agents-guard.js`, and
-     operator runbooks) so removal or restoration does not strand dispatches or
-     violate guard contracts.
-  3. **Explicit maintainer disposition** in a tracked issue, with the
-     resulting pull request following the applicable Health 45 controls.
-     Until the decision lands, `agents-70-orchestrator.yml` remains
-     protected under this policy.
+- **Shadow mode (historical, qualified).** Until retirement, scheduled Agents 70
+  runs forced `dry_run=true` as an A1 orchestrator-retirement shadow (historically
+  attributed to commit `0ecdff0f3` / PR `#2351`; qualified to authored git/workflow
+  history). That shadow is no longer an active operator surface.
+- **Replacement surfaces (current).** Gate-completion keepalive runs in
+  [`.github/workflows/agents-keepalive-loop.yml`](../.github/workflows/agents-keepalive-loop.yml);
+  hourly stalled-PR resync runs in
+  [`.github/workflows/agents-keepalive-sweep.yml`](../.github/workflows/agents-keepalive-sweep.yml);
+  issue-to-PR queue work runs through the standalone Codex belt
+  (`agents-71`/`72`/`73`); full issue pipelines use
+  [`.github/workflows/agents-auto-pilot.yml`](../.github/workflows/agents-auto-pilot.yml);
+  ad-hoc issue verification uses
+  [`.github/workflows/agents-64-verify-agent-assignment.yml`](../.github/workflows/agents-64-verify-agent-assignment.yml).
+- **PR-meta dispatch (#5162).** `agents-pr-meta-v4.yml` submits keepalive worker
+  commands directly rather than routing through the retired orchestrator init/main
+  pair; measured worker capacity at dispatch ships with
+  [#5163](https://github.com/stranske/Workflows/pull/5163).
+- **Belt promotion dispatch.** Queue promotion after Gate success uses
+  [`agents-73-codex-belt-conveyor-dispatch.yml`](../.github/workflows/agents-73-codex-belt-conveyor-dispatch.yml):
+  manual `workflow_dispatch` only (no schedule), `dry_run` defaulting to preview,
+  bounded promotion count, live eligibility selection, and a call into the retained
+  `agents-73-codex-belt-conveyor.yml` callable. A manually supplied target cannot
+  bypass the eligibility filter.
 
 ## Protection layers
 
@@ -259,9 +239,9 @@ When one of these scenarios applies:
   with the change.
 - **Troubleshooting a Gate or repository event.** Inspect the shared
   `agents-keepalive-loop.yml` for Gate completions and
-  `agents-keepalive-sweep.yml` for scheduled recovery. Agents 70 accepts
-  `workflow_dispatch` for manual and PR-meta calls, and its `schedule` runs
-  with `dry_run=true` for the credential-budget probe and preview.
+  `agents-keepalive-sweep.yml` for scheduled recovery. PR-meta keepalive commands
+  dispatch the measured worker path directly ([#5162](https://github.com/stranske/Workflows/pull/5162),
+  [#5163](https://github.com/stranske/Workflows/pull/5163)).
 
 ## Verification checklist
 

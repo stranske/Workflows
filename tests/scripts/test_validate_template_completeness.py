@@ -88,6 +88,7 @@ def test_get_manifest_workflows_extracts_consumer_workflow_targets(tmp_path: Pat
         ("agents-debug-issue-event.yml", False),
         ("agents-weekly-metrics.yml", False),
         ("agents-moderate-connector.yml", False),
+        ("agents-73-codex-belt-conveyor-dispatch.yml", False),
         ("agents-pr-meta-v4.yml", False),
         ("agents-autofix-loop.yml", False),
         ("agents-63-issue-intake.yml", False),

@@ -8,8 +8,7 @@
 ## Authoritative sections
 
 - [Covered files](../AGENTS_POLICY.md#covered-files)
-- [Agents 70 Orchestrator event eligibility and shadow mode](../AGENTS_POLICY.md#agents-70-orchestrator-event-eligibility-and-shadow-mode)
-- [Shadow rationale and undecided retirement decision](../AGENTS_POLICY.md#shadow-rationale-and-undecided-retirement-decision)
+[Retired Agents 70 stack](../AGENTS_POLICY.md#retired-agents-70-orchestrator-stack-qualified-historical)
 - [Protection layers](../AGENTS_POLICY.md#protection-layers)
 - [Required checks and status contexts](../AGENTS_POLICY.md#required-checks-and-status-contexts)
 - [How to verify required checks](../AGENTS_POLICY.md#how-to-verify-required-checks)

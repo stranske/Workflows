@@ -66,12 +66,12 @@ Before any dispatch, PR‑meta adds 🚀 to the **activation comment** (the huma
 
 At the **dispatch edge** PR‑meta computes:
 
-- `active` = number of **Agents 70 Orchestrator** runs for **this PR** in **{queued, in_progress}**
+- `active` = number of **keepalive worker** runs for **this PR** in **{queued, in_progress}** (measured capacity shipped in [#5163](https://github.com/stranske/Workflows/pull/5163))
 - `cap` = from label `agents:max-runs:X` (default 2; clamp 1..5)
 
 If `active ≥ cap` ⇒ **do not** dispatch; report `reason=cap-reached`.
 
-> Implementation note: filter by orchestrator workflow name/id and PR discriminator (e.g., PR number embedded in orchestrator `concurrency.group`).
+> Implementation note: filter by the dispatched worker workflow name/id and PR discriminator (e.g., PR number embedded in keepalive `concurrency.group`).
 
 ---
 
@@ -82,16 +82,15 @@ If `active ≥ cap` ⇒ **do not** dispatch; report `reason=cap-reached`.
 DISPATCH: ok=<true|false> path=<comment|gate> reason=<ok|missing-label|no-human-activation|gate-pending|gate-failed|cap-reached|no-linked-pr|no-activation-found|lock-held|instruction-empty> pr=#<PR_NUMBER> activation=<COMMENT_ID|none> agent=<ALIAS> head=<SHA7> cap=<CAP> active=<ACTIVE> trace=<TRACE|->
 
 
-**Orchestrator — three lines per run**
+**Belt keepalive worker**
 
-INSTRUCTION: ok=<true|false> author=<stranske|stranske-automation-bot> comment=<COMMENT_ID|none> ack=<ok|fail> head=<SHA7> trace=<TRACE>
-WORKER: action=<execute|skip> reason=<new-instruction|no-new-instruction-and-head-unchanged|cap-reached|blocked> pr=#<PR_NUMBER> head=<SHA7> instr=<COMMENT_ID|none> trace=<TRACE>
-SYNC: action=<update-branch|create-pr|escalate|skip> head_changed=<true|false> trace=<TRACE>
+When `inputs.keepalive` is true and the record step runs, its Summary contains one line.
 
+```text
+WORKER: action=<action> reason=<reason> pr=<#number|#?> head=<SHA7|unknown> instr=<comment_id|0> trace=<trace|n/a>
+```
 
-**Rules**
-- Always print (even when skipping/failing).
-- Never post these to the PR; **Summary tab only**.
+If a preceding step fails or the job is cancelled before recording, inspect the step logs for the failure. PR-meta logs the instruction lookup as `INSTRUCTION: comment_id=… trace=… source=… seen=… deduped=…`. The worker does not post these diagnostics on the PR.
 
 ## 6A) Terminal Disposition Coverage Preflight
 
@@ -158,7 +157,7 @@ supplied.
 
 1) If Gate **not** success → `DISPATCH ok=false path=comment reason=gate-pending …`
 2) If Gate success → evaluate run‑cap, markers, author allowlist, instruction extraction.
-3) If everything OK → **dispatch** orchestrator and print `ok=true`.
+3) If everything OK → **dispatch** the keepalive worker ([#5162](https://github.com/stranske/Workflows/pull/5162)) and print `ok=true`.
 
 ### Lane B — `workflow_run` (Gate)
 **Preconditions:** Gate concluded success.
@@ -249,7 +248,7 @@ Always print `SYNC:` line.
   - _Before dispatch_: run‑cap; instruction extraction guard.
   - _After decision_: print `DISPATCH:` (always).
 
-**Orchestrator (`.github/workflows/agents-70-orchestrator.yml`)**
+**Keepalive worker (`agents-keepalive-loop.yml` and registry-backed runners)**
 
 - _After token selection_: author invariant (optional hard fail).
 - _After post + ACK_: print `INSTRUCTION:`.

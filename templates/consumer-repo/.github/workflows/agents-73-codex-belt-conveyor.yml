@@ -274,6 +274,8 @@ jobs:
       - name: Load PR details
         id: pr
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -299,6 +301,16 @@ jobs:
             }
             if (data.draft) {
               core.setFailed(`PR #${prNumber} is still marked as draft.`);
+              return;
+            }
+            const headSha = String(data.head?.sha || '').trim().toLowerCase();
+            const expectedHead = String(process.env.EXPECTED_HEAD_SHA || '').trim().toLowerCase();
+            if (!/^[0-9a-f]{40}$/.test(headSha)) {
+              core.setFailed(`Unable to determine the live head SHA for PR #${prNumber}.`);
+              return;
+            }
+            if (expectedHead && expectedHead !== headSha) {
+              core.setFailed(`PR #${prNumber} head changed after belt selection.`);
               return;
             }
             const headBranch = data.head && data.head.ref ? data.head.ref : '';
@@ -329,12 +341,14 @@ jobs:
             }
 
             core.setOutput('issue', String(inferredIssue || expectedIssue || ''));
-            core.setOutput('head_sha', data.head && data.head.sha ? data.head.sha : '');
+            core.setOutput('head_sha', headSha);
             core.setOutput('base', data.base && data.base.ref ? data.base.ref : '');
 
       - name: Ensure Gate succeeded
         id: gate
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          CHECKED_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -348,8 +362,8 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
-            const headSha = '${{ inputs.head_sha }}'.trim() || '${{ steps.pr.outputs.head_sha }}';
-            if (!headSha) {
+            const headSha = process.env.CHECKED_HEAD_SHA || '';
+            if (!/^[0-9a-f]{40}$/.test(headSha)) {
               core.setFailed('Unable to determine head SHA for status inspection.');
               return;
             }
@@ -439,6 +453,8 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run != 'true' && steps.bootstrap.outputs.bootstrap != 'true' }}
         id: merge
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          CHECKED_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         with:
           github-token: ${{ env.GH_CONVEYOR_TOKEN }}
           script: |
@@ -454,6 +470,11 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
             const prNumber = Number('${{ inputs.pr_number }}');
+            const headSha = process.env.CHECKED_HEAD_SHA || '';
+            if (!/^[0-9a-f]{40}$/.test(headSha)) {
+              core.setFailed('Unable to determine the validated head SHA for merge.');
+              return;
+            }
             const { owner, repo } = context.repo;
             try {
               await assertRuntimeAcMergeAllowed({
@@ -465,7 +486,7 @@ jobs:
                 withRetry,
                 source: 'agents-73-codex-belt-conveyor',
               });
-              await withRetry(() => github.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' }));
+              await withRetry(() => github.rest.pulls.merge({ owner, repo, pull_number: prNumber, sha: headSha, merge_method: 'squash' }));
               core.setOutput('merged', 'true');
             } catch (error) {
               core.setFailed(`Failed to merge PR #${prNumber}: ${error.message}`);

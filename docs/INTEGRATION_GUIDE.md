@@ -187,14 +187,11 @@ Coverage evidence: `tests/workflows/test_reusable_workflow_outputs_doc.py` loads
 
 | Workflow | Outputs (name → description) |
 |----------|-----------------------------|
-| `reusable-16-agents.yml` | `readiness_report` → JSON payload from the readiness probe; `readiness_table` → Markdown table summarizing assignable agents. |
-| `reusable-70-orchestrator-init.yml` | `rate_limit_safe`, `rate_limit_state`, `credential_pool_id`, `has_work`, `token_source`; keepalive/run toggles (`enable_keepalive`, `keepalive_pause_label`, `keepalive_round`, `keepalive_pr`, `keepalive_max_retries`, `keepalive_trace`); readiness/diagnostic toggles (`enable_readiness`, `readiness_agents`, `readiness_custom_logins`, `require_all`, `enable_preflight`, `enable_diagnostic`, `diagnostic_attempt_branch`, `diagnostic_dry_run`, `enable_verify_issue`, `verify_issue_number`, `verify_issue_valid_assignees`); bootstrap/worker settings (`enable_bootstrap`, `bootstrap_issues_label`, deprecated always-false `draft_pr`, `dispatcher_force_issue`, `worker_max_parallel`, `conveyor_max_merges`); misc orchestrator options (`codex_user`, `codex_command_phrase`, `enable_watchdog`, `dry_run`, `options_json`). |
 | `reusable-10-ci-python.yml` | None (artifacts only: coverage, metrics, summaries). |
 | `reusable-11-ci-node.yml` | None (artifacts only: coverage + junit when enabled). |
 | `reusable-12-ci-docker.yml` | None (logs only). |
 | `reusable-13-cross-repo-smoke.yml` | None (logs only). |
 | `reusable-18-autofix.yml` | None (patch artifacts + summaries). |
-| `reusable-70-orchestrator-main.yml` | None (consumes init outputs; exports status via summaries). |
 | `reusable-agents-issue-bridge.yml` | None (bridge PR creation artifacts/logs). |
 
 ### Reusable workflow output audit
@@ -205,43 +202,8 @@ Reusable workflows with caller-facing `workflow_call` outputs:
 
 | Workflow | Output | Type | Description | Example |
 | --- | --- | --- | --- | --- |
-| `reusable-16-agents.yml` | `readiness_report` | string (JSON) | JSON report emitted by the readiness probe when enabled. | `needs.agents.outputs.readiness_report` |
-| `reusable-16-agents.yml` | `readiness_table` | string (Markdown) | Markdown table emitted by the readiness probe when enabled. | `needs.agents.outputs.readiness_table` |
 | `reusable-20-pr-meta.yml` | `keepalive_detected` | string (boolean-like) | Whether a keepalive comment was detected. | `needs.pr_meta.outputs.keepalive_detected` |
 | `reusable-20-pr-meta.yml` | `keepalive_reason` | string | Reason for the keepalive dispatch decision. | `needs.pr_meta.outputs.keepalive_reason` |
-| `reusable-70-orchestrator-init.yml` | `rate_limit_safe` | string (boolean-like) | Whether rate limit is safe to proceed. | `needs.orchestrator-init.outputs.rate_limit_safe` |
-| `reusable-70-orchestrator-init.yml` | `rate_limit_state` | string | Rate-limit preflight state: `safe`, `low`, or `unknown`. | `needs.orchestrator-init.outputs.rate_limit_state` |
-| `reusable-70-orchestrator-init.yml` | `credential_pool_id` | string | Non-secret pool consumed by idle-precheck, or the initial pool if deferred. | `needs.orchestrator-init.outputs.credential_pool_id` |
-| `reusable-70-orchestrator-init.yml` | `has_work` | string (boolean-like) | Whether there is work to do. | `needs.orchestrator-init.outputs.has_work` |
-| `reusable-70-orchestrator-init.yml` | `token_source` | string | Which token source downstream jobs should use. | `needs.orchestrator-init.outputs.token_source` |
-| `reusable-70-orchestrator-init.yml` | `enable_readiness` | string (boolean-like) | Resolved flag for the readiness probe. | `needs.orchestrator-init.outputs.enable_readiness` |
-| `reusable-70-orchestrator-init.yml` | `readiness_agents` | string | Comma-separated agent keys for readiness. | `needs.orchestrator-init.outputs.readiness_agents` |
-| `reusable-70-orchestrator-init.yml` | `readiness_custom_logins` | string | Comma-separated custom logins for readiness. | `needs.orchestrator-init.outputs.readiness_custom_logins` |
-| `reusable-70-orchestrator-init.yml` | `require_all` | string (boolean-like) | Whether readiness should fail if any requested agent is missing. | `needs.orchestrator-init.outputs.require_all` |
-| `reusable-70-orchestrator-init.yml` | `enable_preflight` | string (boolean-like) | Resolved flag for the Codex preflight probe. | `needs.orchestrator-init.outputs.enable_preflight` |
-| `reusable-70-orchestrator-init.yml` | `codex_user` | string | Codex connector login override for preflight or bootstrap. | `needs.orchestrator-init.outputs.codex_user` |
-| `reusable-70-orchestrator-init.yml` | `codex_command_phrase` | string | Command phrase to post when triggering Codex. | `needs.orchestrator-init.outputs.codex_command_phrase` |
-| `reusable-70-orchestrator-init.yml` | `enable_diagnostic` | string (boolean-like) | Resolved flag for the bootstrap diagnostic job. | `needs.orchestrator-init.outputs.enable_diagnostic` |
-| `reusable-70-orchestrator-init.yml` | `diagnostic_attempt_branch` | string (boolean-like) | Whether the diagnostic attempts to create a branch. | `needs.orchestrator-init.outputs.diagnostic_attempt_branch` |
-| `reusable-70-orchestrator-init.yml` | `diagnostic_dry_run` | string (boolean-like) | Whether the diagnostic runs in dry-run mode. | `needs.orchestrator-init.outputs.diagnostic_dry_run` |
-| `reusable-70-orchestrator-init.yml` | `enable_verify_issue` | string (boolean-like) | Whether the issue-verification step should run. | `needs.orchestrator-init.outputs.enable_verify_issue` |
-| `reusable-70-orchestrator-init.yml` | `verify_issue_number` | string (number-like) | Issue number to verify when issue verification is enabled. | `needs.orchestrator-init.outputs.verify_issue_number` |
-| `reusable-70-orchestrator-init.yml` | `enable_watchdog` | string (boolean-like) | Resolved flag for watchdog checks. | `needs.orchestrator-init.outputs.enable_watchdog` |
-| `reusable-70-orchestrator-init.yml` | `enable_keepalive` | string (boolean-like) | Resolved flag for keepalive sweeps. | `needs.orchestrator-init.outputs.enable_keepalive` |
-| `reusable-70-orchestrator-init.yml` | `keepalive_pause_label` | string | Label name that pauses keepalive when present. | `needs.orchestrator-init.outputs.keepalive_pause_label` |
-| `reusable-70-orchestrator-init.yml` | `keepalive_max_retries` | string (number-like) | Maximum keepalive retries permitted for the run. | `needs.orchestrator-init.outputs.keepalive_max_retries` |
-| `reusable-70-orchestrator-init.yml` | `enable_bootstrap` | string (boolean-like) | Resolved flag for Codex bootstrap. | `needs.orchestrator-init.outputs.enable_bootstrap` |
-| `reusable-70-orchestrator-init.yml` | `bootstrap_issues_label` | string | Label to select issues for bootstrap. | `needs.orchestrator-init.outputs.bootstrap_issues_label` |
-| `reusable-70-orchestrator-init.yml` | `draft_pr` | string (boolean-like) | Deprecated compatibility output; always `false` because automation PRs are ready for review. | `needs.orchestrator-init.outputs.draft_pr` |
-| `reusable-70-orchestrator-init.yml` | `verify_issue_valid_assignees` | string | Comma-separated logins considered valid for issue verification. | `needs.orchestrator-init.outputs.verify_issue_valid_assignees` |
-| `reusable-70-orchestrator-init.yml` | `dry_run` | string (boolean-like) | Global dry-run toggle for downstream jobs. | `needs.orchestrator-init.outputs.dry_run` |
-| `reusable-70-orchestrator-init.yml` | `options_json` | string (JSON) | Resolved options JSON passed to the orchestrator. | `needs.orchestrator-init.outputs.options_json` |
-| `reusable-70-orchestrator-init.yml` | `dispatcher_force_issue` | string (number-like) | Forced issue number for the dispatcher, when set. | `needs.orchestrator-init.outputs.dispatcher_force_issue` |
-| `reusable-70-orchestrator-init.yml` | `worker_max_parallel` | string (number-like) | Maximum parallel worker runs to allow. | `needs.orchestrator-init.outputs.worker_max_parallel` |
-| `reusable-70-orchestrator-init.yml` | `conveyor_max_merges` | string (number-like) | Maximum merges the conveyor should perform. | `needs.orchestrator-init.outputs.conveyor_max_merges` |
-| `reusable-70-orchestrator-init.yml` | `keepalive_trace` | string | Keepalive trace identifier propagated to downstream runs. | `needs.orchestrator-init.outputs.keepalive_trace` |
-| `reusable-70-orchestrator-init.yml` | `keepalive_round` | string | Keepalive round identifier. | `needs.orchestrator-init.outputs.keepalive_round` |
-| `reusable-70-orchestrator-init.yml` | `keepalive_pr` | string (number-like) | Keepalive target PR number, when set. | `needs.orchestrator-init.outputs.keepalive_pr` |
 | `reusable-bot-comment-handler.yml` | `comments_found` | string (boolean-like) | Whether unresolved bot comments were found. | `needs.bot-comments.outputs.comments_found` |
 | `reusable-bot-comment-handler.yml` | `comments_count` | string (number-like) | Number of unresolved bot comments found. | `needs.bot-comments.outputs.comments_count` |
 | `reusable-bot-comment-handler.yml` | `agent_triggered` | string (boolean-like) | Whether the agent was triggered to address comments. | `needs.bot-comments.outputs.agent_triggered` |
@@ -330,63 +292,14 @@ Reusable workflows without `workflow_call` outputs:
 | `reusable-12-ci-docker.yml` | No `workflow_call` outputs; logs Docker smoke results. |
 | `reusable-13-cross-repo-smoke.yml` | No `workflow_call` outputs; logs cross-repo smoke command output. |
 | `reusable-18-autofix.yml` | No `workflow_call` outputs; publishes patch artifacts and summaries. |
-| `reusable-70-orchestrator-main.yml` | No `workflow_call` outputs; consumes init outputs and reports status via summaries. |
 | `reusable-agents-issue-bridge.yml` | No `workflow_call` outputs; creates bridge PR artifacts and logs. |
 | `reusable-agents-pr-health.yml` | No `workflow_call` outputs; reports health through checks and summaries. |
 | `reusable-agents-verifier.yml` | No `workflow_call` outputs; posts verifier reports and artifacts. |
 
 ### Using outputs in dependent jobs
 
-The examples below show the two main output-consumption patterns: gating a downstream reusable workflow from orchestrator initialization, and passing a Markdown output into a reporting job.
-
-Orchestrator chaining example:
-
-```yaml
-jobs:
-  orchestrator-init:
-    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-init.yml@main
-
-  orchestrator-main:
-    needs: orchestrator-init
-    if: needs.orchestrator-init.outputs.has_work == 'true' && needs.orchestrator-init.outputs.rate_limit_safe == 'true'
-    uses: stranske/Workflows/.github/workflows/reusable-70-orchestrator-main.yml@main
-    with:
-      init_success: ${{ needs.orchestrator-init.result }}
-      enable_keepalive: ${{ needs.orchestrator-init.outputs.enable_keepalive }}
-      keepalive_pause_label: ${{ needs.orchestrator-init.outputs.keepalive_pause_label }}
-      keepalive_round: ${{ needs.orchestrator-init.outputs.keepalive_round }}
-      keepalive_pr: ${{ needs.orchestrator-init.outputs.keepalive_pr }}
-      options_json: ${{ needs.orchestrator-init.outputs.options_json }}
-      token_source: ${{ needs.orchestrator-init.outputs.token_source }}
-```
-
-Agent readiness example (posting the Markdown table):
-
-```yaml
-jobs:
-  agents-readiness:
-    uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main
-    with:
-      enable_readiness: 'true'
-
-  comment-readiness:
-    needs: agents-readiness
-    if: needs.agents-readiness.outputs.readiness_table != ''
-    runs-on: ubuntu-latest
-    steps:
-      - name: Post readiness table
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const table = `## Agent Readiness\n\n${{ toJSON(needs.agents-readiness.outputs.readiness_table) }}`;
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: table,
-            });
-```
-
+The examples below show output-consumption patterns for PR-meta keepalive detection
+and registry-backed agent runners.
 
 ### Agent Workflows
 
