@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { resolveOrchestratorParams } = require('../../../../.github/scripts/agents_orchestrator_resolve.js');
+const { resolveOrchestratorParams } = require('../../../../templates/consumer-repo/.github/scripts/agents_orchestrator_resolve.js');
 
 async function main() {
   const scenarioPath = process.argv[2];

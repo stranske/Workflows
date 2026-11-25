@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { resolveOrchestratorParams } = require('../agents_orchestrator_resolve');
+const { resolveOrchestratorParams } = require('../../../templates/consumer-repo/.github/scripts/agents_orchestrator_resolve.js');
 
 function createSummary() {
   return {

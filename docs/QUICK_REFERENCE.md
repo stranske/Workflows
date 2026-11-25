@@ -16,15 +16,12 @@ interchangeable.** Pick by scope first. Full detail:
 | Scope | Label | How to pause | How to resume |
 |-------|-------|--------------|---------------|
 | **One PR** (canonical) | `agents:paused` | Add the label to the PR | Remove the label; next Gate/keepalive event resumes |
-| **One repo** | `keepalive:paused` | **Create** the label in the repo | **Delete** the label from the repo |
 | One PR (legacy alias) | `agents:pause` | Add to the PR | See trap below — do not just remove |
 
-> **Existence-semantics trap (`keepalive:paused`).** This label pauses *every*
-> keepalive run in the repository **by merely existing** — it does **not** need to
-> be applied to any issue or PR. To pause, create the label; to resume, **delete
-> the label from the repo**. Removing it from an issue/PR does nothing; the repo
-> stays paused as long as the label exists. Consumer:
-> `.github/scripts/agents_orchestrator_resolve.js` (`KEEPALIVE_PAUSE_LABEL`).
+> **Former repository-wide pause (`keepalive:paused`).** Agents 70 used the
+> existence of this repository label to pause keepalive. Restoring an equivalent
+> repository control remains open. See the
+> [Pause/Resume Runbook](ops/PAUSE_RESUME_RUNBOOK.md#former-repository-wide-pause-keepalivepaused).
 
 > **Legacy `agents:pause` trap.** `agents:pause` is a legacy alias still honored
 > by `keepalive_loop.js` and the PR-health checks (but **not** by
