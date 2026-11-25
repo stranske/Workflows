@@ -38,7 +38,9 @@ This document describes all labels that trigger automated workflows or affect CI
 | `needs-human` | Issue or PR labeled | Blocks automation until a human clears the blocker
 | `security:bypass-guard` | Issue or PR labeled | Bypasses prompt-injection guard after explicit approval
 | `agents:allow-change` | PR labeled | Allows guarded automation changes that require explicit permission
+| `agent-high-privilege` | PR labeled | Selects the `agent-high-privilege` GitHub environment for keepalive, autofix, and Gate jobs instead of `agent-standard`
 | `automerge` | PR labeled | Marks a completed agent PR for guarded automerge
+| `risk:low` / `risk:medium` / `risk:high` | PR labeled | Risk classification labels (`risk:low` is checked by guarded automerge and `health-40-repo-selfcheck.yml`)
 | `runtime-ac` / runtime verification labels | PR labeled | Blocks external auto-merge until local Orchestrator runtime AC checks pass
 | `status:in-progress` | Issue labeled | Marks an issue claimed by the belt dispatcher/worker
 | `from:<agent>` | PR labeled | Records the automation agent that produced the PR
@@ -782,6 +784,39 @@ Agents 81 is the active consumer guarded merge route.
 
 ---
 
+### `agent-high-privilege`
+
+**Applies to:** Pull Requests
+
+**Trigger:** Keepalive, autofix, and Gate environment selection
+
+**Effect:**
+1. Switches eligible jobs from the default `agent-standard` environment to `agent-high-privilege`.
+2. Defined in `.github/labels.yml`.
+
+**Consumers:** `.github/scripts/keepalive_loop.js`,
+`.github/workflows/agents-keepalive-loop.yml`,
+`.github/workflows/agents-autofix-loop.yml`,
+`.github/workflows/pr-00-gate.yml`.
+
+---
+
+### `risk:low` / `risk:medium` / `risk:high`
+
+**Applies to:** Pull Requests
+
+**Trigger:** Guarded automerge eligibility and repo self-check
+
+**Effect:**
+1. Classifies PR change risk (`risk:low` = small/safe automerge candidate, `risk:medium` = moderate change, `risk:high` = large or sensitive change).
+2. `risk:low` is checked by guarded automerge (`merge_manager.js`) and included in `health-40-repo-selfcheck.yml`'s `REQUIRED_LABELS`.
+3. Defined in `.github/labels.yml`.
+
+**Consumers:** `.github/scripts/merge_manager.js`,
+`.github/workflows/health-40-repo-selfcheck.yml`.
+
+---
+
 ### `status:in-progress`
 
 **Applies to:** Issues
@@ -812,7 +847,7 @@ paths share the timeout in `.github/scripts/belt_claim_reclaim.js`.
 
 **Effect:**
 1. Records the automation source that produced a PR, such as `from:codex`,
-   `from:claude`, `from:cursor`, `from:muse`, `from:copilot`, or `from:auto`.
+   `from:claude`, `from:cursor`, `from:muse`, `from:gemini`, `from:copilot`, or `from:auto`.
 2. Helps merge and verifier tooling distinguish agent-origin PRs from manual PRs.
 
 **Consumers:** `.github/scripts/merge_manager.js`,
@@ -844,6 +879,14 @@ These labels are used for categorization but do not trigger workflows.
 **Effect:** Indicates the issue needs formatting to AGENT_ISSUE_TEMPLATE structure.
 
 **Applied by:** Issue lint workflow (when enabled)
+
+---
+
+### `reminder`
+
+**Applies to:** Issues or Pull Requests
+
+**Effect:** Marks an item as a reminder for future action (defined in `.github/labels.yml`).
 
 ---
 
