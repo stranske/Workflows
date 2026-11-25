@@ -51,7 +51,11 @@ def render_payload(root: Path, repositories: list[str]) -> dict:
             target = entry["target"]
             if entry["is_directory"]:
                 target += "/" + child.relative_to(source).as_posix()
-            content = hashlib.sha256(child.read_bytes()).hexdigest()
+            content = (
+                hashlib.sha256(child.read_bytes()).hexdigest()
+                if entry["is_directory"]
+                else entry["content_sha256"].removeprefix("sha256:")
+            )
             executable = bool(child.stat().st_mode & 0o111)
             for repository in recipients:
                 files[repository][target] = {

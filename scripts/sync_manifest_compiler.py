@@ -156,7 +156,7 @@ class DirectorySourceInventory:
 
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
-        self.tracked: list[str] | None = None
+        self.tracked: list[bytes] | None = None
 
     def files(self, path: Path) -> list[Path]:
         if (self.root / ".git").exists():
@@ -167,16 +167,17 @@ class DirectorySourceInventory:
                     )
                 except subprocess.CalledProcessError as exc:
                     raise ManifestCompileError(["cannot list tracked directory sources"]) from exc
-                self.tracked = sorted({os.fsdecode(name) for name in names.split(b"\0") if name})
+                self.tracked = sorted(set(names.rstrip(b"\0").split(b"\0"))) if names else []
             # Git indexes the physical directory. Keep the logical alias in the plan.
             relative = path.resolve().relative_to(self.root)
             prefix = "" if relative == Path(".") else relative.as_posix() + "/"
+            raw_prefix = os.fsencode(prefix)
             children: list[Path] = []
-            for index in range(bisect_left(self.tracked, prefix), len(self.tracked)):
+            for index in range(bisect_left(self.tracked, raw_prefix), len(self.tracked)):
                 name = self.tracked[index]
-                if not name.startswith(prefix):
+                if not name.startswith(raw_prefix):
                     break
-                children.append(path / Path(name).relative_to(relative))
+                children.append(path / os.fsdecode(name[len(raw_prefix) :]))
             if children:
                 return sorted(child for child in children if child.is_file())
         return sorted(child for child in path.rglob("*") if child.is_file())
@@ -297,11 +298,9 @@ def _resolve_source(
                 f"{context}: source {source!r} is not deliverable; searched {searched}",
             ],
         )
-    root = repo_root.resolve()
-    chosen = next(candidate for candidate in candidates if candidate.exists())
-    try:
-        chosen.resolve().relative_to(root)
-    except ValueError:
+    root = repo_root
+    chosen = existing[0]
+    if not chosen.resolve().is_relative_to(root):
         return "", None, [*errors, f"{context}: source {source!r} escapes repository root"]
     if chosen.is_dir():
         for child in chosen.rglob("*"):
@@ -327,7 +326,8 @@ def _resolve_source(
                         f"{context}: source {source!r} contains an invalid symlink",
                     ],
                 )
-    return chosen.relative_to(repo_root).as_posix(), chosen, errors
+    logical = source if selected_source_tree == "root" else f"templates/consumer-repo/{source}"
+    return logical, chosen, errors
 
 
 def resolve_source_path(
