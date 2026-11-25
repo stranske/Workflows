@@ -68,10 +68,10 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 158/198 completed · 1 drainable now · 39 blocked |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
-| 3 · Scripts, tools and packages | 307/752 | 22/43 | — |
+| 3 · Scripts, tools and packages | 311/752 | 22/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 817/1,540 | 110/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 192/334 | 26/47 | — |
-| **Total** | **2,883/5,554** | **266/487** | **158/198** |
+| **Total** | **2,887/5,554** | **266/487** | **158/198** |
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
