@@ -187,7 +187,7 @@ validation record. Source #3904 remains open until that evidence is dispositione
 Current candidate validation: **40,836 PASS**, exit0, 962.25s, Python3.12.2,
 four xdist workers/loadgroup, repository coverage configuration. Raw candidate
 JUnit, coverage JSON, console and exact runtime versions are retained in
-candidate-validation.tar.gz with a member manifest. The CI collection behavior
+[the historical candidate bundle][3904-candidate-history] with a member manifest. The CI collection behavior
 also has actual base RED (two assertions) / current GREEN from the canonical
 Gate deliberate-break checker. Twenty-four focused workflow tests pass.
 
@@ -205,6 +205,39 @@ each produce assertion RED and restored GREEN. Console output is retained in
 command, Python version, exit codes and byte-identical restoration hashes.
 These audit checks are separate from the production classifier/floor mutations
 in the existing archive and do not close the outstanding coverage/hosted gates.
+
+## Recover the candidate and mutation bundles
+
+The two historical bundles are kept at their original Git revision. The
+[candidate validation bundle][3904-candidate-history] contains the console,
+JUnit and coverage for the 40,836-case run. The
+[mutation and map bundle][3904-mutation-history] contains both production
+mutation pairs and the projection audit. The
+[candidate manifest](candidate-validation-manifest.json) and
+[mutation manifest](mutation-and-map-manifest.json) list every member and its
+SHA-256. From the repository root, recover both exact bundles into a temporary
+directory, including from a shallow checkout:
+
+```sh
+source=00f43f81e51c4f8b9a057ac51f7e3c2d870d7769
+evidence=docs/evidence/issue-3904
+archive_dir=$(mktemp -d)
+git fetch --no-tags --depth=1 https://github.com/stranske/Workflows.git "$source"
+for archive in candidate-validation.tar.gz mutation-and-map-proof.tar.gz; do
+  git show "$source:$evidence/$archive" > "$archive_dir/$archive" || exit 1
+done
+(
+  cd "$archive_dir" || exit 1
+  shasum -a 256 -c <<'CHECKSUMS'
+7ea7dec6a70f7dc8bea5434efd5821d11a078b8c8e738d37fedb109f98b35b4b  candidate-validation.tar.gz
+80639f8ef3357755ec5b9e0c5549f3d689b6d8af1c0185ebcd08ca9c102ebe59  mutation-and-map-proof.tar.gz
+CHECKSUMS
+) || exit 1
+printf '%s\n' "$archive_dir"
+```
+
+[3904-candidate-history]: https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3904/candidate-validation.tar.gz
+[3904-mutation-history]: https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3904/mutation-and-map-proof.tar.gz
 
 ## Follow-up #4462 runtime-reader validation (2026-11-07)
 
