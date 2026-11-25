@@ -11,7 +11,7 @@ This folder consolidates fix summaries and supporting materials.
 
 The integration consumer exposed three distinct problems. Early runs failed on Black and Ruff formatting. Maint 70 provided a manual formatting path and Maint 71 added automated repair. A later dependency conflict required regenerating the lockfile after a Ruff pin changed. Runs 60 and 61 exposed a failure parsing the run ID and a validation script that had drifted from its template. [Formatting repair](https://github.com/stranske/Workflows/pull/594) · [Dependency repair](https://github.com/stranske/Workflows/pull/672) · [Template repair](https://github.com/stranske/Workflows/pull/841)
 
-For a current incident, inspect the [integration sync source](../../.github/workflows/maint-69-sync-integration-repo.yml) and the [workflow catalog](../WORKFLOW_GUIDE.md). The [manual formatter](../../.github/workflows/maint-70-fix-integration-formatting.yml), [automated fixer](../../.github/workflows/maint-71-auto-fix-integration.yml) and [local formatting script](../../scripts/fix-integration-tests-formatting.sh) show the supported entry points. To run the local script from Workflows, pass the path to the Workflows-Integration-Tests checkout:
+For a current incident, inspect the [integration sync source](../../.github/workflows/maint-69-sync-integration-repo.yml) and the [workflow catalog](../WORKFLOW_GUIDE.md). The [manual formatter](../../.github/workflows/maint-70-fix-integration-formatting.yml), [automated fixer](../../.github/workflows/maint-71-auto-fix-integration.yml) and [local formatting script](../../scripts/fix-integration-tests-formatting.sh) show the supported entry points.
 
 To sync the integration repository immediately, run this command with an authenticated GitHub CLI. It dispatches Maint 69 on `main` and returns status 1 if the request fails. [Sync runs](https://github.com/stranske/Workflows/actions/workflows/maint-69-sync-integration-repo.yml)
 
@@ -28,6 +28,8 @@ To request a formatting repair, use Maint 70 on the default branch. Set `format_
     -f "commit_message=${format_subject:-fix: Auto-format files to meet lint standards}"
 )
 ```
+
+To run the local script from Workflows, pass the path to the Workflows-Integration-Tests checkout.
 
 ```sh
 bash scripts/fix-integration-tests-formatting.sh /path/to/Workflows-Integration-Tests
