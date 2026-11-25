@@ -182,6 +182,7 @@ Historical snapshots from the December 2025–January 2026 audit cycle. Monthly 
 
 ## Historical consumer handoffs
 
+- The [April Inv-Man-Intake PR #315 follow-up][intake-315-follow-up] records six code-addressed items and one unspecified deferral in [Workflows #1956][intake-315-source]. The [receiving PR][intake-315-receiver] closed unmerged with seven unresolved review threads.
 - [Issue #4427 WASM pytest handoff](audits/issue-4427-wasm-pytest-handoff.md) records the November 2026 pin investigation and receiving checks. The [original revision][wasm-4427-original] is the evidence cited in the issue ledger.
 - [Issue #4455 post-merge evidence](audits/issue-4455-post-merge-evidence.md) records the November 2026 consumer sync report and sync-core comment check. See the [original revision][issue-4455-original].
 
@@ -275,3 +276,6 @@ Omit the final pipe to read the document.
 [keepalive-reliability-original]: https://github.com/stranske/Workflows/blob/36590718b0222de4cbb27ec7b5a4ddd93dbb3e17/docs/keepalive/Keepalive_Reliability_Plan.md
 [wasm-4427-original]: https://github.com/stranske/Workflows/blob/4806e0de3b577327c1deee4d853481497cba3860/docs/ops/issue-4427-wasm-pytest-handoff.md
 [issue-4455-original]: https://github.com/stranske/Workflows/blob/b03f97efffb3a04fea19a54c6ef3e24e3097fe52/docs/analysis/issue-4455-post-merge-evidence.md
+[intake-315-follow-up]: https://github.com/stranske/Workflows/blob/35add4d1ebf1d62ad5ece9d5d2dbc871cb6f8d6d/docs/ops/INV_MAN_INTAKE_PR315_REVIEW_THREADS.md
+[intake-315-source]: https://github.com/stranske/Workflows/pull/1956
+[intake-315-receiver]: https://github.com/stranske/Inv-Man-Intake/pull/315
