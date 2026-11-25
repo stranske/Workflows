@@ -129,3 +129,100 @@ def test_tests_disabled_preserves_skipped_verdict(test_steps, tmp_path):
     assert test["if"] == "${{ inputs.tests }}"
     assert run_shell(final, tmp_path, TESTS_OUTCOME="skipped").returncode == 0
     assert run_shell(final, tmp_path, TESTS_OUTCOME="failure").returncode == 1
+
+
+@pytest.fixture
+def quality_steps(tmp_path):
+    if not shutil.which("node") or not shutil.which("npm"):
+        pytest.skip("Node workflow replay requires node and npm")
+    steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["tests"]["steps"]
+    by_name = {step["name"]: step for step in steps}
+    # The reusable must install its helper on a consumer checkout.
+    runner_temp = tmp_path / "runner-temp"
+    runner_temp.mkdir()
+    prepare = by_name["Prepare Node quality checks"]
+    result = run_shell(prepare, tmp_path, RUNNER_TEMP=str(runner_temp))
+    assert result.returncode == 0, result.stderr
+    return by_name, {"RUNNER_TEMP": str(runner_temp), "PACKAGE_MANAGER": "npm"}
+
+
+@pytest.mark.parametrize(
+    ("name", "toggle", "script", "tool", "arguments"),
+    [
+        ("Run ESLint", "lint", "lint", "eslint", ["."]),
+        (
+            "Check formatting (Prettier)",
+            "format_check",
+            "format:check",
+            "prettier",
+            ["--check", "."],
+        ),
+        ("TypeScript type check", "typecheck", "typecheck", "tsc", ["--noEmit"]),
+    ],
+)
+def test_enabled_quality_check_runs_tool_or_preserves_project_verdict(
+    tmp_path, quality_steps, name, toggle, script, tool, arguments
+):
+    by_name, runner_env = quality_steps
+    step = by_name[name]
+    assert step["if"] == "${{ inputs." + toggle + " }}"
+    env = {**step["env"], **runner_env, "npm_config_offline": "true"}
+    package = tmp_path / "package.json"
+    shutil.copyfile(NO_TEST_PACKAGE, package)
+    missing = run_shell(step, tmp_path, **env)
+    assert missing.returncode != 0, f"{name} reported success without {tool}"
+
+    install_local_runner(tmp_path, tool)
+    fallback = run_shell(step, tmp_path, **env)
+    assert fallback.returncode == 0, fallback.stderr
+    assert json.loads(fallback.stdout.splitlines()[-1]) == arguments
+
+    package.write_text(json.dumps({"scripts": {script: "node project-check.cjs"}}))
+    project_check = tmp_path / "project-check.cjs"
+    for status in (23, 0):
+        project_check.write_text(f"console.log('project verdict'); process.exit({status});")
+        result = run_shell(step, tmp_path, **env)
+        assert result.returncode == status, result.stdout + result.stderr
+        assert "project verdict" in result.stdout
+        assert "installed runner executed" not in result.stdout
+
+
+def test_format_check_uses_hoisted_npm_workspace_binary(tmp_path, quality_steps):
+    by_name, runner_env = quality_steps
+    (tmp_path / "package.json").write_text('{"private":true,"workspaces":["packages/*"]}')
+    project = tmp_path / "packages" / "child"
+    project.mkdir(parents=True)
+    (project / "package.json").write_text('{"name":"child","version":"1.0.0"}')
+    install_local_runner(tmp_path, "prettier")
+
+    step = by_name["Check formatting (Prettier)"]
+    result = run_shell(step, project, **{**step["env"], **runner_env})
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout.splitlines()[-1]) == ["--check", "."]
+
+
+@pytest.mark.parametrize(
+    ("manager", "arguments"),
+    [
+        ("pnpm", ["exec", "prettier", "--check", "."]),
+        ("yarn", ["exec", "--", "prettier", "--check", "."]),
+    ],
+)
+def test_format_check_forwards_flags_to_package_manager(
+    quality_steps, tmp_path, manager, arguments
+):
+    by_name, runner_env = quality_steps
+    step = by_name["Check formatting (Prettier)"]
+    shutil.copyfile(NO_TEST_PACKAGE, tmp_path / "package.json")
+    stub = tmp_path / manager
+    stub.write_text("#!/usr/bin/env node\nconsole.log(JSON.stringify(process.argv.slice(2)))\n")
+    stub.chmod(0o755)
+    env = {
+        **step["env"],
+        **runner_env,
+        "PACKAGE_MANAGER": manager,
+        "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+    }
+    result = run_shell(step, tmp_path, **env)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout.splitlines()[-1]) == arguments

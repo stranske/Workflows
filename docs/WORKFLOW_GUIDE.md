@@ -141,7 +141,7 @@ failures. Consumer Gate Followups uses the same rule.
 
 ### Reusable Composites
 - **`reusable-10-ci-python.yml`** — Python lint/type/test reusable invoked by Gate and downstream repositories.
-- **`reusable-11-ci-node.yml`** — Node lint/type/test reusable that powers JavaScript/TypeScript consumers (ESLint, Prettier, tsc, Jest/Vitest). Runs entirely within the repo using the default workflow token, so callers don’t burn extra API calls just to fetch sources.
+- **`reusable-11-ci-node.yml`** — Node lint/type/test reusable that powers JavaScript/TypeScript consumers (ESLint, Prettier, tsc, Jest/Vitest). Enabled quality checks run the project’s `lint`, `format:check` or `typecheck` script when present and preserve its result. Supply the corresponding installed tool for a check without a script, or disable that check in the caller. Runs entirely within the repo using the default workflow token, so callers don’t burn extra API calls just to fetch sources.
 - **`reusable-12-ci-docker.yml`** — Docker smoke reusable invoked by Gate and external consumers. Builds the repo’s container image, runs a local health probe, and now relies solely on the default workflow token (no extra GitHub App mint) because it only needs repo read access.
 - To enable a smoke check across two repositories, follow the [consumer setup for Reusable Cross-Repo Smoke](ci/WORKFLOWS.md#reusable-cross-repo-smoke).
 - **Reusable Autofix** — Use the [formatting route](ci/WORKFLOWS.md#autofix-routes) to locate the caller’s fix or patch artifact.
