@@ -4,6 +4,27 @@ const fs = require('fs');
 const path = require('path');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
+async function resolveRecoveryHead(github, { owner, repo }, run, pr, core) {
+  const evaluated = run.head_sha?.trim();
+  if (!evaluated || !run.id || !run.run_attempt) return '';
+  const authored = pr?.head?.sha?.trim();
+  if (!authored || authored === evaluated) return evaluated;
+
+  // A workflow_run PR association can advance after Gate starts. The exact
+  // evaluated merge may identify its authored head through its two parents.
+  const base = pr.base?.sha;
+  if (!base) return '';
+  try {
+    const { data } = await github.rest.repos.getCommit({ owner, repo, ref: evaluated });
+    const parents = data?.parents || [];
+    if (data?.sha === evaluated && parents.length === 2
+      && parents[0].sha === base && parents[1].sha === authored) return authored;
+  } catch (error) {
+    core.warning(`Unable to verify the originating Gate commit: ${error.message}`);
+  }
+  return '';
+}
+
 async function discoverWorkflowRuns({ github: rawGithub, context, core }) {
   // Wrap github client with rate-limit-aware retry
   let github;
@@ -18,7 +39,18 @@ async function discoverWorkflowRuns({ github: rawGithub, context, core }) {
   const prFromPayload = Array.isArray(workflowRun.pull_requests)
     ? workflowRun.pull_requests.find(item => item && item.head && item.head.sha)
     : null;
-  const headSha = (prFromPayload?.head?.sha || workflowRun.head_sha || context.sha || '').trim();
+  const recoveringGate = context.eventName === 'workflow_run';
+  const headSha = recoveringGate
+    ? await resolveRecoveryHead(github, context.repo, workflowRun, prFromPayload, core)
+    : (context.sha || '').trim();
+  if (recoveringGate && !headSha) {
+    core.notice('Skipping Maint 46 recovery: originating Gate does not match the associated PR head.');
+    core.setOutput('runs', '[]');
+    core.setOutput('ci_run_id', '');
+    core.setOutput('gate_run_id', '');
+    core.setOutput('head_sha', '');
+    return;
+  }
 
   const parseJsonInput = (raw, fallback) => {
     if (!raw) {
@@ -90,20 +122,17 @@ async function discoverWorkflowRuns({ github: rawGithub, context, core }) {
     }
   }
 
-  async function loadJobs(runId) {
+  async function loadJobs(runId, runAttempt) {
     if (!runId) {
       return [];
     }
     try {
-      const jobs = await github.paginate(
-        github.rest.actions.listJobsForWorkflowRun,
-        {
-          owner,
-          repo,
-          run_id: runId,
-          per_page: 100,
-        },
-      );
+      const args = { owner, repo, run_id: runId, per_page: 100 };
+      const jobs = runAttempt
+        ? await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt, {
+          ...args, attempt_number: runAttempt,
+        })
+        : await github.paginate(github.rest.actions.listJobsForWorkflowRun, args);
       return jobs
         .filter(job => job)
         .map(job => ({
@@ -151,9 +180,10 @@ async function discoverWorkflowRuns({ github: rawGithub, context, core }) {
 
   const collected = [];
   for (const target of workflowTargets) {
-    const run = await resolveRun(target);
+    const originatingGate = recoveringGate && target.key === 'gate';
+    const run = originatingGate ? workflowRun : await resolveRun(target);
     if (run) {
-      const jobs = await loadJobs(run.id);
+      const jobs = await loadJobs(run.id, originatingGate ? run.run_attempt : undefined);
       collected.push({
         key: target.key,
         displayName: target.displayName,
