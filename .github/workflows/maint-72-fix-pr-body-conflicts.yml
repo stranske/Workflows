@@ -52,11 +52,14 @@ jobs:
 
       - name: Build repo matrix from canonical list
         id: repos
+        env:
+          TARGET_REPO: ${{ inputs.target_repo }}
         run: |
           repos_json=$(python3 - <<'PY'
           from __future__ import annotations
 
           import json
+          import os
           import re
           from pathlib import Path
 
@@ -89,6 +92,11 @@ jobs:
             if value:
               repos.append(value)
 
+          target = os.environ.get('TARGET_REPO', '').strip()
+          if target:
+            if target not in repos:
+              raise SystemExit(f'Target repository is not registered: {target}')
+            repos = [target]
           print(json.dumps(repos))
           PY
           )
@@ -102,28 +110,12 @@ jobs:
       matrix:
         repo: ${{ fromJSON(needs.prepare.outputs.repo_matrix) }}
     steps:
-      - name: Check if should process this repo
-        id: check
-        env:
-          TARGET_REPO: ${{ inputs.target_repo }}
-        run: |
-          TARGET="$TARGET_REPO"
-          CURRENT="${{ matrix.repo }}"
-          if [ -n "$TARGET" ] && [ "$TARGET" != "$CURRENT" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Skipping $CURRENT (target is $TARGET)"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Extract repo name
-        if: steps.check.outputs.skip != 'true'
         id: repo-info
         run: |
           echo "repo_name=$(echo '${{ matrix.repo }}' | cut -d'/' -f2)" >> "$GITHUB_OUTPUT"
 
       - name: Generate GitHub App token
-        if: steps.check.outputs.skip != 'true'
         id: app_token
         uses: actions/create-github-app-token@v3
         with:
@@ -133,7 +125,6 @@ jobs:
           repositories: ${{ steps.repo-info.outputs.repo_name }}
 
       - name: Checkout retry helpers
-        if: steps.check.outputs.skip != 'true'
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
@@ -166,7 +157,6 @@ jobs:
 
 
       - name: Check and fix pr_body.md
-        if: steps.check.outputs.skip != 'true'
         uses: actions/github-script@v9
         env:
           DRY_RUN: ${{ inputs.dry_run || 'true' }}
