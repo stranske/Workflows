@@ -87,3 +87,32 @@ def test_token_selection_preserves_dispatch_fallback(tmp_path, tokens, expected_
         "source": expected_source,
     }
     assert ("::warning::" in result.stdout) is warn
+
+
+PYTHON_SCOPE_DEDUP_MARKERS = (
+    "const pythonScopePrefix = `Address verification concerns from PR #${prNumber} related to `;",
+    "line.startsWith(pythonScopePrefix) && line.endsWith('.')",
+)
+
+
+def test_followup_dedup_recognizes_python_generated_scope_lines():
+    """Python follow-up issues use a plain scope line; only the fallback used markdown links."""
+    for path in (ROOT, TEMPLATE):
+        text = path.read_text(encoding="utf-8")
+        create_step = text.split("      - name: Create follow-up issue\n", 1)[1]
+        script = create_step.split("          script: |\n", 1)[1].split(
+            "\n      - name: Dispatch auto-pilot continuation\n", 1
+        )[0]
+        missing = [marker for marker in PYTHON_SCOPE_DEDUP_MARKERS if marker not in script]
+        assert not missing, f"{path}: missing Python-scope dedup markers: {missing}"
+
+
+def test_followup_identity_node_suite_passes():
+    identity_test = Path(".github/scripts/__tests__/verifier-followup-identity.test.js")
+    result = subprocess.run(
+        ["node", "--test", str(identity_test)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

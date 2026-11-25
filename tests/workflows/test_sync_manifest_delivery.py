@@ -225,6 +225,32 @@ def test_followup_issue_generator_is_runtime_only() -> None:
     assert runtime_entries[source].get("delivery") == "runtime"
 
 
+VERIFY_TO_NEW_PR_PATH = ".github/workflows/agents-verify-to-new-pr.yml"
+VERIFY_TO_NEW_PR_PYTHON_SCOPE_MARKERS = (
+    "const pythonScopePrefix = `Address verification concerns from PR #${prNumber} related to `;",
+    "line.startsWith(pythonScopePrefix) && line.endsWith('.')",
+)
+
+
+def test_verify_to_new_pr_copy_sync_delivers_python_scope_dedup() -> None:
+    """Maint 68 must copy the consumer template workflow with Python-scope dedup."""
+    manifest = _load_manifest()
+    copy_sources = _sources_in_sections(manifest, COPY_SYNCED_SECTIONS)
+    assert (
+        VERIFY_TO_NEW_PR_PATH in copy_sources
+    ), f"{VERIFY_TO_NEW_PR_PATH} must stay in a copy-synced manifest section"
+
+    root = REPO_ROOT / VERIFY_TO_NEW_PR_PATH
+    template = REPO_ROOT / "templates" / "consumer-repo" / VERIFY_TO_NEW_PR_PATH
+    assert (
+        root.read_bytes() == template.read_bytes()
+    ), "consumer template must match Workflows source before maint-68 can refresh PAEM"
+    missing = [
+        marker for marker in VERIFY_TO_NEW_PR_PYTHON_SCOPE_MARKERS if marker not in root.read_text()
+    ]
+    assert not missing, f"{VERIFY_TO_NEW_PR_PATH} missing Python-scope dedup markers: {missing}"
+
+
 def test_copy_dependent_langchain_scripts_stay_copy_synced() -> None:
     """Regression guard against an over-aggressive future drop.
 
