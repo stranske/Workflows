@@ -2373,7 +2373,9 @@ native reply relationships, and the exact commits of both enclosing PR reviews.
 GitHub must also resolve the receipt's reviewed-commit reference to the same
 full head. The inline commit remains the older diff anchor. Finding acceptance
 still requires the separate trusted assessment, complete inventory and
-unchanged-head checks.
+unchanged-head checks. After the additional native lookups, Maint 71 refreshes
+both reviewer inventories and rejects changed thread or delivery evidence. GitHub
+does not provide a transaction between the final read and thread resolution.
 
 When the originating reviewer is out of capacity (Copilot most months), its
 finding must not latch. If the targeted reassessment request has stood for

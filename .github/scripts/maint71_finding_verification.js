@@ -243,7 +243,28 @@ async function validateIndependentFindingFromNative(args) {
   const resolution = validateIndependentFindingVerification(args);
   if (resolution.reason !== 'originating_completion_missing') return resolution;
   const inlineCompletion = await collectAuthenticatedInlineStockCompletion(args);
-  return inlineCompletion ? validateIndependentFindingVerification({ ...args, inlineCompletion }) : resolution;
+  if (!inlineCompletion) return resolution;
+
+  // Stock lookups happen after the initial conversation snapshot. Refresh any
+  // originating reviewer activity before trusting that snapshot for resolution.
+  const { owner, repo, number, head, read, reviewerProfiles } = args;
+  const topLevelComments = await collectOriginatingCompletions({
+    owner, repo, number, head, profiles: reviewerProfiles, read,
+  });
+  const latest = await collectFindingReviewState({ owner, repo, number, read });
+  const threads = latest.reviewThreads;
+  const thread = threads.nodes.find((item) => item.id === args.thread.id);
+  const prior = args.thread.comments.nodes;
+  const observed = thread?.comments?.nodes;
+  if (latest.headRefOid !== head || latest.headRefName !== args.headRef || latest.body !== args.body
+    || thread?.isOutdated !== true || thread.isResolved !== false || observed?.length !== prior.length
+    || !observed.every((item, index) => item.fullDatabaseId === prior[index].fullDatabaseId
+      && item.url === prior[index].url && item.body === prior[index].body
+      && item.createdAt === prior[index].createdAt && item.updatedAt === prior[index].updatedAt
+      && item.author?.login === prior[index].author?.login && item.commit?.oid === prior[index].commit?.oid)) {
+    return { ok: false, reason: 'originating_completion_evidence_changed' };
+  }
+  return validateIndependentFindingVerification({ ...args, thread, threads, topLevelComments, inlineCompletion });
 }
 
 function nativeAnswerLines(body, markers) {

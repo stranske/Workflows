@@ -106,7 +106,11 @@ function inlineStockFixture() {
   }));
   const commit = { sha: head };
   const pull = { state: 'open', number: 1, head: { sha: head, ref: 'sync/workflows-candidate' }, body: 'Bound delivery' };
-  const client = { rest: { pulls: {
+  const latest = { headRefOid: head, headRefName: pull.head.ref, body: pull.body,
+    reviewThreads: structuredClone(f.args.threads) };
+  const topLevel = [];
+  const client = { graphql: () => ({ repository: { pullRequest: latest } }), paginate: () => topLevel,
+    rest: { issues: { listComments: true }, pulls: {
     get: () => ({ data: pull }),
     getReviewComment: ({ comment_id }) => ({ data: nativeComments.get(Number(comment_id)) }),
     getReview: ({ pull_number, review_id }) => {
@@ -122,7 +126,7 @@ function inlineStockFixture() {
   f.result.originating_completion_url = reply.url;
   Object.assign(f.args, { policy, reviewerProfiles: policy.reviewers, owner: 'stranske', repo: 'Ready',
     number: 1, head, headRef: pull.head.ref, body: pull.body, read: (operation) => operation(client) });
-  return { ...f, original, request, reply, nativeComments, nativeReviews, commit, pull, oldHead };
+  return { ...f, original, request, reply, nativeComments, nativeReviews, commit, pull, latest, topLevel, oldHead };
 }
 
 test('authenticated stock completion uses the exact enclosing review and still requires an independent finding assessment', async () => {
@@ -167,6 +171,25 @@ test('authenticated stock completion refuses ambiguous, changed and unrelated na
     change(f);
     assert.equal((await validateIndependentFindingFromNative(f.finish())).ok, false, name);
   }
+});
+
+test('authenticated stock completion rechecks reviewer activity after native lookups', async () => {
+  const lateReply = inlineStockFixture();
+  lateReply.latest.reviewThreads.nodes[0].comments.nodes.push({ ...lateReply.reply,
+    fullDatabaseId: '13', createdAt: '2026-10-04T01:02:30Z', body: 'The original finding still applies.' });
+  assert.equal((await validateIndependentFindingFromNative(lateReply.finish())).reason,
+    'originating_completion_evidence_changed');
+
+  const lateTopLevel = inlineStockFixture();
+  lateTopLevel.topLevel.push({ id: '13', html_url: 'late', created_at: '2026-10-04T01:02:30Z',
+    body: 'The original finding still applies.', user: lateTopLevel.reply.author });
+  assert.equal((await validateIndependentFindingFromNative(lateTopLevel.finish())).reason,
+    'reviewer_changed_after_verification');
+
+  const editedReply = inlineStockFixture();
+  editedReply.latest.reviewThreads.nodes[0].comments.nodes[2].body += '\nAn amended reply.';
+  assert.equal((await validateIndependentFindingFromNative(editedReply.finish())).reason,
+    'originating_completion_evidence_changed');
 });
 
 test('native conversation disposition requires a fresh configured unquoted bound ACCEPT', () => {
