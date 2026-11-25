@@ -5,7 +5,7 @@ missing head leaves `head_sha_after` empty, and the completion step retains the
 reservation. A successful unchanged head is measured no-progress; a later Gate
 status lookup failure does not invalidate that head observation.
 
-Automation agents touching **any** keepalive code path must consult the following documents before making changes. Keepalive is **multi-agent** by design—Codex, Claude, Cursor and Muse share the same orchestration surfaces (see [Adding a New Coding Agent](../guides/ADD_NEW_AGENT.md) for the full list of per-agent wiring)—so every change must read from `.github/agents/registry.yml` (or `agent_registry.js`) instead of hard-coding provider-specific behavior.
+Automation agents touching **any** keepalive code path must consult the following documents before making changes. Keepalive is **multi-agent** by design—Codex, Claude, Cursor, Muse, and Gemini share the same orchestration surfaces (see [Adding a New Coding Agent](../guides/ADD_NEW_AGENT.md) for the full list of per-agent wiring)—so every change must read from `.github/agents/registry.yml` (or `agent_registry.js`) instead of hard-coding provider-specific behavior.
 
 ## Required Reading
 
@@ -110,7 +110,7 @@ Local source tests do not establish deployment or live acceptance.
 
 6. **Stall rotation and challenge before `needs-human`**: When an auto-pilot stall cap is reached, the pipeline tries a *different* eligible agent before requesting an independent authority challenge. It is registry-driven and bounded — the stalled agent is recorded with an `agents:tried-<agent>` label, so each rotation shrinks the candidate set. Exhausting eligible agents proves only that the current strategies stalled, not that a human is required. Two paths:
    - **Belt lane (create-PR: no branch / no commits)** — no PR/keepalive history exists yet, so the pure decision helper [`agent_stall_rotation.js`](../../.github/scripts/agent_stall_rotation.js) (`decideStallRotation`, capability `belt`) picks the next untried belt-capable agent, swaps the `agent:<name>` label, and re-dispatches the belt via `agents-71-codex-belt-dispatcher.yml` with the new `agent_key`.
-   - **Keepalive lane (monitor-PR: a PR exists)** — reuses the existing registry-driven delegation policy ([`agent_delegation_policy.js`](../../.github/scripts/agent_delegation_policy.js)) rather than rebuilding rotation: auto-pilot adds `agent:auto` to the issue and PR so `decideNextAgent` rotates across the fuller keepalive-capable set (codex/claude/cursor/gemini) on its next round. If `agent:auto` is already present, delegation has had its chance and auto-pilot escalates.
+   - **Keepalive lane (monitor-PR: a PR exists)** — reuses the existing registry-driven delegation policy ([`agent_delegation_policy.js`](../../.github/scripts/agent_delegation_policy.js)) rather than rebuilding rotation: auto-pilot adds `agent:auto` to the issue and PR so `decideNextAgent` rotates across the fuller keepalive-capable set (codex/claude/cursor/muse/gemini) on its next round. If `agent:auto` is already present, delegation has had its chance and auto-pilot escalates.
 
    **How a belt run reaches a given agent (traced 2026-10-16, Workflows#3929).** The three belt workflows (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`) contain no per-agent runner job and never call `reusable-<agent>-run.yml`; the `codex` in their names is historical. They are parameterized by `agent_key` (default `codex`) and read `.github/scripts/agent_registry.js` (`getAgentConfig`) for the branch prefix (`cursor/issue-`, `claude/issue-`, ...), the assignee logins and the required `agent:<key>` label. The agent itself runs afterwards, when the belt-created PR carries `agent:<key>` and the keepalive loop's static `run-<key>` job (root `agents-keepalive-loop.yml`, consumer `agents-81-gate-followups.yml`) dispatches that agent's `reusable-<key>-run.yml`. So an agent is belt-capable when it has a registry entry with a `branch_prefix` and `runner_workflow`, an `agent:<key>` label, and a `run-<key>` keepalive job; `tests/workflows/test_belt_agent_registry.py` enforces that for every `capabilities.belt: true` agent.
 
@@ -188,7 +188,7 @@ For the technical patterns inside each agent runner workflow — CLI invocation 
 
 ### Agent commit staging and pre-timeout checkpoints
 
-All four reusable agent runners stage through
+All five reusable agent runners stage through
 `scripts/stage_agent_changes.py` from their trusted `.workflows-lib` scripts
 checkout. Codex's pre-timeout watchdog uses that same executable contract and
 commits only when eligible staged changes remain. The helper is supplied by the

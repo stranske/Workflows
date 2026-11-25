@@ -26,7 +26,7 @@
 
 - **Purpose:** Maintain a safe, iterative loop where keepalive nudges an agent through small, verifiable increments on a PR until every acceptance criterion is complete—while guaranteeing predictable behaviour and safety rails.
 - **Scope:** Activation requirements, dispatch plumbing, throttling, branch-sync guarantees, and shutdown rules for the GitHub PR keepalive workflow.
-- **Applicability:** This contract covers the registry-driven CLI keepalive implementation for Codex, Claude, and future agents. The legacy UI connector-bot flow is documented separately in [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
+- **Applicability:** This contract covers the registry-driven CLI keepalive implementation for Codex, Claude, Cursor, Muse, Gemini, and future agents. The legacy UI connector-bot flow is documented separately in [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
 - **Non-goals:** Guidance for automation unrelated to keepalive.
 
 ---
@@ -298,9 +298,10 @@ The keepalive loop routes to agent workflows through `.github/agents/registry.ym
 
 | Label | Agent | Workflow |
 |-------|-------|----------|
-| `agent:codex` | Codex CLI (gpt-5.6-terra; fallback gpt-5.5) | `reusable-codex-run.yml` |
+| `agent:codex` | Codex CLI (gpt-6.2-sol; fallback gpt-5.6-terra) | `reusable-codex-run.yml` |
 | `agent:claude` | Claude CLI | `reusable-claude-run.yml` |
 | `agent:cursor` | Cursor | `reusable-cursor-run.yml` (root and consumer Gate-followups) |
+| `agent:muse` | Muse | `reusable-muse-run.yml` (root and consumer Gate-followups) |
 | `agent:gemini` | Gemini | `reusable-gemini-run.yml` (root and consumer Gate-followups) |
 
 The table above is a snapshot of the current registry, not a second source of truth. See [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) and [`../guides/ADD_NEW_AGENT.md`](../guides/ADD_NEW_AGENT.md) for implementation details and how to add new agents.
@@ -331,7 +332,7 @@ Before the next round begins:
 
 1. Verify that the PR head SHA changed after the agent reported "done".
 2. If unchanged, the agent may have failed to push. The loop will retry on the next Gate pass.
-3. After repeated failures (default: 3), pause the current strategy and add `agent:retry` with a concrete automation-owned recovery action.
+3. After repeated failures (default: 3), pause the current strategy and dispatch one non-recursive forced recovery lease (deferring to the hourly keepalive sweep if direct dispatch fails; automation does not add a sticky `agent:retry` label).
 
 ---
 
@@ -346,7 +347,7 @@ Before the next round begins:
 ## 11. Restart & Success Conditions
 
 - Removing and re-applying the `agent:*` label restarts the workflow once the activation guardrails pass again.
-- To reset failure count: edit the keepalive summary comment and set `failure: {}` in the state marker, then add `agent:retry` when the concrete recovery is ready.
+- To reset failure count: do not edit the state marker manually—apply `agent:retry` (in root/non-consolidated loops) or run a `workflow_dispatch` recheck with `force_retry=true` (in consolidated consumers); the dedicated keepalive App then resets or clears the bot-owned failure state.
 - Keepalive stands down when **all acceptance criteria are checked complete**. At that point the orchestrator stops issuing further rounds.
 
 For callers that enable deterministic acceptance gates, checked criteria also require
@@ -541,7 +542,7 @@ The Keepalive workflow depends on the **Automated Status Summary** block in the 
 
 ### Data Flow
 1. **Issue Intake:** Creates a PR with the Issue content embedded.
-2. **PR Meta Update:** `agents-pr-meta` workflow parses the source Issue for Scope/Tasks/Acceptance and generates the Automated Status Summary block.
+2. **PR Meta Update:** `agents-pr-meta-v4.yml` (or `agents-80-pr-event-hub.yml` in consumers) parses the source Issue for Scope/Tasks/Acceptance and generates the Automated Status Summary block.
 3. **Keepalive Execution:** The keepalive loop extracts tasks from the Automated Status Summary and injects them into the agent prompt via the task appendix.
 
 ### Failure Modes & Recovery
