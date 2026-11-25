@@ -41,6 +41,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REGISTRY_PATH = _REPO_ROOT / "config" / "model_registry.json"
 DEFAULT_POLICY_PATH = _REPO_ROOT / "config" / "model_selection_policy.json"
 DEFAULT_PROFILE = "verifier-balanced"
+BENCHMARK_REPORT_SCHEMA = "workflows-model-benchmark-evidence/v1"
 REVIEW_INTERVAL_DAYS = 30
 
 
@@ -337,6 +338,38 @@ def _load(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _load_benchmark_report(path: Path) -> dict[str, Any]:
+    report = _load(path)
+    if (
+        not isinstance(report, dict)
+        or report.get("schema", BENCHMARK_REPORT_SCHEMA) != BENCHMARK_REPORT_SCHEMA
+    ):
+        raise ValueError("expected an evaluated benchmark report")
+
+    # Legacy unversioned reports can inherit the requested CLI profile.
+    if "schema" in report or "profile" in report:
+        profile = report.get("profile")
+        if not isinstance(profile, str) or not profile.strip():
+            raise ValueError("benchmark report profile must be a nonempty string")
+
+    results = report.get("results")
+    if not isinstance(results, list) or not results:
+        raise ValueError("benchmark report requires a nonempty results array")
+    for index, result in enumerate(results):
+        if (
+            not isinstance(result, dict)
+            or not isinstance(result.get("provider"), str)
+            or not result["provider"].strip()
+            or not isinstance(result.get("model_id"), str)
+            or not result["model_id"].strip()
+            or result.get("status") not in ("passed", "failed")
+        ):
+            raise ValueError(
+                f"benchmark report result {index} requires a provider, model and status"
+            )
+    return report
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Prepare verifier model promotions/rollbacks.")
     parser.add_argument(
@@ -351,12 +384,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        report = _load(args.benchmark)
+        report = _load_benchmark_report(args.benchmark)
         registry = _load(args.registry)
         policy = _load(args.policy)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"input error: {exc}", file=sys.stderr)
         return 2
+    report_profile = report.get("profile", args.profile).strip()
+    if report_profile != args.profile:
+        print(f"benchmark profile {report_profile!r} does not match {args.profile!r}; no change.")
+        return 0
     today = _dt.date.fromisoformat(args.today) if args.today else _dt.date.today()
 
     approval = policy.get("profiles", {}).get(args.profile, {}).get("approval_stage", {})
