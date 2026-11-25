@@ -350,7 +350,7 @@ fires where” without diving into the full tables:
   - **Primary workflows.** Gate summary job inside `pr-00-gate.yml`,
     `maint-46-post-ci.yml`, `maint-coverage-guard.yml`,
     `maint-45-cosmetic-repair.yml`,
-    and the health guardrails (`health-40` through `health-44`).
+    and the health guardrails (`health-40`, `health-41`, `health-42`, `health-44`, and `agents-guard` as Health 45; `health-43-ci-signature-guard.yml` archived).
   - **Triggers.** Combination of the Gate summary job running after Gate,
     recurring schedules (health guardrails), and manual dispatch for
     Maint 45.
@@ -409,7 +409,7 @@ enforces the guardrail so you know where to confirm compliance:
 | Bucket | Guardrails you must respect | Where it is enforced |
 | --- | --- | --- |
 | PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates per branch. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
-| Maintenance & repo health | Gate summary job only runs after Gate succeeds; Health 40–44 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Gate summary job summary comment, Health dashboard history, and Maint 45 run permissions. |
+| Maintenance & repo health | Gate summary job only runs after Gate succeeds; Health 40, 41, 42, 44, and 45 must stay enabled so the default branch keeps its heartbeat (`health-43-ci-signature-guard.yml` archived); Maint 45 cosmetic repair is manual and should only be dispatched by maintainers. | Gate summary job summary comment, Health dashboard history, and Maint 45 run permissions. |
 | Issue / agents automation | `agents:allow-change` label and Health 45 Agents Guard are mandatory before protected YAML merges; Code Owner review is mandatory except for dependency-only `uses: owner/action@ref` updates by Dependabot, Renovate, or repository owner/member/collaborator authors using the narrow label path. Belt and keepalive surfaces honour eligibility and label contracts. | [Agents Workflow Protection Policy](../AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
 | Error checking, linting, and testing topology | Callers invoke the shared reusable workflows (`./.github/workflows/reusable-*.yml` in-repo, `@main` in consumer templates, or an exact commit SHA where required such as `reusable-model-profile-trial.yml`) rather than forking or bypassing them; `selftest-reusable-ci.yml` mirrors Gate’s matrix on PR path filters, nightly schedule, and manual dispatch. | `maint-52-validate-workflows.yml` / Health 42 Actionlint, `health-73-template-completeness.yml` / `health-74-template-drift.yml`, Gate’s workflow contract tests (`test_reusable_ci_no_hardcoded_ref_main.py`, `test_python_matrix_contract.py`, `test_model_profile_trial_workflows.py`), and the reusable workflow permissions blocks. (The `signature-verify` fixture test in Gate and Selftest CI verifies only failure-signature hash stability against `.github/signature-fixtures/`, not reusable workflow references.) |
 
