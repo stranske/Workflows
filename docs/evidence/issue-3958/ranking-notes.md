@@ -30,7 +30,7 @@ PR #3962 added four defensive tests for `scripts/aggregate_agent_metrics.py`:
 | PR #3962 Report | 98 | 35 | -63 | Reported at merge |
 | PR #4407 Measurement | 98 | 3 | -95 | Measured on current main |
 
-**Important**: The difference between 35 and 3 gap units is due to later test improvements on main that further covered the module beyond PR #3962's contributions. PR #3962 reported a 63-unit reduction at merge; exact-revision focused runs now reproduce that reduction (see `coverage-comparison.json`). Gate-wide attribution remains unverified.
+**Important**: The difference between 35 and 3 gap units is due to later test improvements on main that further covered the module beyond PR #3962's contributions. PR #3962 reported a 63-unit reduction at merge; exact-revision focused runs now reproduce that reduction (see [coverage-comparison.json](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3958/coverage-comparison.json)). Gate-wide attribution remains unverified.
 
 ### Gap Unit Formula
 
@@ -83,4 +83,36 @@ Read the [immutable original](https://github.com/stranske/Workflows/blob/00f43f8
 git fetch --depth=1 origin 00f43f81e51c4f8b9a057ac51f7e3c2d870d7769
 git show 00f43f81e51c4f8b9a057ac51f7e3c2d870d7769:docs/evidence/issue-3958/gate-metadata-38973627393.json > gate-metadata-38973627393.json
 printf '%s  %s\n' '69caa951a747a57459e8f2f785a38217fe4bcd55fe6b7e06f18b3480a6f256a4' 'gate-metadata-38973627393.json' | shasum -a 256 -c -
+```
+
+### Recover the focused coverage and mutation records
+
+The original focused comparison and four red/green mutation receipts are available at their publishing revision. The 98-to-35 focused result is separate from the unavailable Gate-wide artifacts.
+
+- [break-and-revert-proof.json](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3958/break-and-revert-proof.json)
+- [coverage-comparison.json](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3958/coverage-comparison.json)
+
+Run from a Workflows checkout. The command prints the temporary recovery directory.
+
+```bash
+(
+  set -e
+  revision=00f43f81e51c4f8b9a057ac51f7e3c2d870d7769
+  directory=docs/evidence/issue-3958
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 origin "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/coverage-3958.XXXXXX")
+  for name in break-and-revert-proof.json coverage-comparison.json; do
+    git show "$revision:$directory/$name" > "$recovered/$name"
+  done
+  (
+    cd "$recovered"
+    shasum -a 256 -c <<'CHECKSUMS'
+680b3afdfe2a2e73ed83d680afcba7089805be0cf30cc062a062aa0c2d00ca74  break-and-revert-proof.json
+e0542b71fb9bc34f90d01bb9215323cdaa9752d58aeeeefe709358e5881aa48c  coverage-comparison.json
+CHECKSUMS
+  )
+  printf '%s\n' "$recovered"
+)
 ```

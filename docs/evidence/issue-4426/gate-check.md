@@ -274,10 +274,9 @@ Final results for this chunk:
   4.43s/3.98s and reports 44.17%/44.77% for this focused selection only.
   `bounded-review-validation.json` retains complete command outputs,
   source/configuration/test hashes, missing inventories and artifact digests.
-  The complete coverage JSON files are retained as deterministic gzip files
-  `bounded-review-before.coverage.json.gz` and
-  `bounded-review-after.coverage.json.gz`; decompress with
-  `gzip -dc docs/evidence/issue-4426/bounded-review-after.coverage.json.gz`.
+  The original deterministic gzip snapshots remain available at their
+  publishing revision. Follow [historical recovery](#recover-the-bounded-review-and-native-slot-coverage-snapshots) before
+  decompressing the before and after reports.
 - The local incremental reduction is 27 units (18 statements, nine branches),
   with no lost lines or arcs. Four units are explicitly missing in the recorded
   final Gate report: statements 6688 and 8112 and arcs 6742->6733 and
@@ -794,8 +793,8 @@ python -m pytest -q tests/scripts/test_pr_verifier_ranked_remainder.py tests/scr
 
 
 Results for the native slot/package chunk are retained in
-`native-slot-validation.json`, its complete before/after coverage JSON gzip
-artifacts, `native-slot-mutations.json`, and
+`native-slot-validation.json`, the original before/after snapshots in
+[historical recovery](#recover-the-bounded-review-and-native-slot-coverage-snapshots), `native-slot-mutations.json`, and
 `native-slot-shallow-validation.json`:
 
 - The unchanged two-module selection passes 61 tests before and 73 after.
@@ -1083,6 +1082,42 @@ Use `gzip -dc` to read either recovered JSON report.
     shasum -a 256 -c <<'CHECKSUMS'
 8df05c61be68bc392d3c2160d8be974a30e5f48ac98cb67c2074511915a9b1f3  diagnostic-trace-before.coverage.json.gz
 75921618b8eb29979a7f4c9f884e1c4b5e5bf7d909d8c5abc3e1935fa5190166  diagnostic-trace-after.coverage.json.gz
+CHECKSUMS
+  )
+  printf '%s\n' "$recovered"
+)
+```
+
+### Recover the bounded-review and native-slot coverage snapshots
+
+The original before/after gzip files retain both local comparisons. These coverage gains apply to their recorded selections. Read any recovered snapshot with gzip -dc.
+
+- [bounded-review-before.coverage.json.gz](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/bounded-review-before.coverage.json.gz)
+- [bounded-review-after.coverage.json.gz](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/bounded-review-after.coverage.json.gz)
+- [native-slot-before.coverage.json.gz](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/native-slot-before.coverage.json.gz)
+- [native-slot-after.coverage.json.gz](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/native-slot-after.coverage.json.gz)
+
+Run from a Workflows checkout. The command prints the temporary recovery directory.
+
+```bash
+(
+  set -e
+  revision=8084366d968d5c4f68208536ca8bb3956ce99091
+  directory=docs/evidence/issue-4426
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 origin "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/coverage-4426.XXXXXX")
+  for name in bounded-review-before.coverage.json.gz bounded-review-after.coverage.json.gz native-slot-before.coverage.json.gz native-slot-after.coverage.json.gz; do
+    git show "$revision:$directory/$name" > "$recovered/$name"
+  done
+  (
+    cd "$recovered"
+    shasum -a 256 -c <<'CHECKSUMS'
+9ec4e1f207bc159b8b95986b83b0f6a68fbd93185666872f26a3463c24fe52b7  bounded-review-before.coverage.json.gz
+6ea4e1a98ff9fa1127df554e1d89157ecf04028fa8e359fb4a7686f4b8d277b3  bounded-review-after.coverage.json.gz
+f950b0b7087ea64eec703a1a3faaa632c42ef241168c2c7819e9268045dcfbd1  native-slot-before.coverage.json.gz
+20e1f98ea28236be414ed5a8a76dd88720cea2b881d9f950ae4350b431bf0e9f  native-slot-after.coverage.json.gz
 CHECKSUMS
   )
   printf '%s\n' "$recovered"
