@@ -247,7 +247,7 @@ def test_real_manifest_removes_the_retired_autofix_loop(manifest: dict) -> None:
     assert ".github/workflows/agents-autofix-loop.yml" in subset.select_removals(manifest)
 
 
-def test_maint_69_runs_the_helper_and_sees_untracked_files() -> None:
+def test_maint_69_runs_the_helper_and_sees_untracked_files(manifest: dict) -> None:
     workflow = yaml.safe_load(SYNC_WORKFLOW.read_text(encoding="utf-8"))
     steps = {step["name"]: step for step in workflow["jobs"]["sync"]["steps"]}
     apply_script = steps["Apply template updates"]["run"]
@@ -275,6 +275,12 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files() -> None:
         "tools/coverage_guard.py",
     ):
         assert needed in delivery["sparse-checkout"]
+    template_sources = {
+        f"templates/consumer-repo/{source}"
+        for source, tree in subset._select_copy_entries(manifest, WIT)
+        if tree == "template"
+    }
+    assert template_sources <= set(delivery["sparse-checkout"].split())
     assert delivery["path"] == "workflows-delivery"
     # The API-client install tree must stay free of .github/scripts/package.json: its
     # file:node_modules dependency made `Setup API client` fail on every run after #4341.

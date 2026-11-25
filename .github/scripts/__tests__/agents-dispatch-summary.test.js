@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { appendDispatchSummary } = require('../agents_dispatch_summary');
+const { appendDispatchSummary } = require('../../../templates/consumer-repo/.github/scripts/agents_dispatch_summary');
 
 function createSummary() {
   return {
