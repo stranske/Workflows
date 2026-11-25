@@ -1,20 +1,10 @@
-# List available LLM models from GitHub Models and OpenAI
-# Run this workflow to see what models are currently available for use with
-# the Agents Verifier workflow.
-#
-# Usage:
-# 1. Go to Actions tab
-# 2. Select "List LLM Models"
-# 3. Click "Run workflow"
-# 4. Check the workflow output for available models
-# 5. Use a model name when running Agents Verifier
 name: List LLM Models
 
 on:
   workflow_dispatch:
     inputs:
       provider:
-        description: 'Which provider to query'
+        description: 'OpenAI catalog lookup (both and github-models are legacy choices)'
         required: true
         type: choice
         options:
@@ -30,130 +20,152 @@ jobs:
   list-models:
     runs-on: ubuntu-latest
     steps:
-      - name: List GitHub Models
-        if: inputs.provider == 'both' || inputs.provider == 'github-models'
+      - name: Resolve provider choice
+        id: provider
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROVIDER: ${{ inputs.provider }}
+          ON_DEFAULT_BRANCH: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
         run: |
-          echo "## GitHub Models (via GITHUB_TOKEN)"
-          echo ""
-          echo "Fetching available models from GitHub Models API..."
-          echo ""
-
-          # Query GitHub Models API
-          response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-            "https://models.inference.ai.azure.com/models" 2>/dev/null || \
-            echo '{"error": "Failed to fetch"}')
-
-          if echo "$response" | jq -e '.error' > /dev/null 2>&1; then
-            echo "⚠️  Could not fetch GitHub Models list. Common models include:"
-            echo ""
-            echo "| Model | Description |"
-            echo "|-------|-------------|"
-            echo "| gpt-4o | GPT-4o - fast, multimodal |"
-            echo "| gpt-4o-mini | GPT-4o Mini - fast, cost-effective |"
-            echo "| o1 | O1 - advanced reasoning |"
-            echo "| o1-mini | O1 Mini - efficient reasoning |"
-            echo "| o3-mini | O3 Mini - latest reasoning |"
-            echo ""
-          else
-            echo "### Available Models"
-            echo ""
-            echo "| Model ID | Owned By |"
-            echo "|----------|----------|"
-            echo "$response" | jq -r '.data[]? | "| \(.id) | \(.owned_by // "N/A") |"' \
-              2>/dev/null || \
-              echo "$response" | jq -r '.[]? | "| \(.id // .name) | N/A |"' \
-              2>/dev/null || echo "| (Could not parse response) | |"
-            echo ""
-          fi
-
-          echo "---"
-          echo ""
-
-      - name: List OpenAI Models
-        if: inputs.provider == 'both' || inputs.provider == 'openai'
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          echo "## OpenAI Models (via OPENAI_API_KEY)"
-          echo ""
-
-          if [ -z "$OPENAI_API_KEY" ]; then
-            echo "⚠️  OPENAI_API_KEY secret not configured. Add it to use OpenAI models."
-            echo ""
-            echo "Common OpenAI models:"
-            echo ""
-            echo "| Model | Description |"
-            echo "|-------|-------------|"
-            echo "| gpt-4o | GPT-4o - flagship multimodal |"
-            echo "| gpt-4o-mini | GPT-4o Mini - affordable |"
-            echo "| gpt-4-turbo | GPT-4 Turbo - 128k context |"
-            echo "| gpt-5.2 | GPT-5.2 - latest generation |"
-            echo "| o1 | O1 - reasoning model |"
-            echo "| o1-mini | O1 Mini - fast reasoning |"
-            echo "| o3-mini | O3 Mini - efficient reasoning |"
-            exit 0
-          fi
-
-          echo "Fetching available models from OpenAI API..."
-          echo ""
-
-          response=$(curl -s -H "Authorization: Bearer $OPENAI_API_KEY" \
-            "https://api.openai.com/v1/models" 2>/dev/null || \
-            echo '{"error": "Failed to fetch"}')
-
-          if echo "$response" | jq -e '.error' > /dev/null 2>&1; then
-            error_msg=$(echo "$response" | \
-              jq -r '.error.message // .error // "Unknown error"')
-            echo "❌ Error fetching models: $error_msg"
+          set -euo pipefail
+          case "$PROVIDER" in
+            both|github-models)
+              echo 'GitHub Models and its catalog retired on July 30, 2026.' | tee -a "$GITHUB_STEP_SUMMARY"
+              if [[ "$PROVIDER" == 'github-models' ]]; then
+                exit 1
+              fi
+              ;;
+            openai) ;;
+            *)
+              echo 'Select openai to look up the OpenAI catalog.' | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
+          esac
+          if [[ "$ON_DEFAULT_BRANCH" != 'true' ]]; then
+            echo 'Run the OpenAI lookup from the repository default branch.' | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 
-          echo "### Chat/Completion Models (recommended for verifier)"
-          echo ""
-          echo "| Model ID | Created |"
-          echo "|----------|---------|"
-          # Filter for GPT and O-series models, sorted by creation date (newest first)
-          echo "$response" | jq -r '
-            .data
-            | map(select(.id | test("^(gpt-|o1|o3|chatgpt)"; "i")))
-            | sort_by(.created) | reverse
-            | .[]
-            | "| \(.id) | \(.created | strftime("%Y-%m-%d")) |"
-          ' 2>/dev/null | head -30
+      - name: Checkout catalog helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            config/model_registry.json
+            .github/actions/setup-api-client
+            .github/scripts
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
 
-          echo ""
-          echo "### All Available Models"
-          echo ""
-          echo "<details>"
-          echo "<summary>Click to expand full model list</summary>"
-          echo ""
-          echo "| Model ID | Owned By |"
-          echo "|----------|----------|"
-          echo "$response" | jq -r \
-            '.data | sort_by(.id) | .[] | "| \(.id) | \(.owned_by) |"' 2>/dev/null
-          echo ""
-          echo "</details>"
+      - name: Setup read-only repository API client
+        if: github.event.repository.private == true
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
 
-      - name: Usage Instructions
+      - name: Determine catalog visibility
+        id: visibility
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          EVENT_PRIVATE: ${{ github.event.repository.private }}
+        with:
+          script: |
+            let privateCatalog = false;
+            if (process.env.EVENT_PRIVATE === 'true') {
+              try {
+                const { ensureRateLimitWrapped } = require('./.github/scripts/github-rate-limited-wrapper.js');
+                const api = await ensureRateLimitWrapped({ github, core });
+                const { data } = await api.rest.repos.get(context.repo);
+                privateCatalog = data.visibility === 'private';
+              } catch (_) {
+                // An unavailable visibility check leaves the public subset selected.
+              }
+              if (!privateCatalog) core.warning('Private visibility could not be confirmed. Using the public verifier subset.');
+            }
+            core.setOutput('private', String(privateCatalog));
+
+      - name: List OpenAI Models
+        id: openai
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PRIVATE_CATALOG: ${{ steps.visibility.outputs.private }}
         run: |
-          echo ""
-          echo "---"
-          echo ""
-          echo "## How to Use"
-          echo ""
-          echo "1. Copy a model ID from the lists above"
-          echo "2. Go to **Actions** → **Agents Verifier**"
-          echo "3. Click **Run workflow**"
-          echo "4. Enter the PR number, select mode, paste the model ID, and choose provider"
-          echo "5. Click **Run workflow**"
-          echo ""
-          echo "### Example"
-          echo ""
-          echo '```'
-          echo "PR number: 123"
-          echo "Mode: evaluate"
-          echo "Model: gpt-4o"
-          echo "Provider: openai"
-          echo '```'
+          set -euo pipefail
+          umask 077
+          report() { printf '%s\n' "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
+          if [[ -z "$OPENAI_API_KEY" ]]; then
+            report 'OpenAI lookup unavailable. Configure the OPENAI_API_KEY secret.'
+            exit 1
+          fi
+          response=$(mktemp "$RUNNER_TEMP/openai-models.XXXXXX")
+          trap 'rm -f "$response"' EXIT
+          if ! curl --disable --fail --silent --max-time 30 --output "$response" \
+            --header "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models; then
+            report 'OpenAI model lookup failed. Check the configured key and provider access.'
+            exit 1
+          fi
+          if ! jq -se 'length == 1 and (.[0] | type == "object" and .error == null and
+            (.data | type == "array") and all(.data[]; type == "object" and (.id | type == "string" and length > 0)))' \
+            "$response" >/dev/null 2>&1; then
+            report 'OpenAI returned an invalid model catalog response.'
+            exit 1
+          fi
+          if jq -e '.data | length == 0' "$response" >/dev/null; then
+            report 'OpenAI returned no models for the configured key.'
+            exit 0
+          fi
+          if [[ "$PRIVATE_CATALOG" == 'true' ]]; then
+            cp "$response" "$RUNNER_TEMP/openai-model-catalog.json"
+            echo 'artifact=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          registry="$GITHUB_WORKSPACE/config/model_registry.json"
+          if ! jq -e '.models | type == "array"' "$registry" >/dev/null 2>&1; then
+            report 'The public verifier registry is missing or invalid.'
+            exit 1
+          fi
+          models=$(jq -r --slurpfile registry "$registry" '
+            [$registry[0].models[] | select(type == "object" and .provider == "openai") | .model_id |
+              select(type == "string" and test("^[a-zA-Z0-9._-]+$"))] as $allowlist |
+            [.data[].id | select(. as $id | $allowlist | index($id) != null)] | unique | .[] |
+            "- `\(.)`"
+          ' "$response")
+          report '### OpenAI models in the public verifier subset'
+          if [[ -z "$models" ]]; then
+            report 'OpenAI returned no models that match the public verifier registry.'
+          else
+            report "$models"
+          fi
+
+      - name: Confirm private catalog destination
+        id: confirm_private
+        if: github.event.repository.private == true && steps.visibility.outputs.private == 'true' && steps.openai.outputs.artifact == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            try {
+              const { ensureRateLimitWrapped } = require('./.github/scripts/github-rate-limited-wrapper.js');
+              const api = await ensureRateLimitWrapped({ github, core });
+              const { data } = await api.rest.repos.get(context.repo);
+              if (data.visibility === 'private') {
+                core.setOutput('confirmed', 'true');
+                return;
+              }
+            } catch (_) {
+              // An unavailable visibility check denies publication of the full catalog.
+            }
+            require('node:fs').rmSync(require('node:path').join(process.env.RUNNER_TEMP, 'openai-model-catalog.json'), { force: true });
+            core.setFailed('Private visibility could not be confirmed at upload. No full catalog was published.');
+
+      - name: Upload private OpenAI model catalog
+        id: upload
+        if: steps.confirm_private.outputs.confirmed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: openai-model-catalog
+          path: ${{ runner.temp }}/openai-model-catalog.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Report uploaded private catalog
+        if: steps.upload.outcome == 'success'
+        run: echo 'Download the full catalog from the private OpenAI model catalog artifact.' | tee -a "$GITHUB_STEP_SUMMARY"
