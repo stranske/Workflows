@@ -1021,8 +1021,10 @@ existing report tests and is superseded by the five-module measurement.
 artifact and configuration hashes, immutable new test source and three named
 mutation failures (exit 1) with restored passes (exit 0). The original production
 source remains byte-identical to `recorded-source/scripts/langchain/pr_verifier.py.txt`.
-The two compressed `diagnostic-trace-*.coverage.json.gz` files retain the full
-local before/after coverage JSON. Reproduce using:
+The original [before snapshot](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/diagnostic-trace-before.coverage.json.gz)
+and [after snapshot](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/diagnostic-trace-after.coverage.json.gz)
+retain the full local coverage JSON. See [snapshot recovery](#recover-the-diagnostic-trace-coverage-snapshots).
+Reproduce the local coverage run using:
 
 ```bash
 python docs/evidence/issue-4426/diagnostic-trace-driver.txt
@@ -1055,3 +1057,34 @@ The direct `BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude
 '(\.workflows-lib|node_modules)' .` invocation stalled and was interrupted
 (exit 130); the serial dispatcher completed the full tree without exclusions
 beyond the required command. No Python formatting changes remain.
+
+### Recover the diagnostic-trace coverage snapshots
+
+Run from a Workflows checkout. A shallow checkout fetches the original revision
+from `origin`. The command verifies both gzip files against the SHA-256
+digests in `diagnostic-trace-validation.json` and prints the recovery directory.
+Use `gzip -dc` to read either recovered JSON report.
+
+```bash
+(
+  set -e
+  revision=8084366d968d5c4f68208536ca8bb3956ce99091
+  directory=docs/evidence/issue-4426
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 origin "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/diagnostic-trace.XXXXXX")
+  for phase in before after; do
+    name="diagnostic-trace-$phase.coverage.json.gz"
+    git show "$revision:$directory/$name" > "$recovered/$name"
+  done
+  (
+    cd "$recovered"
+    shasum -a 256 -c <<'CHECKSUMS'
+8df05c61be68bc392d3c2160d8be974a30e5f48ac98cb67c2074511915a9b1f3  diagnostic-trace-before.coverage.json.gz
+75921618b8eb29979a7f4c9f884e1c4b5e5bf7d909d8c5abc3e1935fa5190166  diagnostic-trace-after.coverage.json.gz
+CHECKSUMS
+  )
+  printf '%s\n' "$recovered"
+)
+```
