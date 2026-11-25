@@ -24,9 +24,8 @@ The trackers below solve this by reusing one issue per controller. The bot may
 append a comment, rewrite the body in place, or combine a body marker with
 transition comments. Check the `Update style` column before assuming how a
 tracker carries current state. Either way, **the issue itself is the dashboard**:
-do not close it during routine triage. Each controller has its own lifecycle;
-for example, closing the active `#1836` campaign queue stops that controller's
-work.
+keep it open during routine triage. Maint 82 updates the open campaign queue
+listed below. Closing it interrupts the handoff to the local watcher.
 
 ---
 
@@ -38,7 +37,7 @@ work.
 | [#499](https://github.com/stranske/Counter_Risk/issues/499) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](https://github.com/stranske/Counter_Risk/blob/main/.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
 | [#330](https://github.com/stranske/Inv-Man-Intake/issues/330) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](https://github.com/stranske/Inv-Man-Intake/blob/main/.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
 | [#343](https://github.com/stranske/Pension-Data/issues/343) | Agent metrics weekly summary | [`agents-weekly-metrics.yml`](https://github.com/stranske/Pension-Data/blob/main/.github/workflows/agents-weekly-metrics.yml) | Mondays 06:00 UTC | New comment per run |
-| [#1836](https://github.com/stranske/Workflows/issues/1836) | Sync/Dependency campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 10 minutes + Mondays 10:30 UTC | Body rewritten in place; due transient delivery lanes are serialized, while actionable delivery blockers do not suppress corrective candidate work |
+| [#3926](https://github.com/stranske/Workflows/issues/3926) | Sync/Dependency campaign queue | [`maint-82-sync-dependency-campaign.yml`](../../.github/workflows/maint-82-sync-dependency-campaign.yml) + [`.github/scripts/sync_dependency_campaign.js`](../../.github/scripts/sync_dependency_campaign.js) | Every 10 minutes + Mondays 10:30 UTC | Body rewritten in place; due transient delivery lanes are serialized, while actionable delivery blockers do not suppress corrective candidate work |
 | [#2897](https://github.com/stranske/Workflows/issues/2897) | Dependency/sync maintenance-efficiency advisory report | [`health-83-dependency-sync-efficiency.yml`](../../.github/workflows/health-83-dependency-sync-efficiency.yml) | Weekly Mondays 11:15 UTC + `workflow_dispatch` | Comment appended only on material-evidence fingerprint change |
 | [#2415](https://github.com/stranske/Workflows/issues/2415) | 📊 LangSmith Trace Coverage Dashboard | [`maint-80-langsmith-metrics-dashboard.yml`](../../.github/workflows/maint-80-langsmith-metrics-dashboard.yml) | Mondays 09:00 UTC + manual dispatch | Body rewritten in place |
 | [#2905](https://github.com/stranske/Workflows/issues/2905) | LLM model registry needs evidence review | [`maint-77-model-registry-freshness.yml`](../../.github/workflows/maint-77-model-registry-freshness.yml) | Mondays 05:20 UTC + manual dispatch | Evidence comment appended while freshness or catalog findings persist |
@@ -49,8 +48,8 @@ The signal flow each tracker carries:
 
 - **#2211** — health check on the weekly metrics pipeline. Healthy state is `Parse errors: 0` and non-zero terminal disposition records. A regression here usually means a producer is emitting a malformed artifact, not that the dashboard itself is broken.
 - **Consumer metrics trackers (#499, #330, #343)** — Health 71 checks each consumer's scheduled `agents-weekly-metrics.yml` independently. A tracker comment includes the last successful write plus the count of held/missed zero-job runs; the hold diagnosis is emitted by [`scripts/check_durable_tracker_liveness.py`](../../scripts/check_durable_tracker_liveness.py) and is not a quiet week. To remediate: open the affected consumer workflow run in the GitHub web UI, choose **Approve and run**, and confirm the next scheduled Monday run appends a new tracker comment. GitHub's suspicious-workflow protection re-arms whenever `agents-weekly-metrics.yml` changes (including a template sync), so repeat that approval after each edit before relying on the next scheduled write.
-- **#1836** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
-- **#2897** — Health 83 dependency/sync maintenance-efficiency advisory evidence. Comments append only when the material-evidence fingerprint changes; do not redirect this signal onto `#1836`.
+- **#3926** — work queue for items the local Codex watcher should claim. The body holds the live queue state with a sync hash, repo counts, and per-item status. Active campaigns must not be closed; the controller treats a closed campaign as "stop work."
+- **#2897** — Health 83 dependency/sync maintenance-efficiency advisory evidence. Comments append only when the material-evidence fingerprint changes; the campaign queue has its own tracker.
 - **#2905** — model-registry freshness and provider-catalog evidence. Catalog
   additions are review candidates, not approved selections; the tracker remains
   open while Maint 77 refreshes the facts and a paired benchmark or explicit
@@ -90,9 +89,13 @@ numbers change over time. Numbers that appear in older comments and commits:
 | Controller | Superseded | Current |
 |------------|-----------|---------|
 | `agents-weekly-metrics.yml` | [#1796](https://github.com/stranske/Workflows/issues/1796) — closed 2026-08-01 as a duplicate; last comment 2026-05-25 | [#2211](https://github.com/stranske/Workflows/issues/2211) |
+| `maint-82-sync-dependency-campaign.yml` | [#1836](https://github.com/stranske/Workflows/issues/1836), closed October 16, 2026 | [#3926](https://github.com/stranske/Workflows/issues/3926) |
 
-When a controller's tracker is replaced, update the table above in the same
-change so this page never points at a closed issue.
+Delivery records that name #1836 still bind their verification to comments on that issue.
+Use #3926 for the live queue and its liveness alerts.
+
+When a controller replaces a tracker, update the current and superseded rows
+and the matching issue in [the liveness configuration](../../config/durable_tracker_liveness.yml).
 
 ---
 
@@ -124,9 +127,9 @@ same change.
   tracker numbers* above — the surviving tracker must stay open).
 - **Read the latest comment / body**, not the original creation body. The
   original snapshot is frozen at issue creation; current state lives further
-  down (or in the rewritten body for `#1836`).
+  down (or in the rewritten body for `#3926`).
 - **A red signal** (parse errors > 0 in `#2211`,
-  unclaimed `needs-local-codex` items in `#1836`) means the underlying system
+  unclaimed `needs-local-codex` items in `#3926`) means the underlying system
   needs attention — but the fix lands in code or in another repo, not by
   closing the tracker.
 - **The tracker is not the work item.** If you discover real follow-up work from

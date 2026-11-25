@@ -18,7 +18,7 @@ trackers:
     repo: stranske/Pension-Data
     max_age_hours: 336
   - workflow: maint-82-sync-dependency-campaign.yml
-    issue: 1836
+    issue: 3926
     max_age_hours: 1
   - workflow: health-83-dependency-sync-efficiency.yml
     issue: 2897
