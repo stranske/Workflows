@@ -3784,8 +3784,10 @@ The round 4 consumer payload matches the retained source bytes. The round 9
 consumer blob metadata matches round 8. The round 12 review-thread receipt
 matches round 11. Each dated observation keeps its original link above.
 
-Run from the Workflows root to recover the three original filenames in a
-temporary directory. This also works in a shallow checkout without Git history.
+Run from the Workflows root to recover the three original filenames under their
+original checkout-relative paths. The command also copies the round 4 source.
+Use the printed directory as the working directory for the recorded round 4
+`cmp` command. Recovery works in a shallow checkout without Git history.
 
 ```sh
 (
@@ -3802,9 +3804,12 @@ temporary directory. This also works in a shallow checkout without Git history.
     fi
   done
   out=$(mktemp -d "${TMPDIR:-/tmp}/workflows-seat-receipts.XXXXXX")
-  cp "$source_dir/4558-seat-round4-source.txt" "$out/4558-seat-round4-consumer.txt"
-  cp "$source_dir/4558-seat-round8-consumer-blob.json" "$out/4558-seat-round9-consumer-blob.json"
-  cp "$source_dir/4558-seat-round11-consumer-threads.json" "$out/4558-seat-round12-consumer-threads.json"
+  receipts="$out/$source_dir"
+  mkdir -p "$receipts"
+  cp "$source_dir/4558-seat-round4-source.txt" "$receipts/"
+  cp "$source_dir/4558-seat-round4-source.txt" "$receipts/4558-seat-round4-consumer.txt"
+  cp "$source_dir/4558-seat-round8-consumer-blob.json" "$receipts/4558-seat-round9-consumer-blob.json"
+  cp "$source_dir/4558-seat-round11-consumer-threads.json" "$receipts/4558-seat-round12-consumer-threads.json"
   printf '%s\n' "$out"
 )
 ```
