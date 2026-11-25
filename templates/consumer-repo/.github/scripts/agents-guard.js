@@ -33,6 +33,8 @@ const LEGACY_ALLOW_REMOVED_PATHS = [
   // v1 verify-to-issue workflow deprecated; v2 is the active version.
   // Archived to archives/deprecated-workflows/
   '.github/workflows/agents-verify-to-issue.yml',
+  // The source and consumer keepalive callers moved off the retired dispatcher.
+  '.github/workflows/agents-70-orchestrator.yml',
   // Issue 2275 retired the unnumbered belt alias wrappers after callers were
   // rewired to agents-71/72/73 directly.
   '.github/workflows/agents-belt-dispatcher.yml',
@@ -49,13 +51,6 @@ const CONSUMER_ONLY_ALLOW_REMOVED_PATHS = [
   '.github/workflows/agents-verify-to-issue-v2.yml',
   // The verify-to-new-pr autopilot bridge was collapsed into the main workflow.
   '.github/workflows/agents-verify-to-new-pr-autopilot.yml',
-  // Legacy keepalive orchestrator superseded by the consolidated
-  // agents-80-pr-event-hub.yml + agents-81-gate-followups.yml hubs (controlled
-  // by USE_CONSOLIDATED_WORKFLOWS=true). The Template repo's pre-installed
-  // copy lingered on fresh consumer repos; this allowlist entry lets the
-  // first-PR template sync remove it without tripping the guard. Discovered
-  // during stranske/learning-management-system bootstrap (2026-05).
-  '.github/workflows/agents-70-orchestrator.yml',
   // The consumer-template name (without the 70- prefix). Some Template-based
   // consumer repos shipped this version; allow removal alongside the prefixed
   // form so either spelling can be cleaned up.
