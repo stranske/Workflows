@@ -65,8 +65,11 @@ def test_python_tests_timeout_matches_call_and_dispatch_contracts() -> None:
     assert manual.get("default") == called["default"] == 60
     assert manual["type"] == called["type"] == "number"
     assert manual["required"] is False
-    assert workflow["jobs"]["tests"]["timeout-minutes"] == "${{ inputs['tests-timeout-minutes'] }}"
-    assert _merged_inputs({"inputs": {key: 12}})[key] == 12
+    timeout = workflow["jobs"]["tests"]["timeout-minutes"]
+    assert timeout == "${{ fromJSON(format('{0}', inputs['tests-timeout-minutes'])) }}"
+    # Direct events can provide '60' as a string while a call provides a number.
+    assert json.loads(str(manual["default"])) == 60
+    assert json.loads(str(_merged_inputs({"inputs": {key: 12}})[key])) == 12
 
 
 def _step_outputs(path: Path) -> dict[str, str]:
