@@ -64,7 +64,7 @@ These later improvements are **separate from PR #3962 results** and should not b
 - ✅ Issue-scope ranking identified `scripts/aggregate_agent_metrics.py` as #1 target
 - ✅ 92 uncovered statements+branches signal documented
 - ✅ PR #3962 added tests for this target
-- ✅ Coverage improvement measured (though exact 63-unit delta unverified)
+- ✅ Exact 63-unit delta reproduced by focused tests; Gate-wide attribution remains unverified
 - ❌ Full historical ordered ranking snapshot unavailable
 - ❌ Gate artifacts from PR #3962 expired
 
@@ -74,3 +74,13 @@ These later improvements are **separate from PR #3962 results** and should not b
 - PR #3962: Added four defensive tests
 - PR #4407: Documented break-and-revert proofs and coverage measurements
 - Gate run 38973627393: Expired artifacts, metadata recovered via GitHub API
+
+## Recover the original JSON
+
+Read the [immutable original](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3958/gate-metadata-38973627393.json) or recover it from a shallow checkout. The archived job metadata binds the run to the PR head. Its parent and merge revisions are comparison context, and the original full Gate coverage artifacts expired.
+
+```sh
+git fetch --depth=1 origin 00f43f81e51c4f8b9a057ac51f7e3c2d870d7769
+git show 00f43f81e51c4f8b9a057ac51f7e3c2d870d7769:docs/evidence/issue-3958/gate-metadata-38973627393.json > gate-metadata-38973627393.json
+printf '%s  %s\n' '69caa951a747a57459e8f2f785a38217fe4bcd55fe6b7e06f18b3480a6f256a4' 'gate-metadata-38973627393.json' | shasum -a 256 -c -
+```
