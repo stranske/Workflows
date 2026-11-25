@@ -129,7 +129,13 @@ Before automatic Gate producers publish a queue-visible origin, install reporter
 
 An expired prepared receipt is non-authorizing and may be released either by the failed-run reporter's exact non-start evidence or by initialization after it verifies the persisted claim, immutable attempt index, same-head automation label, and absence of a hard human blocker. The initialization path is limited to `prepared`: it cannot infer non-start or refund a `consumed` or `confirmed` receipt. Release refreshes the due/expiry window under one conditional ledger write and retains the immutable release receipt and its generation lineage for delayed summary projection. An available released state rotates to a new generation when its boundary fingerprint changes or its window expires, while preserving the settled receipt and every prior generation in its lineage. Replays of the settled owner attempt remain denied. Expiry alone never rotates a consumed or confirmed receipt into available authority, and missing or conflicting preparation evidence preserves the prepared state.
 
-PR-meta requests a run ID when it dispatches Agents 70 for an activation comment. PR-meta uses a valid HTTP 200 run ID to confirm the dispatch before sending the paired keepalive command. A 200 without a usable ID is unresolved. A no-content response still uses the legacy workflow lookup. A lost transport response requires separate reconciliation before the handoff can be made exactly once.
+When PR-meta admits a keepalive activation, it records the activation reaction
+before submitting `codex-pr-comment-command` to the same repository. The command
+carries the PR number, base and head branches, selected agent, instruction,
+activation comment ID and URL, round, and trace. A held reaction lock stops the
+submission. PR-meta reports whether GitHub accepted the event. Follow the
+repository's registered command handler to verify that it received the activation
+and performed the requested work.
 
 ## Key Principles
 
