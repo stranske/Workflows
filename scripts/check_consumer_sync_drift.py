@@ -16,6 +16,7 @@ import requests
 import yaml
 
 try:
+    from list_registered_consumer_repos import extract_repos
     from sync_manifest_compiler import (
         COPY_SYNCED_SECTIONS,
         CompiledManifest,
@@ -25,6 +26,7 @@ try:
         resolve_source_path,
     )
 except ImportError:
+    from scripts.list_registered_consumer_repos import extract_repos
     from scripts.sync_manifest_compiler import (  # type: ignore[no-redef]
         COPY_SYNCED_SECTIONS,
         CompiledManifest,
@@ -34,6 +36,9 @@ except ImportError:
         resolve_source_path,
     )
 
+CONSUMER_REGISTRY = (
+    Path(__file__).resolve().parents[1] / ".github/workflows/maint-68-sync-consumer-repos.yml"
+)
 REPORT_SCHEMA = "workflows-consumer-sync-drift/v1"
 SUMMARY_ITEM_LIMIT = 50
 CONTENT_ERROR_THRESHOLD = 5
@@ -100,8 +105,10 @@ def resolve_repos(raw: str | None) -> list[str]:
     return repos
 
 
-def resolve_candidate_repos(path: str, registered_repos: list[str]) -> set[str]:
-    """Load the bounded canary set used by Maint 68 candidate branches."""
+def resolve_candidate_repos(
+    path: str, registered_repos: list[str], requested_repos: list[str] | None = None
+) -> set[str]:
+    """Validate fleet canaries, then select those in the requested comparison scope."""
     config = json.loads(Path(path).read_text(encoding="utf-8"))
     canaries = config.get("canaries") if isinstance(config, dict) else None
     if not isinstance(canaries, list):
@@ -111,9 +118,15 @@ def resolve_candidate_repos(path: str, registered_repos: list[str]) -> set[str]:
         for item in canaries
         if isinstance(item, dict) and item.get("repo")
     }
-    if not repos or not repos <= set(registered_repos):
+    registered = set(registered_repos)
+    if not repos or not repos <= registered:
         raise ValueError("consumer sync canaries must be registered repositories")
-    return repos
+    if requested_repos is None:
+        return repos
+    requested = set(requested_repos)
+    if not requested <= registered:
+        raise ValueError("selected consumer repositories must be registered")
+    return repos & requested
 
 
 def local_path_for(source: str, section: str | None = None) -> Path | None:
@@ -1010,7 +1023,8 @@ def main() -> int:
     sections = list(COPY_SYNCED_SECTIONS)
     current_plan_id = str(compiled.to_plan()["plan_id"])
     try:
-        candidate_repos = resolve_candidate_repos(args.canaries, repos)
+        registered_repos = extract_repos(CONSUMER_REGISTRY)
+        candidate_repos = resolve_candidate_repos(args.canaries, registered_repos, repos)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         print(f"::error::Invalid consumer sync canary config: {exc}")
         write_report_json(
