@@ -70,11 +70,11 @@ fingerprint_refreshed = 2026-11-22
 [pair.4]
 main = .github/workflows/agents-73-codex-belt-conveyor.yml
 template = templates/consumer-repo/.github/workflows/agents-73-codex-belt-conveyor.yml
-main_sha256 = 0e1002a98faad1c4444923a7924dc2fd2a1e4f0115d074cd130e8f35e3209033
-template_sha256 = 07d5ef489140f7d55a6733d4e1c73d5d3bc17bad33ce9df216767ecb1395be79
+main_sha256 = 5d8b35add52338cd647af5eda9e86c20b8c2aaaab0912bd15151d22457c6c70d
+template_sha256 = 002fa5b117e4fdb6467fc246b5cc8d194ff49e27d48eeeffc6cc7701e02ab31d
 divergence = client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-reviewed 2026-08-10: root conveyor labels Gate and changed-file checks as authoritative; the consumer adds explicit best-effort rationale for only post-merge cleanup calls while preserving its action pins and Codex-specific behavior.
 divergence_reviewed = 2026-08-10
-fingerprint_refreshed = 2026-08-24
+fingerprint_refreshed = 2026-11-25
 
 [pair.5]
 main = .github/workflows/agents-auto-label.yml
