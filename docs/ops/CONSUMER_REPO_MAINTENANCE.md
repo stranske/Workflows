@@ -324,6 +324,21 @@ there is no admin bypass or automatic resolution. This correction neither clears
 the existing shared-code blockers nor adds a campaign #1836 prerequisite, opens
 a campaign, or authorizes any consumer message or modification.
 
+For an unresolved outdated workflow finding that repository protection requires
+resolved, the trusted Maint 71 reassessment dispatch can use
+`request_stage: outdated-reassessment`. Supply the existing exact delivery
+binding, the merged Workflows `source_fix_pr` number and the SHA-256
+`finding_sha256` of the original in-thread comment body. The merged source
+PR must match the delivery's source revision and change the consumer template
+for the finding. The generated head must carry that template's exact blob,
+and the original finding commit must carry a different blob. Maint 71 checks
+the live conversation policy, re-reads the head and finding, and posts at most
+one bound inline request. An existing exact request is reused. If the POST
+outcome is uncertain, inspect the original thread for its durable marker
+before retrying. The request supplies no disposition or merge authority.
+The originating reviewer's exact acceptance or the existing independent
+verification contract still governs resolution.
+
 Maint82 retains its bounded ten-minute continuation sweep: consumer CI completion
 does not yet provide a native event wakeup for every delivery stage. The local
 worker follows active CI in the same run; the sweep is recovery and does not
