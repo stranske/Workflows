@@ -72,7 +72,7 @@ response serialization fallback. The unchanged chunk suite/configuration gains
 27 local missing units (18 statements and nine arcs), with no coverage lost.
 Four units are explicitly missing in the recorded final Gate log. Complete
 before/after coverage JSON artifacts and immutable source/test evidence are
-retained in `bounded-review-*.coverage.json.gz`, `bounded-review-validation.json`
+available through [historical recovery](gate-check.md#recover-the-bounded-review-and-native-slot-coverage-snapshots), `bounded-review-validation.json`
 and `bounded-review-mutations.json`. Each new test has a named mutation failure
 and restored pass; no production mutation remains. The required selection
 passes 165 tests in 3.06s; the offline shallow evidence selection passes all

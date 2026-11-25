@@ -182,6 +182,16 @@ To opt in with the [synced consumer caller](../../templates/consumer-repo/.githu
 | A Workflows PR failed Gate | [Gate](../../.github/workflows/pr-00-gate.yml) can emit `autofix_gate_failure` with PR context. [Agents Autofix Dispatch](../../.github/workflows/agents-autofix-dispatcher.yml) forwards the Gate run and PR number to [Agents Autofix Loop](../../.github/workflows/agents-autofix-loop.yml). The loop also listens for completed Gate runs and checks repair eligibility. |
 | A formatter ran or produced a patch | [CI Autofix Loop](../../.github/workflows/autofix.yml) checks completed Gate, CI and Python CI runs and PR labeling events. Eligible runs call [Reusable 18 Autofix](../../.github/workflows/reusable-18-autofix.yml). Open the caller’s run for the commit, patch artifact or no-change result. |
 
+For a skipped formatter, open **Resolve Context** in the CI Autofix Loop run. On
+failed or timed-out CI runs it checks for a relevant lint failure and Python
+changes on the PR. To request formatting directly, apply `autofix` or
+`autofix:clean` to an open, non-draft PR from the same repository with Python
+changes. Maint 71 handles generated sync PRs.
+
+For an admitted run, inspect the reusable job for the repair commit on the PR
+branch. If the job reports patch delivery, download `autofix-patch-pr-<number>`
+from the caller's run artifacts.
+
 In consumer repositories the [dispatcher](../../templates/consumer-repo/.github/workflows/agents-autofix-dispatcher.yml) acknowledges the notification. [Gate Followups](../../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml) evaluates repairs when consolidated workflows are enabled.
 
 Reusable Autofix stages eligible changes before publishing its consolidated result.
