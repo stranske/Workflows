@@ -54,6 +54,55 @@ def test_consumer_drift_detector_debounces_workflow_run() -> None:
     ), "the bare-conclusion jq selector is back; it counts debounced no-ops as runs"
 
 
+@pytest.mark.parametrize(
+    ("repos", "outcome", "publishes", "resolves", "timestamps"),
+    [
+        ("stranske/trip-planner", "failure", False, False, False),
+        ("stranske/trip-planner", "success", False, False, False),
+        ("", "failure", True, False, True),
+        ("", "success", False, True, True),
+    ],
+)
+def test_manual_repo_scope_does_not_write_fleet_state(
+    repos, outcome, publishes, resolves, timestamps
+) -> None:
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    jobs = data["jobs"]
+    steps = {step["name"]: step for step in jobs["check-drift"]["steps"]}
+    context = {
+        "inputs.repos": repos,
+        "steps.compare.outcome": outcome,
+        "steps.debounce.outputs.skip": "false",
+        "needs.check-drift.result": outcome,
+        "needs.check-drift.outputs.drift_failed": str(outcome == "failure").lower(),
+        "needs.check-drift.outputs.drift_clean": str(outcome == "success").lower(),
+    }
+
+    def selected(condition):
+        condition = " ".join(condition.strip().removeprefix("${{").removesuffix("}}").split())
+        for key, value in context.items():
+            condition = condition.replace(key, repr(value))
+        return eval(  # noqa: S307 - local authored expressions with fixed scalar contexts
+            condition.replace("always()", "True").replace("&&", " and ").replace("||", " or "),
+            {"__builtins__": {}},
+        )
+
+    assert selected(jobs["publish-drift"]["if"]) is publishes
+    assert selected(jobs["resolve-drift"]["if"]) is resolves
+    assert selected(steps["Update comparison timestamp marker"]["if"]) is timestamps
+    assert selected(steps["Save comparison timestamp marker"]["if"]) is timestamps
+    assert selected(steps["Upload drift report"]["if"]) is True
+
+
+def test_manual_repo_scope_has_run_specific_concurrency() -> None:
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    group = " ".join(data["concurrency"]["group"].split())
+    assert "inputs.repos != ''" in group
+    assert "format('health-68-consumer-sync-drift-scoped-{0}', github.run_id)" in group
+    assert group.endswith("|| 'health-68-consumer-sync-drift' }}")
+    assert data["concurrency"]["cancel-in-progress"] is True
+
+
 def test_api_client_setup_follows_and_respects_debounce() -> None:
     data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     steps = data["jobs"]["check-drift"]["steps"]

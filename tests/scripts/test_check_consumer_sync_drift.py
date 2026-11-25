@@ -51,6 +51,52 @@ def test_remote_tree_transport_failure_preserves_unknown(error_type, failed_stag
     )
 
 
+def test_manual_repo_selection_preserves_valid_fleet_canaries(tmp_path, monkeypatch) -> None:
+    configured = Path("config/consumer_sync_canaries.json")
+    args = SimpleNamespace(
+        repos="stranske/trip-planner",
+        manifest=".github/sync-manifest.yml",
+        canaries=str(configured),
+        report_json=str(tmp_path / "report.json"),
+        summary=str(tmp_path / "summary.md"),
+    )
+    read_token = Mock(return_value=(None, {}))
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [])
+    monkeypatch.setattr(check_consumer_sync_drift, "select_read_token", read_token)
+
+    assert check_consumer_sync_drift.main() == 1
+    assert read_token.call_args.kwargs["repos"] == ["stranske/trip-planner"]
+    report = json.loads(Path(args.report_json).read_text(encoding="utf-8"))
+    assert report["errors"] == ["No GitHub token available for cross-repo reads"]
+
+
+def test_canary_config_validates_authority_before_scoping(tmp_path) -> None:
+    registered = ["stranske/trip-planner", "stranske/Template"]
+    canaries = tmp_path / "canaries.json"
+    canaries.write_text(
+        json.dumps({"canaries": [{"repo": "stranske/trip-planner"}]}), encoding="utf-8"
+    )
+    assert (
+        check_consumer_sync_drift.resolve_candidate_repos(
+            str(canaries), registered, ["stranske/Template"]
+        )
+        == set()
+    )
+    with pytest.raises(ValueError, match="selected consumer repositories must be registered"):
+        check_consumer_sync_drift.resolve_candidate_repos(
+            str(canaries), registered, ["fixture/not-registered"]
+        )
+
+    canaries.write_text(
+        json.dumps({"canaries": [{"repo": "fixture/not-registered"}]}), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="consumer sync canaries must be registered repositories"):
+        check_consumer_sync_drift.resolve_candidate_repos(
+            str(canaries), registered, ["stranske/Template"]
+        )
+
+
 def test_main_caches_failed_blob_reads_by_repo_and_sha(tmp_path, monkeypatch) -> None:
     """A cached None is a completed read, including when Gate reuses that blob."""
     source = tmp_path / "managed.yml"

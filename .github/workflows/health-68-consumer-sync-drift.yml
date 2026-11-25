@@ -31,7 +31,10 @@ permissions:
   actions: read
 
 concurrency:
-  group: health-68-consumer-sync-drift
+  # A scoped manual report must not interrupt a fleet comparison.
+  group: >-
+    ${{ inputs.repos != '' && format('health-68-consumer-sync-drift-scoped-{0}', github.run_id) ||
+        'health-68-consumer-sync-drift' }}
   cancel-in-progress: true
 
 jobs:
@@ -134,13 +137,17 @@ jobs:
             --report-json "$CONSUMER_SYNC_DRIFT_REPORT_JSON"
 
       - name: Update comparison timestamp marker
-        if: ${{ always() && (steps.compare.outcome == 'success' || steps.compare.outcome == 'failure') }}
+        if: >-
+          ${{ always() && inputs.repos == '' &&
+              (steps.compare.outcome == 'success' || steps.compare.outcome == 'failure') }}
         run: |
           mkdir -p .cache/health-68-last-compared
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .cache/health-68-last-compared/timestamp
 
       - name: Save comparison timestamp marker
-        if: ${{ always() && (steps.compare.outcome == 'success' || steps.compare.outcome == 'failure') }}
+        if: >-
+          ${{ always() && inputs.repos == '' &&
+              (steps.compare.outcome == 'success' || steps.compare.outcome == 'failure') }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .cache/health-68-last-compared
@@ -167,7 +174,7 @@ jobs:
   publish-drift:
     name: Publish actionable drift alert
     needs: check-drift
-    if: ${{ always() && needs.check-drift.outputs.drift_failed == 'true' }}
+    if: ${{ always() && inputs.repos == '' && needs.check-drift.outputs.drift_failed == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
