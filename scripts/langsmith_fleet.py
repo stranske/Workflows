@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -654,6 +655,61 @@ def format_fleet_summary(summary: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _escape_surface_label(surface: str) -> str:
+    """Bound the label and display Markdown syntax only as literal text."""
+    label = re.sub(r"[^ -~]", "?", surface[:60])
+    label = re.sub(r"[^A-Za-z0-9-]", lambda match: f"&#{ord(match[0])};", label)
+    return label + ("…" if len(surface) > 60 else "")
+
+
+def format_unmatched_surfaces(records: list[dict[str, Any]], registry: dict[str, Any]) -> str:
+    """Show distinct unmatched records from repositories with artifact evidence."""
+    registered = registry_surfaces(registry)
+    artifact_repos = {
+        repo for (repo, _), entry in registered.items() if entry.get("evidence_mode") == "artifact"
+    }
+    counts: dict[str, Counter[str]] = defaultdict(Counter)
+    seen: set[str] = set()
+    for record in records:
+        repo = record.get("repo")
+        surface = record.get("surface")
+        if (
+            not isinstance(repo, str)
+            or repo not in artifact_repos
+            or not isinstance(surface, str)
+            or not surface.strip()
+            or (repo, surface) in registered
+        ):
+            continue
+        # Deduplicate repeated artifact lines without collapsing distinct observations
+        # that share a run or session ID.
+        identity = json.dumps(record, sort_keys=True)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        counts[repo][surface] += 1
+
+    if not counts:
+        return ""
+
+    lines = [
+        "",
+        "## Unmatched fleet artifact surfaces",
+        "",
+        "These records came from downloaded artifacts and matched no registered surface.",
+        "",
+        "| Repo | Unmatched records | Reported surfaces |",
+        "|------|-------------------|-------------------|",
+    ]
+    for repo, surfaces in sorted(counts.items()):
+        ordered = sorted(surfaces.items(), key=lambda item: (-item[1], item[0]))
+        labels = [f"{_escape_surface_label(surface)} ({count})" for surface, count in ordered[:3]]
+        if len(ordered) > 3:
+            labels.append(f"+{len(ordered) - 3} more")
+        lines.append(f"| {repo} | {sum(surfaces.values())} | {', '.join(labels)} |")
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate LangSmith fleet records")
     parser.add_argument("records", type=Path, help="NDJSON file with langsmith-fleet/v1 records")
@@ -674,6 +730,11 @@ def main() -> None:
         default="json",
         help="Output format for --summary",
     )
+    parser.add_argument(
+        "--show-unmatched-surfaces",
+        action="store_true",
+        help="Include unmatched artifact surfaces in Markdown summaries",
+    )
     args = parser.parse_args()
 
     records, parse_errors = load_ndjson(args.records)
@@ -689,7 +750,10 @@ def main() -> None:
     if args.summary:
         summary = summarize_fleet_records(records, registry=registry)
         if args.format == "markdown":
-            print(format_fleet_summary(summary), end="")
+            markdown = format_fleet_summary(summary)
+            if args.show_unmatched_surfaces:
+                markdown += format_unmatched_surfaces(records, registry)
+            print(markdown, end="")
         else:
             print(json.dumps(summary, indent=2, sort_keys=True))
     else:

@@ -192,7 +192,7 @@ def test_fleet_rollup_and_publication_paths_are_wired() -> None:
 
     # Fleet rollup is generated from combined records via the validator summary output.
     assert "python scripts/langsmith_fleet.py .metrics-tmp/fleet/combined-fleet.ndjson" in source
-    assert '--registry "$REGISTRY" --summary --format markdown' in source
+    assert '--registry "$REGISTRY" --summary --format markdown --show-unmatched-surfaces' in source
     assert '--registry "$REGISTRY" --summary --format json' in source
 
     # The same report payload feeds the durable issue and retained report artifact.

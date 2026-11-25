@@ -276,7 +276,7 @@ jobs:
           # Reuse the already-tested rollup. The registry drives the table, so
           # every registered and allowlisted repo gets an explicit status row.
           python scripts/langsmith_fleet.py .metrics-tmp/fleet/combined-fleet.ndjson \
-            --registry "$REGISTRY" --summary --format markdown \
+            --registry "$REGISTRY" --summary --format markdown --show-unmatched-surfaces \
             > .metrics-tmp/fleet/fleet-status.md
           python scripts/langsmith_fleet.py .metrics-tmp/fleet/combined-fleet.ndjson \
             --registry "$REGISTRY" --summary --format json \
