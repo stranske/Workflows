@@ -599,9 +599,14 @@ test('managed Gate child uses the exact upstream attempt instead of its default-
     requested.push([args.run_id, args.attempt_number]);
     return { data: { id: 20, path: '.github/workflows/pr-00-gate.yml', run_attempt: 2, head_sha: headSha, pull_requests: [] } };
   };
+  github.rest.repos = { async listPullRequestsAssociatedWithCommit({ commit_sha }) {
+    assert.equal(commit_sha, headSha);
+    return { data: [{ number: 42 }] };
+  } };
   const args = { github, owner: 'stranske', repo: 'Trend_Model_Project', prNumber: 42, headSha };
   assert.deepEqual((await countActive(args)).runIds, new Set([41]));
   assert.deepEqual(requested, [[20, 2]]);
+  assert.deepEqual((await countActive({ ...args, headSha: 'advanced-head' })).runIds, new Set([41]));
   assert.equal((await countActive({ ...args, currentRunId: 41 })).active, 0);
   github.rest.actions.getWorkflowRunAttempt = async () => ({ data: { id: 20, run_attempt: 3 } });
   assert.match((await countActive(args)).error, /Gate attempt identity/);

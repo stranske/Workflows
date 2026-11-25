@@ -707,10 +707,16 @@ async function countActive({
           !GATE_WORKFLOW_FILES.some((file) => gate.path === `.github/workflows/${file}`)) {
         throw new Error('Keepalive Gate attempt identity could not be verified');
       }
-      const pulls = gate.pull_requests || [];
-      return pulls.length > 0
-        ? pulls.some((entry) => Number(entry?.number) === targetPr)
-        : Boolean(normalisedHeadSha && gate.head_sha === normalisedHeadSha);
+      const associatedPr = Number(gate.pull_requests?.[0]?.number || 0);
+      if (associatedPr > 0) return associatedPr === targetPr;
+      if (!gate.head_sha) throw new Error('Keepalive Gate attempt has no head SHA');
+      // Use the same commit-to-PR association as the receiving keepalive loop.
+      // The triggering commit may be older than the target PR's current head.
+      const { data: pulls } = await withBackoff(() => github.rest.repos.listPullRequestsAssociatedWithCommit({
+        owner, repo, commit_sha: gate.head_sha,
+      }), { core });
+      if (!Array.isArray(pulls)) throw new Error('Keepalive Gate commit association is unavailable');
+      return Number(pulls[0]?.number || 0) === targetPr;
     }
     if (runEvent === 'workflow_dispatch') {
       const match = KEEPALIVE_DISPATCH_TITLE.exec(String(run.display_title || ''));
