@@ -33,8 +33,6 @@ const LEGACY_ALLOW_REMOVED_PATHS = [
   // v1 verify-to-issue workflow deprecated; v2 is the active version.
   // Archived to archives/deprecated-workflows/
   '.github/workflows/agents-verify-to-issue.yml',
-  // The source and consumer keepalive callers moved off the retired dispatcher.
-  '.github/workflows/agents-70-orchestrator.yml',
   // Issue 2275 retired the unnumbered belt alias wrappers after callers were
   // rewired to agents-71/72/73 directly.
   '.github/workflows/agents-belt-dispatcher.yml',
@@ -51,9 +49,7 @@ const CONSUMER_ONLY_ALLOW_REMOVED_PATHS = [
   '.github/workflows/agents-verify-to-issue-v2.yml',
   // The verify-to-new-pr autopilot bridge was collapsed into the main workflow.
   '.github/workflows/agents-verify-to-new-pr-autopilot.yml',
-  // The consumer-template name (without the 70- prefix). Some Template-based
-  // consumer repos shipped this version; allow removal alongside the prefixed
-  // form so either spelling can be cleaned up.
+  // Some Template-based consumers shipped this legacy unnumbered workflow.
   '.github/workflows/agents-orchestrator.yml',
 ];
 
