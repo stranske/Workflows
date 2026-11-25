@@ -1,4 +1,5 @@
 const { createHash } = require('node:crypto');
+const { createTokenAwareRetry } = require('./github-api-with-retry.js');
 
 const BRANCH = 'maintenance/maint72-pr-body';
 const BASE = 'main';
@@ -9,22 +10,27 @@ function treeEntries(entries) {
   return JSON.stringify(entries.map(({ path, mode, type, sha }) => [path, mode, type, sha]).sort());
 }
 
-async function openCleanupPullRequest({ github, withRetry, owner, repo, baseSha, prBodySha,
+async function openCleanupPullRequest({ github, core, owner, repo, baseSha, prBodySha,
   gitignoreSha, newIgnore }) {
-  const { git, pulls, repos } = github.rest;
+  // Keep protected receipt reads and write reconciliation on this installation.
+  const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
+    github, core, env: {}, tokenRegistry: { isInitialized: () => false },
+    task: 'maint72-protected-apply',
+  });
+  const writeOnce = (fn) => withRetry(fn, { maxRetries: 0 });
   const target = { owner, repo };
   const headRef = `heads/${BRANCH}`;
-  const getCommit = async (sha) => (await withRetry(() => git.getCommit({
+  const getCommit = async (sha) => (await withRetry((client) => client.rest.git.getCommit({
     ...target, commit_sha: sha,
   }))).data;
   const getTree = async (sha) => {
-    const { data } = await withRetry(() => git.getTree({ ...target, tree_sha: sha }));
+    const { data } = await withRetry((client) => client.rest.git.getTree({ ...target, tree_sha: sha }));
     if (data.truncated) throw new Error('cannot verify a truncated cleanup tree');
     return data.tree;
   };
   const getHead = async () => {
     try {
-      const { data } = await withRetry(() => git.getRef({ ...target, ref: headRef }));
+      const { data } = await withRetry((client) => client.rest.git.getRef({ ...target, ref: headRef }));
       if (data.ref !== `refs/${headRef}` || !data.object.sha) {
         throw new Error('unexpected cleanup branch reference');
       }
@@ -35,15 +41,15 @@ async function openCleanupPullRequest({ github, withRetry, owner, repo, baseSha,
     }
   };
   const getPull = async (sha) => {
-    const matches = (await withRetry(() => github.paginate(pulls.list, {
+    const matches = (await paginateWithRetry(github.rest.pulls.list, {
       ...target, state: 'all', head: `${owner}:${BRANCH}`, per_page: 100,
-    }))).filter((pull) => pull.state === 'open' || pull.head.sha === sha);
+    })).filter((pull) => pull.state === 'open' || pull.head.sha === sha);
     if (matches.length > 1) throw new Error('multiple cleanup PRs found; reconcile their branches');
     return matches[0];
   };
 
   const assertBase = async () => {
-    const { data } = await withRetry(() => repos.getBranch({ ...target, branch: BASE }));
+    const { data } = await withRetry((client) => client.rest.repos.getBranch({ ...target, branch: BASE }));
     if (data.commit.sha !== baseSha || data.protected !== true) {
       throw new Error('default head or protection changed; preview the current default again');
     }
@@ -105,18 +111,20 @@ async function openCleanupPullRequest({ github, withRetry, owner, repo, baseSha,
   if (head) {
     await verifyHead(head);
   } else {
-    const { data: tree } = await git.createTree({
+    const { data: tree } = await writeOnce((client) => client.rest.git.createTree({
       ...target, base_tree: baseCommit.tree.sha, tree: changes,
-    });
+    }));
     if (treeEntries(await getTree(tree.sha)) !== expected) {
       throw new Error('created cleanup tree differs from the pinned plan; no ref was published');
     }
-    const { data: commit } = await git.createCommit({
+    const { data: commit } = await writeOnce((client) => client.rest.git.createCommit({
       ...target, message, tree: tree.sha, parents: [baseSha],
-    });
+    }));
     await assertBase();
     try {
-      await git.createRef({ ...target, ref: `refs/${headRef}`, sha: commit.sha });
+      await writeOnce((client) => client.rest.git.createRef({
+        ...target, ref: `refs/${headRef}`, sha: commit.sha,
+      }));
     } catch (error) {
       // A competing exact run or a lost response may already have published the ref.
       if (!(await getHead())) throw error;
@@ -131,12 +139,12 @@ async function openCleanupPullRequest({ github, withRetry, owner, repo, baseSha,
   if (existing) return verifyPull(existing, head);
   let pull;
   try {
-    ({ data: pull } = await pulls.create({
+    ({ data: pull } = await writeOnce((client) => client.rest.pulls.create({
       ...target, title: TITLE, head: BRANCH, base: BASE, draft: false,
       body: `${MARKER}\n\nThis PR applies the Maint 72 cleanup plan from \`${baseSha}\`. ` +
         'It removes tracked PR-body content and adds the ignore rule when missing. ' +
         'Review the exact diff and required checks before merging.',
-    }));
+    })));
   } catch (error) {
     // Reconcile an ambiguous create response by the bound head, never by making another PR.
     pull = await getPull(head);

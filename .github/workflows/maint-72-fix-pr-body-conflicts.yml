@@ -290,7 +290,7 @@ jobs:
               const { openCleanupPullRequest } = require('./.github/scripts/maint72-pr-body-cleanup.js');
               try {
                 const url = await openCleanupPullRequest({
-                  github, withRetry, owner, repo, baseSha: ref, prBodySha, gitignoreSha, newIgnore
+                  github, core, owner, repo, baseSha: ref, prBodySha, gitignoreSha, newIgnore
                 });
                 core.notice(`${owner}/${repo}: Cleanup PR ready for normal review: ${url}`);
               } catch (e) {
