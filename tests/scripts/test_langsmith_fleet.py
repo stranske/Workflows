@@ -100,6 +100,41 @@ def test_unknown_repo_surface_is_rejected() -> None:
     assert errors[-1].message == "stranske/unknown/planner-runtime is not in registry"
 
 
+def test_dashboard_markdown_counts_distinct_unmatched_artifact_observations() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
+    trip = next(row for row in records if row["repo"] == "stranske/trip-planner")
+    unknown = {**trip, "surface": "planner-conversation"}
+    same_session = {**unknown, "recorded_at": "2026-05-24T02:02:00Z"}
+    unrelated = {**unknown, "repo": "not/registered"}
+    direct = next(row for row in registry["repos"] if row["evidence_mode"] == "langsmith-direct")
+    non_artifact = {**unknown, "repo": direct["repo"]}
+
+    assert langsmith_fleet.format_unmatched_surfaces([], registry) == ""
+    assert langsmith_fleet.format_unmatched_surfaces(records, registry) == ""
+    assert langsmith_fleet.format_unmatched_surfaces([unrelated, non_artifact], registry) == ""
+
+    baseline = langsmith_fleet.summarize_fleet_records(records, registry=registry)
+    decorated = [*records, unknown, dict(reversed(unknown.items())), same_session, unrelated]
+    diagnostic = langsmith_fleet.format_unmatched_surfaces(decorated, registry)
+    assert diagnostic.count("| stranske/trip-planner | 2 | planner-conversation (2) |") == 1
+    assert langsmith_fleet.summarize_fleet_records(decorated, registry=registry) == baseline
+
+
+def test_dashboard_markdown_bounds_and_escapes_unmatched_surface_labels() -> None:
+    registry = langsmith_fleet.load_registry(REGISTRY)
+    unknown = {"repo": "stranske/trip-planner", "surface": "a|<img>@owner`_\n" + "z" * 80}
+    records = [unknown, *[{**unknown, "surface": f"other-{i}"} for i in range(5)]]
+
+    diagnostic = langsmith_fleet.format_unmatched_surfaces(records, registry)
+
+    assert "| stranske/trip-planner | 6 | " in diagnostic
+    assert "&#124;&#60;img&#62;&#64;owner&#96;&#95;&#63;" in diagnostic
+    assert "<img>" not in diagnostic and "@owner" not in diagnostic
+    assert "z" * 60 not in diagnostic and "… (1)" in diagnostic
+    assert "+3 more" in diagnostic and "other-2" not in diagnostic
+
+
 def test_summary_distinguishes_valid_missing_and_invalid() -> None:
     registry = langsmith_fleet.load_registry(REGISTRY)
     valid_records, _ = langsmith_fleet.load_ndjson(FIXTURES / "valid.ndjson")
