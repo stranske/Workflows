@@ -5,9 +5,6 @@ const assert = require('node:assert/strict');
 
 const {
   acquireActivationLock,
-  snapshotOrchestratorRuns,
-  dispatchOrchestrator,
-  confirmDispatch,
   runKeepaliveOrchestrator,
   dispatchKeepaliveCommand,
 } = require('../agents_pr_meta_orchestrator');
@@ -88,301 +85,39 @@ test('acquireActivationLock reports lock-held when reaction already exists', asy
   assert.equal(result.reason, 'lock-held');
 });
 
-test('dispatchOrchestrator posts workflow dispatch with keepalive inputs', async () => {
-  let received = null;
-  const github = {
-    rest: {
-      actions: {
-        async createWorkflowDispatch(payload) {
-          received = payload;
-        },
-      },
-    },
-  };
-
-  const result = await dispatchOrchestrator({
-    github,
-    context: baseContext,
-    core: makeCore(),
-    inputs: {
-      issue: 12,
-      prNumber: 34,
-      branch: 'feature',
-      base: 'main',
-      round: 2,
-      trace: 'trace-123',
-      instructionBody: 'Instruction text',
-    },
-  });
-
-  assert.equal(result.ok, true);
-  assert.equal(received.workflow_id, 'agents-70-orchestrator.yml');
-  assert.equal(received.ref, 'main');
-  assert.equal(received.return_run_details, true);
-  assert.equal(received.inputs.keepalive_enabled, 'true');
-  assert.equal(received.inputs.pr_number, '34');
-  const params = JSON.parse(received.inputs.params_json);
-  assert.equal(params.dispatcher_force_issue, '12');
-  assert.equal(params.keepalive_branch, 'feature');
-  assert.equal(params.keepalive_base, 'main');
-  const options = JSON.parse(received.inputs.options_json);
-  assert.equal(options.round, '2');
-  assert.equal(options.pr, '34');
-  assert.equal(options.keepalive_trace, 'trace-123');
-  assert.equal(options.keepalive_instruction, 'Instruction text');
-});
-
-for (const runId of [41966561287, undefined, 0, '41966561287']) {
-  test(`200 dispatch response uses only a valid numeric run ID (${runId})`, async () => {
-    const reads = [];
-    const commands = [];
-    let posts = 0;
-    const inputs = {
-      issue: 4368, prNumber: 4445, branch: 'feature', base: 'main', round: 1,
-      trace: 'trace', commentId: 123, commentUrl: 'https://example.test/comment/123',
-      instructionBody: 'Review the change',
-    };
-    const github = {
-      rest: {
-        reactions: { async createForIssueComment() {} },
-        actions: {
-          async listWorkflowRuns() {
-            reads.push('list');
-            assert.equal(reads.length, 1, 'an HTTP 200 response must not start polling');
-            return { data: { workflow_runs: [] } };
-          },
-          async createWorkflowDispatch({ return_run_details: details }) {
-            posts += 1;
-            assert.equal(details, true);
-            return { status: 200, data: { workflow_run_id: runId, html_url: 'https://example.test/run' } };
-          },
-        },
-        repos: { async createDispatchEvent(command) { commands.push(command); } },
-      },
-    };
-    const result = await runKeepaliveOrchestrator({
-      github, context: baseContext, core: makeCore(), inputs, secrets: { AGENTS_AUTOMATION_PAT: true },
-    });
-    assert.equal(posts, 1);
-    assert.equal(reads.length, 1);
-
-    if (runId === 41966561287) {
-      assert.deepEqual(result, {
-        ok: true, reason: 'ok', runId: '41966561287', runUrl: 'https://example.test/run',
-      });
-      assert.equal(commands.length, 1);
-      assert.equal(commands[0].client_payload.issue, inputs.prNumber);
-      assert.equal(commands[0].client_payload.meta.comment_id, inputs.commentId);
-      assert.equal(commands[0].client_payload.instruction_body, inputs.instructionBody);
-    } else {
-      assert.deepEqual(result, { ok: false, reason: 'dispatch-unconfirmed' });
-      assert.deepEqual(commands, []);
-    }
-  });
-}
-
-test('dispatchOrchestrator retries transient errors before succeeding', async () => {
-  const originalSetTimeout = global.setTimeout;
-  global.setTimeout = (fn, _delay, ...args) => originalSetTimeout(fn, 0, ...args);
-
+test('admitted comments emit the keepalive command directly after taking the activation lock', async () => {
   const calls = [];
-  const warnings = [];
-  const github = {
-    rest: {
-      actions: {
-        async createWorkflowDispatch() {
-          calls.push('dispatch');
-          if (calls.length === 1) {
-            const error = new Error('server error');
-            error.status = 500;
-            throw error;
-          }
-        },
-      },
-    },
+  const github = { rest: {
+    reactions: { createForIssueComment: async ({ comment_id }) => calls.push(comment_id) },
+    repos: { createDispatchEvent: async (event) => calls.push(event) },
+  } };
+  const inputs = {
+    commentId: 42, commentUrl: 'https://github.com/octo/repo/pull/34#issuecomment-42',
+    prNumber: 34, branch: 'agent/repair', base: 'main', round: 2,
+    trace: 'trace-123', agentAlias: 'codex', instructionBody: '@codex continue',
   };
-
-  try {
-    const result = await dispatchOrchestrator({
-      github,
-      context: baseContext,
-      core: { ...makeCore(), warning: (message) => warnings.push(message) },
-      inputs: { issue: 1, prNumber: 2, trace: 'trace', round: 1 },
-    });
-
-    assert.equal(result.ok, true);
-    assert.equal(calls.length, 2);
-    assert.equal(warnings.length, 1);
-  } finally {
-    global.setTimeout = originalSetTimeout;
-  }
-});
-
-test('dispatchOrchestrator stops after a non-retryable error', async () => {
-  const calls = [];
-  const github = {
-    rest: {
-      actions: {
-        async createWorkflowDispatch() {
-          calls.push('dispatch');
-          const error = new Error('bad request');
-          error.status = 400;
-          throw error;
-        },
-      },
-    },
-  };
-
-  const result = await dispatchOrchestrator({
-    github,
-    context: baseContext,
-    core: makeCore(),
-    inputs: { issue: 1, prNumber: 2, trace: 'trace', round: 1 },
+  const result = await runKeepaliveOrchestrator({
+    github, context: baseContext, core: makeCore(), inputs, secrets: { SERVICE_BOT_PAT: true },
   });
-
-  assert.equal(result.ok, false);
-  assert.equal(result.reason, 'dispatch-error');
-  assert.equal(calls.length, 1);
+  assert.deepEqual(result, { ok: true, reason: 'ok' });
+  assert.deepEqual(calls, [42, {
+    owner: 'octo', repo: 'repo', event_type: 'codex-pr-comment-command',
+    client_payload: {
+      issue: 34, base: 'main', head: 'agent/repair', agent: 'codex', instruction_body: '@codex continue',
+      meta: { comment_id: 42, comment_url: inputs.commentUrl, round: 2, trace: 'trace-123' },
+      quiet: true, reply: 'none',
+    },
+  }]);
 });
 
-test('dispatchOrchestrator falls back to GITHUB_TOKEN when scope error occurs', async () => {
-  const previousToken = process.env.GITHUB_TOKEN;
-  process.env.GITHUB_TOKEN = 'fallback-token';
-  const fallbackCalls = [];
-
-  function FakeOctokit({ auth }) {
-    this.auth = auth;
-    this.rest = {
-      actions: {
-        async createWorkflowDispatch(payload) {
-          fallbackCalls.push({ auth, payload });
-        },
-      },
-    };
-  }
-
-  const github = {
-    constructor: FakeOctokit,
-    rest: {
-      actions: {
-        async createWorkflowDispatch() {
-          const error = new Error('Resource not accessible by integration');
-          throw error;
-        },
-      },
-    },
-  };
-
-  try {
-    const result = await dispatchOrchestrator({
-      github,
-      context: baseContext,
-      core: makeCore(),
-      inputs: { issue: 1, prNumber: 2, trace: 'trace', round: 1 },
-    });
-
-    assert.equal(result.ok, true);
-    assert.equal(fallbackCalls.length, 1);
-    assert.equal(fallbackCalls[0].auth, 'fallback-token');
-  } finally {
-    process.env.GITHUB_TOKEN = previousToken;
-  }
-});
-
-test('snapshotOrchestratorRuns captures workflow run ids and metadata', async () => {
-  const github = {
-    rest: {
-      actions: {
-        async listWorkflowRuns() {
-          return {
-            data: {
-              workflow_runs: [{ id: 101 }, { id: '202' }, { id: 'not-a-number' }],
-            },
-          };
-        },
-      },
-    },
-  };
-
-  const result = await snapshotOrchestratorRuns({
-    github,
-    context: baseContext,
-    core: makeCore(),
-    prNumber: 77,
-    trace: 'trace-77',
-  });
-
-  assert.deepEqual(JSON.parse(result.ids), [101, 202]);
-  assert.equal(result.pr, '77');
-  assert.equal(result.trace, 'trace-77');
-  assert.equal(Number.isNaN(new Date(result.timestamp).getTime()), false);
-});
-
-test('confirmDispatch confirms when a new run matches the PR number', async () => {
-  const github = {
-    rest: {
-      actions: {
-        async listWorkflowRuns() {
-          return {
-            data: {
-              workflow_runs: [{
-                id: 550,
-                concurrency: 'pr-77-keepalive',
-                created_at: '2024-01-01T00:00:00Z',
-                html_url: 'https://example.test/runs/550',
-              }],
-            },
-          };
-        },
-      },
-    },
-  };
-
-  const result = await confirmDispatch({
-    github,
-    context: baseContext,
-    core: makeCore(),
-    baselineIds: '[]',
-    baselineTimestamp: '2023-12-31T00:00:00Z',
-    prNumber: 77,
-    trace: 'trace',
-  });
-
-  assert.equal(result.confirmed, true);
-  assert.equal(result.runId, '550');
-  assert.equal(result.runUrl, 'https://example.test/runs/550');
-});
-
-test('confirmDispatch returns unconfirmed when no new runs appear', async () => {
-  const originalSetTimeout = global.setTimeout;
-  global.setTimeout = (fn, _delay, ...args) => originalSetTimeout(fn, 0, ...args);
-
-  const github = {
-    rest: {
-      actions: {
-        async listWorkflowRuns() {
-          return { data: { workflow_runs: [] } };
-        },
-      },
-    },
-  };
-
-  try {
-    const result = await confirmDispatch({
-      github,
-      context: baseContext,
-      core: makeCore(),
-      baselineIds: '[]',
-      baselineTimestamp: null,
-      prNumber: 77,
-      trace: 'trace',
-    });
-
-    assert.equal(result.confirmed, false);
-    assert.equal(result.reason, 'dispatch-unconfirmed');
-  } finally {
-    global.setTimeout = originalSetTimeout;
-  }
+test('missing credentials and a held activation lock stop the command', async () => {
+  const github = { rest: { reactions: {
+    async createForIssueComment() { throw Object.assign(new Error('conflict'), { status: 409 }); },
+  } } };
+  const args = { github, context: baseContext, core: makeCore(), inputs: { commentId: 42 } };
+  assert.equal((await runKeepaliveOrchestrator({ ...args, secrets: {} })).reason, 'forbidden-token');
+  assert.deepEqual(await runKeepaliveOrchestrator({ ...args, secrets: { SERVICE_BOT_PAT: true } }),
+    { ok: false, reason: 'lock-held' });
 });
 
 test('dispatchKeepaliveCommand requires instruction body', async () => {
