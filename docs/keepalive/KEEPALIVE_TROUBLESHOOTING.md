@@ -414,7 +414,7 @@ Human posts "@codex <instructions>" on PR
 │                                     │
 │  1. detectKeepalive() runs          │
 │  2. Checks Gate status              │
-│  3. If gate OK: dispatch orchestr.  │
+│  3. If admitted: dispatch command   │
 │  4. If gate pending: wait           │
 └─────────────────────────────────────┘
          │
@@ -422,16 +422,16 @@ Human posts "@codex <instructions>" on PR
          │
          ▼
 ┌─────────────────────────────────────┐
-│  (workflow_dispatch trigger)        │
+│  repository_dispatch                │
+│  codex-pr-comment-command           │
 │                                     │
-│  1. Finds PR with keepalive label   │
-│  2. Posts instruction comment       │
-│  3. Codex picks up and works        │
+│  Carries PR, activation comment,    │
+│  instruction and trace to receiver  │
 └─────────────────────────────────────┘
          │
          ▼
 ┌─────────────────────────────────────┐
-│  Codex works on PR                  │
+│  Installed handler starts the agent │
 │  Posts completion comment           │
 │  (triggers agents-pr-meta again)    │
 └─────────────────────────────────────┘

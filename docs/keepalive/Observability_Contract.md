@@ -82,16 +82,15 @@ If `active ≥ cap` ⇒ **do not** dispatch; report `reason=cap-reached`.
 DISPATCH: ok=<true|false> path=<comment|gate> reason=<ok|missing-label|no-human-activation|gate-pending|gate-failed|cap-reached|no-linked-pr|no-activation-found|lock-held|instruction-empty> pr=#<PR_NUMBER> activation=<COMMENT_ID|none> agent=<ALIAS> head=<SHA7> cap=<CAP> active=<ACTIVE> trace=<TRACE|->
 
 
-**Keepalive worker — three lines per run**
+**Belt keepalive worker**
 
-INSTRUCTION: ok=<true|false> author=<stranske|stranske-automation-bot> comment=<COMMENT_ID|none> ack=<ok|fail> head=<SHA7> trace=<TRACE>
-WORKER: action=<execute|skip> reason=<new-instruction|no-new-instruction-and-head-unchanged|cap-reached|blocked> pr=#<PR_NUMBER> head=<SHA7> instr=<COMMENT_ID|none> trace=<TRACE>
-SYNC: action=<update-branch|create-pr|escalate|skip> head_changed=<true|false> trace=<TRACE>
+When `inputs.keepalive` is true and the record step runs, its Summary contains one line.
 
+```text
+WORKER: action=<action> reason=<reason> pr=<#number|#?> head=<SHA7|unknown> instr=<comment_id|0> trace=<trace|n/a>
+```
 
-**Rules**
-- Always print (even when skipping/failing).
-- Never post these to the PR; **Summary tab only**.
+If a preceding step fails or the job is cancelled before recording, inspect the step logs for the failure. PR-meta logs the instruction lookup as `INSTRUCTION: comment_id=… trace=… source=… seen=… deduped=…`. The worker does not post these diagnostics on the PR.
 
 ## 6A) Terminal Disposition Coverage Preflight
 

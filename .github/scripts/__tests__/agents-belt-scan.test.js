@@ -108,3 +108,23 @@ test('identifyReadyCodexPRs filters and summarises ready PRs', async () => {
   const items = JSON.parse(outputs.items);
   assert.equal(items[0].pr, 10);
 });
+
+test('the Codex dispatcher filters other agents before its promotion limit', async () => {
+  const pulls = ['claude/issue-42', 'codex/issue-4368'].map((ref, index) => ({
+    number: index === 0 ? 1 : 4445,
+    head: { ref, sha: 'head-' + index },
+    labels: ['automerge'],
+  }));
+  const request = {
+    github: { rest: {
+      pulls: { list: async () => ({ data: pulls }) },
+      repos: { getCombinedStatusForRef: async () => ({ data: { state: 'success' } }) },
+    } },
+    context: { repo: { owner: 'octo', repo: 'demo' } },
+    core: { summary: createSummary(), setOutput() {} },
+  };
+  const scoped = await identifyReadyBeltPRs({ ...request, env: { MAX_PROMOTIONS: '1', BELT_AGENT: 'codex' } });
+  assert.deepEqual(scoped.candidates.map(({ pr, issue }) => [pr, issue]), [[4445, 4368]]);
+  const general = await identifyReadyBeltPRs({ ...request, env: { MAX_PROMOTIONS: '1' } });
+  assert.deepEqual(general.candidates.map(({ pr, issue }) => [pr, issue]), [[1, 42]]);
+});

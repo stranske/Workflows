@@ -586,7 +586,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   branch and head SHA. The conveyor requires aggregate
   commit-status `success` on that SHA (PR head is the fallback), defers
   bootstrap-only changes, and runs a separate merge guard before cleanup and
-  redispatch. It does not bind merge to an independently re-read head SHA.
+  redispatch. It re-reads the PR head and supplies the validated SHA to the merge API.
 - **Health 40 belt claim reclaim** – `.github/workflows/health-40-sweep.yml`
   removes `status:in-progress` after 24 hours only when no linked open or merged
   PR exists, and records the claim timestamp in an audit comment first.

@@ -59,6 +59,7 @@ def _assert_setup_after_final_checkout(job_name: str, steps: list[dict[str, Any]
 def test_belt_scan_ready_prs_orders_setup_and_preflight():
     workflow = _load_workflow_yaml("agents-73-codex-belt-conveyor-dispatch.yml")
     job = workflow["jobs"]["belt-scan-ready-prs"]
+    assert job["env"]["BELT_AGENT"] == "codex"
     steps = job.get("steps") or []
     _assert_setup_after_final_checkout("belt-scan-ready-prs", steps)
 

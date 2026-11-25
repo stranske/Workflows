@@ -43,6 +43,9 @@ async function identifyReadyBeltPRs({ github, context, core, env = process.env }
   const maxPromotions = Math.max(0, Math.floor(Number(maxPromotionsRaw || '0')));
   const automergeLabel = (env.AUTOMERGE_LABEL || 'automerge').trim().toLowerCase();
   const { owner, repo } = context.repo;
+  const branchPrefix = env.BELT_AGENT
+    ? require('./agent_registry.js').getAgentConfig(env.BELT_AGENT).branch_prefix
+    : null;
 
   const { data: pulls } = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 50 });
   const candidates = [];
@@ -53,7 +56,10 @@ async function identifyReadyBeltPRs({ github, context, core, env = process.env }
       continue;
     }
     const branch = pr.head && pr.head.ref ? pr.head.ref : '';
-    if (!isAgentBeltBranch(branch)) {
+    const eligibleBranch = env.BELT_AGENT
+      ? branchPrefix && branch.startsWith(branchPrefix) && /^\d+$/.test(branch.slice(branchPrefix.length))
+      : isAgentBeltBranch(branch);
+    if (!eligibleBranch) {
       continue;
     }
     if (pr.draft) {

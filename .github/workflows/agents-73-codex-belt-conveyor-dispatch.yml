@@ -34,6 +34,7 @@ jobs:
     outputs:
       items: ${{ steps.scan.outputs.items || '[]' }}
     env:
+      BELT_AGENT: codex
       MAX_PROMOTIONS: ${{ inputs.max_promotions }}
     steps:
       - name: Validate selection limit
