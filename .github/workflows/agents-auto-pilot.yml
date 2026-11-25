@@ -57,7 +57,7 @@ env:
 # Concurrency lives on the auto-pilot job (behind the gate job) so that
 # spurious label-event runs are filtered BEFORE entering the concurrency
 # group. This prevents them from cancelling legitimate re-dispatched runs.
-# See docs/analysis/verify-create-new-pr-failure-analysis.md
+# See https://github.com/stranske/Workflows/blob/2b6973a2ab3354106379995630cdc5a74e1436c1/docs/analysis/verify-create-new-pr-failure-analysis.md
 
 jobs:
   # ── Gate job ──────────────────────────────────────────────────────────
