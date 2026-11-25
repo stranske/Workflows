@@ -61,7 +61,7 @@ whole-tree commands then passed with `BLACK_CACHE_DIR=/tmp/black-round15` and
 Actual break-and-revert runs covered all 33 new parameter cases across 23
 mutation/reversion pairs. Each mutation produced pytest exit 1 with an executed
 test failure; restoring source produced exit 0. The receipt in
-[`verification.json`](verification.json) records each source mutation, selected
+[`verification.json`](https://github.com/stranske/Workflows/blob/9925a6962c5d8d4cb5d565747a0891015ab154d3/docs/evidence/issue-4156/verification.json) records each source mutation, selected
 test, failed case names, and restored passing case names. The last CLI probe
 changes warn-only exit behavior and catches both valid and invalid inputs.
 The combined 502-test suite was rerun successfully after all source restoration.
@@ -72,3 +72,13 @@ The combined 502-test suite was rerun successfully after all source restoration.
 `gh pr view` failed connecting to `api.github.com`. No commit, push, PR-body edit,
 comment, label, or draft-state change was possible. Verified source tests and
 this evidence remain in the workspace for an authorized publishing runner.
+
+## Recover the original JSON
+
+Read the [immutable original](https://github.com/stranske/Workflows/blob/9925a6962c5d8d4cb5d565747a0891015ab154d3/docs/evidence/issue-4156/verification.json) or recover it from a shallow checkout. The archived evidence records all 23 mutation and restoration pairs. The remaining PR publication limitations in this historical report still apply to that run.
+
+```sh
+git fetch --depth=1 origin 9925a6962c5d8d4cb5d565747a0891015ab154d3
+git show 9925a6962c5d8d4cb5d565747a0891015ab154d3:docs/evidence/issue-4156/verification.json > verification.json
+printf '%s  %s\n' 'c6d1e326423c48cf6813c4ba8333282deb2b1f341c69a133b331f71a1e542be4' 'verification.json' | shasum -a 256 -c -
+```
