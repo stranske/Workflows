@@ -91,8 +91,8 @@ jobs:
             report 'OpenAI model lookup failed. Check the configured key and provider access.'
             exit 1
           fi
-          if ! jq -e 'type == "object" and .error == null and (.data | type == "array") and
-            all(.data[]; type == "object" and (.id | type == "string" and length > 0))' \
+          if ! jq -se 'length == 1 and (.[0] | type == "object" and .error == null and
+            (.data | type == "array") and all(.data[]; type == "object" and (.id | type == "string" and length > 0)))' \
             "$response" >/dev/null 2>&1; then
             report 'OpenAI returned an invalid model catalog response.'
             exit 1
@@ -104,7 +104,6 @@ jobs:
           if [[ "$PRIVATE_CATALOG" == 'true' ]]; then
             cp "$response" "$RUNNER_TEMP/openai-model-catalog.json"
             echo 'artifact=true' >> "$GITHUB_OUTPUT"
-            report 'The full OpenAI catalog is available in the private OpenAI model catalog artifact.'
             exit 0
           fi
 
@@ -126,11 +125,31 @@ jobs:
             report "$models"
           fi
 
-      - name: Upload private OpenAI model catalog
+      - name: Confirm private catalog destination
+        id: confirm_private
         if: github.event.repository.private == true && steps.visibility.outputs.private == 'true' && steps.openai.outputs.artifact == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          visibility=$(gh api "repos/$GITHUB_REPOSITORY" --jq .visibility 2>/dev/null) || visibility=unknown
+          if [[ "$visibility" != 'private' ]]; then
+            rm -f "$RUNNER_TEMP/openai-model-catalog.json"
+            echo 'Private visibility could not be confirmed at upload. No full catalog was published.' | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo 'confirmed=true' >> "$GITHUB_OUTPUT"
+
+      - name: Upload private OpenAI model catalog
+        id: upload
+        if: steps.confirm_private.outputs.confirmed == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: openai-model-catalog
           path: ${{ runner.temp }}/openai-model-catalog.json
           if-no-files-found: error
           retention-days: 1
+
+      - name: Report uploaded private catalog
+        if: steps.upload.outcome == 'success'
+        run: echo 'Download the full catalog from the private OpenAI model catalog artifact.' | tee -a "$GITHUB_STEP_SUMMARY"

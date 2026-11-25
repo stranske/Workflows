@@ -111,10 +111,32 @@ def test_full_catalog_requires_confirmed_private_visibility(
     assert result.returncode == 0
     assert (catalog / "output").read_text() == f"private={expected_private}\n"
     assert (catalog / "requests").exists() == (event_private == "true")
-    upload = next(step for step in STEPS if "upload-artifact" in step.get("uses", ""))
-    assert "github.event.repository.private == true" in upload["if"]
-    assert "steps.visibility.outputs.private == 'true'" in upload["if"]
-    assert "steps.openai.outputs.artifact == 'true'" in upload["if"]
+    confirm = next(step for step in STEPS if step.get("id") == "confirm_private")
+    assert "github.event.repository.private == true" in confirm["if"]
+    assert "steps.visibility.outputs.private == 'true'" in confirm["if"]
+    assert "steps.openai.outputs.artifact == 'true'" in confirm["if"]
+    upload = next(step for step in STEPS if step.get("id") == "upload")
+    assert upload["if"] == "steps.confirm_private.outputs.confirmed == 'true'"
+    assert STEPS[-1]["if"] == "steps.upload.outcome == 'success'"
+
+
+@pytest.mark.parametrize(
+    ("visibility", "status"), [("private", "0"), ("public", "0"), ("private", "1")]
+)
+def test_private_upload_requires_live_visibility_again(catalog, visibility, status):
+    artifact = catalog / "openai-model-catalog.json"
+    artifact.write_text(PRIVATE_ID)
+    result = run_step(catalog, "confirm_private", REPO_VISIBILITY=visibility, GH_STATUS=status)
+    assert PRIVATE_ID not in result.stdout + result.stderr
+    if visibility == "private" and status == "0":
+        assert result.returncode == 0
+        assert artifact.exists()
+        assert (catalog / "output").read_text() == "confirmed=true\n"
+    else:
+        assert result.returncode == 1
+        assert not artifact.exists()
+        assert not (catalog / "output").exists()
+        assert "No full catalog was published" in result.stdout
 
 
 @pytest.mark.parametrize("private", [False, True])
@@ -129,7 +151,8 @@ def test_catalog_visibility_controls_rows_and_artifact(catalog, private):
     payload = {"data": rows}
     result = run_step(catalog, "openai", json.dumps(payload), PRIVATE_CATALOG=str(private).lower())
     assert result.returncode == 0, result.stderr
-    publication = result.stdout + result.stderr + (catalog / "summary").read_text()
+    summary = catalog / "summary"
+    publication = result.stdout + result.stderr + (summary.read_text() if summary.exists() else "")
     assert PRIVATE_ID not in publication and PRIVATE_OWNER not in publication
     assert f"`{not_returned}`" not in publication
     assert "https://api.openai.com/v1/models" in (catalog / "requests").read_text()
@@ -151,6 +174,7 @@ def test_catalog_visibility_controls_rows_and_artifact(catalog, private):
         ("", "0", "{}", 1, "Configure the OPENAI_API_KEY secret"),
         ("fake", "22", PRIVATE_ID, 1, "OpenAI model lookup failed"),
         ("fake", "0", '{"data":[{}]}', 1, "invalid model catalog response"),
+        ("fake", "0", '{"data":[]} {"data":[]}', 1, "invalid model catalog response"),
         ("fake", "0", '{"data":[]}', 0, "returned no models for the configured key"),
         ("fake", "0", json.dumps({"data": [{"id": PRIVATE_ID}]}), 0, "no models that match"),
     ],
