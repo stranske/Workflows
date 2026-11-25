@@ -263,36 +263,52 @@ jobs:
 
       - name: Run ESLint
         if: ${{ inputs.lint }}
-        run: |
+        env:
+          PACKAGE_MANAGER: ${{ inputs['package-manager'] }}
+          PROJECT_SCRIPT: lint
+          FALLBACK_COMMAND: eslint .
+        run: &run_quality_check |
           set -euo pipefail
-          pm="${{ inputs['package-manager'] }}"
-          case "${pm}" in
-            npm) npm run lint --if-present || npx eslint . ;;
-            pnpm) pnpm run lint --if-present || pnpm exec eslint . ;;
-            yarn) yarn run lint --if-present || yarn exec eslint . ;;
-          esac
+          has_script=$(node --input-type=commonjs -p 'Boolean(require("./package.json").scripts?.[process.env.PROJECT_SCRIPT]?.trim())')
+          if [[ "$has_script" == true ]]; then
+            exec "$PACKAGE_MANAGER" run "$PROJECT_SCRIPT"
+          fi
+
+          # Each step supplies a fixed tool and literal arguments.
+          read -r -a command <<< "$FALLBACK_COMMAND"
+          echo "No $PROJECT_SCRIPT script; running $FALLBACK_COMMAND"
+          if [[ "$PACKAGE_MANAGER" == npm ]]; then
+            # npm workspaces can hoist the binary to the workspace root.
+            binary="./node_modules/.bin/${command[0]}"
+            if [[ ! -x "$binary" ]]; then
+              binary="$(npm root)/.bin/${command[0]}"
+            fi
+            if [[ ! -x "$binary" ]]; then
+              printf 'Required %s executable is missing for %s\n' "${command[0]}" "$PROJECT_SCRIPT" >&2
+              exit 1
+            fi
+            exec "$binary" "${command[@]:1}"
+          fi
+          if [[ "$PACKAGE_MANAGER" == yarn ]]; then
+            exec yarn exec -- "${command[@]}"
+          fi
+          exec pnpm exec "${command[@]}"
 
       - name: Check formatting (Prettier)
         if: ${{ inputs.format_check }}
-        run: |
-          set -euo pipefail
-          pm="${{ inputs['package-manager'] }}"
-          case "${pm}" in
-            npm) npm run format:check --if-present || npx prettier --check . ;;
-            pnpm) pnpm run format:check --if-present || pnpm exec prettier --check . ;;
-            yarn) yarn run format:check --if-present || yarn exec prettier --check . ;;
-          esac
+        env:
+          PACKAGE_MANAGER: ${{ inputs['package-manager'] }}
+          PROJECT_SCRIPT: format:check
+          FALLBACK_COMMAND: prettier --check .
+        run: *run_quality_check
 
       - name: TypeScript type check
         if: ${{ inputs.typecheck }}
-        run: |
-          set -euo pipefail
-          pm="${{ inputs['package-manager'] }}"
-          case "${pm}" in
-            npm) npm run typecheck --if-present || npx tsc --noEmit ;;
-            pnpm) pnpm run typecheck --if-present || pnpm exec tsc --noEmit ;;
-            yarn) yarn run typecheck --if-present || yarn exec tsc --noEmit ;;
-          esac
+        env:
+          PACKAGE_MANAGER: ${{ inputs['package-manager'] }}
+          PROJECT_SCRIPT: typecheck
+          FALLBACK_COMMAND: tsc --noEmit
+        run: *run_quality_check
 
       - name: Run tests
         id: run-tests
