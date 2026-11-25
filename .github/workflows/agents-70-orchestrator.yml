@@ -78,6 +78,7 @@ jobs:
       options_json: ${{ github.event.inputs.options_json || '' }}
       # Scheduled shadow previews never write. Dispatch callers retain their dry_run input.
       dry_run: ${{ github.event_name == 'schedule' && 'true' || github.event.inputs.dry_run || '' }}
+      scheduled_preview: ${{ github.event_name == 'schedule' }}
       keepalive_enabled: ${{ github.event.inputs.keepalive_enabled || '' }}
       pr_number: ${{ github.event.inputs.pr_number || '' }}
     secrets:

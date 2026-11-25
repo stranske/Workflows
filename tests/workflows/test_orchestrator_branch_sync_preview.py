@@ -265,6 +265,30 @@ def test_public_dry_run_guards_keepalive_snapshot_and_token_mints():
     assert "inputs.dry_run != 'true'" in jobs["keepalive-post-work"]["if"]
 
 
+def test_scheduled_preview_skips_write_token_runner_but_resolves_parameters():
+    init = workflow_jobs(WORKFLOW.with_name("reusable-70-orchestrator-init.yml"))
+    caller = workflow_jobs(WORKFLOW.with_name("agents-70-orchestrator.yml"))
+    assert caller["init"]["with"]["scheduled_preview"] == "${{ github.event_name == 'schedule' }}"
+    scheduled_preview = (
+        "inputs.scheduled_preview && needs.rate-limit-check.outputs.dry_run == 'true'"
+    )
+    token = init["token-preflight"]
+    assert token["if"] == (
+        "needs.idle-precheck.outputs.has_work == 'true' && " f"!({scheduled_preview})"
+    )
+    resolve = init["resolve-params"]
+    assert set(resolve["needs"]) == {"idle-precheck", "rate-limit-check", "token-preflight"}
+    assert " ".join(resolve["if"].split()) == (
+        "!cancelled() && "
+        "needs.rate-limit-check.result == 'success' && "
+        "needs.idle-precheck.result == 'success' && "
+        "needs.idle-precheck.outputs.has_work == 'true' && "
+        "(needs.token-preflight.result == 'success' || "
+        "(needs.token-preflight.result == 'skipped' && "
+        f"{scheduled_preview}))"
+    )
+
+
 @pytest.mark.parametrize(("dry_run", "should_post"), [("true", "false"), ("false", "true")])
 def test_instruction_gate_respects_dry_run_even_when_post_work_reports_change(
     tmp_path,
