@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.6](https://github.com/stranske/Workflows/compare/v1.52.5...v1.52.6) (2026-11-25)
+
+
+### Bug Fixes
+
+* reject non-benchmark input in Maint 86 ([#5192](https://github.com/stranske/Workflows/issues/5192)) ([8c498fe](https://github.com/stranske/Workflows/commit/8c498fea5a86171d511fd99cc32a119b6316a755))
+
 ## [1.52.5](https://github.com/stranske/Workflows/compare/v1.52.4...v1.52.5) (2026-11-25)
 
 
