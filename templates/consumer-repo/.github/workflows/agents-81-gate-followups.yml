@@ -1,5 +1,5 @@
 name: Agents Gate Followups
-run-name: ${{ github.event_name == 'workflow_dispatch' && format('keepalive-dispatch/v2 {0} pr={1}', (inputs.authority_challenge_claim != '' || inputs.authority_challenge_fingerprint != '') && 'authority-candidate' || 'ordinary', inputs.pr_number) || 'Agents Gate Followups' }}
+run-name: ${{ (github.event_name == 'workflow_run' && format('keepalive-gate/v1 run={0} attempt={1} pr={2}', github.event.workflow_run.id, github.event.workflow_run.run_attempt, github.event.workflow_run.pull_requests[0].number || 'unbound')) || github.event_name == 'workflow_dispatch' && format('keepalive-dispatch/v2 {0} pr={1}', (inputs.authority_challenge_claim != '' || inputs.authority_challenge_fingerprint != '') && 'authority-candidate' || 'ordinary', inputs.pr_number) || 'Agents Gate Followups' }}
 
 on:
   workflow_run:

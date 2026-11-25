@@ -165,6 +165,16 @@ See [`Keepalive_Approaches.md`](Keepalive_Approaches.md) for a full comparison a
 
 Do not mark checklist items complete or dispatch new keepalive rounds until the acceptance criteria in the canonical guide are satisfied. Update all relevant documents together if the contract evolves.
 
+### PR run cap
+
+PR-meta admission reads the hosted Keepalive Loop or the consumer Agents Gate
+Followups workflow. Automatic wakes use their triggering Gate run and attempt to
+identify the PR, including when GitHub omits the association. Manual wakes carry
+the PR number in their versioned run title. Queued, waiting, pending and active
+attempts can hold a slot. A recent completed attempt holds its slot unless its
+originating worker jobs establish that no worker started. Failed occupancy reads
+block admission. The existing worker reservations continue to serialize writes.
+
 ## Implementation-Level Details
 
 For the technical patterns inside each agent runner workflow — CLI invocation flags, unpushed commit detection, artifact filtering, commit/push retry logic — see the **[Agent Runner Implementation Guide](../guides/AGENT_RUNNER_IMPLEMENTATION.md)**. That guide covers the mechanics that this document intentionally omits.
