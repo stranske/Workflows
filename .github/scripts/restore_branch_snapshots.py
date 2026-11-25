@@ -309,6 +309,11 @@ def main() -> int:
         print(f"[summary] Snapshot restore request error: {exc}", flush=True)
         return 0
 
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if output_path:
+        with Path(output_path).open("a", encoding="utf-8") as output:
+            print("lookup=complete", file=output)
+
     if restored:
         print(
             f"[summary] Restored previous snapshots into {snapshot_dir / 'previous'}",

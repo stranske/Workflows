@@ -262,6 +262,7 @@ jobs:
             --snapshot "${SNAPSHOT_DIR}/verification.json"
 
       - name: Restore previous branch protection snapshots
+        id: restore_history
         if: always() && steps.fingerprint.outputs.should_run == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -275,6 +276,7 @@ jobs:
             status=$?
           fi
           if [ "${status}" -eq 124 ]; then
+            echo "lookup=timed_out" >> "$GITHUB_OUTPUT"
             echo "[summary] Snapshot restore timed out; continuing without previous snapshots"
             exit 0
           fi
@@ -283,6 +285,7 @@ jobs:
       - name: Record unified guard summary
         if: always() && steps.fingerprint.outputs.should_run == 'true'
         env:
+          SNAPSHOT_HISTORY_LOOKUP: ${{ steps.restore_history.outputs.lookup || 'unavailable' }}
           HAS_ENFORCE_TOKEN: ${{ env.ENFORCE_TOKEN != '' }}
         run: |
           python .github/scripts/health_summarize.py \

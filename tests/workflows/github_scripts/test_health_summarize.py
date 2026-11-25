@@ -213,6 +213,49 @@ def test_format_delta_handles_missing_previous() -> None:
     assert summarize._format_delta({}, None) == "No previous snapshot"
 
 
+@pytest.mark.parametrize(
+    ("lookup", "expected"),
+    [
+        ("timed_out", "Previous snapshot lookup timed out"),
+        ("unavailable", "Previous snapshot lookup unavailable"),
+        ("complete", "No previous snapshot"),
+    ],
+)
+def test_branch_summary_identifies_missing_history(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lookup: str, expected: str
+) -> None:
+    monkeypatch.setenv("SNAPSHOT_HISTORY_LOOKUP", lookup)
+    current = {"current": {"contexts": ["summary"], "strict": False}}
+    (tmp_path / "verification.json").write_text(json.dumps(current))
+    output = tmp_path / "report.json"
+    markdown = tmp_path / "summary.md"
+    assert (
+        summarize.main(
+            [
+                "--snapshot-dir",
+                str(tmp_path),
+                "--write-json",
+                str(output),
+                "--write-summary",
+                str(markdown),
+            ]
+        )
+        == 0
+    )
+    (row,) = json.loads(output.read_text())
+    assert row["conclusion"] == "success"
+    assert "Δ: " + expected in row["details"]
+    assert row["details"] in markdown.read_text()
+
+
+def test_interrupted_lookup_identifies_existing_comparison(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SNAPSHOT_HISTORY_LOOKUP", "unavailable")
+    previous = {"current": {"contexts": ["summary"]}}
+    current = {"current": {"contexts": ["summary", "review"]}}
+    delta = summarize._format_delta(current, previous)
+    assert "+review" in delta and "lookup unavailable" in delta
+
+
 def test_format_delta_handles_non_mapping_current() -> None:
     assert summarize._format_delta("invalid", {}) == "–"
 
