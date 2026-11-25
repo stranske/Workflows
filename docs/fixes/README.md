@@ -13,6 +13,22 @@ The integration consumer exposed three distinct problems. Early runs failed on B
 
 For a current incident, inspect the [integration sync source](../../.github/workflows/maint-69-sync-integration-repo.yml) and the [workflow catalog](../WORKFLOW_GUIDE.md). The [manual formatter](../../.github/workflows/maint-70-fix-integration-formatting.yml), [automated fixer](../../.github/workflows/maint-71-auto-fix-integration.yml) and [local formatting script](../../scripts/fix-integration-tests-formatting.sh) show the supported entry points. To run the local script from Workflows, pass the path to the Workflows-Integration-Tests checkout:
 
+To sync the integration repository immediately, run this command with an authenticated GitHub CLI. It dispatches Maint 69 on `main` and returns status 1 if the request fails. [Sync runs](https://github.com/stranske/Workflows/actions/workflows/maint-69-sync-integration-repo.yml)
+
+```sh
+(gh workflow run maint-69-sync-integration-repo.yml --repo stranske/Workflows --ref main || exit 1)
+```
+
+To request a formatting repair, use Maint 70 on the default branch. Set `format_subject` in your shell to supply a custom commit message. The command returns the GitHub CLI status. Follow the [formatting run](https://github.com/stranske/Workflows/actions/workflows/maint-70-fix-integration-formatting.yml) and check [integration CI](https://github.com/stranske/Workflows-Integration-Tests/actions) for the result.
+
+```sh
+(
+  command -v gh >/dev/null || { echo "GitHub CLI (gh) is required." >&2; exit 1; }
+  gh workflow run maint-70-fix-integration-formatting.yml --repo stranske/Workflows \
+    -f "commit_message=${format_subject:-fix: Auto-format files to meet lint standards}"
+)
+```
+
 ```sh
 bash scripts/fix-integration-tests-formatting.sh /path/to/Workflows-Integration-Tests
 ```
