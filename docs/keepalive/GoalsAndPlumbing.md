@@ -332,7 +332,7 @@ Before the next round begins:
 
 1. Verify that the PR head SHA changed after the agent reported "done".
 2. If unchanged, the agent may have failed to push. The loop will retry on the next Gate pass.
-3. After repeated failures (default: 3), pause the current strategy and add `agent:retry` with a concrete automation-owned recovery action.
+3. After repeated failures (default: 3), pause the current strategy and dispatch one non-recursive forced recovery lease (deferring to the hourly keepalive sweep if direct dispatch fails; automation does not add a sticky `agent:retry` label).
 
 ---
 
@@ -347,7 +347,7 @@ Before the next round begins:
 ## 11. Restart & Success Conditions
 
 - Removing and re-applying the `agent:*` label restarts the workflow once the activation guardrails pass again.
-- To reset failure count: edit the keepalive summary comment and set `failure: {}` in the state marker, then add `agent:retry` when the concrete recovery is ready.
+- To reset failure count: do not edit the state marker manually—apply `agent:retry` (in root/non-consolidated loops) or run a `workflow_dispatch` recheck with `force_retry=true` (in consolidated consumers); the dedicated keepalive App then resets or clears the bot-owned failure state.
 - Keepalive stands down when **all acceptance criteria are checked complete**. At that point the orchestrator stops issuing further rounds.
 
 For callers that enable deterministic acceptance gates, checked criteria also require
@@ -542,7 +542,7 @@ The Keepalive workflow depends on the **Automated Status Summary** block in the 
 
 ### Data Flow
 1. **Issue Intake:** Creates a PR with the Issue content embedded.
-2. **PR Meta Update:** `agents-pr-meta` workflow parses the source Issue for Scope/Tasks/Acceptance and generates the Automated Status Summary block.
+2. **PR Meta Update:** `agents-pr-meta-v4.yml` (or `agents-80-pr-event-hub.yml` in consumers) parses the source Issue for Scope/Tasks/Acceptance and generates the Automated Status Summary block.
 3. **Keepalive Execution:** The keepalive loop extracts tasks from the Automated Status Summary and injects them into the agent prompt via the task appendix.
 
 ### Failure Modes & Recovery

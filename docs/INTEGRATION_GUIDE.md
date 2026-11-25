@@ -50,11 +50,11 @@ jobs:
 | **Default branch (`@main`)** | The supported pin for all consumers. | Tracks the latest reusable workflow behavior used by the synced consumer templates. |
 | **Pinned commit SHA** | Only for a one-off reproducible build or a controlled rollout you manage yourself. | Pins the reusable workflow definition. Standard consumers omit `workflows_ref`, so their helpers still come from `main`. Use `@main` for ongoing consumer configurations. |
 
-> **No floating version tags.** The repository previously published a floating
-> `v1` tag (auto-refreshed to track `main`). That scheme has been **removed** —
-> the `v1` tag never delivered isolation from `main` and added maintenance cost
-> without benefit. Do not pin reusable workflows at the `v1` tag or any other
-> tag; use `@main`.
+> **No floating version tags for consumers.** The repository previously guided
+> consumers to a floating `v1` tag, and [`maint-60-release.yml`](../.github/workflows/maint-60-release.yml)
+> still updates the legacy `v1` tag on `v1.*` releases for historical compatibility,
+> but `@v1` is **not** a supported consumer pin — it never delivered isolation from
+> `main`. Do not pin reusable workflows at the `v1` tag or any other tag; use `@main`.
 >
 > **Why `@main` is the supported consumer pin.** Inside
 > `reusable-10-ci-python.yml`, helper-code checkouts use
@@ -208,6 +208,7 @@ Reusable workflows with caller-facing `workflow_call` outputs:
 | `reusable-bot-comment-handler.yml` | `comments_count` | string (number-like) | Number of unresolved bot comments found. | `needs.bot-comments.outputs.comments_count` |
 | `reusable-bot-comment-handler.yml` | `agent_triggered` | string (boolean-like) | Whether the agent was triggered to address comments. | `needs.bot-comments.outputs.agent_triggered` |
 | `reusable-bot-comment-handler.yml` | `app_auth_mode` | string enum | Selected App auth mode: client-id, legacy-app-id, or none. | `needs.bot-comments.outputs.app_auth_mode` |
+| `reusable-backplane-conformance.yml` | `conformant` | string (boolean-like) | true if the envelope conformed (or repo is not a participant). | `needs.conformance.outputs.conformant` |
 | `reusable-pr-context.yml` | `pr_number` | string (number-like) | PR number. | `needs.pr-context.outputs.pr_number` |
 | `reusable-pr-context.yml` | `pr_title` | string | PR title. | `needs.pr-context.outputs.pr_title` |
 | `reusable-pr-context.yml` | `pr_body` | string | PR body, possibly truncated for very long bodies. | `needs.pr-context.outputs.pr_body` |
@@ -234,6 +235,8 @@ Reusable workflows with caller-facing `workflow_call` outputs:
 | `reusable-codex-run.yml` | `e2e-ping-reply-matched` | string (boolean-like) | Whether the raw Codex reply matches the expected ping in e2e-test mode | `needs.codex.outputs.e2e-ping-reply-matched` |
 | `reusable-codex-run.yml` | `error-summary` | string | Failure summary message from Codex output or preflight errors. | `needs.codex.outputs.error-summary` |
 | `reusable-codex-run.yml` | `exit-code` | string (number-like) | Codex CLI exit code. | `needs.codex.outputs.exit-code` |
+| `reusable-codex-run.yml` | `requested-model` | string | Model the runner asked the Codex CLI for (empty when unpinned). | `needs.codex.outputs.requested-model` |
+| `reusable-codex-run.yml` | `reported-model` | string | Model the Codex CLI recorded it ran on (empty when undeterminable). | `needs.codex.outputs.reported-model` |
 | `reusable-codex-run.yml` | `changes-made` | string (boolean-like) | Whether Codex made file changes. | `needs.codex.outputs.changes-made` |
 | `reusable-codex-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed. | `needs.codex.outputs.commit-sha` |
 | `reusable-codex-run.yml` | `files-changed` | string (number-like) | Number of files changed by Codex. | `needs.codex.outputs.files-changed` |
@@ -244,6 +247,11 @@ Reusable workflows with caller-facing `workflow_call` outputs:
 | `reusable-codex-run.yml` | `supervision-mode` | string enum | Validated supervision mode for this result. | `needs.codex.outputs.supervision-mode` |
 | `reusable-codex-run.yml` | `capability-evidence-status` | string enum | Validated capability evidence status. | `needs.codex.outputs.capability-evidence-status` |
 | `reusable-codex-run.yml` | `terminal-disposition` | string enum | Validated terminal disposition for the result. | `needs.codex.outputs.terminal-disposition` |
+| `reusable-codex-run.yml` | `worker-profile-id` | string | Registry execution profile ID supplied by caller. | `needs.codex.outputs.worker-profile-id` |
+| `reusable-codex-run.yml` | `worker-requested-model` | string | Model requested through the registry execution profile. | `needs.codex.outputs.worker-requested-model` |
+| `reusable-codex-run.yml` | `worker-selected-model` | string | Actual Codex model selected after runner fallback. | `needs.codex.outputs.worker-selected-model` |
+| `reusable-codex-run.yml` | `worker-reasoning-effort` | string | Reasoning effort supplied by the registry execution profile. | `needs.codex.outputs.worker-reasoning-effort` |
+| `reusable-codex-run.yml` | `worker-model-selection-reason` | string | Reason for the selected worker model. | `needs.codex.outputs.worker-model-selection-reason` |
 | `reusable-codex-run.yml` | `error-category` | string | Error category if failure occurred. | `needs.codex.outputs.error-category` |
 | `reusable-codex-run.yml` | `error-type` | string | Error type if failure occurred. | `needs.codex.outputs.error-type` |
 | `reusable-codex-run.yml` | `error-recovery` | string | Suggested recovery action if failure occurred. | `needs.codex.outputs.error-recovery` |
@@ -263,6 +271,8 @@ Reusable workflows with caller-facing `workflow_call` outputs:
 | `reusable-claude-run.yml` | `final-message-summary` | string | First 500 characters of Claude output, safe for PR comments. | `needs.claude.outputs.final-message-summary` |
 | `reusable-claude-run.yml` | `error-summary` | string | Failure summary message from Claude output or preflight errors. | `needs.claude.outputs.error-summary` |
 | `reusable-claude-run.yml` | `exit-code` | string (number-like) | Claude CLI exit code. | `needs.claude.outputs.exit-code` |
+| `reusable-claude-run.yml` | `requested-model` | string | Model the runner asked the Claude CLI for (empty when unpinned). | `needs.claude.outputs.requested-model` |
+| `reusable-claude-run.yml` | `reported-model` | string | Model the Claude CLI recorded it ran on (empty when undeterminable). | `needs.claude.outputs.reported-model` |
 | `reusable-claude-run.yml` | `changes-made` | string (boolean-like) | Whether Claude made file changes. | `needs.claude.outputs.changes-made` |
 | `reusable-claude-run.yml` | `commit-sha` | string | SHA of the commit if changes were pushed. | `needs.claude.outputs.commit-sha` |
 | `reusable-claude-run.yml` | `files-changed` | string (number-like) | Number of files changed by Claude. | `needs.claude.outputs.files-changed` |
@@ -282,6 +292,15 @@ Reusable workflows with caller-facing `workflow_call` outputs:
 | `reusable-claude-run.yml` | `error-category` | string | Error category if failure occurred. | `needs.claude.outputs.error-category` |
 | `reusable-claude-run.yml` | `error-type` | string | Error type if failure occurred. | `needs.claude.outputs.error-type` |
 | `reusable-claude-run.yml` | `error-recovery` | string | Suggested recovery action if failure occurred. | `needs.claude.outputs.error-recovery` |
+| `reusable-cursor-run.yml` | `final-message` .. `error-recovery` (24 outputs) | string / enum | Same standard runner, capability-evidence, LLM-analysis, and error outputs as `reusable-claude-run.yml` (without `reported-model`); see [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_OUTPUTS.md) for the full per-key table. | `needs.cursor.outputs.final-message-summary` |
+| `reusable-muse-run.yml` | `final-message` .. `duration-seconds` (25 outputs) | string / enum | Same standard runner, capability-evidence, LLM-analysis, and error outputs as `reusable-cursor-run.yml` plus `duration-seconds`; see [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_OUTPUTS.md). | `needs.muse.outputs.duration-seconds` |
+| `reusable-gemini-run.yml` | `final-message` .. `error-recovery` (24 outputs) | string / enum | Same standard runner, capability-evidence, LLM-analysis, and error outputs as `reusable-cursor-run.yml`; see [`docs/ci/WORKFLOW_OUTPUTS.md`](ci/WORKFLOW_OUTPUTS.md). | `needs.gemini.outputs.final-message-summary` |
+| `reusable-agents-verifier.yml` | `verdict` | string | Trusted verifier verdict for caller-owned source closure. | `needs.verifier.outputs.verdict` |
+| `reusable-agents-verifier.yml` | `target_sha` | string | Trusted verifier target_sha for caller-owned source closure. | `needs.verifier.outputs.target_sha` |
+| `reusable-agents-verifier.yml` | `pr_number` | string | Trusted verifier pr_number for caller-owned source closure. | `needs.verifier.outputs.pr_number` |
+| `reusable-agents-verifier.yml` | `event_complete` | string | An authenticated production event terminal was posted. | `needs.verifier.outputs.event_complete` |
+| `reusable-agents-verifier.yml` | `should_run` | string | Trusted verifier should_run for caller-owned source closure. | `needs.verifier.outputs.should_run` |
+| `reusable-agents-verifier.yml` | `workflows_ref` | string | Trusted verifier workflows_ref for caller-owned source closure. | `needs.verifier.outputs.workflows_ref` |
 
 Reusable workflows without `workflow_call` outputs:
 
@@ -292,9 +311,10 @@ Reusable workflows without `workflow_call` outputs:
 | `reusable-12-ci-docker.yml` | No `workflow_call` outputs; logs Docker smoke results. |
 | `reusable-13-cross-repo-smoke.yml` | No `workflow_call` outputs; logs cross-repo smoke command output. |
 | `reusable-18-autofix.yml` | No `workflow_call` outputs; publishes patch artifacts and summaries. |
+| `reusable-19-dependency-repair-contract.yml` | No `workflow_call` outputs; logs dependency-repair provenance validation results. |
 | `reusable-agents-issue-bridge.yml` | No `workflow_call` outputs; creates bridge PR artifacts and logs. |
 | `reusable-agents-pr-health.yml` | No `workflow_call` outputs; reports health through checks and summaries. |
-| `reusable-agents-verifier.yml` | No `workflow_call` outputs; posts verifier reports and artifacts. |
+| `reusable-model-profile-trial.yml` | No `workflow_call` outputs; publishes strict v2 quarantine telemetry artifacts. |
 
 ### Using outputs in dependent jobs
 
@@ -303,9 +323,9 @@ and registry-backed agent runners.
 
 ### Agent Workflows
 
-| Workflow | Purpose | Required Secrets |
+| Workflow | Purpose | Optional Secrets |
 |----------|---------|------------------|
-| `reusable-agents-issue-bridge.yml` | Convert issues to PRs via agents | `service_bot_pat`, `owner_pr_pat` |
+| `reusable-agents-issue-bridge.yml` | Convert issues to PRs via agents | `service_bot_pat`, `owner_pr_pat`, `workflows_app_id`, `workflows_app_private_key` |
 
 ### Example: Full CI
 
@@ -388,7 +408,7 @@ For the gate pattern to work:
 1. Go to Settings → Branches → Add rule
 2. Set branch pattern: `main`
 3. Enable "Require status checks"
-4. Add required checks: `CI Gate`, `Lint`, `Test`
+4. Add the required check: `summary` (for the standard `pr-00-gate.yml` Gate template, or `CI Gate` if using the standalone `ci-full.yml` template)
 
 
 ### Workflow Permissions
@@ -1150,7 +1170,7 @@ Prompt: keepalive_next_task.md
 
 No additional configuration needed. The CI failure routing is built into the keepalive system and works automatically when you have:
 
-1. `agents-keepalive-loop.yml` workflow
+1. `agents-81-gate-followups.yml` workflow (or `agents-keepalive-loop.yml` in Workflows / non-consolidated setups)
 2. `pr-00-gate.yml` workflow (for gate status)
 3. `fix_ci_failures.md` prompt (in `.github/codex/prompts/`)
 

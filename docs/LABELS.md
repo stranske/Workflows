@@ -8,11 +8,13 @@ This document describes all labels that trigger automated workflows or affect CI
 |-------|---------|--------
 | `autofix` | PR labeled | Triggers automated code fixes
 | `autofix:clean` | PR labeled | Triggers clean-mode autofix (more aggressive)
+| `autofix:applied` | Auto-applied | Records that autofix committed formatting/lint changes to the PR
+| `autofix:patch` | Auto-applied | Records that autofix uploaded a patch artifact for the PR
 | `agent:codex` | Issue or PR labeled | Routes the issue or PR to the Codex agent
 | `agent:claude` | Issue or PR labeled | Routes the issue or PR to the Claude Code agent
-| `agent:cursor` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Cursor runner
-| `agent:muse` | Issue or PR labeled | Routes consumer Gate-followup keepalive and autofix to the Muse runner (subscription login key)
-| `agent:gemini` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Gemini runner
+| `agent:cursor` | Issue or PR labeled | Routes keepalive (`agents-keepalive-loop.yml` / `agents-81-gate-followups.yml`) and autofix to the Cursor runner
+| `agent:muse` | Issue or PR labeled | Routes keepalive (`agents-keepalive-loop.yml` / `agents-81-gate-followups.yml`) and autofix to the Muse runner (subscription login key)
+| `agent:gemini` | Issue or PR labeled | Routes keepalive (`agents-keepalive-loop.yml` / `agents-81-gate-followups.yml`) to the Gemini runner
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; may sit alongside one concrete `agent:<name>` label, which keepalive routing overrides
 | `agent:retry` | PR labeled | Consolidated consumers require a manual Gate-followups dispatch; the root/non-consolidated keepalive workflow forces a retry and clears recovery labels
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
@@ -36,7 +38,8 @@ This document describes all labels that trigger automated workflows or affect CI
 | `runtime-ac` / runtime verification labels | PR labeled | Blocks external auto-merge until local Orchestrator runtime AC checks pass
 | `status:in-progress` | Issue labeled | Marks an issue claimed by the belt dispatcher/worker
 | `from:<agent>` | PR labeled | Records the automation agent that produced the PR
-| `runner:<agent>` | Issue labeled | Selects an auto-pilot runner without triggering issue intake
+| `runner:<agent>` | Issue labeled | Selects an auto-pilot runner without triggering issue intake (`runner:codex`, `runner:claude`, `runner:cursor`, `runner:gemini`, `runner:muse`)
+| `priority:high` / `priority:normal` / `priority:low` | Issue labeled | Opener priority labels used by weekly repo-review and fleet opener selection (synced via `.github/labels-core.yml`)
 | `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge
 | `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge
 | `verify:pr-handoff` | Issue labeled | Auto-pilot recorded a PR-bound verification handoff
@@ -159,7 +162,7 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 - Issue must have a valid agent assignee (configured in repository settings)
 - Issue should have clear requirements in the description
 
-**Workflow:** `agents-issue-intake.yml` (Agents Issue Intake); on PRs, `agents-keepalive-sweep.yml` routes evaluation to the shared registry-backed implementation.
+**Workflow:** `agents-63-issue-intake.yml` (or `agents-issue-intake.yml` in consumers); on PRs, `agents-keepalive-loop.yml` (or `agents-81-gate-followups.yml` in consumers) and `agents-keepalive-sweep.yml` route evaluation to the shared registry-backed implementation.
 
 ---
 
@@ -181,7 +184,7 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 
 **Lifecycle:** Applied at issue claim / PR creation by an opener that already has Claude capacity. Removed when work completes (PR merged or issue closed). Co-applied with `agents:keepalive` on the PR so keepalive is enabled.
 
-**Workflow:** `agents-auto-label.yml`, `agents-81-gate-followups.yml`, `agents-guard.yml`, `reusable-pr-context.yml`; runner is `reusable-claude-run.yml` per `.github/agents/registry.yml`.
+**Workflow:** `agents-auto-label.yml`, `agents-keepalive-loop.yml`, `agents-81-gate-followups.yml`, `agents-autofix-loop.yml`, `agents-guard.yml`, `reusable-pr-context.yml`; runner is `reusable-claude-run.yml` per `.github/agents/registry.yml`.
 
 ---
 
@@ -193,14 +196,14 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 
 **Effect:**
 1. Identifies Cursor as the intended route in registry-aware automation
-2. Dispatches the `run-cursor` consumer PR keepalive job in `agents-81-gate-followups.yml`
+2. Dispatches the `run-cursor` keepalive job in `agents-keepalive-loop.yml` (Workflows) and `agents-81-gate-followups.yml` (consumers), as well as `autofix-cursor` in `agents-autofix-loop.yml` / `agents-81-gate-followups.yml`
 3. Branch prefix `cursor/issue-<number>` is reserved for Cursor work (see `.github/agents/registry.yml`)
 
 **Prerequisites:**
 - Repository has a valid `CURSOR_API_KEY` secret (per `.github/agents/registry.yml`)
 - Issue or PR should have clear requirements
 
-**Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-cursor-run.yml` after registry-backed routing and secret preflight succeed.
+**Workflow:** `agents-keepalive-loop.yml`, `agents-autofix-loop.yml`, and consumer `agents-81-gate-followups.yml` dispatch `reusable-cursor-run.yml` after registry-backed routing and secret preflight succeed.
 
 ---
 
@@ -212,14 +215,14 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 
 **Effect:**
 1. Identifies Muse as the intended route in registry-aware automation
-2. Dispatches the `run-muse` consumer PR keepalive job in `agents-81-gate-followups.yml`
+2. Dispatches the `run-muse` keepalive job in `agents-keepalive-loop.yml` (Workflows) and `agents-81-gate-followups.yml` (consumers), as well as `autofix-muse` in `agents-autofix-loop.yml` / `agents-81-gate-followups.yml`
 3. Branch prefix `muse/issue-<number>` is reserved for Muse work (see `.github/agents/registry.yml`)
 
 **Prerequisites:**
 - Repository has a valid `META_API_KEY` secret (per `.github/agents/registry.yml`)
 - Issue or PR should have clear requirements
 
-**Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-muse-run.yml` after registry-backed routing and secret preflight succeed.
+**Workflow:** `agents-keepalive-loop.yml`, `agents-autofix-loop.yml`, and consumer `agents-81-gate-followups.yml` dispatch `reusable-muse-run.yml` after registry-backed routing and secret preflight succeed.
 
 ---
 
@@ -231,13 +234,13 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 
 **Effect:**
 1. Identifies Gemini as the intended route in registry-aware automation
-2. Dispatches the `run-gemini` consumer PR keepalive job in `agents-81-gate-followups.yml`
+2. Dispatches the `run-gemini` keepalive job in `agents-keepalive-loop.yml` (Workflows) and `agents-81-gate-followups.yml` (consumers)
 3. Branch prefix `gemini/issue-<number>` is reserved for Gemini work
 
 **Prerequisites:**
 - Repository has a valid `GEMINI_OAUTH_CREDS` secret, the owner's Gemini subscription login (per `.github/agents/registry.yml`); hosted gemini never uses an API key
 
-**Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-gemini-run.yml` after registry-backed routing and secret preflight succeed.
+**Workflow:** `agents-keepalive-loop.yml` and consumer `agents-81-gate-followups.yml` dispatch `reusable-gemini-run.yml` after registry-backed routing and secret preflight succeed.
 
 ---
 
@@ -278,7 +281,7 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 3. Root/non-consolidated: sets `force_retry=true` and attempts to remove both `agent:retry` and `agent:rate-limited`
 
 **Prerequisites:**
-- PR has a concrete `agent:codex` or `agent:claude` label so a runner can be re-dispatched
+- PR has a concrete registry-backed `agent:<name>` label (`agent:codex`, `agent:claude`, `agent:cursor`, `agent:muse`, or `agent:gemini`) so a runner can be re-dispatched
 - PR has `agents:keepalive`
 
 **Recovery:** In a consolidated consumer, force a bounded retry by manually dispatching `agents-81-gate-followups.yml` with `pr_number=<PR>` and `force_retry=true`; after the run is confirmed, remove stale recovery labels manually if they remain. In the root/non-consolidated topology, applying `agent:retry` invokes the label handler automatically.
@@ -335,7 +338,7 @@ Provider classification requires a quota or HTTP 429 signal. Retry timing alone
 **Trigger:** When applied to an issue that also has `agents:auto-pilot`
 
 **Effect:**
-1. Overrides the agent that auto-pilot will use (`runner:claude`, `runner:codex`, etc.)
+1. Overrides the agent that auto-pilot will use (`runner:codex`, `runner:claude`, `runner:cursor`, `runner:gemini`, `runner:muse`)
 2. Auto-pilot reads this label during capability/check-pr steps and adds the matching `agent:<name>` label when it dispatches the belt
 3. Does **not** trigger the issue intake workflow by itself, so manual `agent:<name>` behavior is unaffected
 
@@ -374,7 +377,7 @@ Provider classification requires a quota or HTTP 429 signal. Retry timing alone
 2. Used in conjunction with `agent:codex` to signal readiness
 3. May trigger the next step in the agent automation pipeline
 
-**Workflow:** `agents-issue-intake.yml` handles ordinary agent intake. The
+**Workflow:** `agents-63-issue-intake.yml` (or `agents-issue-intake.yml` in consumers) handles ordinary agent intake. The
 separate `agents:auto-pilot` route dispatches Agents 71 and the Agents 72
 wrapper when end-to-end automation is requested.
 
@@ -392,7 +395,7 @@ These labels control the LangChain-powered issue formatting pipeline introduced 
 
 **Effect:**
 1. Automatically formats the raw issue body into the AGENT_ISSUE_TEMPLATE structure
-2. Uses LLM (GitHub Models API) with fallback to regex-based formatting
+2. Uses configured LLM providers (OpenAI / Anthropic via `OPENAI_API_KEY` / `CLAUDE_API_STRANSKE`; GitHub Models is retired) with fallback to regex-based formatting
 3. Adds proper sections: Why, Scope, Non-Goals, Tasks, Acceptance Criteria, Implementation Notes
 4. Converts task items to checkboxes
 5. Replaces the issue body with formatted version
@@ -502,7 +505,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Trigger:** When applied to a merged PR
 
-**Effect:** Verifies acceptance criteria checkbox completion and opens follow-up issues if gaps are detected.
+**Effect:** Verifies acceptance criteria checkbox completion and posts a verdict; follow-up issues or PRs are triggered manually or by automation via `verify:create-issue` or `verify:create-new-pr`.
 
 **CI failure hard gate:** If any polled CI workflow concludes `failure` on the merge commit, the verdict is floored at CONCERNS before the LLM runs, so a merge that breaks `main` can never verify PASS.
 
@@ -516,7 +519,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Trigger:** When applied to a merged PR
 
-**Effect:** Runs an LLM evaluation of the work and posts a report with optional follow-up issues.
+**Effect:** Runs an LLM evaluation of the work and posts a report; follow-up issues or PRs are triggered via `verify:create-issue` or `verify:create-new-pr`.
 
 **CI failure hard gate:** If any polled CI workflow concludes `failure` on the merge commit, the verdict is floored at CONCERNS before the LLM runs, so a merge that breaks `main` can never verify PASS.
 
@@ -634,7 +637,7 @@ when the Orchestrator router starts the work on the owner's machine (`router.cho
 
 **To Resume:** Remove the `agents:paused` label.
 
-**Workflow:** `agents-81-gate-followups.yml`
+**Workflow:** `agents-keepalive-loop.yml` (Workflows) and `agents-81-gate-followups.yml` (consumers)
 
 ---
 
@@ -653,7 +656,7 @@ when the Orchestrator router starts the work on the owner's machine (`router.cho
 - PR must have an `agent:*` label
 - Gate workflow must pass
 
-**Workflow:** `agents-81-gate-followups.yml`
+**Workflow:** `agents-keepalive-loop.yml` (Workflows) and `agents-81-gate-followups.yml` (consumers)
 
 ---
 
@@ -750,8 +753,8 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 
 **Consumers:** `.github/scripts/runtime_ac_merge_guard.js`,
 `.github/workflows/agents-73-codex-belt-conveyor.yml`,
-`.github/workflows/agents-81-gate-followups.yml`. Agents 73 is callable-only;
-Agents 81 is the active local guarded merge route.
+`templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml`. Agents 73 is callable-only;
+Agents 81 is the active consumer guarded merge route.
 
 ---
 
@@ -769,7 +772,7 @@ Agents 81 is the active local guarded merge route.
 **Consumers:** `.github/scripts/keepalive_loop.js`,
 `.github/scripts/merge_manager.js`,
 `.github/workflows/agents-auto-pilot.yml`,
-`.github/workflows/agents-81-gate-followups.yml`.
+`templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml`.
 
 ---
 
@@ -803,7 +806,7 @@ paths share the timeout in `.github/scripts/belt_claim_reclaim.js`.
 
 **Effect:**
 1. Records the automation source that produced a PR, such as `from:codex`,
-   `from:claude`, or `from:auto`.
+   `from:claude`, `from:cursor`, `from:muse`, `from:copilot`, or `from:auto`.
 2. Helps merge and verifier tooling distinguish agent-origin PRs from manual PRs.
 
 **Consumers:** `.github/scripts/merge_manager.js`,
@@ -920,7 +923,7 @@ To add new label-triggered functionality:
 
 ---
 
-*Last updated: September 22, 2026*
+*Last updated: November 25, 2026*
 
 > **Source of truth.** This file is the canonical Workflows-local label inventory. The consumer-specific inventory lives at `templates/consumer-repo/docs/LABELS.md` and is synced via `.github/sync-manifest.yml` (`templates/consumer-repo/docs/LABELS.md` → `docs/LABELS.md`).
 *Source of truth: Workflows repository*

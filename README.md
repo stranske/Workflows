@@ -110,7 +110,7 @@ Issue created ──▶ Format ──▶ Optimize ──▶ Apply ──▶ Capa
 | **Optimize** | `issue_optimizer.py` analyzes the repo codebase and adds file paths, patterns, and conflict warnings |
 | **Apply** | Enriches issue tasks with optimizer suggestions |
 | **Capability Check** | Validates issue suitability for automation; assigns the registry-backed `agent:<name>` label (default `agent:codex`, overridable via `runner:<name>`) |
-| **Create PR** | Creates `codex/issue-*` branch with issue context in PR body |
+| **Create PR** | Creates a registry-prefixed issue branch (default `codex/issue-*`) with issue context in PR body |
 | **Keepalive** | Event-driven loop (Gate completion → task appendix → registry-backed agent dispatch → push → repeat) |
 | **Verify** | LLM-based evaluation of PR against acceptance criteria (PASS / CONCERNS / FAIL) |
 | **Follow-up** | On CONCERNS/FAIL, maintainers or automation apply `verify:create-issue` for an issue-only follow-up or `verify:create-new-pr` for a bootstrapped follow-up PR; the new-PR path enforces the chain-depth cap |
@@ -151,7 +151,7 @@ After PR merge, applying a `verify:*` label (typically `verify:evaluate` via aut
 - Maintenance & health: `maint-*`, `health-*`
 - Agents: `agents-*` (auto-pilot, verifier, keepalive, issue-intake, pr-meta)
 - Model-profile canary: `agents-model-profile-trial.yml` dispatches exactly one
-  pinned, read-only Sol/Terra/Luna arm and uploads quarantine-only identity
+  pinned, read-only Astra/Sol/Terra/Luna arm and uploads quarantine-only identity
   telemetry. It cannot commit, push, comment, refresh auth, or score the arm.
 
 ### Composite Actions (.github/actions)
@@ -201,7 +201,7 @@ Start with:
 Reference workflows in your repository:
 
 ```yaml
-# .github/workflows/ci.yaml
+# .github/workflows/ci.yml
 name: CI
 on: [push, pull_request]
 

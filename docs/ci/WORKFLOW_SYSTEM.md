@@ -252,8 +252,8 @@ explain why a particular status appears in the Checks tab.
 #### Health 45 Agents Guard (`agents-guard.yml`)
 
 - **When it runs.** Every pull request (`pull_request`) plus label changes via
-  `pull_request_target` (labels beginning with `agent:`—for example
-  `agents:allow-change`).
+  `pull_request_target` (trusted registry routing labels and protected-file
+  authorization labels such as `agents:allow-change`).
 - **What it enforces.** Confirms protected workflow edits carry the
   `agents:allow-change` label, the correct guard marker, and Code Owner approval
   except for the narrow dependency-update lane. That lane allows protected
@@ -287,8 +287,8 @@ explain why a particular status appears in the Checks tab.
   `gh workflow run agents-73-codex-belt-conveyor-dispatch.yml --raw-field dry_run=true`.
 - **Health 45 Agents Guard.** From the PR Checks tab, expand **Health 45 Agents Guard** and choose
   **Re-run** after updating labels or reviews. The guard also re-evaluates label
-  changes delivered via `pull_request_target` when the label name begins with
-  `agent:`. CLI alternative: `gh run rerun <agents-guard-run-id>` once the
+  changes delivered via `pull_request_target` for registry routing and
+  protected-file authorization labels. CLI alternative: `gh run rerun <agents-guard-run-id>` once the
   rerun appears under **Actions → Health 45 Agents Guard**.
 - **Gate summary flagged drift?** Follow the summary comment back to the
   workflow run, review the uploaded artifact bundle, and check the linked
@@ -355,7 +355,7 @@ fires where” without diving into the full tables:
   - **Where to inspect logs.** Gate summary job: [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml).
     Maint 46: [workflow history](https://github.com/stranske/Workflows/actions/workflows/maint-46-post-ci.yml).
     Maint 45: [workflow history](https://github.com/stranske/Workflows/actions/workflows/maint-45-cosmetic-repair.yml).
-    Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Workflows/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+43+CI+Signature+Guard+OR+workflow%3AHealth+44+Gate+Branch+Protection).
+    Health guardrails: the [Health 40–44 dashboards](https://github.com/stranske/Workflows/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+44+Gate+Branch+Protection).
 - **Issue / agents automation**
   - **Primary workflows.** `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`,
     the belt chain (`agents-71/72/73` plus `agents-73-codex-belt-conveyor-dispatch.yml`),
@@ -407,7 +407,7 @@ enforces the guardrail so you know where to confirm compliance:
 | PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates per branch. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
 | Maintenance & repo health | Gate summary job only runs after Gate succeeds; Health 40–44 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Gate summary job summary comment, Health dashboard history, and Maint 45 run permissions. |
 | Issue / agents automation | `agents:allow-change` label and Health 45 Agents Guard are mandatory before protected YAML merges; Code Owner review is mandatory except for dependency-only `uses: owner/action@ref` updates by Dependabot, Renovate, or repository owner/member/collaborator authors using the narrow label path. Belt and keepalive surfaces honour eligibility and label contracts. | [Agents Workflow Protection Policy](../AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
-| Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, Health 43 signature guard, and the reusable workflow permissions matrix. |
+| Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, the signature-verify fixture test in Gate and Selftest CI, and the reusable workflow permissions matrix. |
 
 ### Observability surfaces by bucket
 
@@ -507,8 +507,9 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   runs weekly (Mondays 8:00 AM UTC) to check PyPI for new versions of CI/autofix tools
   (black, ruff, mypy, pytest, etc.) and publishes read-only freshness evidence.
 - **Maint 39 Test LLM Providers** – `.github/workflows/maint-39-test-llm-providers.yml`
-  is a manual workflow that verifies LLM provider API keys (GitHub Models, OpenAI)
-  are configured correctly. Used to test the task completion analysis fallback chain.
+  is a manual workflow that smoke-tests OpenAI credentials and reports Anthropic
+  and regex fallback availability via `tools.llm_provider.check_providers()`
+  (retired GitHub Models is excluded from dispatch and smoke testing). Used to test the task completion analysis fallback chain.
 - **Maint Sync pyproject.toml from versions.env** – `.github/workflows/maint-sync-env-from-pyproject.yml`
   repairs source pin drift on a maintainer-selected topic branch by manual dispatch.
   It aligns `pyproject.toml`, templates, and direct `requirements.lock` pins to
@@ -535,7 +536,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   to consumer `docs/LABELS.md` files when the template changes or via manual
   dispatch, ensuring consistent label conventions across the ecosystem.
 - **Maint 66 Monthly Audit** – `.github/workflows/maint-66-monthly-audit.yml`
-  performs a comprehensive monthly audit of workflow health (last day of month
+  performs a comprehensive monthly audit of workflow health (1st of each month
   at 06:00 UTC), collecting run statistics, identifying high-failure workflows,
   listing never-run workflows, and creating/updating a tracking issue with an
   actionable checklist.
@@ -551,11 +552,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   is a manual workflow. It runs pytest and the guardrail fixers, then opens a
   labelled PR if changes are needed.
 - **Health checks** – recurring workflows that keep the repo honest:
-  - `health-40-repo-selfcheck.yml` (daily pulse),
+  - `health-40-repo-selfcheck.yml` (weekly pulse, Mondays 06:20 UTC),
   - `health-41-repo-health.yml` (weekly sweep),
   - `health-42-actionlint.yml` (actionlint enforcement),
-  - `health-43-ci-signature-guard.yml` (signature verification),
-  - `health-44-gate-branch-protection.yml` (required check enforcement),
+  - `health-44-gate-branch-protection.yml` (required check enforcement; signature-verify fixture validation moved into `pr-00-gate.yml` and `selftest-ci.yml` after `health-43-ci-signature-guard.yml` was archived),
   - `health-codex-auth-check.yml` (Codex auth token expiration monitoring),
   - `health-cursor-auth-check.yml` (Cursor key presence check),
   - `health-muse-auth-check.yml` (Muse key presence, CLI and sandbox check, no model call), and
@@ -590,9 +590,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Health 40 belt claim reclaim** – `.github/workflows/health-40-sweep.yml`
   removes `status:in-progress` after 24 hours only when no linked open or merged
   PR exists, and records the claim timestamp in an audit comment first.
-- **Agents 74 PR body writer** – `.github/workflows/agents-74-pr-body-writer.yml`
-  synchronizes PR body sections from source issues and builds dynamic status
-  summaries from workflow runs and acceptance criteria.
 - **Agents PR meta manager** – `.github/workflows/agents-pr-meta-v4.yml` is
   the canonical PR meta manager using external scripts to stay under GitHub
   workflow parser limits. Manages PR metadata and the Automated Status Summary
@@ -618,14 +615,11 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   with `agents-keepalive-branch-sync.yml`.
   Auto-pilot only dispatches keepalive after it has created a PR; the inline
   issue-formatting phase does not use keepalive dispatches.
-- **Keepalive pause/resume control.** Toggle the repository-level
-  `keepalive:paused` label to halt keepalive runs globally until the label is cleared.
+- **Keepalive pause/resume control.** Apply the `agents:paused` label on a PR
+  to halt keepalive runs for that PR until the label is removed.
 - **Agents 63 Issue Intake** – `.github/workflows/agents-63-issue-intake.yml`
   centralises ChatGPT imports and handles the `agent:codex` label trigger via a
   single reusable entry point.
-- **Agents 64 PR Comment Commands** – `.github/workflows/agents-64-pr-comment-commands.yml`
-  processes slash commands in PR comments to trigger workflow actions and
-  automate common PR operations.
 - **Agents 64 Assignment Verifier** – `.github/workflows/agents-64-verify-agent-assignment.yml`
   audits that labelled issues retain approved assignees; callable and manual dispatch.
 - **Agents Moderate Connector Comments** – `.github/workflows/agents-moderate-connector.yml`
@@ -646,7 +640,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - For a failed [Reusable Cross-Repo Smoke](WORKFLOWS.md#reusable-cross-repo-smoke) check, open the run in the calling repository and inspect the logged dependency SHA.
 - **Reusable Autofix** – See the [formatting caller and its results](WORKFLOWS.md#autofix-routes).
 - **Reusable Model Profile Trial** – `reusable-model-profile-trial.yml` runs one
-  immutable read-only Sol/Terra/Luna plumbing arm from a separately pinned
+  immutable read-only Astra/Sol/Terra/Luna plumbing arm from a separately pinned
   helper checkout. It requires current remote `main` before auth and emits v2
   quarantine telemetry with GitHub provenance and bounded source manifests;
   `agents-model-profile-trial.yml` is its manual shim.
@@ -692,11 +686,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Maint Coverage Guard** (`maint-coverage-guard.yml`, maintenance bucket) | `schedule` (`45 6 * * *`), `workflow_dispatch` | Audit the latest Gate coverage trend artifact and compare it against the baseline, failing when coverage regresses beyond the guard thresholds. | ⚪ Scheduled | [Maint Coverage Guard runs](https://github.com/stranske/Workflows/actions/workflows/maint-coverage-guard.yml) |
 | **Maint 46 Post CI** (`maint-46-post-ci.yml`, maintenance bucket) | `workflow_run` (Gate, `completed`) | Recovery-only: inspect the Gate run for a missing or failed `summary` job; when recovery is needed, collect the Gate artifacts, render the consolidated CI summary with coverage deltas, publish a markdown preview, and refresh the Gate commit status. Its independent trusted failure-tracker job processes both failed and healthy same-repository PR Gate runs and uploads the exact issue snapshot path. | ⚪ Automatic follow-up | [Maint 46 runs](https://github.com/stranske/Workflows/actions/workflows/maint-46-post-ci.yml) |
 | **Maint 45 Cosmetic Repair** (`maint-45-cosmetic-repair.yml`, maintenance bucket) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Workflows/actions/workflows/maint-45-cosmetic-repair.yml) |
-| **Health 40 Repo Selfcheck** (`health-40-repo-selfcheck.yml`, maintenance bucket) | `schedule` (daily) | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Workflows/actions/workflows/health-40-repo-selfcheck.yml) |
+| **Health 40 Repo Selfcheck** (`health-40-repo-selfcheck.yml`, maintenance bucket) | `schedule` (weekly, Mondays 06:20 UTC), `workflow_dispatch` | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Workflows/actions/workflows/health-40-repo-selfcheck.yml) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`, maintenance bucket) | `schedule` (weekly) | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Workflows/actions/workflows/health-41-repo-health.yml) |
-| **Health 40 Sweep** (`health-40-sweep.yml`, maintenance bucket) | `schedule` (weekly), `pull_request`, `workflow_dispatch` | Run Actionlint on workflow edits and verify branch protection during sweeps. | ⚪ Scheduled/manual | [Health 40 sweep history](https://github.com/stranske/Workflows/actions/workflows/health-40-sweep.yml) |
+| **Health 40 Sweep** (`health-40-sweep.yml`, maintenance bucket) | `schedule` (weekly + daily), `pull_request`, `push`, `workflow_dispatch` | Run Actionlint on workflow edits and verify branch protection during sweeps. | ⚪ Scheduled/manual | [Health 40 sweep history](https://github.com/stranske/Workflows/actions/workflows/health-40-sweep.yml) |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`, maintenance bucket) | `workflow_dispatch`, `workflow_call` | Provide the reusable Actionlint leg for sweeps or focused rehearsals. | ⚪ Manual/reusable | [Health 42 logs](https://github.com/stranske/Workflows/actions/workflows/health-42-actionlint.yml) |
-| **Health 43 CI Signature Guard** (`health-43-ci-signature-guard.yml`, maintenance bucket) | `schedule` (daily) | Verify reusable workflow signature pins. | ⚪ Scheduled | [Health 43 verification](https://github.com/stranske/Workflows/actions/workflows/health-43-ci-signature-guard.yml) |
 | **Health 44 Gate Branch Protection** (`health-44-gate-branch-protection.yml`, maintenance bucket) | `pull_request`, `workflow_dispatch`, `workflow_call` | Verify the configured default-branch status contexts. | ⚪ Scheduled via sweep / manual | [Health 44 enforcement logs](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml) |
 | **Health 50 Security Scan** (`health-50-security-scan.yml`, maintenance bucket) | `push`, `pull_request`, `schedule` (weekly) | Run CodeQL security analysis on Python code to detect vulnerabilities. | ⚪ Automatic/scheduled | [Security scan runs](https://github.com/stranske/Workflows/actions/workflows/health-50-security-scan.yml) |
 | **Health 51 Actions SAST (zizmor)** (`health-51-zizmor.yml`, maintenance bucket) | `push`, `pull_request`, `schedule` (weekly) | Static-analyze the GitHub Actions YAML shipped to consumer repos (zizmor) for injection/permission issues; upload findings to code scanning. | ⚪ Automatic/scheduled | [zizmor runs](https://github.com/stranske/Workflows/actions/workflows/health-51-zizmor.yml) |
@@ -709,7 +702,7 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Health 72 Template Sync** (`health-72-template-sync.yml`, maintenance bucket) | `pull_request`, `push` (exact-sync sources/templates) | Validate that manifest-declared exact template-sync files match their `templates/consumer-repo/` copies. | ⚪ Required on PRs | [Template sync validation runs](https://github.com/stranske/Workflows/actions/workflows/health-72-template-sync.yml) |
 | **Health 73 Template Completeness** (`health-73-template-completeness.yml`, maintenance bucket) | `pull_request`, `push` (`.github/workflows/`, `templates/`, manifest) | Validate that consumer-intended workflows exist in template and manifest. Prevents workflows added to .github/workflows/ without being synced to consumer repos. | ⚪ Required on PRs | [Template completeness runs](https://github.com/stranske/Workflows/actions/workflows/health-73-template-completeness.yml) |
 | **Health 74 Template Drift** (`health-74-template-drift.yml`, maintenance bucket) | `pull_request`, `push` (any `.github/workflows/*.yml`, templates, drift checker config) | Check normalized content drift between main workflows with consumer template counterparts and their `templates/consumer-repo/` copies. Fails on unallowlisted drift; permits only fingerprinted baseline differences in `config/template-drift-allowlist.txt`. | ⚪ Required on matching PRs | [Template drift runs](https://github.com/stranske/Workflows/actions/workflows/health-74-template-drift.yml) |
-| **Health 75 API Rate Diagnostic** (`health-75-api-rate-diagnostic.yml`, maintenance bucket) | `schedule` (every 4 hours), `workflow_dispatch` | Monitor API rate limit utilization across GITHUB_TOKEN, PATs, and GitHub Apps. Alerts when usage exceeds 85%, tracks consumer repo workflow activity, and provides load balancing analysis. | ⚪ Scheduled/manual | [API rate diagnostic runs](https://github.com/stranske/Workflows/actions/workflows/health-75-api-rate-diagnostic.yml) |
+| **Health 75 API Rate Diagnostic** (`health-75-api-rate-diagnostic.yml`, maintenance bucket) | `schedule` (hourly), `workflow_dispatch` | Monitor API rate limit utilization across GITHUB_TOKEN, PATs, and GitHub Apps. Alerts when usage exceeds 85%, tracks consumer repo workflow activity, and provides load balancing analysis. | ⚪ Scheduled/manual | [API rate diagnostic runs](https://github.com/stranske/Workflows/actions/workflows/health-75-api-rate-diagnostic.yml) |
 | **Health 76 Codex CLI Freshness** (`health-76-codex-cli-freshness.yml`, maintenance bucket) | `schedule` (weekly), `workflow_dispatch` | Compare the verifier `@openai/codex` install pin with the latest npm release and upload a machine-readable update-path contract for deliberate CLI upgrades. | ⚪ Scheduled/manual | [Codex CLI freshness runs](https://github.com/stranske/Workflows/actions/workflows/health-76-codex-cli-freshness.yml) |
 | **Backplane Contract Integrity** (`health-78-backplane-contract.yml`, maintenance bucket) | `pull_request`, `push` (contract set: schemas, registry, validator, fixtures) | Workflows-internal gate over the run-contract/v1 contract set: asserts the three schemas load as valid draft 2020-12 JSON Schema, `config/backplane_participants.json` keeps the required shape, and the bundled valid/invalid fixtures behave (validator self-smoke). | ⚪ Required on contract PRs | [Backplane contract integrity runs](https://github.com/stranske/Workflows/actions/workflows/health-78-backplane-contract.yml) |
 | **Health 83 Dependency Sync Efficiency** (`health-83-dependency-sync-efficiency.yml`, maintenance bucket) | `schedule` (weekly), `workflow_dispatch` | Publishes advisory lane, amplification, stale/replacement, agent-exception, and stable-delivery convergence evidence for dependency and generated sync work. The trailing window is fully paginated, while all-time collection remains explicitly incomplete; the durable tracker changes only on a material-evidence fingerprint change. | ⚪ Scheduled/manual | [Dependency sync efficiency runs](https://github.com/stranske/Workflows/actions/workflows/health-83-dependency-sync-efficiency.yml) |
@@ -742,24 +735,23 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 | **Capability Check** (`agents-capability-check.yml`, agents bucket) | `issues` (labeled `agents:capability-check`) | Pre-flight check before agent assignment to identify blockers like ambiguous scope or missing context. | ⚪ Event-driven | [Capability check runs](https://github.com/stranske/Workflows/actions/workflows/agents-capability-check.yml) |
 | **Task Decomposition** (`agents-decompose.yml`, agents bucket) | `issues` (labeled `agents:decompose`) | Decomposes large issues into actionable sub-tasks using LLM analysis. | ⚪ Event-driven | [Task decomposition runs](https://github.com/stranske/Workflows/actions/workflows/agents-decompose.yml) |
 | **Duplicate Detection** (`agents-dedup.yml`, agents bucket) | `issues` (labeled `agents:dedup`) | Detects duplicate issues using semantic similarity analysis and posts findings as a comment. | ⚪ Event-driven | [Duplicate detection runs](https://github.com/stranske/Workflows/actions/workflows/agents-dedup.yml) |
-| **Agents Verify to Issue** (`agents-verify-to-issue-v2.yml`, agents bucket) | `workflow_run` (`agents-verifier.yml` completed) | Create follow-up issues from verification feedback when PRs receive CONCERNS or FAIL verdicts. | ⚪ Event-driven | [Verify-to-issue runs](https://github.com/stranske/Workflows/actions/workflows/agents-verify-to-issue-v2.yml) |
 | **Agents Verify to Issue v2** (`agents-verify-to-issue-v2.yml`, agents bucket) | `pull_request_target` (labeled `verify:create-issue`) | Enhanced follow-up issue creation using LangChain LLM for multi-round analysis. | ⚪ Event-driven | [Verify-to-issue v2 runs](https://github.com/stranske/Workflows/actions/workflows/agents-verify-to-issue-v2.yml) |
-| **Agents Verify to New PR** (`agents-verify-to-new-pr.yml`, agents bucket) | `pull_request_target` (labeled `verify:create-new-pr`) | Create a follow-up issue from verification feedback and trigger auto-pilot to prepare a new PR. | ⚪ Event-driven | [Verify-to-new-pr runs](https://github.com/stranske/Workflows/actions/workflows/agents-verify-to-new-pr.yml) |
+| **Agents Verify to New PR** (`agents-verify-to-new-pr.yml`, agents bucket) | `pull_request_target` (labeled `verify:create-new-pr`), `workflow_dispatch` | Create a follow-up issue from verification feedback and trigger auto-pilot to prepare a new PR. | ⚪ Event-driven | [Verify-to-new-pr runs](https://github.com/stranske/Workflows/actions/workflows/agents-verify-to-new-pr.yml) |
 | **Agents Bot Comment Handler** (`agents-bot-comment-handler.yml`, agents bucket) | `pull_request` (labeled), `workflow_run` (Gate, `completed`), `workflow_dispatch` | Dispatch the reusable bot-comment handler to resolve automated review comments after Gate or manual triggers. | ⚪ Event-driven | [Bot comment handler runs](https://github.com/stranske/Workflows/actions/workflows/agents-bot-comment-handler.yml) |
-| **Agents Verifier** (`agents-verifier.yml`, agents bucket) | `pull_request` (`closed` → merged), `push` (`main`) | Build acceptance-context prompt (PR + linked issues), run Codex in verifier mode, and open a follow-up issue when the verdict is FAIL. | ⚪ Post-merge automation | [Agents verifier runs](https://github.com/stranske/Workflows/actions/workflows/agents-verifier.yml) |
+| **Agents Verifier** (`agents-verifier.yml`, agents bucket) | `pull_request_target` (labeled `verify:*`), `workflow_dispatch` | Build acceptance-context prompt (PR + linked issues), execute the requested verifier mode (`checkbox`, `evaluate`, or `compare`), and post a verdict; follow-up issues/PRs remain label-triggered via `verify:create-issue` / `verify:create-new-pr`. | ⚪ Post-merge automation | [Agents verifier runs](https://github.com/stranske/Workflows/actions/workflows/agents-verifier.yml) |
 | **agents-weekly-metrics** (`agents-weekly-metrics.yml`, agents bucket) | `schedule` (weekly), `workflow_dispatch` | Aggregate agent metrics (keepalive, autofix, verifier) and generate markdown summary. | ⚪ Scheduled weekly | [Weekly metrics runs](https://github.com/stranske/Workflows/actions/workflows/agents-weekly-metrics.yml) |
-| **Agents Model Profile Trial** (`agents-model-profile-trial.yml`, agents bucket) | `workflow_dispatch` | Dispatch exactly one pinned, read-only Sol/Terra/Luna instrumentation arm with a frozen packet/source identity. | ⚪ Manual canary | [Model profile trial runs](https://github.com/stranske/Workflows/actions/workflows/agents-model-profile-trial.yml) |
+| **Agents Model Profile Trial** (`agents-model-profile-trial.yml`, agents bucket) | `workflow_dispatch` | Dispatch exactly one pinned, read-only Astra/Sol/Terra/Luna instrumentation arm with a frozen packet/source identity. | ⚪ Manual canary | [Model profile trial runs](https://github.com/stranske/Workflows/actions/workflows/agents-model-profile-trial.yml) |
 | **Agents 63 Issue Intake** (`agents-63-issue-intake.yml`, agents bucket) | `issues`, `workflow_call`, `workflow_dispatch` | Canonical front door for agent issue intake. Listens for `agent:codex` labels and services ChatGPT sync requests through the shared normalization pipeline. | ⚪ Critical surface (automation intake) | [Issue intake runs](https://github.com/stranske/Workflows/actions/workflows/agents-63-issue-intake.yml) |
-| **Agents 64 Verify Agent Assignment** (`agents-64-verify-agent-assignment.yml`, agents bucket) | `schedule`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Scheduled | [Agents 64 audit history](https://github.com/stranske/Workflows/actions/workflows/agents-64-verify-agent-assignment.yml) |
+| **Agents 64 Verify Agent Assignment** (`agents-64-verify-agent-assignment.yml`, agents bucket) | `workflow_call`, `workflow_dispatch` | Audit orchestrated assignments and alert on drift. | ⚪ Reusable/manual | [Agents 64 audit history](https://github.com/stranske/Workflows/actions/workflows/agents-64-verify-agent-assignment.yml) |
 | **Agents Moderate Connector Comments** (`agents-moderate-connector.yml`, agents bucket) | `issue_comment` (`created`) | Guard connector-authored comments on PR threads using allow/deny lists and optional debug labelling. | ⚪ Event-driven | [Moderation workflow runs](https://github.com/stranske/Workflows/actions/workflows/agents-moderate-connector.yml) |
-| **CI Autofix Loop** (`autofix.yml`, agents bucket) | `workflow_run` | Detect CI failures in agent PRs and apply automated formatting fixes when the `autofix` label is present. | ⚪ Triggered by Gate failures | [Autofix workflow runs](https://github.com/stranske/Workflows/actions/workflows/autofix.yml) |
+| **CI Autofix Loop** (`autofix.yml`, agents bucket) | `workflow_run`, `pull_request_target` (`labeled`) | Detect CI failures in agent PRs and apply automated formatting fixes when the `autofix` label is present. | ⚪ Triggered by Gate failures / label | [Autofix workflow runs](https://github.com/stranske/Workflows/actions/workflows/autofix.yml) |
 | **Reusable Python CI** (`reusable-10-ci-python.yml`, error-checking bucket) | `workflow_call` | Provide shared lint/type/test matrix for Gate and manual callers. | ✅ When invoked | [Reusable Python CI runs](https://github.com/stranske/Workflows/actions/workflows/reusable-10-ci-python.yml) |
 | **Reusable Docker CI** (`reusable-12-ci-docker.yml`, error-checking bucket) | `workflow_call` | Build and smoke-test container images. | ✅ When invoked | [Reusable Docker runs](https://github.com/stranske/Workflows/actions/workflows/reusable-12-ci-docker.yml) |
 | **Reusable Autofix** (`reusable-18-autofix.yml`, error-checking bucket) | `workflow_call` | Centralise formatter + fixer execution. | ✅ When invoked | [Reusable Autofix runs](https://github.com/stranske/Workflows/actions/workflows/reusable-18-autofix.yml) |
 | **Reusable Dependency Repair Contract** (`reusable-19-dependency-repair-contract.yml`, error-checking bucket) | `workflow_call` | Validate dependency repair provenance without executing pull-request code. | ✅ When invoked | [Dependency repair contract runs](https://github.com/stranske/Workflows/actions/workflows/reusable-19-dependency-repair-contract.yml) |
 | **Reusable Model Profile Trial** (`reusable-model-profile-trial.yml`, agents bucket) | `workflow_call` | Execute one immutable read-only Codex trial arm and upload a strict quarantine artifact. | ✅ When invoked | [Reusable model profile trial runs](https://github.com/stranske/Workflows/actions/workflows/reusable-model-profile-trial.yml) |
 | **Maint 88 Verifier Runtime Comparison** (`maint-88-verifier-runtime-comparison.yml`, maintenance bucket) | `workflow_dispatch` | Finite #3904 baseline/candidate experiment with immutable inputs, common dependencies, explicit cold application caches, raw JUnit/coverage and source hashes. Retains ordinary Gate acceptance. | ⚪ Manual | [Comparison runs](https://github.com/stranske/Workflows/actions/workflows/maint-88-verifier-runtime-comparison.yml) |
-| **Maint 89 Verifier Shadow Report** (`maint-89-verifier-shadow-report.yml`, maintenance bucket) | `schedule`, `workflow_dispatch` | Daily FYI report on shadow-run candidate verifier judges: collects `verifier-shadow.json` from fleet `comparison-results-*` artifacts into a 90-day ledger, applies the pre-registered criteria, updates one issue. Records only; no gate, no promotion. |
+| **Maint 89 Verifier Shadow Report** (`maint-89-verifier-shadow-report.yml`, maintenance bucket) | `schedule`, `workflow_dispatch` | Daily FYI report on shadow-run candidate verifier judges: collects `verifier-shadow.json` from fleet `comparison-results-*` artifacts into a 90-day ledger, applies the pre-registered criteria, updates one issue. Records only; no gate, no promotion. | ⚪ Scheduled/manual | [Verifier shadow report runs](https://github.com/stranske/Workflows/actions/workflows/maint-89-verifier-shadow-report.yml) |
 | [Selftest: Reusables](WORKFLOWS.md#self-test-harness) | [Triggers and modes](SELFTESTS.md#triggers) | Exercise shared CI against a consumer fixture. | ⚪ Supplemental | [Workflow runs](https://github.com/stranske/Workflows/actions/workflows/selftest-reusable-ci.yml) |
 
 **PR body conflict guard.** `pr_body.md` is PR-specific. It must stay out of `main` and be ignored in consumer repos (`.gitignore` + `merge=ours` in `.gitattributes`). The Codex runner already `git reset`s `pr_body.md` before committing; if the file ever lands in `main`, rerun `maint-72-fix-pr-body-conflicts.yml` to delete it and reapply the ignore rule.
@@ -814,18 +806,18 @@ snapshots for audit trails.
   pytest still execute across the full matrix.
 - **Automation labels.** Keep the labels used by automation available:
   `workflows`, `ci`, `devops`, `docs`, `refactor`, `enhancement`, `autofix:clean`,
-  `priority: high|medium|low`, `risk:low`, `status: ready|in-progress`,
+  `priority:high|normal|low`, `risk:low`, `status:ready|in-progress`,
   `agents`, and `agent:codex`.
 
 ## Final topology (keep vs retire)
 
 - **Keep.** `pr-00-gate.yml`, `maint-45-cosmetic-repair.yml`,
   the Gate summary job (inline),
-  `maint-coverage-guard.yml`, health 40/41/42/43/44,
+  `maint-coverage-guard.yml`, health 40/41/42/44,
   agents 63/64, belt 71–73, auto-pilot, `agents-moderate-connector.yml`, `agents-debug-issue-event.yml`, `agents-guard.yml`, reusable 10/12/18, and
   `maint-auto-label-dep-prs.yml`, `maint-auto-lock-deps.yml`, and `selftest-reusable-ci.yml`.
-- **Retire.** `pr-14-docs-only.yml`, `maint-47-check-failure-tracker.yml`, the
-  removed Agents 61/62 consumer workflows, and the legacy `selftest-*` wrappers
+- **Retire.** `pr-14-docs-only.yml`, `health-43-ci-signature-guard.yml`, `maint-47-check-failure-tracker.yml`, the
+  removed Agents 61/62 consumer workflows, `agents-64-pr-comment-commands.yml`, `agents-74-pr-body-writer.yml`, and the legacy `selftest-*` wrappers
   superseded by `selftest-reusable-ci.yml`.
 - **Retired environment provisioning.** Maint 63 was retired in December 2025
   after environment-management requests returned HTTP 403.

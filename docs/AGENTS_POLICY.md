@@ -40,9 +40,9 @@ automated safety net. At runtime, `.github/scripts/agents-guard.js` applies
 `DEFAULT_PROTECTED_PATHS = ['.github/workflows/agents-*.yml']` across the
 `agents-*.yml` surface (excluding the utility workflow
 `agents-64-verify-agent-assignment.yml` and allowlisted legacy or
-consumer-template removals; `.github/workflows/agents-keepalive-loop.yml` is
+consumer-template removals; `.github/workflows/agents-keepalive-loop.yml` (alongside `agents-autofix-loop.yml`, `agents-bot-comment-handler.yml`, `agents-verify-to-issue-v2.yml`, `agents-verify-to-new-pr-autopilot.yml`, and `agents-orchestrator.yml` in `CONSUMER_ONLY_ALLOW_REMOVED_PATHS`) is
 allowlisted for removal only in consumer repositories, where
-`agents-80-pr-event-hub.yml` and `agents-81-gate-followups.yml` replace it, and
+`agents-80-pr-event-hub.yml` and `agents-81-gate-followups.yml` replace them, and
 remains blocked from deletion in `stranske/Workflows`. The guard allows deletion of the retired Agents 70 dispatcher in Workflows and in consumers. Other protected workflow deletions retain their existing rules. Former consumer wrappers (`agents-61-consumer-compat.yml`,
 `agents-62-consumer.yml`) and `agents-63-chatgpt-issue-sync.yml` must not be
 reintroduced.
