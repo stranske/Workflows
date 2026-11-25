@@ -1,0 +1,269 @@
+{
+  "after_markers": {
+    "comment": {
+      "id": 9988776655,
+      "html_url": "https://github.com/stranske/Workflows/pull/4000#issuecomment-9988776655",
+      "body": "<- After: keepalive-round: 5 -->\n<- After: codex-keepalive-marker -->\n<- After: keepalive-trace: manual-test-2025-11-05-01-35 -->\n\n@codex please continue",
+      "user": {
+        "login": "stranske"
+      }
+    },
+    "issue": {
+      "number": 4000
+    },
+    "pull": {
+      "number": 4000,
+      "title": "feat: ensure keepalive detection",
+      "body": "Related to #3260",
+      "head": {
+        "ref": "codex/issue-3260-keepalive"
+      },
+      "base": {
+        "ref": "phase-2-dev"
+      }
+    },
+    "reactions": [],
+    "env": {
+      "ALLOWED_LOGINS": "stranske"
+    }
+  },
+  "autofix_instruction": {
+    "comment": {
+      "id": 6002001,
+      "body": "@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.",
+      "user": {
+        "login": "chatgpt-codex-connector"
+      }
+    },
+    "issue": {
+      "number": 3273
+    },
+    "pull": {
+      "number": 3273,
+      "head": {
+        "ref": "fix/keepalive-autofix"
+      },
+      "base": {
+        "ref": "phase-2-dev"
+      },
+      "title": "Keepalive auto fix scenario (#3260)",
+      "body": "Testing auto insertion of keepalive markers referencing (#3260)."
+    },
+    "comments": [
+      {
+        "id": 6002001,
+        "body": "@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed."
+      }
+    ]
+  },
+  "automation_autofix": {
+    "comment": {
+      "id": 3492705833,
+      "body": "Autofix attempt 1/2 for PR #3289.\n\n- Trigger: https://github.com/stranske/Workflows/actions/runs/19112108436\n- Branch: autofix/3289-09774fb\n- Head SHA: 09774fb\n- Result: no changes required\n\n<!-- autofix-loop:{\"pr\":3289,\"attempts\":1,\"max_attempts\":2,\"head\":\"09774fbc6d7b22553a871f143a1e550816ed183b\",\"branch\":\"autofix/3289-09774fb\",\"workflow_url\":\"https://github.com/stranske/Workflows/actions/runs/19112108436\",\"upstream_url\":\"\",\"updated_at\":\"2025-11-05T18:23:06.000Z\"} -->",
+      "user": {
+        "login": "stranske"
+      },
+      "html_url": "https://github.com/stranske/Workflows/pull/3289#issuecomment-3492705833"
+    },
+    "issue": {
+      "number": 3289
+    },
+    "pull": {
+      "number": 3289,
+      "title": "chore(codex): bootstrap PR for issue #3279",
+      "head": {
+        "ref": "codex/issue-3279"
+      },
+      "base": {
+        "ref": "phase-2-dev"
+      }
+    },
+    "env": {
+      "ALLOWED_LOGINS": "stranske"
+    }
+  },
+  "dispatch": {
+    "comment": {
+      "id": 987654321,
+      "html_url": "https://github.com/stranske/Workflows/pull/3230#issuecomment-987654321",
+      "body": "<!-- keepalive-round:3 -->\n<!-- codex-keepalive-marker -->\n<!-- keepalive-trace: manual-resend -->\n\n@codex continue please",
+      "user": {
+        "login": "stranske"
+      }
+    },
+    "issue": {
+      "number": 3230
+    },
+    "pull": {
+      "number": 3230,
+      "title": "chore(codex): bootstrap (#3227)",
+      "body": "Implements #3227",
+      "head": {
+        "ref": "codex/issue-3227-keepalive"
+      },
+      "base": {
+        "ref": "phase-2-dev"
+      }
+    },
+    "reactions": []
+  },
+  "html_entities": {
+    "comment": {
+      "id": 9988776656,
+      "html_url": "https://github.com/stranske/Workflows/pull/4001#issuecomment-9988776656",
+      "body": "&amp;lt;!-- codex-keepalive-marker --&amp;gt;\n&amp;lt;- After: keepalive-round: 6 --&amp;gt;\n&amp;lt;- After: keepalive-trace: double-sanitized-check --&amp;gt;\n\n@codex please continue",
+      "user": {
+        "login": "stranske"
+      }
+    },
+    "issue": {
+      "number": 4001
+    },
+    "pull": {
+      "number": 4001,
+      "title": "feat: ensure keepalive detection",
+      "body": "Related to #3260",
+      "head": {
+        "ref": "codex/issue-3260-keepalive"
+      },
+      "base": {
+        "ref": "phase-2-dev"
+      }
+    },
+    "reactions": [],
+    "env": {
+      "ALLOWED_LOGINS": "stranske"
+    }
+  },
+  "manual_repeat": {
+    "comment": {
+      "id": 7002001,
+      "body": "@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.",
+      "user": {
+        "login": "stranske"
+      },
+      "html_url": "https://github.com/stranske/Workflows/pull/4003#issuecomment-7002001"
+    },
+    "comments": [
+      {
+        "id": 6002001,
+        "body": "<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->\n<!-- keepalive-trace: trace-one -->\n@codex initial instruction"
+      }
+    ],
+    "issue": {
+      "number": 4003
+    },
+    "pull": {
+      "number": 4003,
+      "title": "fix: keepalive manual repeat",
+      "head": {
+        "ref": "codex/issue-4003"
+      },
+      "base": {
+        "ref": "phase-2-dev"
+      }
+    },
+    "env": {
+      "ALLOWED_LOGINS": "stranske"
+    }
+  },
+  "manual_round": {
+    "comment": {
+      "id": 5002001,
+      "body": "@codex use the scope, acceptance criteria, and task list so the keepalive workflow continues nudging until everything is complete. Work through the tasks, checking them off only after each acceptance criterion is satisfied, but check during each comment implementation and check off tasks and acceptance criteria that have been satisfied and repost the current version of the initial scope, task list and acceptance criteria each time that any have been newly completed.",
+      "user": {
+        "login": "stranske"
+      },
+      "html_url": "https://github.com/stranske/Workflows/pull/4002#issuecomment-5002001"
+    },
+    "comments": [
+      {
+        "id": 4002000,
+        "body": "<!-- keepalive-round: 1 -->\n<!-- codex-keepalive-marker -->\n<!-- keepalive-trace: first-trace -->\nInitial instruction"
+      }
+    ],
+    "issue": {
+      "number": 4002
+    },
+    "pull": {
+      "number": 4002,
+      "title": "fix: ensure keepalive automation",
+      "head": {
+        "ref": "codex/issue-4002"
+      },
+      "base": {
+        "ref": "phase-2-dev"
+      }
+    },
+    "env": {
+      "ALLOWED_LOGINS": "stranske"
+    }
+  },
+  "missing_marker": {
+    "comment": {
+      "body": "<!-- keepalive-round:1 -->\nNo sentinel here",
+      "user": {
+        "login": "stranske"
+      },
+      "html_url": "https://github.com/stranske/Workflows/pull/4001#issuecomment-4001001",
+      "id": 4001001
+    },
+    "issue": {
+      "number": 4001
+    },
+    "pull": {
+      "number": 4001,
+      "title": "feat: update (#4001)",
+      "head": {
+        "ref": "codex/issue-4001"
+      },
+      "base": {
+        "ref": "main"
+      }
+    }
+  },
+  "missing_round": {
+    "comment": {
+      "id": 1122334455,
+      "body": "<!-- codex-keepalive-marker -->\n<!-- keepalive-trace: orphan-trace -->\n@codex missing round marker",
+      "user": {
+        "login": "stranske"
+      },
+      "html_url": "https://github.com/stranske/Workflows/pull/4001#issuecomment-1122334455"
+    },
+    "issue": {
+      "number": 4001
+    },
+    "pull": {
+      "number": 4001,
+      "title": "feat: update (#4001)",
+      "head": {
+        "ref": "codex/issue-4001"
+      },
+      "base": {
+        "ref": "main"
+      }
+    }
+  },
+  "unauthorised": {
+    "comment": {
+      "body": "<!-- keepalive-round:2 -->\n<!-- codex-keepalive-marker -->\n\n@codex status?",
+      "user": {
+        "login": "helper-bot"
+      }
+    },
+    "issue": {
+      "number": 512
+    },
+    "pull": {
+      "number": 512,
+      "title": "chore: helper (#512)",
+      "head": {
+        "ref": "codex/issue-512"
+      },
+      "base": {
+        "ref": "main"
+      }
+    }
+  }
+}

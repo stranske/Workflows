@@ -18,9 +18,7 @@ def _require_node() -> None:
 
 def _run_scenario(name: str) -> dict:
     _require_node()
-    scenario_path = FIXTURES_DIR / f"{name}.json"
-    assert scenario_path.exists(), f"Scenario fixture missing: {scenario_path}"  # pragma: no cover
-    command = ["node", str(HARNESS), str(scenario_path)]
+    command = ["node", str(HARNESS), str(FIXTURES_DIR / "scenarios.json"), name]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         pytest.fail(
