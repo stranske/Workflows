@@ -168,7 +168,10 @@ jobs:
 
 | Workflow | Purpose | Inputs |
 |----------|---------|--------|
-| `reusable-10-ci-python.yml` | Full Python CI pipeline | `python-version`, `coverage-min` |
+| `reusable-10-ci-python.yml` | Full Python CI pipeline | `python-version`, `python-versions`, `coverage-min`, `enable-soft-gate`, `lint`, `typecheck` (see `docs/USAGE.md`) |
+| `reusable-11-ci-node.yml` | Node.js / TypeScript CI pipeline | `node-version`, `node-versions`, `package-manager`, `lint`, `format_check`, `typecheck`, `tests`, `test-runner`, `coverage` |
+| `reusable-12-ci-docker.yml` | Container build and smoke test | `debug-build` |
+| `reusable-13-cross-repo-smoke.yml` | Host + pinned dependency smoke test | `dependency_repo`, `dependency_ref`, `setup_node`, `node_version`, `host_install_command`, `dependency_install_command`, `run_command` |
 
 ## Workflow Outputs
 
@@ -395,11 +398,11 @@ Set these in your repo's Settings → Secrets → Actions:
 | `PYPI_TOKEN` | Publishing packages | From pypi.org |
 
 > **This table is a starting point, not the full set.** A first-party consumer
-> actually carries ~15 secrets (App IDs and private keys for the Workflows,
+> actually carries ~20 secrets (App IDs and private keys for the Workflows,
 > keepalive and bot-comment Apps; agent CLI credentials; provider API keys).
 > `templates/consumer-repo/docs/SETUP_CHECKLIST.md` §3.2 is the authoritative list.
 > Corrected 2026-08-21: onboarding `stranske/Orchestrator` against this table alone
-> produced a repo with 4 of the 15 secrets and no indication anything was missing.
+> produced a repo with 4 of the then-15 secrets and no indication anything was missing.
 
 ### Branch Protection
 
@@ -864,11 +867,11 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 | Workflow | Purpose | Triggers |
 |----------|---------|----------|
 | `ci.yml` | Python CI (lint, format, tests, typecheck) | push, PR |
-| `agents-issue-intake.yml` | Assigns Codex/Copilot to issues | issue labeled `agent:codex` |
+| `agents-issue-intake.yml` | Routes issues to registry-backed agents or runs ChatGPT topic sync | `issues` (`opened`, `reopened`, `labeled`, `unlabeled` with `agent:*`/`agents:*`), `workflow_dispatch` |
 | `agents-80-pr-event-hub.yml` | Handles PR event routing, keepalive metadata, bot comments, and verification follow-ups | PR events and comments |
 | `agents-81-gate-followups.yml` | Coordinates Gate follow-ups, keepalive/autofix recovery, and generated-delivery wakeups | Gate completion and follow-up events |
 | `agents-verifier.yml` | Runs label-driven post-merge verification | manual dispatch, `verify:*` labels |
-| `autofix.yml` | Auto-fixes lint/format issues | PR sync, `autofix` label |
+| `autofix.yml` | Auto-fixes lint/format issues | `workflow_run` (`Gate`/`CI`/`Python CI` completed), `pull_request_target` (`autofix` / `autofix:clean` label) |
 | `pr-00-gate.yml` | Required PR gate and summary status | PR |
 | `cross-repo-smoke.yml` | Optional cross-repo integration smoke (host + pinned dependency checkout) | push, PR, manual (opt-in via `CROSS_REPO_SMOKE_*` vars) |
 | `autofix-versions.env` | Pins tool versions | N/A |

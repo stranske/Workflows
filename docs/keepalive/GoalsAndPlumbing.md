@@ -26,7 +26,7 @@
 
 - **Purpose:** Maintain a safe, iterative loop where keepalive nudges an agent through small, verifiable increments on a PR until every acceptance criterion is complete—while guaranteeing predictable behaviour and safety rails.
 - **Scope:** Activation requirements, dispatch plumbing, throttling, branch-sync guarantees, and shutdown rules for the GitHub PR keepalive workflow.
-- **Applicability:** This contract covers the registry-driven CLI keepalive implementation for Codex, Claude, and future agents. The legacy UI connector-bot flow is documented separately in [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
+- **Applicability:** This contract covers the registry-driven CLI keepalive implementation for Codex, Claude, Cursor, Muse, Gemini, and future agents. The legacy UI connector-bot flow is documented separately in [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
 - **Non-goals:** Guidance for automation unrelated to keepalive.
 
 ---

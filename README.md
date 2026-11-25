@@ -165,7 +165,7 @@ After PR merge, applying a `verify:*` label (typically `verify:evaluate` via aut
 
 **Validation (`scripts/`):**
 - `check_branch.sh` - Comprehensive branch validation
-- `validate_yaml.py` - YAML syntax checking
+- `validate_workflow_yaml.py` - Workflow YAML syntax checking
 - `sync_tool_versions.py` - Tool version management
 
 **CI Support (`scripts/`):**

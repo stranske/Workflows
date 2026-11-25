@@ -15,6 +15,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:cursor` | Issue or PR labeled | Routes keepalive (`agents-keepalive-loop.yml` / `agents-81-gate-followups.yml`) and autofix to the Cursor runner
 | `agent:muse` | Issue or PR labeled | Routes keepalive (`agents-keepalive-loop.yml` / `agents-81-gate-followups.yml`) and autofix to the Muse runner (subscription login key)
 | `agent:gemini` | Issue or PR labeled | Routes keepalive (`agents-keepalive-loop.yml` / `agents-81-gate-followups.yml`) to the Gemini runner
+| `agent:copilot` | Issue labeled | Assigns GitHub Copilot (synced via `.github/labels-core.yml`)
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; may sit alongside one concrete `agent:<name>` label, which keepalive routing overrides
 | `agent:retry` | PR labeled | Consolidated consumers require a manual Gate-followups dispatch; the root/non-consolidated keepalive workflow forces a retry and clears recovery labels
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
@@ -25,8 +26,11 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agents:formatted` | Auto-applied | Indicates issue has been formatted
 | `agents:optimize` | Issue labeled | Analyzes issue and posts suggestions
 | `agents:apply-suggestions` | Issue labeled | Applies optimization suggestions
+| `agents` | Issue or PR labeled | Marks agent-automation items (synced via `.github/labels-core.yml`)
+| `agents:activated` | Auto-applied | Records that agent automation has been activated on an item (synced via `.github/labels-core.yml`)
 | `agents:auto-pilot` | Issue labeled | Runs issue-to-PR automation
 | `agents:auto-pilot-pause` | Issue labeled | Pauses auto-pilot dispatch
+| `agents:pause` | Issue or PR labeled | Pauses agent work (synced via `.github/labels-core.yml`)
 | `agents:paused` | PR labeled | Pauses keepalive loop on PR
 | `agents:keepalive` | PR labeled | Enables keepalive loop on PR
 | `agents:local-loop` | PR labeled (local automation) | The local Orchestrator keepalive loop owns the PR; hosted keepalive stays off it
@@ -262,7 +266,7 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 
 **Lifecycle:** Applied at PR creation by the opener lane, alongside the concrete `agent:<name>` label that records which seat opened the PR, or manually or by the closer when a PR is capacity-stuck. The delegation policy reads it on keepalive ticks and either keeps the current runner choice or switches the runner decision for that dispatch.
 
-**Workflow:** `agents-auto-label.yml`, `reusable-pr-context.yml`, `agents-capability-check.yml`, `agents-guard.yml`; policy implementation is `.github/scripts/agent_delegation_policy.js`.
+**Workflow:** `agents-auto-label.yml`, `agents-keepalive-loop.yml`, `agents-81-gate-followups.yml`, `reusable-pr-context.yml`, `agents-capability-check.yml`, `agents-guard.yml`; policy implementation is `.github/scripts/agent_delegation_policy.js`.
 
 ---
 
@@ -403,7 +407,7 @@ These labels control the LangChain-powered issue formatting pipeline introduced 
 
 **Use Case:** Quick, one-step formatting without review. Best for issues that are already well-structured but need template compliance.
 
-**Workflow:** `agents-issue-optimizer.yml`
+**Workflow:** `agents-issue-optimizer.yml`, `agents-issue-format-guard.yml`
 
 ---
 
@@ -420,7 +424,7 @@ These labels control the LangChain-powered issue formatting pipeline introduced 
 
 **Note:** This is a result label, not a trigger label. Do not apply manually.
 
-**Workflow:** Applied by `agents-issue-optimizer.yml`
+**Workflow:** Applied by `agents-issue-optimizer.yml`; validated and cleared on invalid edits by `agents-issue-format-guard.yml`
 
 ---
 
@@ -689,7 +693,9 @@ when the Orchestrator router starts the work on the owner's machine (`router.cho
    blocker; automation failure or exhausted retries alone are insufficient.
 3. May be applied by verifier follow-up policy, auto-pilot blockers, and
    capability checks only after they record the exact human action. Keepalive
-   failures use `agent:retry` or `agent:needs-attention`, not this label.
+   failures use automation-owned retry state or `agent:needs-attention` (only a
+   confirmed signed authority challenge escalates to `needs-human`), not
+   failure-count inference.
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
 `.github/workflows/agents-auto-pilot.yml`,
