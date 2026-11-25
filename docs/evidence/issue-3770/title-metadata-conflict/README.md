@@ -30,7 +30,8 @@ each side. Console captures are losslessly gzip-compressed to preserve their
 original bytes without trailing-whitespace diffs. `decoded-captures.json` retains
 decoded names, lengths and SHA256; use `gzip -dc <capture.log.gz>` to read them.
 These are executed production mutations, not a test-only mock.
-`sha256.json` covers every retained compressed capture and receipt.
+`sha256.json` covers the compressed captures and receipts, including the
+five original focused and full consoles recovered below.
 
 This bounded source repair does not complete the broader source3770 release
 comparison follow-through. Original NON_PASS outcomes are retained. Keepalive
@@ -61,7 +62,48 @@ Before the review-fix push, main advanced to
 `b4c5c6bb9` (merged3797). Rebased onto that main, preserved all current mutated
 production-source hashes, then re-ran the complete JavaScript suite:2,057PASS,
 1existingSkip,0failures. `3770-rebased-validation.json` records full base/tested
-head, exact command and exit; raw console is `3770-rebased-full-js.log.gz`.
+head, exact command and exit. The rebased console is in the [original transcript
+recovery](#recover-the-focused-and-full-console-transcripts).
 The earlier2028/2029 full-scope counts above are historical pre-rebase receipts,
 not final-tree counts. No tested implementation bytes changed when adding this
 receipt. Final staged/base diff checks pass.
+
+### Recover the focused and full console transcripts
+
+The original and current focused transcripts and the three full JavaScript
+transcripts are preserved at their publishing revision. The other receipts and
+both original hash manifests remain alongside this guide.
+
+- [3770-focused.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-focused.log.gz)
+- [3770-current-focused.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-current-focused.log.gz)
+- [3770-full-js.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-full-js.log.gz)
+- [3770-current-full-js.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-current-full-js.log.gz)
+- [3770-rebased-full-js.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-rebased-full-js.log.gz)
+
+Run from a Workflows checkout. The command prints the verified temporary directory.
+
+```bash
+(
+  set -e
+  revision=00f43f81e51c4f8b9a057ac51f7e3c2d870d7769
+  directory=docs/evidence/issue-3770/title-metadata-conflict
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 origin "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/title-metadata-console.XXXXXX")
+  for name in 3770-focused.log.gz 3770-current-focused.log.gz 3770-full-js.log.gz 3770-current-full-js.log.gz 3770-rebased-full-js.log.gz; do
+    git show "$revision:$directory/$name" > "$recovered/$name"
+  done
+  (
+    cd "$recovered"
+    shasum -a 256 -c <<'CHECKSUMS'
+f9f6d090f23c8ec923cebaab183a21725be0f275fbe027776fefc2a4a603080f  3770-focused.log.gz
+9bc0b2bd5706946eae45c2e6628ac7044c383c8f0e84bf836aebcfac19b00f3e  3770-current-focused.log.gz
+12d3ecd89e35bf8b3cc59c61d8e31f668a195ab18175760e1c604f3ad4b912dd  3770-full-js.log.gz
+7783935400e29c82a0b570120b1801b3e7c2eb42e13cd8c3d57a8ad6fb36526a  3770-current-full-js.log.gz
+e2e36b6fc07da0c61b47d880578ccedcd3ab497993e89901206fef6cc87f7cd4  3770-rebased-full-js.log.gz
+CHECKSUMS
+  )
+  printf '%s\n' "$recovered"
+)
+```
