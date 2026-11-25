@@ -7,7 +7,7 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
-November 25, 2026 UTC. Decisions cover **2,872/5,554 files, 266/487 folders and 144/198 workflows** in the November 19 inventory. Of 27 original root files, 26 have placement decisions. The current root has 22 tracked files. The remaining root decision requires a receiving Linux lint assertion for the Actionlint executable. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md)
+November 25, 2026 UTC. Decisions cover **2,874/5,554 files, 266/487 folders and 148/198 workflows** in the November 19 inventory. Of 27 original root files, 26 have placement decisions. The current root has 22 tracked files. The remaining root decision requires a receiving Linux lint assertion for the Actionlint executable. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md)
 
 - **Twelve hours through 07:11 Chicago time, November 25.** Main went from 4,772 to 4,724 tracked paths and from 99,743,629 to 97,509,694 checkout bytes. Root files stayed at 22. Published decisions changed by +116 files, +11 folders and -1 workflows. Of 37 merged cleanup Gates, 11 selected both primary jobs. 22/22 selected primary Python jobs met 600 seconds. The longest took 538 seconds. 4 whole Gates took more than ten minutes. Billed cost was unavailable. [Default comparison](https://github.com/stranske/Workflows/compare/c4f8b836b9ef9fcfbe33e311f37757d387c088db...2de5e3f48909053f0c921eae2573588010edd0d4)
 - **First hosted handoff.** The shared-state comparison retained the first eligible handoff in Auto-Pilot on both hosts and recognized the existing experiment reservation after publication. Auto-Pilot monitored the already-open #5135 from #5136, added `agent:auto`, and recorded `REVIEW_NEEDED` in the capability assessment. The scoped read found zero new shared-opener starts. Two Cursor keepalive continuations used the existing repair PR #5135. Scheduling the hosted opener still needs an ordinary judge and start, a Mac feedback database receipt, and restart, outage and concurrent-claim verification. [First handoff](https://github.com/stranske/Workflows/issues/5136) · [Matched shadow](https://github.com/stranske/Orchestrator/actions/runs/45554321359/job/139002622861)
@@ -48,8 +48,10 @@ November 25, 2026 UTC. Decisions cover **2,872/5,554 files, 266/487 folders and 
 - **PR-meta source.** #5146 made an ordinary automation-only comment report no human activation after a successful Gate. A fresh Trend #6247 event checked out the exact merged writer, produced that reason and skipped dispatch. The distinct wrapped #5131 input and live arbitration/retry remain open. Both Python jobs of #5146's ordinary main Selftest passed, in 687 and 527 seconds. [Native receiver](https://github.com/stranske/Trend_Model_Project/actions/runs/45588036250) · [Source classifier](https://github.com/stranske/Workflows/pull/5146)
 - **Manual integration routes.** The two wrapper paths are gone. All eight command and exit controls matched, and the local guide points directly to the local formatting script. The later main suite covered the identical guide blob and removed paths after the first run was superseded. [Wrapper merge](https://github.com/stranske/Workflows/pull/5126) · [Combined main Selftest](https://github.com/stranske/Workflows/actions/runs/45562286598)
 
-The original delivery checklist is **26/28**. The two outstanding cases need a reviewed Maint 84 stub deletion and a qualifying dependency-bot lockfile change. **Three of the first five** workflow decisions are complete. Auto-Pilot reopened under the shared-seat decision. Agents 64 needs a genuine nested assignment mismatch. The separate Health 42 fix still needs an annotation on a real fork PR. The hourly review proceeds across stages 1A–5 while those inputs are pending. [Previous checkpoint](https://github.com/stranske/Workflows/blob/5cec05ecaa2fbd56325fa5584637102a1c349b32/docs/reports/workflows-cleanup-tracker.md#current-structure-review)
+The original delivery checklist is **26/28**. Maint 84 stub deletion and the dependency-bot lockfile case each have ordinary November 30 and December 7 UTC opportunities. After December 7, close any case still without an eligible input as replay-verified, production delivery unobserved for lack of demand. An eligible failure remains actionable. **Three of the first five** workflow decisions are complete. Auto-Pilot reopened under the shared-seat decision. Agents 64 keeps its verified standalone opt-in assignment check. The redundant nested route follows the Agents 70 caller migration. The separate Health 42 fix still needs an annotation on a real fork PR. The hourly review proceeds across stages 1A–5 while those inputs are pending. [Previous checkpoint](https://github.com/stranske/Workflows/blob/5cec05ecaa2fbd56325fa5584637102a1c349b32/docs/reports/workflows-cleanup-tracker.md#current-structure-review)
 
+
+Of the **50 unresolved original workflows**, **17 are drainable** on a real input or active correction and **33 are blocked** on a named event, receiving installation, or observation period. The grouped index records the next check. A dated recheck preserves the actual qualification requirement.
 
 ## Stage progress and workflow decisions
 
@@ -57,13 +59,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 144/198 |
+| 1A · Workflow purpose and efficiency | — | — | 148/198 |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
 | 3 · Scripts, tools and packages | 307/752 | 22/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 806/1,540 | 110/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 808/1,540 | 110/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 192/334 | 26/47 | — |
-| **Total** | **2,872/5,554** | **266/487** | **144/198** |
+| **Total** | **2,874/5,554** | **266/487** | **148/198** |
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
@@ -71,9 +73,9 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 |---|---:|
 | [Keep in current role](workflow-decisions.md#keep) | 113 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 5 |
-| [Other verified decisions](workflow-decisions.md#verified) | 26 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 26 |
-| [In review](workflow-decisions.md#review) | 6 |
+| [Other verified decisions](workflow-decisions.md#verified) | 30 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 23 |
+| [In review](workflow-decisions.md#review) | 5 |
 | [Proposed changes](workflow-decisions.md#proposed) | 22 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
