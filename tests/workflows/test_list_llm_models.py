@@ -24,8 +24,7 @@ def catalog(tmp_path):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     curl = bin_dir / "curl"
-    curl.write_text(
-        """#!/bin/bash
+    curl.write_text("""#!/bin/bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$REQUESTS"
 while (($#)); do
@@ -36,19 +35,8 @@ while (($#)); do
   shift
 done
 exit 99
-"""
-    )
-    gh = bin_dir / "gh"
-    gh.write_text(
-        """#!/bin/bash
-set -euo pipefail
-printf '%s\n' "$*" >> "$REQUESTS"
-printf '%s\n' "$REPO_VISIBILITY"
-exit "$GH_STATUS"
-"""
-    )
-    for stub in (curl, gh):
-        stub.chmod(0o700)
+""")
+    curl.chmod(0o700)
     config = tmp_path / "config"
     config.mkdir()
     shutil.copyfile(REGISTRY, config / "model_registry.json")
@@ -56,7 +44,7 @@ exit "$GH_STATUS"
 
 
 def run_step(catalog: Path, step_id: str, response="", **settings):
-    script = next(step["run"] for step in STEPS if step.get("id") == step_id)
+    step = next(step for step in STEPS if step.get("id") == step_id)
     (catalog / "response").write_text(response)
     env = {
         **os.environ,
@@ -73,7 +61,38 @@ def run_step(catalog: Path, step_id: str, response="", **settings):
         "CURL_STATUS": "0",
         **settings,
     }
-    return subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
+    command = ["bash", "-c", step["run"]] if "run" in step else github_script(step, env)
+    return subprocess.run(command, env=env, capture_output=True, text=True)
+
+
+def github_script(step, env):
+    env["SCRIPT"] = step["with"]["script"]
+    return [
+        "node",
+        "-e",
+        r"""
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const repo = { owner: 'stranske', repo: 'trip-planner' };
+const github = { rest: { repos: { async get(target) {
+  assert.deepEqual(target, repo);
+  fs.appendFileSync(process.env.REQUESTS, 'repository metadata\n');
+  if (process.env.GH_STATUS !== '0') throw Error('read unavailable');
+  return {data: {visibility: process.env.REPO_VISIBILITY}};
+} } } };
+const core = {
+  setOutput(name, value) { fs.appendFileSync(process.env.GITHUB_OUTPUT, name + '=' + value + '\n'); },
+  warning(message) { console.log(message); },
+  setFailed(message) { console.log(message); process.exitCode = 1; },
+};
+const load = name => name.endsWith('github-rate-limited-wrapper.js')
+  ? {ensureRateLimitWrapped: async ({github}) => github}
+  : require(name);
+new AsyncFunction('require', 'github', 'context', 'core', process.env.SCRIPT)(load, github, {repo}, core)
+  .catch(error => { console.error(error); process.exitCode = 1; });
+""",
+    ]
 
 
 def test_legacy_github_choice_is_explicit_and_calls_no_provider(catalog):

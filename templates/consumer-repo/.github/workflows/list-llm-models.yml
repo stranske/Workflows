@@ -45,31 +45,42 @@ jobs:
             exit 1
           fi
 
-      - name: Determine catalog visibility
-        id: visibility
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_PRIVATE: ${{ github.event.repository.private }}
-        run: |
-          set -euo pipefail
-          private_catalog=false
-          if [[ "$EVENT_PRIVATE" == 'true' ]]; then
-            visibility=$(gh api "repos/$GITHUB_REPOSITORY" --jq .visibility 2>/dev/null) || visibility=unknown
-            if [[ "$visibility" == 'private' ]]; then
-              private_catalog=true
-            else
-              echo 'Private visibility could not be confirmed. Using the public verifier subset.' | tee -a "$GITHUB_STEP_SUMMARY"
-            fi
-          fi
-          printf 'private=%s\n' "$private_catalog" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout public verifier registry
-        if: steps.visibility.outputs.private != 'true'
+      - name: Checkout catalog helpers
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: config/model_registry.json
+          sparse-checkout: |
+            config/model_registry.json
+            .github/actions/setup-api-client
+            .github/scripts
           sparse-checkout-cone-mode: false
           persist-credentials: false
+
+      - name: Setup read-only repository API client
+        if: github.event.repository.private == true
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+
+      - name: Determine catalog visibility
+        id: visibility
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          EVENT_PRIVATE: ${{ github.event.repository.private }}
+        with:
+          script: |
+            let privateCatalog = false;
+            if (process.env.EVENT_PRIVATE === 'true') {
+              try {
+                const { ensureRateLimitWrapped } = require('./.github/scripts/github-rate-limited-wrapper.js');
+                const api = await ensureRateLimitWrapped({ github, core });
+                const { data } = await api.rest.repos.get(context.repo);
+                privateCatalog = data.visibility === 'private';
+              } catch (_) {
+                // An unavailable visibility check leaves the public subset selected.
+              }
+              if (!privateCatalog) core.warning('Private visibility could not be confirmed. Using the public verifier subset.');
+            }
+            core.setOutput('private', String(privateCatalog));
 
       - name: List OpenAI Models
         id: openai
@@ -128,17 +139,22 @@ jobs:
       - name: Confirm private catalog destination
         id: confirm_private
         if: github.event.repository.private == true && steps.visibility.outputs.private == 'true' && steps.openai.outputs.artifact == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          visibility=$(gh api "repos/$GITHUB_REPOSITORY" --jq .visibility 2>/dev/null) || visibility=unknown
-          if [[ "$visibility" != 'private' ]]; then
-            rm -f "$RUNNER_TEMP/openai-model-catalog.json"
-            echo 'Private visibility could not be confirmed at upload. No full catalog was published.' | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-          echo 'confirmed=true' >> "$GITHUB_OUTPUT"
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            try {
+              const { ensureRateLimitWrapped } = require('./.github/scripts/github-rate-limited-wrapper.js');
+              const api = await ensureRateLimitWrapped({ github, core });
+              const { data } = await api.rest.repos.get(context.repo);
+              if (data.visibility === 'private') {
+                core.setOutput('confirmed', 'true');
+                return;
+              }
+            } catch (_) {
+              // An unavailable visibility check denies publication of the full catalog.
+            }
+            require('node:fs').rmSync(require('node:path').join(process.env.RUNNER_TEMP, 'openai-model-catalog.json'), { force: true });
+            core.setFailed('Private visibility could not be confirmed at upload. No full catalog was published.');
 
       - name: Upload private OpenAI model catalog
         id: upload
