@@ -252,8 +252,10 @@ explain why a particular status appears in the Checks tab.
 #### Health 45 Agents Guard (`agents-guard.yml`)
 
 - **When it runs.** Every pull request (`pull_request`) plus label changes via
-  `pull_request_target` (trusted registry routing labels and protected-file
-  authorization labels such as `agents:allow-change`).
+  `pull_request_target` (`labeled`, `unlabeled`) when the PR carries a trusted
+  registry routing label from `.github/agents/registry.yml`. Protected-file
+  authorization labels such as `agents:allow-change` do not start
+  protected-file evaluation unless a trusted routing label is also present.
 - **What it enforces.** Confirms protected workflow edits carry the
   `agents:allow-change` label, the correct guard marker, and Code Owner approval
   except for the narrow dependency-update lane. That lane allows protected
@@ -286,9 +288,11 @@ explain why a particular status appears in the Checks tab.
   Dispatch → Run workflow** with default `dry_run=true` for preview. CLI:
   `gh workflow run agents-73-codex-belt-conveyor-dispatch.yml --raw-field dry_run=true`.
 - **Health 45 Agents Guard.** From the PR Checks tab, expand **Health 45 Agents Guard** and choose
-  **Re-run** after updating labels or reviews. The guard also re-evaluates label
-  changes delivered via `pull_request_target` for registry routing and
-  protected-file authorization labels. CLI alternative: `gh run rerun <agents-guard-run-id>` once the
+  **Re-run** after updating labels or reviews. On `pull_request_target`
+  `labeled`/`unlabeled` events, the guard re-evaluates protected-file changes
+  only when the PR carries a trusted registry routing label (including when
+  protected-file authorization labels such as `agents:allow-change` are toggled
+  on a routing-labelled PR). CLI alternative: `gh run rerun <agents-guard-run-id>` once the
   rerun appears under **Actions → Health 45 Agents Guard**.
 - **Gate summary flagged drift?** Follow the summary comment back to the
   workflow run, review the uploaded artifact bundle, and check the linked
@@ -407,7 +411,7 @@ enforces the guardrail so you know where to confirm compliance:
 | PR checks | Gate is required on every PR; docs-only detection happens inside Gate; Autofix is label-gated and cancels duplicates per branch. | Gate workflow protection + [branch protection](#branch-protection-playbook) keep the check mandatory. |
 | Maintenance & repo health | Gate summary job only runs after Gate succeeds; Health 40–44 must stay enabled so the default branch keeps its heartbeat; Maint 45 is manual and should only be dispatched by maintainers. | Gate summary job summary comment, Health dashboard history, and Maint 45 run permissions. |
 | Issue / agents automation | `agents:allow-change` label and Health 45 Agents Guard are mandatory before protected YAML merges; Code Owner review is mandatory except for dependency-only `uses: owner/action@ref` updates by Dependabot, Renovate, or repository owner/member/collaborator authors using the narrow label path. Belt and keepalive surfaces honour eligibility and label contracts. | [Agents Workflow Protection Policy](../AGENTS_POLICY.md), Health 45 Agents Guard, and repository label configuration. |
-| Error checking, linting, and testing topology | Reusable workflows run with signed references; callers must not fork or bypass them; self-test runner is manual and should mirror Gate’s matrix. | Health 42 Actionlint, the signature-verify fixture test in Gate and Selftest CI, and the reusable workflow permissions matrix. |
+| Error checking, linting, and testing topology | Callers invoke the shared reusable workflows (`./.github/workflows/reusable-*.yml` in-repo, `@main` in consumer templates, or an exact commit SHA where required such as `reusable-model-profile-trial.yml`) rather than forking or bypassing them; `selftest-reusable-ci.yml` mirrors Gate’s matrix on PR path filters, nightly schedule, and manual dispatch. | `maint-52-validate-workflows.yml` / Health 42 Actionlint, `health-73-template-completeness.yml` / `health-74-template-drift.yml`, Gate’s workflow contract tests (`test_reusable_ci_no_hardcoded_ref_main.py`, `test_python_matrix_contract.py`, `test_model_profile_trial_workflows.py`), and the reusable workflow permissions blocks. (The `signature-verify` fixture test in Gate and Selftest CI verifies only failure-signature hash stability against `.github/signature-fixtures/`, not reusable workflow references.) |
 
 ### Observability surfaces by bucket
 
