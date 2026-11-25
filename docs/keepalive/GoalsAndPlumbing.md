@@ -298,9 +298,10 @@ The keepalive loop routes to agent workflows through `.github/agents/registry.ym
 
 | Label | Agent | Workflow |
 |-------|-------|----------|
-| `agent:codex` | Codex CLI (gpt-5.6-terra; fallback gpt-5.5) | `reusable-codex-run.yml` |
+| `agent:codex` | Codex CLI (gpt-6.2-sol; fallback gpt-5.6-terra) | `reusable-codex-run.yml` |
 | `agent:claude` | Claude CLI | `reusable-claude-run.yml` |
 | `agent:cursor` | Cursor | `reusable-cursor-run.yml` (root and consumer Gate-followups) |
+| `agent:muse` | Muse | `reusable-muse-run.yml` (root and consumer Gate-followups) |
 | `agent:gemini` | Gemini | `reusable-gemini-run.yml` (root and consumer Gate-followups) |
 
 The table above is a snapshot of the current registry, not a second source of truth. See [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) and [`../guides/ADD_NEW_AGENT.md`](../guides/ADD_NEW_AGENT.md) for implementation details and how to add new agents.
