@@ -2169,7 +2169,7 @@ async function requireOutdatedReassessmentEvidence({ request, current, owner, re
   const branch = current.pr.base?.ref;
   if (!branch) throw new Error('Outdated reassessment requires a known consumer base branch');
   const targetPath = current.thread.path;
-  const originalCommit = current.thread.comments.nodes[0].commit?.oid;
+  const originalCommit = current.thread.comments.nodes[0].originalCommit?.oid;
   if (!/^\.github\/workflows\/[a-z0-9][a-z0-9-]*\.ya?ml$/i.test(targetPath || '')
     || !/^[0-9a-f]{40}$/.test(originalCommit || '') || originalCommit === request.head_sha) {
     throw new Error('Outdated reassessment requires a mapped workflow finding and original commit');
@@ -2275,7 +2275,7 @@ async function runReviewReassessment({
                 id path isResolved isOutdated
                 comments(first: 100) {
                   pageInfo { hasNextPage }
-                  nodes { fullDatabaseId author { login } body createdAt url commit { oid } }
+                  nodes { fullDatabaseId author { login } body createdAt url commit { oid } originalCommit { oid } }
                 }
               }
             }
@@ -2323,7 +2323,7 @@ async function runReviewReassessment({
     const original = evidence.thread.comments.nodes[0];
     const latest = current.thread.comments.nodes[0];
     if (current.pr.base?.ref !== evidence.pr.base?.ref || current.thread.path !== evidence.thread.path
-      || latest.fullDatabaseId !== original.fullDatabaseId || latest.commit?.oid !== original.commit?.oid) {
+      || latest.fullDatabaseId !== original.fullDatabaseId || latest.originalCommit?.oid !== original.originalCommit?.oid) {
       throw new Error('Outdated review finding identity changed');
     }
   }

@@ -4857,7 +4857,7 @@ test('outdated reassessment requests one review of the corrected generated workf
     body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->` };
   const reviewer = { login: 'chatgpt-codex-connector' };
   const original = { fullDatabaseId: '4690614016', body: finding, author: reviewer,
-    commit: { oid: priorHead } };
+    commit: { oid: head }, originalCommit: { oid: priorHead } };
   const sourcePr = { data: { number: sourceNumber, state: 'closed', merged: true,
     merge_commit_sha: source, base: { ref: 'main', repo: { full_name: 'stranske/Workflows' } } } };
   let defect;
