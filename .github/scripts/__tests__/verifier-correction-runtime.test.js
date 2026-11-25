@@ -12,7 +12,7 @@ test('complete native active inventory preserves unknown existing agent and queu
 test('native active-run missing fields, malformed count, duplicate IDs or transition during inventory remain UNKNOWN',async()=>{
  for(const change of [data=>{data.total_count=undefined;},data=>{delete data.workflow_runs[0].path;},
  data=>{data.workflow_runs.push(data.workflow_runs[0]);data.total_count=2;},data=>{data.workflow_runs[0].status='completed';}]) {
-  const transport={read:async()=>{const data={total_count:1,workflow_runs:[{id:20,status:'queued',path:'.github/workflows/agents-70-orchestrator.yml'}]};change(data);return data;}};
+  const transport={read:async()=>{const data={total_count:1,workflow_runs:[{id:20,status:'queued',path:'.github/workflows/agents-71-codex-belt-dispatcher.yml'}]};change(data);return data;}};
   await assert.rejects(activeExecutions({transport,current:{run_id:700,run_attempt:1},registryPath}));
  }
 });
@@ -20,7 +20,7 @@ test('native active-run missing fields, malformed count, duplicate IDs or transi
 test('every native nonterminal status remains an existing writer until positively reconciled',async()=>{
  for(const status of ['requested','waiting','pending','queued','in_progress']) {
   const transport={read:async(r,m,a)=>({total_count:a.status===status?1:0,
-   workflow_runs:a.status===status?[{id:30,status,path:'.github/workflows/agents-70-orchestrator.yml',run_attempt:1}]:[]})};
+   workflow_runs:a.status===status?[{id:30,status,path:'.github/workflows/agents-71-codex-belt-dispatcher.yml',run_attempt:1}]:[]})};
   assert.equal((await activeExecutions({transport,current:{run_id:700,run_attempt:1},registryPath})).length,1);
  }
 });

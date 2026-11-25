@@ -76,36 +76,7 @@ def test_readme_compare_profile_semantics() -> None:
     assert "Standard remains the default" in guide
 
 
-def test_agents70_docs_match_eligibility_and_dry_run() -> None:
-    agents70 = yaml.safe_load(
-        (WORKFLOWS_DIR / "agents-70-orchestrator.yml").read_text(encoding="utf-8")
-    )
-    agents70_events = agents70.get("on") or agents70.get(True) or {}
-    declared_events = set(agents70_events)
-    assert declared_events == {"schedule", "workflow_dispatch"}
-    assert agents70_events["schedule"] == [{"cron": "*/30 * * * *"}]
-    assert (
-        str(agents70_events["workflow_dispatch"]["inputs"]["dry_run"]["default"]).lower() == "false"
-    )
-
-    eligibility_steps = agents70["jobs"]["eligibility"]["steps"]
-    eligibility_step = next(step for step in eligibility_steps if step.get("id") == "eligibility")
-    expected_actions = {
-        item.strip()
-        for item in eligibility_step["with"]["expected-actions"].split(",")
-        if item.strip()
-    }
-    custom_predicate = eligibility_step["with"]["custom-predicate"]
-    assert expected_actions == declared_events
-    assert "event_name == 'workflow_dispatch' || event_name == 'schedule'" in custom_predicate
-
-    init_job = agents70["jobs"]["init"]
-    assert init_job["needs"] == "eligibility"
-    assert init_job["if"] == "needs.eligibility.outputs.should_run == 'true'"
-    dry_run_expr = init_job["with"]["dry_run"]
-    assert "github.event_name == 'schedule' && 'true'" in dry_run_expr
-    assert "github.event.inputs.dry_run" in dry_run_expr
-
+def test_keepalive_routes_match_the_workflow_docs_and_policy() -> None:
     keepalive_loop = yaml.safe_load(
         (WORKFLOWS_DIR / "agents-keepalive-loop.yml").read_text(encoding="utf-8")
     )
@@ -148,7 +119,6 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
         "## Emergency override procedure",
         "agents:allow-change",
         "uses: owner/action@ref",
-        "delete-versus-restore decision",
     ):
         assert required_policy_phrase in policy
 
@@ -168,36 +138,9 @@ def test_agents70_docs_match_eligibility_and_dry_run() -> None:
         in workflows_doc
     )
 
-    # The remaining triggers, preview override, and shared keepalive routes are public contracts.
-    for doc_name, content in (
-        ("docs/AGENTS_POLICY.md", policy),
-        ("docs/ci/WORKFLOWS.md", workflows_doc),
-        ("docs/ci/WORKFLOW_SYSTEM.md", workflow_system_doc),
-        ("docs/WORKFLOW_GUIDE.md", workflow_guide_doc),
-    ):
-        normalized = re.sub(r"\s+", " ", content)
-        for event_name in declared_events:
-            assert f"`{event_name}`" in content, f"{doc_name} missing `{event_name}`"
-        assert (
-            "expected-actions: workflow_dispatch,schedule" in normalized
-        ), f"{doc_name} must cite eligibility expected-actions"
-        assert (
-            "before `jobs.init`" in normalized or "before `init`" in normalized
-        ), f"{doc_name} must document eligibility before init"
-        assert (
-            "dry_run=true" in normalized or "Forced dry-run shadow" in normalized
-        ), f"{doc_name} must document scheduled dry-run shadow behavior"
-        assert (
-            "inputs.dry_run" in normalized or "github.event.inputs.dry_run" in normalized
-        ), f"{doc_name} must document input-controlled workflow_dispatch dry_run"
-        assert (
-            "agents-keepalive-loop.yml" in normalized
-        ), f"{doc_name} must cite agents-keepalive-loop.yml"
-        assert (
-            "agents-keepalive-sweep.yml" in normalized
-        ), f"{doc_name} must cite agents-keepalive-sweep.yml"
-    for historical_policy_phrase in ("0ecdff0f3", "qualified", "production liveness", "undecided"):
-        assert historical_policy_phrase in re.sub(r"\s+", " ", policy)
+    for content in (policy, workflows_doc, workflow_system_doc, workflow_guide_doc):
+        assert "agents-keepalive-loop.yml" in content
+        assert "agents-keepalive-sweep.yml" in content
 
 
 def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:

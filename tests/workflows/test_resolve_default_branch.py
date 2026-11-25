@@ -179,11 +179,6 @@ def test_pr_meta_bootstraps_resolver_from_workflows_checkout() -> None:
     assert_workflow_bootstraps_resolver_from_workflows_checkout("reusable-20-pr-meta.yml")
 
 
-def test_keepalive_bootstraps_resolver_from_workflows_checkout() -> None:
-    """Keepalive cannot require unsynced consumers to already have the new action."""
-    assert_workflow_bootstraps_resolver_from_workflows_checkout("reusable-16-agents.yml")
-
-
 def assert_workflow_bootstraps_resolver_from_workflows_checkout(workflow_name: str) -> None:
     workflow = REPO_ROOT / ".github" / "workflows" / workflow_name
     data = yaml.safe_load(workflow.read_text(encoding="utf-8"))

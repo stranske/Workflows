@@ -59,8 +59,8 @@ In Workflows, [verify-to-issue v2](../../.github/workflows/agents-verify-to-issu
 - `repo-health-self-check.yml` → [`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml) — The WFv1 “health 40” refactor replaced the ad-hoc repo self-check job.
 - `repo-health-nightly.yml` → [`health-41-repo-health.yml`](../../.github/workflows/health-41-repo-health.yml) — Weekly repo-health audits now run under the numbered Health 41 workflow.
 - `ci-signature-guard.yml` first moved to the numbered health guard. The [signature fixture test](../ci/WORKFLOWS.md#ci-signature-guard-fixtures) now runs in Gate and main Selftest.
-- `agents-47-verify-codex-bootstrap-matrix.yml` → [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) — Orchestrator dispatch verifies bootstrap compatibility via the reusable agents toolkit.
-- `assign-to-agents.yml` → [`agents-63-issue-intake.yml`](../../.github/workflows/agents-63-issue-intake.yml) + [`agents-70-orchestrator.yml`](../../.github/workflows/agents-70-orchestrator.yml) — Label-driven intake and orchestrator now assign Codex issues without the standalone helper.
+- `agents-47-verify-codex-bootstrap-matrix.yml` → `agents-70-orchestrator.yml` (historical successor, see the recovery table below) — Orchestrator dispatch verifies bootstrap compatibility via the reusable agents toolkit.
+- `assign-to-agents.yml` → [`agents-63-issue-intake.yml`](../../.github/workflows/agents-63-issue-intake.yml) + `agents-70-orchestrator.yml` (historical successor, see the recovery table below) — Label-driven intake and orchestrator now assign Codex issues without the standalone helper.
 
 ### Legacy agent watchdog
 - **Removed file**: `agent-watchdog.yml` (retired with the Issue #1419 consolidation sweep).
@@ -149,3 +149,14 @@ If a regression is traced to consolidation:
 
 ---
 Generated as part of workflow hygiene initiative.
+
+## Agents 70 retirement
+
+The keepalive loop now counts its active workers directly. PR-meta forwards admitted commands to the registered command handler. The belt retains its queue selector and conveyor. To recover a former workflow, run `git show 2a2803c1dedc29a4ea0d740fcb7fd12723d6454d:.github/workflows/FILENAME` and compare its SHA-256 below.
+
+| Filename | SHA-256 |
+| --- | --- |
+| `agents-70-orchestrator.yml` | `1276569986467b67c6272a99d989c4517d6ff0993288cb57be3833ba8a061827` |
+| `reusable-70-orchestrator-init.yml` | `110e5d2c3d9b4132e7407b1660b6c6d7249c47b9704488684f2bd49665cd7c92` |
+| `reusable-70-orchestrator-main.yml` | `677ed3a0f161fe28d05a2db0be0afbc9be9bb1d81145bf94735a4806330e62ea` |
+| `reusable-16-agents.yml` | `80d2d16b97a4002b33a531c52a223e70a6b379e8ec53222bc1714df39667266c` |

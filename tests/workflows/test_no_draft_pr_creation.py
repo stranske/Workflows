@@ -110,9 +110,6 @@ def test_legacy_draft_inputs_are_inert_and_absent_from_operator_ui() -> None:
     bridge = (REPO_ROOT / ".github" / "workflows" / "reusable-agents-issue-bridge.yml").read_text(
         encoding="utf-8"
     )
-    reusable_agents = (REPO_ROOT / ".github" / "workflows" / "reusable-16-agents.yml").read_text(
-        encoding="utf-8"
-    )
     intake = (REPO_ROOT / ".github" / "workflows" / "agents-63-issue-intake.yml").read_text(
         encoding="utf-8"
     )
@@ -129,7 +126,6 @@ def test_legacy_draft_inputs_are_inert_and_absent_from_operator_ui() -> None:
     )
 
     assert "inputs.agent_pr_draft" not in bridge
-    assert "inputs.draft_pr" not in reusable_agents
     dispatch_inputs = intake.split("workflow_dispatch:", 1)[1].split("workflow_call:", 1)[0]
     assert "bridge_draft_pr" not in dispatch_inputs
     assert "bridge_draft_pr" not in template_intake

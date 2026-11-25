@@ -15,8 +15,7 @@ const TRUSTED_KEEPALIVE_STATE_AUTHORS = new Set([
   'github-actions[bot]',
 ]);
 const TRUSTED_KEEPALIVE_STATE_PAT_AUTHORS = new Set([
-  // reusable-70-orchestrator-init.yml probes and enforces these exact
-  // identities before ACTIONS_BOT_PAT or SERVICE_BOT_PAT may write state.
+  // Existing keepalive state includes these verified PAT author identities.
   'stranske',
   'stranske-automation-bot',
 ]);

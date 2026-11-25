@@ -119,5 +119,4 @@ def test_integration_guide_surfaces_output_acceptance_evidence() -> None:
     assert "tests/workflows/test_reusable_workflow_outputs_doc.py" in text
     assert "all reusable workflow outputs are documented" in text
 
-    assert "needs.orchestrator-init.outputs.has_work" in text
-    assert "needs.agents-readiness.outputs.readiness_table" in text
+    assert "capability-evidence-status" in text

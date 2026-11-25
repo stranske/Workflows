@@ -325,8 +325,8 @@ def test_rename_blocks_with_guidance():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-70-orchestrator.yml",
-                "previous_filename": ".github/workflows/agents-70-orchestrator.yml",
+                "filename": ".github/workflows/agents-keepalive-loop.yml",
+                "previous_filename": ".github/workflows/agents-keepalive-loop.yml",
                 "status": "renamed",
             }
         ],
@@ -342,7 +342,7 @@ def test_modification_without_label_or_approval_requires_both():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-70-orchestrator.yml",
+                "filename": ".github/workflows/agents-keepalive-loop.yml",
                 "status": "modified",
             }
         ],
@@ -538,7 +538,7 @@ def test_codeowner_review_without_label_passes():
     result = run_guard(
         files=[
             {
-                "filename": ".github/workflows/agents-70-orchestrator.yml",
+                "filename": ".github/workflows/agents-keepalive-loop.yml",
                 "status": "modified",
             }
         ],
@@ -742,7 +742,7 @@ def test_agents_policy_pointer_and_links_resolve():
     # Authoritative policy retains protection, override, and required-check sections.
     for expected in (
         "agents-63-issue-intake.yml",
-        "agents-70-orchestrator.yml",
+        "agents-keepalive-loop.yml",
         "agents-guard.yml",
         "agents:allow-change",
         "uses: owner/action@ref",

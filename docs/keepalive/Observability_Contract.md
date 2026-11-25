@@ -66,12 +66,12 @@ Before any dispatch, PR‑meta adds 🚀 to the **activation comment** (the huma
 
 At the **dispatch edge** PR‑meta computes:
 
-- `active` = number of **Agents 70 Orchestrator** runs for **this PR** in **{queued, in_progress}**
+- `active` = number of **keepalive worker** runs for **this PR** in **{queued, in_progress}** (measured capacity shipped in [#5163](https://github.com/stranske/Workflows/pull/5163))
 - `cap` = from label `agents:max-runs:X` (default 2; clamp 1..5)
 
 If `active ≥ cap` ⇒ **do not** dispatch; report `reason=cap-reached`.
 
-> Implementation note: filter by orchestrator workflow name/id and PR discriminator (e.g., PR number embedded in orchestrator `concurrency.group`).
+> Implementation note: filter by the dispatched worker workflow name/id and PR discriminator (e.g., PR number embedded in keepalive `concurrency.group`).
 
 ---
 
@@ -82,7 +82,7 @@ If `active ≥ cap` ⇒ **do not** dispatch; report `reason=cap-reached`.
 DISPATCH: ok=<true|false> path=<comment|gate> reason=<ok|missing-label|no-human-activation|gate-pending|gate-failed|cap-reached|no-linked-pr|no-activation-found|lock-held|instruction-empty> pr=#<PR_NUMBER> activation=<COMMENT_ID|none> agent=<ALIAS> head=<SHA7> cap=<CAP> active=<ACTIVE> trace=<TRACE|->
 
 
-**Orchestrator — three lines per run**
+**Keepalive worker — three lines per run**
 
 INSTRUCTION: ok=<true|false> author=<stranske|stranske-automation-bot> comment=<COMMENT_ID|none> ack=<ok|fail> head=<SHA7> trace=<TRACE>
 WORKER: action=<execute|skip> reason=<new-instruction|no-new-instruction-and-head-unchanged|cap-reached|blocked> pr=#<PR_NUMBER> head=<SHA7> instr=<COMMENT_ID|none> trace=<TRACE>
@@ -158,7 +158,7 @@ supplied.
 
 1) If Gate **not** success → `DISPATCH ok=false path=comment reason=gate-pending …`
 2) If Gate success → evaluate run‑cap, markers, author allowlist, instruction extraction.
-3) If everything OK → **dispatch** orchestrator and print `ok=true`.
+3) If everything OK → **dispatch** the keepalive worker ([#5162](https://github.com/stranske/Workflows/pull/5162)) and print `ok=true`.
 
 ### Lane B — `workflow_run` (Gate)
 **Preconditions:** Gate concluded success.
@@ -249,7 +249,7 @@ Always print `SYNC:` line.
   - _Before dispatch_: run‑cap; instruction extraction guard.
   - _After decision_: print `DISPATCH:` (always).
 
-**Orchestrator (`.github/workflows/agents-70-orchestrator.yml`)**
+**Keepalive worker (`agents-keepalive-loop.yml` and registry-backed runners)**
 
 - _After token selection_: author invariant (optional hard fail).
 - _After post + ACK_: print `INSTRUCTION:`.

@@ -343,12 +343,6 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
             "github.event.pull_request.base.ref",
         ),
         (
-            ".github/workflows/reusable-16-agents.yml",
-            "readiness/step-6/run",
-            "inputs.readiness_custom_logins",
-        ),
-        (".github/workflows/reusable-16-agents.yml", "readiness/step-6/run", "inputs.require_all"),
-        (
             ".github/workflows/reusable-18-autofix.yml",
             "autofix/step-17/with.script",
             "inputs.clean_label",
@@ -382,11 +376,6 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
             ".github/workflows/reusable-11-ci-node.yml",
             "tests/step-6/run",
             "inputs.test-runner",
-        ),
-        (
-            ".github/workflows/reusable-70-orchestrator-main.yml",
-            "keepalive-guard/step-4/run",
-            "inputs.enable_keepalive",
         ),
         (
             ".github/workflows/reusable-agents-issue-bridge.yml",

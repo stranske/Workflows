@@ -1,82 +1,64 @@
 # Agent Automation & Telemetry Overview
 
-_Last updated: 2026-01-12_
+_Last updated: 2026-11-25_
 
-This document captures the trimmed agent automation surface after Issue #2190. The GitHub Actions footprint centers on the
-Agents 70 Orchestrator plus the keepalive loop that is driven by Gate `workflow_run` events. Legacy label-forwarding wrappers
-remain retired, but the keepalive loop is an active path for PR progression.
+This document captures the trimmed agent automation surface after Issue #2190
+and the retirement of the Agents 70 orchestrator stack
+(`agents-70-orchestrator.yml`, `reusable-70-orchestrator-init.yml`,
+`reusable-70-orchestrator-main.yml`, `reusable-16-agents.yml`). The GitHub
+Actions footprint centers on **Agents Keepalive Loop**, **Auto-Pilot**, the
+**Codex belt** (`agents-71/72/73`), and **Agents 64** verification. Legacy
+label-forwarding wrappers remain retired.
 
 ## High-Level Flow
 
 ```
-Manual dispatch / 30-minute schedule ──▶ agents-70-orchestrator.yml
-                                        │
-                                        ├─ Readiness probes (GraphQL assignability)
-                                        ├─ Optional Codex preflight diagnostics
-                                        ├─ Optional issue verification (label + assignment parity)
-                                        ├─ Watchdog sweep for Codex bootstrap health
-                                        └─ Optional keepalive sweep (checklist nudge)
-
 Gate workflow_run (PRs) ───────────────▶ agents-keepalive-loop.yml
                                         │
                                         ├─ Evaluate PR keepalive guardrails
                                         ├─ Run the registry-backed agent via its reusable runner workflow
                                         └─ Loop on subsequent Gate completions
+
+agents-keepalive-sweep.yml (hourly) ───▶ agents-keepalive-loop.yml
+                                        (stalled PR resync for eligible labels)
+
+agents:auto-pilot label ───────────────▶ agents-auto-pilot.yml
+                                        (inline format → optimize → apply → PR → keepalive → verify)
+
+Codex belt (71 → 72 → 73) ─────────────▶ issue queue → worker PR → conveyor merge
 ```
 
-- No automatic label forwarding remains. Maintainers trigger the orchestrator directly from the Actions tab (manual
-  `workflow_dispatch`) or allow the 30-minute schedule to run readiness + watchdog checks.
-- Codex keepalive on PRs is driven by the Gate `workflow_run` loop. The orchestrator sweep is optional and can be
-  disabled via `params_json` (e.g. `{ "enable_keepalive": false }`).
-- Review the [keepalive contract](keepalive/GoalsAndPlumbing.md) before changing keepalive workflows or recovery logic.
-  If a worker reports completion and the PR head is unchanged, compare the current SHA with the SHA recorded before the round.
-  Check the `SYNC:` line for the update-branch attempt, fallback recovery PR and escalation in the
-  [branch-sync recovery procedure](keepalive/Observability_Contract.md#8-orchestrator-contract).
-  After intervention, verify the new PR head using the [branch-sync gate](keepalive/GoalsAndPlumbing.md#9-branch-sync-gate)
-  before resuming keepalive.
-- Bootstrap PR creation, diagnostics, and stale issue escalation now live entirely inside `agents-70-orchestrator.yml` and the
-  `reusable-16-agents.yml` composite it calls. Historical wrappers (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, etc.) were
+- **Keepalive** on PRs is driven by Gate `workflow_run` events
+  (`agents-keepalive-loop.yml`), with hourly resync via `agents-keepalive-sweep.yml`.
+  PR-meta on Workflows submits keepalive worker commands directly ([#5162](https://github.com/stranske/Workflows/pull/5162));
+  measured dispatch capacity is enforced ([#5163](https://github.com/stranske/Workflows/pull/5163)).
+- Review the [keepalive contract](keepalive/GoalsAndPlumbing.md) before changing keepalive workflows. For branch recovery, follow the [recovery procedure](keepalive/Observability_Contract.md#8-orchestrator-contract) and verify the new head with the [branch-sync gate](keepalive/GoalsAndPlumbing.md#9-branch-sync-gate).
+- Bootstrap PR creation, diagnostics, and stale issue escalation now live in the
+  belt, Auto-Pilot, and keepalive surfaces. Historical wrappers
+  (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, and the Agents 70 stack) were
   deleted.
 
-## Key Workflow
+## Key Workflows
 
-### `agents-70-orchestrator.yml`
+### `agents-64-verify-agent-assignment.yml`
 
-- **Triggers:** `schedule` (every 30 minutes) and manual `workflow_dispatch` with curated inputs.
-- **Inputs:** `enable_readiness`, `readiness_agents`, `enable_preflight`, `codex_user`,
-  `enable_verify_issue`, `verify_issue_number`, `verify_issue_valid_assignees`, `enable_watchdog`, plus an extensible
-  `params_json` string for long tail toggles (currently `diagnostic_mode`, `readiness_custom_logins`, `codex_command_phrase`,
-  `require_all`, `enable_keepalive`, `keepalive_idle_minutes`, `keepalive_repeat_minutes`, `keepalive_labels`,
-  `keepalive_command`).
-- **Behaviour:** delegates directly to `reusable-16-agents.yml`, which orchestrates readiness probes, Codex bootstrap, issue
-  verification, and watchdog sweeps. The JSON options map is parsed via `fromJson()` so new flags can be layered without
-  exploding the dispatch form beyond GitHub's 10-input limit.
-- **Permissions:** retains `contents`, `pull-requests`, and `issues` write scopes to continue authoring Codex PRs or posting
-  remediation comments.
-- **Outputs:** inherits the reusable workflow's job summaries, watchdog tables, and readiness reports.
+- **Triggers:** `workflow_call` and `workflow_dispatch`.
+- **Behaviour:** Fetches the issue, ensures the `agent:codex` (or configured) label
+  is present, validates that one of the configured valid assignees is assigned, and
+  publishes a step summary table documenting the outcome.
+- **Usage:** Ad-hoc verification from the Actions tab or callable reuse from intake
+  and bridge workflows.
 
-### Reusable Composite
+The default valid assignee roster includes `copilot`, `chatgpt-codex-connector`, and
+`stranske-automation-bot`; provide a comma-separated override when onboarding
+additional automation accounts or running spot checks against bespoke actors.
 
-`reusable-16-agents.yml` remains the single source of truth for agent automation logic:
+### Belt promotion (`agents-73-codex-belt-conveyor-dispatch.yml`)
 
-- exposes a `workflow_call` interface so the orchestrator can exercise readiness, preflight, verification, and watchdog routines.
-- keeps compatibility inputs such as `readiness_custom_logins`, `require_all`, `enable_preflight`, `enable_verify_issue`,
-  `enable_watchdog`, and the pass-through `options_json` (embedded via `params_json`) for additional toggles. Bootstrap PRs
-  are always opened ready for review; dependencies and staging use labels and checks rather than draft state.
-- emits a Codex keepalive sweep that looks for stalled checklists on `agent:codex` PRs and republishes the
-  `@codex plan-and-execute` command when the agent has been idle longer than the configured threshold (defaults: 10 minute
-  idle threshold, 30 minute cooldown between nudges).
-- writes summarized Markdown + JSON artifacts for readiness probes and watchdog runs.
-
-### Verify Agent Assignment Workflow
-
-`agents-64-verify-agent-assignment.yml` exposes the issue verification logic as a standalone reusable workflow with a parallel
-`workflow_dispatch` entry point. Supply an `issue_number` and the workflow fetches the issue, ensures the `agent:codex`
-label is present, validates that one of the configured valid assignees is assigned, and publishes a step summary table
-documenting the outcome. `reusable-16-agents.yml` now delegates its issue verification job to this workflow so the same checks
-are available for ad-hoc dispatches from the Actions tab.
-
-The default valid assignee roster includes `copilot`, `chatgpt-codex-connector`, and `stranske-automation-bot`; provide a comma-separated override when onboarding additional automation accounts or running spot checks against bespoke actors.
+- **Triggers:** `workflow_dispatch` only (no schedule; default preview via `dry_run`).
+- **Behaviour:** Runs paid-budget preflight and the live eligibility selector, then
+  calls `agents-73-codex-belt-conveyor.yml` for bounded promotion (0–5 merges) with
+  authenticated branch/PR/head binding. Manual targets cannot bypass eligibility.
 
 ## Related Automation
 
@@ -97,7 +79,7 @@ The `agents-auto-pilot.yml` workflow implements a complete end-to-end automation
 
 **Label delegation for infrastructure operations** (merge, verify):
 - These steps add labels to hand off to specialized infrastructure
-- `automerge` → Orchestrator's scheduled merge job
+- `automerge` → belt conveyor / merge lanes
 - `verify:evaluate` → Dedicated verifier workflow
 - These are asynchronous by design and shared across all workflows
 
@@ -112,7 +94,7 @@ The `agents-auto-pilot.yml` workflow implements a complete end-to-end automation
 | **Create PR** | Creates branch and initial PR | ✅ Direct: GitHub API | (converts issue to PR) |
 | **Monitor** | Tracks PR progress via keepalive | 🏷️ Label: `agents:keepalive` (triggers keepalive) | `agents:keepalive` |
 | **Check Completion** | Verifies all tasks done, CI passes | ✅ Inline: Checks CI status directly | (checks state) |
-| **Trigger Merge** | Queues PR for auto-merge | 🏷️ Label: `automerge` (orchestrator merges) | `automerge` |
+| **Trigger Merge** | Queues PR for auto-merge | 🏷️ Label: `automerge` | `automerge` |
 | **Verify** | Runs verification after merge | 🏷️ Label: `verify:evaluate` (verifier workflow) | `verify:evaluate` |
 
 **Why the distinction?**
@@ -234,22 +216,11 @@ After each major step, the workflow re-dispatches itself to continue the pipelin
 
 ### Usage
 
-1. Use the **Agents 70 Orchestrator** workflow to run readiness checks, Codex bootstrap diagnostics, keepalive sweeps, or
-  watchdog checks on demand.
-2. Supply additional toggles via `params_json`, for example:
-   ```json
-   {
-     "readiness_custom_logins": "my-bot,backup-bot",
-     "diagnostic_mode": "full",
-     "codex_command_phrase": "@codex start",
-     "enable_bootstrap": true,
-     "bootstrap_issues_label": "agent:codex",
-     "keepalive_idle_minutes": 10,
-     "keepalive_repeat_minutes": 30
-   }
-   ```
-3. Review the run summary for readiness tables, watchdog escalation indicators, and Codex bootstrap status.
-4. Repeat manual dispatches as needed; scheduled runs provide 30-minute coverage for stale bootstrap detection.
+1. Apply `agents:auto-pilot` to an issue formatted with the Agent task template.
+2. Optional: add `runner:<name>` to override the registry default agent.
+3. Monitor the Auto-Pilot run summary and linked PR in Actions.
+4. For manual issue assignment checks, dispatch **Agents 64 Verify Agent Assignment**
+   with `issue_number`.
 
 ## Alerting Threshold Tuning
 
@@ -293,8 +264,8 @@ and retains the `metrics-retention-log` audit artifact for 90 days. Run the CLI 
 
 - All sensitive operations continue to rely on `SERVICE_BOT_PAT` when available. The workflows gracefully fall back to
   `GITHUB_TOKEN` only when explicitly allowed by the repository variables.
-- Inputs that toggle optional behaviour remain string-valued (`'true'` / `'false'`) to stay compatible with the reusable
-  composite.
+- Inputs that toggle optional behaviour remain string-valued (`'true'` / `'false'`) to stay compatible with callable
+  workflows.
 
 ## Troubleshooting
 
@@ -329,7 +300,7 @@ and retains the `metrics-retention-log` audit artifact for 90 days. Run the CLI 
 **Prevention:**
 - Child workflows should only be triggered by labels for standalone/manual operations
 - Within orchestration workflows like auto-pilot, execute all logic inline as workflow steps
-- Avoid workflow_run chains - they introduce complexity, latency, and failure points
+- Avoid workflow_run chains — they introduce complexity, latency, and failure points
 
 **Manual Recovery (if using old version):**
 - Remove `agents:auto-pilot` label
@@ -406,8 +377,7 @@ Labels in auto-pilot are **hybrid: status markers with functional side effects**
 
 ## Future Enhancements
 
-- Extend `params_json` to cover any additional toggles without growing the dispatch form (embed an `options_json` string when nested structures are required).
-- Consider adding a lightweight CLI wrapper that posts curated `params_json` payloads for common scenarios.
-- Monitor usage; if the 30-minute schedule proves redundant, convert it to manual-only to further reduce background noise.
+- Extend Auto-Pilot `params_json` / inline toggles without growing dispatch forms.
+- Monitor belt queue depth via `agents-73-codex-belt-conveyor-dispatch.yml` preview runs before live promotion.
 
 For questions or updates, open an issue labeled `agent:codex` describing the desired change.

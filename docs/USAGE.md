@@ -30,7 +30,6 @@ jobs:
 | `reusable-10-ci-python.yml` | Python CI (test, lint, type check) | `uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main` |
 | `reusable-12-ci-docker.yml` | Docker build and smoke test | `uses: stranske/Workflows/.github/workflows/reusable-12-ci-docker.yml@main` |
 | `reusable-18-autofix.yml` | Automated code formatting | `uses: stranske/Workflows/.github/workflows/reusable-18-autofix.yml@main` |
-| `reusable-16-agents.yml` | Agent orchestration | `uses: stranske/Workflows/.github/workflows/reusable-16-agents.yml@main` |
 
 ### Composite Actions
 

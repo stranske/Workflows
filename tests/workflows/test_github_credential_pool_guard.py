@@ -57,7 +57,8 @@ def _assert_setup_after_final_checkout(job_name: str, steps: list[dict[str, Any]
 
 
 def test_belt_scan_ready_prs_orders_setup_and_preflight():
-    job = _load_workflow_yaml("reusable-70-orchestrator-main.yml")["jobs"]["belt-scan-ready-prs"]
+    workflow = _load_workflow_yaml("agents-73-codex-belt-conveyor-dispatch.yml")
+    job = workflow["jobs"]["belt-scan-ready-prs"]
     steps = job.get("steps") or []
     _assert_setup_after_final_checkout("belt-scan-ready-prs", steps)
 
@@ -69,26 +70,81 @@ def test_belt_scan_ready_prs_orders_setup_and_preflight():
     scan_script = (steps[scan_index].get("with") or {}).get("script", "")
     assert "failOpen: false" in scan_script
     assert "checkRateLimitStatus(api" in scan_script
-    assert "identifyReadyCodexPRs({ github: api" in scan_script
-    assert "reserveFraction" in scan_script
-    assert "estimatedCost" in scan_script
+    assert "identifyReadyBeltPRs({ github: api" in scan_script
+    assert "reserveFraction: 0.15" in scan_script
+    assert "estimatedCost: 250" in scan_script
     assert "core.setFailed" in scan_script
     assert scan_script.index("checkRateLimitStatus(api") < scan_script.index(
-        "identifyReadyCodexPRs({ github: api"
+        "identifyReadyBeltPRs({ github: api"
     )
 
 
-def test_automerge_agent_prs_installs_api_client_after_checkout():
-    job = _load_workflow_yaml("reusable-70-orchestrator-main.yml")["jobs"]["automerge-agent-prs"]
+def test_belt_preview_stays_with_read_token_and_never_invokes_writer():
+    workflow = _load_workflow_yaml("agents-73-codex-belt-conveyor-dispatch.yml")
+    trigger = workflow[True]  # PyYAML parses the GitHub `on` key as true.
+    assert set(trigger) == {"workflow_dispatch"}
+    inputs = trigger["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {"dry_run", "max_promotions"}
+    assert inputs["dry_run"]["type"] == "boolean"
+    assert inputs["dry_run"]["default"] is True
+    assert inputs["max_promotions"]["default"] == 2
+    assert workflow["permissions"] == {}
+    scan = workflow["jobs"]["belt-scan-ready-prs"]
+    assert "github.ref_protected" in scan["if"]
+    assert "github.event.repository.default_branch" in scan["if"]
+    assert "stranske/Workflows" in scan["if"]
+    assert "agent-high-privilege" in scan["environment"]["name"]
+    assert set(scan["permissions"].values()) == {"read"}
+    validation, checkout, setup, probe = scan["steps"]
+    assert "^[0-5]$" in validation["run"]
+    assert checkout["with"]["persist-credentials"] is False
+    assert checkout["with"]["ref"] == "${{ github.sha }}"
+    assert all(step["if"] == "inputs.max_promotions > 0" for step in (checkout, setup, probe))
+    for name, value in setup["with"].items():
+        if name != "github_token":
+            assert "!inputs.dry_run && secrets." in value
+
+    promote = workflow["jobs"]["belt-conveyor"]
+    assert promote["needs"] == "belt-scan-ready-prs"
+    assert "!inputs.dry_run" in promote["if"]
+    assert promote["strategy"]["matrix"]["pr"] == (
+        "${{ fromJSON(needs.belt-scan-ready-prs.outputs.items) }}"
+    )
+    assert promote["with"]["head_sha"] == "${{ matrix.pr.head_sha }}"
+    assert set(promote["secrets"]) == {"ACTIONS_BOT_PAT"}
+
+
+def test_agents_73_conveyor_keeps_its_api_client_and_live_write_guards():
+    job = _load_workflow_yaml("agents-73-codex-belt-conveyor.yml")["jobs"]["promote"]
     steps = job.get("steps") or []
-    _assert_setup_after_final_checkout("automerge-agent-prs", steps)
-    script = (steps[-1].get("with") or {}).get("script", "")
-    assert "createTokenAwareRetry" in script
-    assert "checkRateLimitStatus(api" in script
-    assert "rateStatus.state !== 'safe'" in script
-    assert "capabilities: ['pull-requests:write', 'contents:write', 'checks:read']" in script
-    assert "withRetry((client)" in script
-    assert script.index("checkRateLimitStatus(api") < script.index("withRetry((client)")
+    _assert_setup_after_final_checkout("promote", steps)
+    write_steps = [
+        step
+        for step in steps
+        if any(
+            method in (step.get("with") or {}).get("script", "")
+            for method in ("rest.pulls.merge(", "rest.git.deleteRef(", "rest.issues.createComment(")
+        )
+    ]
+    assert write_steps
+    assert all("dry_run != 'true'" in step["if"] for step in write_steps)
+
+
+def test_source_and_shipped_conveyor_share_one_validated_head_for_status_and_merge():
+    for directory in (WORKFLOWS_DIR, Path("templates/consumer-repo") / WORKFLOWS_DIR):
+        workflow = yaml.safe_load((directory / "agents-73-codex-belt-conveyor.yml").read_text())
+        steps = {step.get("id"): step for step in workflow["jobs"]["promote"]["steps"]}
+        load_pr = steps["pr"]
+        assert load_pr["env"]["EXPECTED_HEAD_SHA"] == "${{ inputs.head_sha }}"
+        script = load_pr["with"]["script"]
+        assert "expectedHead && expectedHead !== headSha" in script
+        assert "head changed after belt selection" in script
+        assert "core.setOutput('head_sha', headSha)" in script
+        for key in ("gate", "merge"):
+            assert steps[key]["env"]["CHECKED_HEAD_SHA"] == "${{ steps.pr.outputs.head_sha }}"
+            assert "process.env.CHECKED_HEAD_SHA" in steps[key]["with"]["script"]
+        assert "ref: headSha" in steps["gate"]["with"]["script"]
+        assert "sha: headSha" in steps["merge"]["with"]["script"]
 
 
 def test_agents_71_dispatcher_setup_survives_later_checkouts():
@@ -134,32 +190,3 @@ def test_agents_71_dispatcher_setup_survives_later_checkouts():
         assert "failOpen: false" in script
         assert "rateStatus.state !== 'safe'" in script
         assert script.index("checkRateLimitStatus(api") < script.index("withRetry((client)")
-
-
-def test_orchestrator_init_rate_limit_check_is_fail_closed():
-    job = _load_workflow_yaml("reusable-70-orchestrator-init.yml")["jobs"]["rate-limit-check"]
-    assert job["outputs"]["safe"] == "${{ steps.check.outputs.safe || 'false' }}"
-    assert job["outputs"]["state"] == "${{ steps.check.outputs.state || 'unknown' }}"
-    assert "credential_pool_id" in job["outputs"]
-
-    check_step = next(step for step in job["steps"] if step.get("id") == "check")
-    script = (check_step.get("with") or {}).get("script", "")
-    assert "failOpen: false" in script
-    assert "credential_pool_id" in script
-    assert "reserveFraction" in script
-    assert "estimatedCost" in script
-    assert "Proceeding with orchestrator run" not in script
-
-
-def test_orchestrator_init_idle_precheck_uses_setup_api_client():
-    job = _load_workflow_yaml("reusable-70-orchestrator-init.yml")["jobs"]["idle-precheck"]
-    assert "outputs.state == 'safe'" in job["if"]
-    steps = job.get("steps") or []
-    _assert_setup_after_final_checkout("idle-precheck", steps)
-    precheck_script = (steps[-1].get("with") or {}).get("script", "")
-    assert "createTokenAwareRetry" in precheck_script
-    assert "checkRateLimitStatus(api" in precheck_script
-    assert "rateStatus.state !== 'safe'" in precheck_script
-    assert "paginateWithRetry(api.rest.issues.listForRepo" in precheck_script
-    assert "paginateWithRetry(\n                  github" not in precheck_script
-    assert "credential_pool_id" in job["outputs"]

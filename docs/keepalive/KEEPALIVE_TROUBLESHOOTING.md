@@ -4,7 +4,7 @@ This document captures lessons learned from implementing keepalive functionality
 
 > **Current consumer surfaces (read this first when diagnosing a stuck PR).**
 > The consolidated consumer installation no longer ships `agents-pr-meta.yml`,
-> `agents-keepalive-loop.yml`, or `agents-70-orchestrator.yml` — `.github/sync-manifest.yml`
+> `agents-keepalive-loop.yml`, or the consumer-side orchestrator shim — `.github/sync-manifest.yml`
 > removes them from consumer repos (past the 2026-02-15 removal deadline). On a
 > current consumer the two workflows that actually drive PR/keepalive events are:
 >
@@ -18,9 +18,9 @@ This document captures lessons learned from implementing keepalive functionality
 > When checking Actions runs on a consumer repo, look at **Agents PR Event Hub** and
 > **Agents Gate Followups**, not the legacy workflow names below. The legacy names are
 > retained in the sections that follow only as historical context for the original
-> Travel-Plan-Permission implementation; on the Workflows repo itself the legacy
-> workflows (e.g. `agents-keepalive-loop.yml`, `agents-70-orchestrator.yml`) still
-> exist and remain valid references — see `docs/ci/WORKFLOWS.md`.
+> Travel-Plan-Permission implementation; on the Workflows repo itself
+> `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`, and
+> `agents-pr-meta-v4.yml` remain the live references — see `docs/ci/WORKFLOWS.md`.
 
 ## Overview
 
@@ -63,9 +63,9 @@ The keepalive system enables automated agent (Codex) continuation on pull reques
 - One-off requests outside the keepalive loop
 - Testing Codex responses
 
-### Why the Orchestrator Skips `agent:*` Labels
+### Why Comment-Based Sweeps Skip `agent:*` Labels (historical)
 
-The orchestrator (`agents-70-orchestrator.yml`) has a "Codex keepalive sweep" that posts `@codex` instruction comments to idle PRs. However, it **intentionally skips** PRs with `agent:*` labels.
+The retired Agents 70 keepalive sweep intentionally skipped PRs with `agent:*` labels.
 
 **Reason:** 
 - CLI agents are triggered by workflows, not comments
@@ -120,7 +120,6 @@ consumer installation (see `templates/consumer-repo/.github/workflows/`):
 
 > **Legacy note.** Older consumer installs (pre-consolidation) used
 > `agents-pr-meta.yml` (comment detection / orchestrator dispatch),
-> `agents-70-orchestrator.yml` (scheduled keepalive sweeps), and
 > `agents-63-issue-intake.yml` (issue creation from `Issues.txt`). Those
 > workflows are now removed from consumers by `.github/sync-manifest.yml`; the
 > event-hub + gate-followups pair above supersedes them. The legacy names appear
@@ -423,7 +422,6 @@ Human posts "@codex <instructions>" on PR
          │
          ▼
 ┌─────────────────────────────────────┐
-│  agents-70-orchestrator.yml         │
 │  (workflow_dispatch trigger)        │
 │                                     │
 │  1. Finds PR with keepalive label   │
