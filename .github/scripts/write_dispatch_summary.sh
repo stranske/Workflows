@@ -58,7 +58,7 @@ normalise_reason() {
     lock-held|duplicate-keepalive|lock-failed|lock-error) printf 'lock-held' ;;
     instruction-empty|no-instruction-segment|instruction-missing|instruction-parse-failed) printf 'instruction-empty' ;;
     gate-blocked:no-human-activation) printf 'no-human-activation' ;;
-    no-human-activation|unauthorised-author|unauthorized-author|missing-sentinel|missing-round|invalid-round|missing-comment-id|missing-trace|pull-fetch-failed|fork-pr|missing-issue-reference|instruction-reaction-failed|missing-instruction-reaction|not-keepalive) printf 'no-human-activation' ;;
+    no-human-activation|automation-comment|unauthorised-author|unauthorized-author|missing-sentinel|missing-round|invalid-round|missing-comment-id|missing-trace|pull-fetch-failed|fork-pr|missing-issue-reference|instruction-reaction-failed|missing-instruction-reaction|not-keepalive) printf 'no-human-activation' ;;
     *) printf 'gate-failed' ;;
   esac
 }

@@ -52,6 +52,18 @@ test('separates a missing human activation on an otherwise green Gate from a Gat
     'DISPATCH: ok=false path=comment reason=no-human-activation ' + suffix);
 });
 
+test('classifies the recorded LMS #862 automation comment as no human activation', () => {
+  const receipt = {
+    pr: '862',
+    activation: '7157522519',
+    head: '9fb1d906cb9183d46c199d9b561e23eed2c88f7c',
+    agent: 'cursor',
+  };
+  assert.equal(summary('automation-comment', receipt),
+    'DISPATCH: ok=false path=comment reason=no-human-activation ' +
+    'pr=#862 activation=7157522519 agent=cursor head=9fb1d90 cap=1 active=0 trace=-');
+});
+
 test('reports the same cap disposition from Comment and Gate', () => {
   assert.equal(summary('gate-blocked:run-cap-reached', { active: '1' }),
     'DISPATCH: ok=false path=comment reason=cap-reached pr=#4784 ' +
