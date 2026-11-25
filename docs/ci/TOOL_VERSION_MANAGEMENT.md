@@ -268,7 +268,7 @@ drift. Full ownership table:
 
 ## Related Documentation
 
-- [Autofix System](AUTOFIX.md) - How automatic fixes work
+- [Autofix routes](WORKFLOWS.md#autofix-routes) - Diagnose a skipped formatter or find its repair commit or patch
 - [Gate Workflow](GATE.md) - CI validation pipeline
 - [Ledger System](LEDGER.md) - Agent progress tracking
 
