@@ -56,6 +56,22 @@ def _merged_inputs(fixture: dict) -> dict[str, object]:
     return merged
 
 
+def test_python_tests_timeout_matches_call_and_dispatch_contracts() -> None:
+    workflow = _load_workflow()
+    triggers = workflow.get("on") or workflow[True]
+    key = "tests-timeout-minutes"
+    called = triggers["workflow_call"]["inputs"][key]
+    manual = triggers["workflow_dispatch"]["inputs"].get(key, {})
+    assert manual.get("default") == called["default"] == 60
+    assert manual["type"] == called["type"] == "number"
+    assert manual["required"] is False
+    timeout = workflow["jobs"]["tests"]["timeout-minutes"]
+    assert timeout == "${{ fromJSON(format('{0}', inputs['tests-timeout-minutes'])) }}"
+    # Direct events can provide '60' as a string while a call provides a number.
+    assert json.loads(str(manual["default"])) == 60
+    assert json.loads(str(_merged_inputs({"inputs": {key: 12}})[key])) == 12
+
+
 def _step_outputs(path: Path) -> dict[str, str]:
     return dict(line.split("=", 1) for line in path.read_text(encoding="utf-8").splitlines())
 

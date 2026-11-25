@@ -206,6 +206,11 @@ on:
         description: JSON array of Python versions to execute.
         required: false
         default: '["3.13", "3.14"]'
+      tests-timeout-minutes:
+        description: Maximum minutes for each Python test job.
+        required: false
+        default: 60
+        type: number
       pytest_markers:
         description: Optional pytest marker expression.
         required: false
@@ -1636,7 +1641,7 @@ jobs:
       - validate-inputs
       - select-scope
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs['tests-timeout-minutes'] }}
+    timeout-minutes: ${{ fromJSON(format('{0}', inputs['tests-timeout-minutes'])) }}
     permissions:
       contents: read
     outputs:
