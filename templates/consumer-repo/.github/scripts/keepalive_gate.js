@@ -3,6 +3,7 @@
 const { paginateWithBackoff, withBackoff } = require('./github-api-with-retry.js');
 const { getGithubApiCache } = require('./github-api-cache-client');
 const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const { getWorkerExecutionEvidence } = require('./keepalive_worker_evidence.js');
 
 const KEEPALIVE_LABEL = 'agents:keepalive';
 const AGENT_LABEL_PREFIX = 'agent:';
@@ -27,7 +28,10 @@ try {
     'stranske-automation-bot',
   ]);
 }
-const ORCHESTRATOR_WORKFLOW_FILE = 'agents-70-orchestrator.yml';
+const HOSTED_KEEPALIVE_WORKFLOW = 'agents-keepalive-loop.yml';
+const CONSUMER_KEEPALIVE_WORKFLOW = 'agents-81-gate-followups.yml';
+const KEEPALIVE_GATE_TITLE = /^keepalive-gate\/v1 run=([1-9]\d*) attempt=([1-9]\d*) pr=([1-9]\d*|unbound)$/;
+const KEEPALIVE_DISPATCH_TITLE = /^keepalive-dispatch\/v2 (?:ordinary|authority-candidate) pr=([1-9]\d*)$/;
 const WORKER_WORKFLOW_FILES = [
   'agents-72-codex-belt-worker.yml',
 ];
@@ -585,13 +589,16 @@ async function countActive({
 
   const includeRecentCompleted = Number.isFinite(completedLookbackSeconds) && completedLookbackSeconds > 0;
   const lookbackMillis = includeRecentCompleted ? Math.max(0, completedLookbackSeconds) * 1000 : 0;
-  const statuses = includeRecentCompleted ? ['queued', 'in_progress', 'completed'] : ['queued', 'in_progress'];
+  const statuses = ['queued', 'pending', 'waiting', 'in_progress'];
+  if (includeRecentCompleted) statuses.push('completed');
   
   let workflowFiles = Array.isArray(workflows)
     ? workflows.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
     : [];
   if (workflowFiles.length === 0) {
-    workflowFiles = [ORCHESTRATOR_WORKFLOW_FILE];
+    workflowFiles = [String(repo).toLowerCase() === 'workflows'
+      ? HOSTED_KEEPALIVE_WORKFLOW
+      : CONSUMER_KEEPALIVE_WORKFLOW];
     if (includeWorker) {
       workflowFiles.push(...WORKER_WORKFLOW_FILES);
     }
@@ -684,15 +691,38 @@ async function countActive({
       }
     }
 
-    // Check pull_requests array (most reliable)
-    if (Array.isArray(run.pull_requests) && run.pull_requests.length > 0) {
-      for (const pr of run.pull_requests) {
-        const candidate = Number(pr?.number);
-        if (Number.isFinite(candidate) && candidate === targetPr) {
-          return true;
-        }
+    const associated = Array.isArray(run.pull_requests) ? run.pull_requests : [];
+    const runEvent = String(run.event || '').toLowerCase();
+    if (runEvent === 'workflow_run') {
+      // A workflow_run child checks out the default branch. Its own head and
+      // branch identify the workflow revision, not the triggering PR.
+      const match = KEEPALIVE_GATE_TITLE.exec(String(run.display_title || ''));
+      if (!match) return associated.some((entry) => Number(entry?.number) === targetPr);
+      const [, gateId, attempt, pr] = match;
+      if (pr !== 'unbound') return Number(pr) === targetPr;
+      const { data: gate } = await withBackoff(() => github.rest.actions.getWorkflowRunAttempt({
+        owner, repo, run_id: Number(gateId), attempt_number: Number(attempt),
+      }), { core });
+      if (Number(gate?.id) !== Number(gateId) || Number(gate?.run_attempt) !== Number(attempt) ||
+          !GATE_WORKFLOW_FILES.some((file) => gate.path === `.github/workflows/${file}`)) {
+        throw new Error('Keepalive Gate attempt identity could not be verified');
       }
+      const associatedPr = Number(gate.pull_requests?.[0]?.number || 0);
+      if (associatedPr > 0) return associatedPr === targetPr;
+      if (!gate.head_sha) throw new Error('Keepalive Gate attempt has no head SHA');
+      // Use the same commit-to-PR association as the receiving keepalive loop.
+      // The triggering commit may be older than the target PR's current head.
+      const { data: pulls } = await withBackoff(() => github.rest.repos.listPullRequestsAssociatedWithCommit({
+        owner, repo, commit_sha: gate.head_sha,
+      }), { core });
+      if (!Array.isArray(pulls)) throw new Error('Keepalive Gate commit association is unavailable');
+      return Number(pulls[0]?.number || 0) === targetPr;
     }
+    if (runEvent === 'workflow_dispatch') {
+      const match = KEEPALIVE_DISPATCH_TITLE.exec(String(run.display_title || ''));
+      if (match) return Number(match[1]) === targetPr;
+    }
+    if (associated.length > 0) return associated.some((entry) => Number(entry?.number) === targetPr);
 
     // Check head SHA
     const runHeadSha = String(run.head_sha || '').trim();
@@ -724,7 +754,6 @@ async function countActive({
     // For dispatch events, we MUST fetch run details to check inputs.
     // listWorkflowRuns doesn't expose inputs, but getWorkflowRun does.
     // This is the only reliable way to detect orchestrator runs for a specific PR.
-    const runEvent = String(run.event || '').toLowerCase();
     if (runEvent === 'workflow_dispatch' || runEvent === 'repository_dispatch') {
       const runId = Number(run.id || 0);
       if (Number.isFinite(runId) && runId > 0) {
@@ -769,6 +798,13 @@ async function countActive({
           }
           if (!(await runMatchesPr(run))) {
             continue;
+          }
+
+          if (status === 'completed' && label === 'orchestrator') {
+            const execution = await getWorkerExecutionEvidence(
+              github, owner, repo, runId, run.run_attempt, run.head_sha,
+            );
+            if (execution === 'not-started') continue;
           }
 
           runIds.add(runId);
@@ -860,8 +896,8 @@ async function evaluateRunCapForPr({
     core.warning(`Run cap evaluation encountered an error while counting runs: ${error}`);
   }
 
-  const ok = active < runCap;
-  const reason = ok ? 'ok' : 'run-cap-reached';
+  const ok = !error && active < runCap;
+  const reason = error ? 'run-cap-unavailable' : (ok ? 'ok' : 'run-cap-reached');
 
   return {
     ok,
@@ -1024,7 +1060,6 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     headSha,
     headRef,
     currentRunId,
-    workflows: [ORCHESTRATOR_WORKFLOW_FILE],
     completedLookbackSeconds: RECENT_COMPLETED_LOOKBACK_SECONDS,
     core,
   });
@@ -1078,9 +1113,9 @@ async function evaluateKeepaliveGate({ core, github, context, options = {} }) {
     }
   }
 
-  if (ok && !underRunCap) {
+  if (ok && (runError || !underRunCap)) {
     ok = false;
-    reason = 'run-cap-reached';
+    reason = runError ? 'run-cap-unavailable' : 'run-cap-reached';
   }
 
   if (!ok && core?.info) {

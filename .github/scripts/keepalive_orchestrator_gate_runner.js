@@ -355,7 +355,7 @@ async function runKeepaliveGate({ core, github, context, env }) {
   const recentWindow = '';
   const runCapDetail = (() => {
     const breakdown = preGate.activeBreakdown || {};
-    const orchestratorCount = Number(breakdown.orchestrator ?? breakdown['agents-70-orchestrator.yml'] ?? 0);
+    const orchestratorCount = Number(breakdown.orchestrator ?? 0);
     const workerCount = Number(breakdown.worker ?? breakdown['agents-72-codex-belt-worker.yml'] ?? 0);
     const normaliseCount = (value) => (Number.isFinite(value) ? value : 0);
     return `run cap detail: orchestrator=${normaliseCount(orchestratorCount)}, worker=${normaliseCount(workerCount)}`;
