@@ -7,7 +7,14 @@ const test = require('node:test');
 
 const summaryScript = join(__dirname, '../write_dispatch_summary.sh');
 
-function summary(reason, { path = 'comment', active = '0' } = {}) {
+function summary(reason, {
+  path = 'comment',
+  active = '0',
+  pr = '4784',
+  activation = '7144350369',
+  head = '088aeb4c4acdc569001aa26ad6e0a43d34049878',
+  agent = '',
+} = {}) {
   return execFileSync('bash', [summaryScript], {
     encoding: 'utf8',
     env: {
@@ -15,9 +22,10 @@ function summary(reason, { path = 'comment', active = '0' } = {}) {
       PATH_LABEL: path,
       DISPATCH: 'false',
       DISPATCH_REASON: reason,
-      PR_NUMBER: '4784',
-      ACTIVATION_ID: '7144350369',
-      HEAD_SHA: '088aeb4c4acdc569001aa26ad6e0a43d34049878',
+      PR_NUMBER: pr,
+      ACTIVATION_ID: activation,
+      HEAD_SHA: head,
+      DISPATCH_AGENT: agent,
       RUN_CAP: '1',
       ACTIVE_RUNS: active,
     },
@@ -28,6 +36,20 @@ test('preserves the missing-label denial of the recorded PR #4784 comment', () =
   assert.equal(summary('gate-blocked:keepalive-label-missing'),
     'DISPATCH: ok=false path=comment reason=missing-label pr=#4784 ' +
     'activation=7144350369 agent=? head=088aeb4 cap=1 active=0 trace=-');
+});
+
+test('separates a missing human activation on an otherwise green Gate from a Gate failure', () => {
+  const receipt = {
+    pr: '1099',
+    activation: '7070107180',
+    head: '145f93e5df1231ef623e1a4e0bb9cac35df43816',
+    agent: 'codex',
+  };
+  const suffix = 'pr=#1099 activation=7070107180 agent=codex head=145f93e cap=1 active=0 trace=-';
+  assert.equal(summary('gate-blocked:gate-not-success', receipt),
+    'DISPATCH: ok=false path=comment reason=gate-failed ' + suffix);
+  assert.equal(summary('gate-blocked:no-human-activation', receipt),
+    'DISPATCH: ok=false path=comment reason=no-human-activation ' + suffix);
 });
 
 test('reports the same cap disposition from Comment and Gate', () => {

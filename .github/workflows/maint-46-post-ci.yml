@@ -244,7 +244,7 @@ jobs:
           PY
 
       - name: Build summary body
-        if: ${{ steps.gate_guard.outputs.recover == 'true' }}
+        if: ${{ steps.gate_guard.outputs.recover == 'true' && steps.discover.outputs.head_sha != '' }}
         id: render
         run: |
           python -m tools.post_ci_summary

@@ -89,6 +89,58 @@ test('discoverWorkflowRuns collects gate run metadata', async () => {
   assert.equal(collected[0].jobs.length, 1);
 });
 
+test('Maint 46 binds status and jobs to the originating Gate of Workflows #5126', async () => {
+  const oldHead = '4e3a046492663a9895a9f38f3ce73416b60d06eb';
+  const authoredHead = 'c0b4b16ee1663308c976910c4fa3ab3a5c806a7b';
+  const baseHead = '52ac5bc9b87f088528e35cf9e8296b922a27a416';
+  const evaluatedMerge = '1b98b4649fa79f4afb5d075693a05c859997f0f1';
+  const cases = [
+    { runId: 45558432257, evaluated: oldHead, parents: ['2f4a30e1fa68572c6b60fac88c66a100549360eb', baseHead], target: '' },
+    { runId: 45558988349, evaluated: authoredHead, target: authoredHead },
+    { runId: 45558988349, evaluated: evaluatedMerge, parents: [baseHead, authoredHead], target: authoredHead },
+    { runId: 45558988349, evaluated: evaluatedMerge, parents: [authoredHead, baseHead], target: '' },
+  ];
+  for (const { runId, evaluated, parents, target } of cases) {
+    const core = createCore();
+    const workflowRun = {
+      id: runId, run_attempt: 1, head_sha: evaluated, status: 'completed',
+      conclusion: 'cancelled', html_url: `https://github.com/stranske/Workflows/actions/runs/${runId}`,
+      pull_requests: [{ number: 5126, head: { sha: authoredHead }, base: { sha: baseHead } }],
+    };
+    const context = {
+      eventName: 'workflow_run', repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: { workflow_run: workflowRun },
+    };
+    const jobsLookups = [];
+    const listJobsForWorkflowRunAttempt = () => {};
+    const github = {
+      rest: {
+        actions: {
+          listJobsForWorkflowRunAttempt,
+          listWorkflowRuns: async () => ({ data: { workflow_runs: [{
+            id: 45558988349, head_sha: authoredHead, status: 'queued',
+          }] } }),
+        },
+        repos: { getCommit: async ({ ref }) => {
+          assert.equal(ref, evaluated);
+          assert.ok(parents);
+          return { data: { sha: evaluated, parents: parents.map(sha => ({ sha })) } };
+        } },
+      },
+      paginate: async (method, params) => {
+        jobsLookups.push({ ...params, expectedMethod: method === listJobsForWorkflowRunAttempt });
+        return [];
+      },
+    };
+    await discoverWorkflowRuns({ github, context, core });
+    assert.equal(core.outputs.head_sha, target, `attribution of Gate ${runId} evaluated at ${evaluated}`);
+    assert.equal(core.outputs.gate_run_id, target ? String(runId) : '');
+    assert.deepEqual(jobsLookups, target ? [
+      { owner: 'stranske', repo: 'Workflows', run_id: runId, per_page: 100, attempt_number: 1, expectedMethod: true },
+    ] : []);
+  }
+});
+
 test('propagateGateCommitStatus posts commit status', async () => {
   const core = createCore();
   const context = { repo: { owner: 'octo', repo: 'demo' }, payload: { workflow_run: { id: 77 } } };
