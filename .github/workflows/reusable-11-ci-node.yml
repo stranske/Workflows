@@ -261,13 +261,10 @@ jobs:
               ;;
           esac
 
-      - name: Run ESLint
-        if: ${{ inputs.lint }}
-        env:
-          PACKAGE_MANAGER: ${{ inputs['package-manager'] }}
-          PROJECT_SCRIPT: lint
-          FALLBACK_COMMAND: eslint .
-        run: &run_quality_check |
+      - name: Prepare Node quality checks
+        if: ${{ inputs.lint || inputs.format_check || inputs.typecheck }}
+        run: |
+          cat > "$RUNNER_TEMP/node-ci-quality-check.sh" <<'BASH'
           set -euo pipefail
           has_script=$(node --input-type=commonjs -p 'Boolean(require("./package.json").scripts?.[process.env.PROJECT_SCRIPT]?.trim())')
           if [[ "$has_script" == true ]]; then
@@ -293,6 +290,15 @@ jobs:
             exec yarn exec -- "${command[@]}"
           fi
           exec pnpm exec "${command[@]}"
+          BASH
+
+      - name: Run ESLint
+        if: ${{ inputs.lint }}
+        env:
+          PACKAGE_MANAGER: ${{ inputs['package-manager'] }}
+          PROJECT_SCRIPT: lint
+          FALLBACK_COMMAND: eslint .
+        run: bash "$RUNNER_TEMP/node-ci-quality-check.sh"
 
       - name: Check formatting (Prettier)
         if: ${{ inputs.format_check }}
@@ -300,7 +306,7 @@ jobs:
           PACKAGE_MANAGER: ${{ inputs['package-manager'] }}
           PROJECT_SCRIPT: format:check
           FALLBACK_COMMAND: prettier --check .
-        run: *run_quality_check
+        run: bash "$RUNNER_TEMP/node-ci-quality-check.sh"
 
       - name: TypeScript type check
         if: ${{ inputs.typecheck }}
@@ -308,7 +314,7 @@ jobs:
           PACKAGE_MANAGER: ${{ inputs['package-manager'] }}
           PROJECT_SCRIPT: typecheck
           FALLBACK_COMMAND: tsc --noEmit
-        run: *run_quality_check
+        run: bash "$RUNNER_TEMP/node-ci-quality-check.sh"
 
       - name: Run tests
         id: run-tests
