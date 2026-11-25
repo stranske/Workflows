@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.4](https://github.com/stranske/Workflows/compare/v1.52.3...v1.52.4) (2026-11-25)
+
+
+### Bug Fixes
+
+* finish stranske/Workflows[#5161](https://github.com/stranske/Workflows/issues/5161) (closer repair) ([#5183](https://github.com/stranske/Workflows/issues/5183)) ([59c9e10](https://github.com/stranske/Workflows/commit/59c9e103ea6a680ebf7c9fcf803cfe95b279cf67))
+
 ## [1.52.3](https://github.com/stranske/Workflows/compare/v1.52.2...v1.52.3) (2026-11-22)
 
 
