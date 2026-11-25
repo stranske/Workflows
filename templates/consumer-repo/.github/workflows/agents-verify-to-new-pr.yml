@@ -1434,7 +1434,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/correction-sdk"
           cp .github/scripts/verifier_correction_artifact_sdk/package.json \
             .github/scripts/verifier_correction_artifact_sdk/package-lock.json "$RUNNER_TEMP/correction-sdk/"
-          npm ci --prefix "$RUNNER_TEMP/correction-sdk" --ignore-scripts --no-audit --no-fund
+          cd "$RUNNER_TEMP/correction-sdk"
+          npm ci --ignore-scripts --no-audit --no-fund
       - name: Consume admitted correction
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
