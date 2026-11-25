@@ -35,5 +35,21 @@ uploads request 30. Altering either a production Codex 14-day value or an intake
 restored after each check. Existing all-upload presence checks remain.
 
 Final local validation: 36 retention tests PASS; 139 retention/consolidation/drift
-regressions PASS. Ruff, Black and template drift pass. Raw logs and JUnit are
-retained alongside the two duration RED reports and mutation hash receipt.
+regressions PASS. Ruff, Black and template drift pass.
+
+## Recover the secondary validation reports
+
+The [secondary reports archive](secondary-validation.tar.gz) contains the
+14-day and 30-day RED logs and JUnit reports, both passing suites' logs and
+JUnit reports, the mutation hash receipt, and the six caller-limit results.
+Browse the [original files from PR #3873](https://github.com/stranske/Workflows/tree/0d5eec17ff52fa21e6cfb15735688de7a112e7e0/docs/evidence/artifact-retention-3844)
+or run these commands from a Workflows checkout root. They verify the download
+and print the directory containing the original filenames.
+
+```bash
+archive=docs/evidence/artifact-retention-3844/secondary-validation.tar.gz
+out=$(mktemp -d "${TMPDIR:-/tmp}/workflow-retention.XXXXXX") &&
+  printf '%s  %s\n' 'a280409d89dabf99fd2d55b2d006033b1a42e7e9b9f87ab7dda491b0235b0857' "$archive" | shasum -a 256 -c - &&
+  tar -xzf "$archive" -C "$out" &&
+  printf '%s\n' "$out"
+```
