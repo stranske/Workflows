@@ -40,17 +40,22 @@ To recover either version, use its commit in
 
 ## Superseded workflow plans
 
-The five plans below are available at their original Git revisions. In a
+The plans below are available at their original Git revisions. In a
 shallow checkout, fetch the listed revision with `git fetch --depth=1 origin <commit>`
 before running its recovery command. Use the current references for operational guidance.
 
 | Plan | Recover the original | SHA-256 | Current references |
 | --- | --- | --- | --- |
+| [Agents Guard planning notes][agents-guard-plan-original] | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/agents-guard-plan.md` | `128ec881372d996a5fe2118c11617203c60033b200edd46ccedabf25acd3b4c8` | The [Agents Workflow Protection Policy](../AGENTS_POLICY.md) and [workflow system guide](../ci/WORKFLOW_SYSTEM.md) describe protected-file authorization and how to read the exact-head Guard verdict. |
 | Autofix workflow | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/autofix_workflow_plan.md` | `b74fc5ec27fe4e6b4013d66c991837e47b9900a6f948c0bee4319f340f49f9fa` | See **Autofix routes** in the [workflow catalog](../ci/WORKFLOWS.md). |
 | CI reuse consolidation | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/ci_reuse_consolidation_plan.md` | `cd6b17268b278ae67927f072c2faf3a7af7c7a90c1e32b6f9b8512c38d8b3ae6` | See the [workflow catalog](../ci/WORKFLOWS.md) and **Scenario Matrix** in the [Selftest guide](../ci/SELFTESTS.md). |
+| [Gate workflow branch protection plan][gate-protection-plan-original] | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/gate_protection_plan.md` | `5d5ced8ccf55c698a5bb3027c1bbbd3364d4f0b20471a254da00a17c68051c8a` | The [Agents Workflow Protection Policy](../AGENTS_POLICY.md) explains how to compare effective GitHub rules with the [configured required contexts](../../.github/config/required-contexts.json). |
 | Reusable agents | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/reusable_agents_plan.md` | `f728b26b925b6b13bb0e570d9858e85fbfef2c09dcb673581c21592cd6039d9d` | [Reusable 16 Agents](../../.github/workflows/reusable-16-agents.yml) and [Reusable 70 Orchestrator Main](../../.github/workflows/reusable-70-orchestrator-main.yml) define the current caller inputs. |
 | Validation scripts | `git show 1785424766b30b8860d2a6a2f8d8bf71c4847058:docs/archive/plans/validation-scripts.md` | `5044f347f9e876a366b9591f662dbbe96eeb984da6ae2c215e806e675b872245` | See **check_branch.sh - Comprehensive Validation** in the [validation overview](../validation/overview.md) and the [script itself](../../scripts/check_branch.sh). |
 | Workflow renaming | `git show e1c4da427cbc9081a154bcab10d300001cb8ef7c:docs/archive/plans/workflow_renaming_plan.md` | `0f46abb8e6f2a33eb688baf15f074112702008065b702fb7a7dde7a646102e56` | See the [workflow catalog](../ci/WORKFLOWS.md) and [workflow naming tests](../../tests/workflows/test_workflow_naming.py). |
+
+[agents-guard-plan-original]: https://github.com/stranske/Workflows/blob/e1c4da427cbc9081a154bcab10d300001cb8ef7c/docs/archive/plans/agents-guard-plan.md
+[gate-protection-plan-original]: https://github.com/stranske/Workflows/blob/e1c4da427cbc9081a154bcab10d300001cb8ef7c/docs/archive/plans/gate_protection_plan.md
 
 ## Archived January 2026 plans
 
@@ -177,6 +182,7 @@ Historical snapshots from the December 2025–January 2026 audit cycle. Monthly 
 
 ## Historical consumer handoffs
 
+- The [April Inv-Man-Intake PR #315 follow-up][intake-315-follow-up] records six code-addressed items and one unspecified deferral in [Workflows #1956][intake-315-source]. The [receiving PR][intake-315-receiver] closed unmerged with seven unresolved review threads.
 - [Issue #4427 WASM pytest handoff](audits/issue-4427-wasm-pytest-handoff.md) records the November 2026 pin investigation and receiving checks. The [original revision][wasm-4427-original] is the evidence cited in the issue ledger.
 - [Issue #4455 post-merge evidence](audits/issue-4455-post-merge-evidence.md) records the November 2026 consumer sync report and sync-core comment check. See the [original revision][issue-4455-original].
 
@@ -270,3 +276,6 @@ Omit the final pipe to read the document.
 [keepalive-reliability-original]: https://github.com/stranske/Workflows/blob/36590718b0222de4cbb27ec7b5a4ddd93dbb3e17/docs/keepalive/Keepalive_Reliability_Plan.md
 [wasm-4427-original]: https://github.com/stranske/Workflows/blob/4806e0de3b577327c1deee4d853481497cba3860/docs/ops/issue-4427-wasm-pytest-handoff.md
 [issue-4455-original]: https://github.com/stranske/Workflows/blob/b03f97efffb3a04fea19a54c6ef3e24e3097fe52/docs/analysis/issue-4455-post-merge-evidence.md
+[intake-315-follow-up]: https://github.com/stranske/Workflows/blob/35add4d1ebf1d62ad5ece9d5d2dbc871cb6f8d6d/docs/ops/INV_MAN_INTAKE_PR315_REVIEW_THREADS.md
+[intake-315-source]: https://github.com/stranske/Workflows/pull/1956
+[intake-315-receiver]: https://github.com/stranske/Inv-Man-Intake/pull/315

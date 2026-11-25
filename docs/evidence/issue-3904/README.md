@@ -714,3 +714,28 @@ Reproduce new-run reconciliation (replace `3.12` with `3.13` for the other runti
 See [the acceptance record](closer-r2-acceptance.md) for the stop rule, retained
 prior-branch work and validation results. PR #4527's source, dependency, outcome,
 coverage and timing refusal checks remain in force. No dependency pins changed.
+
+### Historical evidence filenames
+
+Each former filename below had identical bytes to the linked file in the same
+run. For the original run, the linked artifact metadata is also the documented
+validator input. For the phase-probe run, use `artifacts-terminal-readback.json`
+for the documented command above.
+
+| Run | Former filename | Identical retained file |
+| --- | --- | --- |
+| 42401537967 | `artifact-metadata-3.12.json` | [Run artifact readback](hosted-42401537967/artifacts-readback-2026-11-07.json) |
+| 42401537967 | `artifact-metadata-3.13.json` | [Run artifact readback](hosted-42401537967/artifacts-readback-2026-11-07.json) |
+| 42401537967 | `python-3.13-manifest.json` | [Source and runtime-input manifest](hosted-42401537967/python-3.12-manifest.json) |
+| 42401537967 | `validation-verifier-runtime-3.12.json` | [3.12 verifier summary](hosted-42401537967/verified-3.12-summary.json) |
+| 42421935858 | `artifact-metadata-3.13.json` | [Run artifact metadata](hosted-42421935858/artifact-metadata-3.12.json) |
+| 42421935858 | `python-3.13-manifest.json` | [Source and runtime-input manifest](hosted-42421935858/python-3.12-manifest.json) |
+| 42421935858 | `validation-verifier-runtime-3.12.json` | [3.12 verifier summary](hosted-42421935858/verified-3.12-summary.json) |
+| 42421935858 | `validation-verifier-runtime-3.13.json` | [3.13 verifier summary](hosted-42421935858/verified-3.13-summary.json) |
+
+To recover bytes at a former path, set `RUN` and `FORMER_FILENAME` from the
+table and run this from a clone containing the historical commit.
+
+```sh
+git show "fd856d39926baa878e6ff8043dcef4a3ec28d431:docs/evidence/issue-3904/hosted-${RUN}/${FORMER_FILENAME}"
+```
