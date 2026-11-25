@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { sha256, validateIndependentFindingVerification: validate,
-  validateNativeConversationDisposition } = require('../maint71_finding_verification');
+  validateIndependentFindingFromNative, validateNativeConversationDisposition } = require('../maint71_finding_verification');
 const { validateReviewResolutionProof } = require('../maint71_merge_sync_prs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -68,6 +68,105 @@ test('independent finding disposition is opt-in, authenticated, exact-binding, a
     prNumber: 1, headSha: f.args.proof.head_sha, actor: 'stranske', trustedActors: ['stranske'] }).ok, true);
   f.args.policy.finding_verification_fallback.enabled = false;
   assert.equal(validate(f.finish()).ok, false);
+});
+
+function inlineStockFixture() {
+  const f = fixture();
+  const { proof, record, thread } = f.args;
+  const [original, request, reply] = thread.comments.nodes;
+  const policy = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/consumer_sync_review_policy.json'), 'utf8'));
+  const profile = policy.reviewers.find((item) => item.id === 'codex');
+  const pinned = profile.inline_targeted_stock_completion;
+  const bot = { id: pinned.bot_id, node_id: pinned.bot_node_id, login: profile.logins[1], type: 'Bot' };
+  const owner = { id: 22, node_id: 'owner', login: 'stranske', type: 'User' };
+  const head = proof.head_sha;
+  const apiPull = 'https://api.github.com/repos/stranske/Ready/pulls/1';
+  const oldHead = 'd'.repeat(40);
+  thread.isOutdated = true;
+  record.head_observed_sha = head;
+  original.author.login = profile.logins[0];
+  original.createdAt = '2026-10-04T00:59:00Z';
+  reply.author.login = profile.logins[0];
+  reply.commit.oid = oldHead;
+  reply.body = `${pinned.marker}\n\n${profile.disposition_completion_prefixes[0]} Another round soon, please!\n\n${profile.disposition_reviewed_commit_prefix}\`${head.slice(0, 10)}\`\n\n<details> <summary>About the review</summary>\nDetails.\n</details>`;
+  const nativeComments = new Map();
+  for (const [index, node] of thread.comments.nodes.entries()) {
+    const id = index + 10;
+    node.fullDatabaseId = String(id);
+    node.url = `https://github.com/stranske/Ready/pull/1#discussion_r${id}`;
+    node.updatedAt = node.createdAt;
+    nativeComments.set(id, { id, in_reply_to_id: index ? 10 : null, pull_request_review_id: id + 100,
+      user: index === 1 ? owner : bot, body: node.body, html_url: node.url,
+      created_at: node.createdAt, updated_at: node.updatedAt, pull_request_url: apiPull,
+      commit_id: oldHead, path: '.github/workflows/example.yml' });
+  }
+  const nativeReviews = new Map([11, 12].map((id) => {
+    const native = nativeComments.get(id);
+    return [id + 100, { id: id + 100, state: 'COMMENTED', commit_id: head, submitted_at: native.created_at,
+      user: native.user, pull_request_url: apiPull }];
+  }));
+  const commit = { sha: head };
+  const pull = { state: 'open', number: 1, head: { sha: head, ref: 'sync/workflows-candidate' }, body: 'Bound delivery' };
+  const client = { rest: { pulls: {
+    get: () => ({ data: pull }),
+    getReviewComment: ({ comment_id }) => ({ data: nativeComments.get(Number(comment_id)) }),
+    getReview: ({ pull_number, review_id }) => {
+      assert.equal(pull_number, 1);
+      return { data: nativeReviews.get(review_id) };
+    },
+  }, repos: { getCommit: ({ ref }) => {
+    assert.equal(ref, head.slice(0, 10));
+    return { data: commit };
+  } } } };
+  f.result.verifier_profile = policy.finding_verification_fallback.verifier_profiles[0];
+  f.result.reassessment_request_url = request.url;
+  f.result.originating_completion_url = reply.url;
+  Object.assign(f.args, { policy, reviewerProfiles: policy.reviewers, owner: 'stranske', repo: 'Ready',
+    number: 1, head, headRef: pull.head.ref, body: pull.body, read: (operation) => operation(client) });
+  return { ...f, original, request, reply, nativeComments, nativeReviews, commit, pull, oldHead };
+}
+
+test('authenticated stock completion uses the exact enclosing review and still requires an independent finding assessment', async () => {
+  const f = inlineStockFixture();
+  assert.equal(validate(f.finish()).reason, 'originating_completion_missing');
+  assert.equal((await validateIndependentFindingFromNative(f.finish())).ok, true);
+  assert.equal((await validateIndependentFindingFromNative({ ...f.finish(), comment: null })).ok, false);
+  f.result.reviewer_unanswered = true;
+  f.result.originating_completion_url = null;
+  assert.equal((await validateIndependentFindingFromNative(f.finish())).reason, 'originating_reviewer_answered');
+});
+
+test('authenticated stock completion refuses ambiguous, changed and unrelated native evidence', async () => {
+  const changes = {
+    wrongBot: (f) => { f.nativeComments.get(12).user = { ...f.nativeComments.get(12).user, id: 43 }; },
+    missingOriginalBot: (f) => { f.nativeComments.get(10).user = null; },
+    wrongReplyParent: (f) => { f.nativeComments.get(12).in_reply_to_id = 99; },
+    wrongRequestParent: (f) => { f.nativeComments.get(11).in_reply_to_id = 99; },
+    wrongNativePull: (f) => { f.nativeComments.get(12).pull_request_url += '2'; },
+    staleReview: (f) => { f.nativeReviews.get(112).commit_id = f.oldHead; },
+    staleRequestReview: (f) => { f.nativeReviews.get(111).commit_id = f.oldHead; },
+    missingReview: (f) => { f.nativeReviews.delete(112); },
+    missingReviewActor: (f) => { delete f.nativeReviews.get(112).user; },
+    ambiguousRef: (f) => { f.commit.sha = f.oldHead; },
+    changedHead: (f) => { f.args.head = f.oldHead; },
+    changedDuringLookup: (f) => { f.pull.head.sha = f.oldHead; },
+    changedBranchDuringLookup: (f) => { f.pull.head.ref = 'unrelated'; },
+    changedDeliveryDuringLookup: (f) => { f.pull.body = 'Changed delivery'; },
+    changedThread: (f) => { f.args.thread.id = 'PRRT_2'; },
+    wrongRequest: (f) => { f.result.reassessment_request_url = f.reply.url; },
+    unrelatedCompletion: (f) => { f.result.originating_completion_url += '9'; },
+    competingRequest: (f) => { f.args.thread.comments.nodes.push({ ...f.request, url: `${f.request.url}9` }); },
+    competingReply: (f) => { f.args.thread.comments.nodes.push({ ...f.reply, url: `${f.reply.url}9` }); },
+    outOfOrder: (f) => { f.args.thread.comments.nodes.splice(1, 2, f.reply, f.request); },
+    lackingStockMarker: (f) => { f.reply.body = f.reply.body.split('\n').slice(2).join('\n'); },
+    wrongStockShape: (f) => { f.reply.body = `> ${f.reply.body}`; },
+    incompleteThread: (f) => { f.args.thread.comments.pageInfo.hasNextPage = true; },
+  };
+  for (const [name, change] of Object.entries(changes)) {
+    const f = inlineStockFixture();
+    change(f);
+    assert.equal((await validateIndependentFindingFromNative(f.finish())).ok, false, name);
+  }
 });
 
 test('native conversation disposition requires a fresh configured unquoted bound ACCEPT', () => {
@@ -277,7 +376,7 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
       ...controller, ...require('../maint71_finding_verification'),
       // Imported helpers retain their own module's Date, so pass their
       // supported clock argument as well as controlling the VM closure.
-      validateIndependentFindingVerification: options => validate({ ...options, now: args.now }),
+      validateIndependentFindingFromNative: options => validateIndependentFindingFromNative({ ...options, now: args.now }),
       parseDeliveryRecord: require('../sync_pr_lease_contract').parseDeliveryRecord,
       reviewResolutionProofs: [args.proof], reviewResolutionProofParseError: '',
       trustedResolutionActors: ['stranske'], reviewerProfiles: args.reviewerProfiles,

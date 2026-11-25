@@ -1,6 +1,6 @@
 'use strict';
 
-const { validateIndependentFindingVerification, collectFindingReviewState,
+const { validateIndependentFindingFromNative, collectFindingReviewState,
   validateNativeConversationDisposition, collectOriginatingCompletions } = require('./maint71_finding_verification');
 
 const DEFAULT_REVIEW_POLICY = Object.freeze({
@@ -4048,9 +4048,11 @@ async function run({ github, context, core }) {
             profiles: reviewerProfiles, read: withRetry,
             includeAuthors: proof.acceptance_mode === 'native-conversation-disposition' ? reviewPolicy.finding_verification_fallback?.trusted_publishers || [] : [],
           });
-          const verification = proof.acceptance_mode === 'independent-verification' ? validateIndependentFindingVerification({
+          const verification = proof.acceptance_mode === 'independent-verification' ? await validateIndependentFindingFromNative({
             proof, record: deliveryRecord, thread, threads, comment,
             policy: reviewPolicy, reviewerProfiles, topLevelComments,
+            owner, repo, number: pr.number, head: fresh.headRefOid, headRef: fresh.headRefName,
+            body: fresh.body, read: withReviewReadRetry,
           }) : validateNativeConversationDisposition({ proof, record: deliveryRecord, thread, threads, comment, policy: reviewPolicy, reviewerProfiles, topLevelComments });
           accepted = verification.ok;
           if (!accepted) {
@@ -4084,9 +4086,11 @@ async function run({ github, context, core }) {
           }));
           const latestRecord = parseDeliveryRecord(latest?.body || '');
           const latestThread = latest?.reviewThreads?.nodes?.find((item) => item.id === proof.thread_id);
-          const finalVerification = proof.acceptance_mode === 'independent-verification' ? validateIndependentFindingVerification({
+          const finalVerification = proof.acceptance_mode === 'independent-verification' ? await validateIndependentFindingFromNative({
             proof, record: latestRecord, thread: latestThread, threads: latest?.reviewThreads,
             comment: latestComment, policy: reviewPolicy, reviewerProfiles, topLevelComments: latestCompletions,
+            owner, repo, number: pr.number, head: latest?.headRefOid, headRef: latest?.headRefName,
+            body: latest?.body, read: withReviewReadRetry,
           }) : validateNativeConversationDisposition({ proof, record: latestRecord, thread: latestThread, threads: latest?.reviewThreads, comment: latestComment, policy: reviewPolicy, reviewerProfiles, topLevelComments: latestCompletions });
           if (latest?.headRefOid !== pr.head.sha || !finalVerification.ok
             || latest?.headRefName !== pr.head.ref
