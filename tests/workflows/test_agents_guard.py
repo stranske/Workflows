@@ -55,6 +55,7 @@ def run_guard(
     author_association=None,
     marker=None,
     repository=None,
+    guard_path=".github/scripts/agents-guard.js",
 ):
     payload = {
         "files": files or [],
@@ -77,13 +78,13 @@ def run_guard(
 const fs = require('fs');
 const path = require('path');
 const input = JSON.parse(fs.readFileSync(0, 'utf-8'));
-const { evaluateGuard } = require(path.resolve(process.cwd(), '.github/scripts/agents-guard.js'));
+const { evaluateGuard } = require(path.resolve(process.cwd(), process.argv[1]));
 const result = evaluateGuard(input);
 process.stdout.write(JSON.stringify(result));
 """
 
     completed = subprocess.run(
-        ["node", "-e", script],
+        ["node", "-e", script, guard_path],
         input=json.dumps(payload),
         text=True,
         capture_output=True,
@@ -282,7 +283,6 @@ def test_issue_intake_deletion_allowed():
         ".github/workflows/agents-bot-comment-handler.yml",
         ".github/workflows/agents-keepalive-loop.yml",
         ".github/workflows/agents-verify-to-issue-v2.yml",
-        ".github/workflows/agents-70-orchestrator.yml",
         ".github/workflows/agents-orchestrator.yml",
     ],
 )
@@ -301,6 +301,36 @@ def test_consolidated_agent_workflow_deletions_allowed(filename):
     assert result["blocked"] is False
     assert not result["failureReasons"]
     assert result["commentBody"] is None
+
+
+@skip_if_no_node
+@pytest.mark.parametrize(
+    "guard_path",
+    [
+        ".github/scripts/agents-guard.js",
+        "templates/consumer-repo/.github/scripts/agents-guard.js",
+    ],
+    ids=["source", "consumer-template"],
+)
+def test_restored_agents_70_path_has_normal_removal_protection(guard_path):
+    filename = ".github/workflows/agents-70-orchestrator.yml"
+    archive = "archives/agents-70-orchestrator.yml"
+    for repository in ("stranske/Workflows", "stranske/Template"):
+        deleted = run_guard(
+            files=[{"filename": filename, "status": "removed"}],
+            repository=repository,
+            guard_path=guard_path,
+        )
+        assert deleted["blocked"] is True, repository
+        assert f"• {filename} was deleted." in deleted["failureReasons"]
+
+        archived = run_guard(
+            files=[{"filename": archive, "previous_filename": filename, "status": "renamed"}],
+            repository=repository,
+            guard_path=guard_path,
+        )
+        assert archived["blocked"] is True, repository
+        assert f"• {filename} was renamed to {archive}." in archived["failureReasons"]
 
 
 @skip_if_no_node
