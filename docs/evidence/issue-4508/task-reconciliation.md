@@ -383,14 +383,15 @@ Live sync-core round still deferred; do not mark that checkbox complete.
 
 ## Production classifier + GHA-prefixed fixtures (this round)
 
-Promoted the fingerprint helper out of the test module into
-`scripts/sync_core_shipment_finding.py` (not sync-manifest delivered) so agents
-can classify a consumer typecheck-mypy log offline:
+This round promoted the fingerprint helper out of the test module into the
+[original script](https://github.com/stranske/Workflows/blob/d2106cc83e060d0063f63dd08ea94bbaa4104fbf/scripts/sync_core_shipment_finding.py).
+For a current offline replay, use the [clearance classifier](../../../evidence/issue-4508/sync-core-clearance/sync_core_shipment_finding.py)
+beside the pinned logs. It is outside the sync manifest.
 
 ```text
-python scripts/sync_core_shipment_finding.py evidence/issue-4508/sync-core-clearance/typecheck-mypy-green.log
+python evidence/issue-4508/sync-core-clearance/sync_core_shipment_finding.py evidence/issue-4508/sync-core-clearance/typecheck-mypy-green.log
 # cleared → exit 0
-python scripts/sync_core_shipment_finding.py evidence/issue-4508/sync-core-clearance/typecheck-mypy-red.log
+python evidence/issue-4508/sync-core-clearance/sync_core_shipment_finding.py evidence/issue-4508/sync-core-clearance/typecheck-mypy-red.log
 # still-reported → exit 1
 ```
 

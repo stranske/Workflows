@@ -3,10 +3,21 @@ import json
 import shutil
 import subprocess
 import sys
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 import pytest
-from scripts import ci_history, sync_core_shipment_finding
+from scripts import ci_history
+
+_SYNC_CORE_EVIDENCE_DIR = (
+    Path(__file__).resolve().parents[2] / "evidence" / "issue-4508" / "sync-core-clearance"
+)
+_CLASSIFIER_SPEC = spec_from_file_location(
+    "sync_core_shipment_finding", _SYNC_CORE_EVIDENCE_DIR / "sync_core_shipment_finding.py"
+)
+assert _CLASSIFIER_SPEC is not None and _CLASSIFIER_SPEC.loader is not None
+sync_core_shipment_finding = module_from_spec(_CLASSIFIER_SPEC)
+_CLASSIFIER_SPEC.loader.exec_module(sync_core_shipment_finding)
 
 
 @pytest.mark.parametrize(
@@ -298,11 +309,6 @@ def test_ci_history_type_checks_under_consumer_mypy(
         assert "[no-redef]" in result.stdout
     else:
         assert result.returncode == 0, result.stdout + result.stderr
-
-
-_SYNC_CORE_EVIDENCE_DIR = (
-    Path(__file__).resolve().parents[2] / "evidence" / "issue-4508" / "sync-core-clearance"
-)
 
 
 @pytest.mark.parametrize(

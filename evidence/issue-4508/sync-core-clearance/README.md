@@ -14,14 +14,15 @@ The red window retains the verbatim fingerprint from round `20261107T014654Z`;
 the green window retains the mypy success line from the regenerated head (no
 `ci_history.py` / `[no-redef]` after ANSI normalization).
 
-Classifier: `scripts/sync_core_shipment_finding.py` (also covered by
-`tests/scripts/test_ci_history.py`). Live sync-core classification remains external.
+The [classifier](sync_core_shipment_finding.py) is covered by the
+[CI history tests](../../../tests/scripts/test_ci_history.py). Live sync-core
+classification remains external. Run these commands from the Workflows root.
 
-```text
-python scripts/sync_core_shipment_finding.py evidence/issue-4508/sync-core-clearance/typecheck-mypy-green.log
+```bash
+python evidence/issue-4508/sync-core-clearance/sync_core_shipment_finding.py evidence/issue-4508/sync-core-clearance/typecheck-mypy-green.log
 # cleared → exit 0
 
-gh api repos/stranske/trip-planner/actions/jobs/128267659502/logs | \
-  python scripts/sync_core_shipment_finding.py -
+(set -o pipefail; gh api repos/stranske/trip-planner/actions/jobs/128267659502/logs | \
+  python evidence/issue-4508/sync-core-clearance/sync_core_shipment_finding.py -)
 # cleared → exit 0 on the live regenerated head
 ```
