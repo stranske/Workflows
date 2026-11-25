@@ -189,7 +189,6 @@ async function collectAuthenticatedInlineStockCompletion({
   if (!ref || !head.startsWith(ref)) return null;
 
   const webPull = `https://github.com/${owner}/${repo}/pull/${number}`;
-  const apiPull = `https://api.github.com/repos/${owner}/${repo}/pulls/${number}`;
   const id = (item) => String(item.fullDatabaseId || '');
   if ([original, request, reply].some((item) => !/^[1-9]\d*$/.test(id(item))
     || item.url !== `${webPull}#discussion_r${id(item)}`)) return null;
@@ -207,7 +206,7 @@ async function collectAuthenticatedInlineStockCompletion({
     [original, request, reply].map(nativeComment),
   );
   const sameComment = (native, item) => String(native?.id || '') === id(item)
-    && native.pull_request_url === apiPull && native.html_url === item.url
+    && native.html_url === item.url
     && native.body === item.body && native.created_at === item.createdAt && native.updated_at === item.updatedAt;
   const isOriginatingBot = (actor) => actor?.id === provenance.bot_id && actor.node_id === provenance.bot_node_id
     && actor.type === 'Bot' && profile.logins.includes(actor.login);
@@ -228,7 +227,8 @@ async function collectAuthenticatedInlineStockCompletion({
     lookup((client) => client.rest.repos.getCommit({ ...scope, ref })),
   ]);
   const exactReview = (review, native) => review?.id === native.pull_request_review_id
-    && review.pull_request_url === apiPull && review.state === 'COMMENTED' && review.commit_id === head
+    && review.html_url === `${webPull}#pullrequestreview-${review.id}`
+    && review.state === 'COMMENTED' && review.commit_id === head
     && review.submitted_at === native.created_at && review.user?.id === native.user.id
     && review.user.node_id === native.user.node_id && review.user.login === native.user.login;
   if (!exactReview(requestReview, nativeRequest) || !exactReview(replyReview, nativeReply)

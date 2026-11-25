@@ -80,7 +80,6 @@ function inlineStockFixture() {
   const bot = { id: pinned.bot_id, node_id: pinned.bot_node_id, login: profile.logins[1], type: 'Bot' };
   const owner = { id: 22, node_id: 'owner', login: 'stranske', type: 'User' };
   const head = proof.head_sha;
-  const apiPull = 'https://api.github.com/repos/stranske/Ready/pulls/1';
   const oldHead = 'd'.repeat(40);
   thread.isOutdated = true;
   record.head_observed_sha = head;
@@ -97,13 +96,13 @@ function inlineStockFixture() {
     node.updatedAt = node.createdAt;
     nativeComments.set(id, { id, in_reply_to_id: index ? 10 : null, pull_request_review_id: id + 100,
       user: index === 1 ? owner : bot, body: node.body, html_url: node.url,
-      created_at: node.createdAt, updated_at: node.updatedAt, pull_request_url: apiPull,
+      created_at: node.createdAt, updated_at: node.updatedAt,
       commit_id: oldHead, path: '.github/workflows/example.yml' });
   }
   const nativeReviews = new Map([11, 12].map((id) => {
     const native = nativeComments.get(id);
     return [id + 100, { id: id + 100, state: 'COMMENTED', commit_id: head, submitted_at: native.created_at,
-      user: native.user, pull_request_url: apiPull }];
+      user: native.user, html_url: `https://github.com/stranske/Ready/pull/1#pullrequestreview-${id + 100}` }];
   }));
   const commit = { sha: head };
   const pull = { state: 'open', number: 1, head: { sha: head, ref: 'sync/workflows-candidate' }, body: 'Bound delivery' };
@@ -142,7 +141,8 @@ test('authenticated stock completion refuses ambiguous, changed and unrelated na
     missingOriginalBot: (f) => { f.nativeComments.get(10).user = null; },
     wrongReplyParent: (f) => { f.nativeComments.get(12).in_reply_to_id = 99; },
     wrongRequestParent: (f) => { f.nativeComments.get(11).in_reply_to_id = 99; },
-    wrongNativePull: (f) => { f.nativeComments.get(12).pull_request_url += '2'; },
+    wrongNativePull: (f) => { f.nativeComments.get(12).html_url = f.nativeComments.get(12).html_url.replace('/pull/1#', '/pull/2#'); },
+    wrongNativeReviewPull: (f) => { f.nativeReviews.get(112).html_url = f.nativeReviews.get(112).html_url.replace('/pull/1#', '/pull/2#'); },
     staleReview: (f) => { f.nativeReviews.get(112).commit_id = f.oldHead; },
     staleRequestReview: (f) => { f.nativeReviews.get(111).commit_id = f.oldHead; },
     missingReview: (f) => { f.nativeReviews.delete(112); },
