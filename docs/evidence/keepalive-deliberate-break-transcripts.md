@@ -6,6 +6,21 @@ These transcripts record the passing and deliberately failing runs used to valid
 - [Workflows #3661](#workflows-3661)
 - [Workflows #3662](#workflows-3662)
 
+To recover the original files at their recorded paths, run this from a clone
+that contains the inventory revision. A shallow clone can first fetch that
+revision with `git fetch --depth=1 origin fbb4e424d29f3f51058b247e2be390093dca299d`.
+
+```bash
+revision=fbb4e424d29f3f51058b247e2be390093dca299d
+recovered=$(mktemp -d)
+for issue in 3658 3661 3662; do
+  original=".github/scripts/__tests__/evidence/issue-${issue}-deliberate-break-transcript.md"
+  mkdir -p "$recovered/$(dirname "$original")"
+  git show "$revision:$original" > "$recovered/$original" || exit 1
+done
+printf '%s\n' "$recovered"
+```
+
 ## Workflows 3658
 
 [Original transcript at the recorded revision](https://github.com/stranske/Workflows/blob/fbb4e424d29f3f51058b247e2be390093dca299d/.github/scripts/__tests__/evidence/issue-3658-deliberate-break-transcript.md)
