@@ -3,6 +3,10 @@ name: Agents 70 Init (Reusable)
 on:
   workflow_call:
     inputs:
+      scheduled_preview:
+        description: 'Whether Agents 70 selected its scheduled preview route'
+        type: boolean
+        default: false
       params_json:
         description: 'JSON payload of orchestrator parameters to merge with defaults.'
         required: false
@@ -479,7 +483,9 @@ jobs:
   token-preflight:
     name: Prepare keepalive write token
     needs: [idle-precheck, rate-limit-check]
-    if: needs.idle-precheck.outputs.has_work == 'true'
+    if: >-
+      needs.idle-precheck.outputs.has_work == 'true' &&
+      !(inputs.scheduled_preview && needs.rate-limit-check.outputs.dry_run == 'true')
     runs-on: ubuntu-latest
     outputs:
       token_source: ${{ steps.select.outputs.token || '' }}
@@ -590,8 +596,17 @@ jobs:
     name: Resolve Parameters
     needs:
       - idle-precheck
+      - rate-limit-check
       - token-preflight
-    if: needs.idle-precheck.outputs.has_work == 'true'
+    if: >-
+      !cancelled() &&
+      needs.rate-limit-check.result == 'success' &&
+      needs.idle-precheck.result == 'success' &&
+      needs.idle-precheck.outputs.has_work == 'true' &&
+      (needs.token-preflight.result == 'success' ||
+        (needs.token-preflight.result == 'skipped' &&
+          inputs.scheduled_preview &&
+          needs.rate-limit-check.outputs.dry_run == 'true'))
     runs-on: ubuntu-latest
     outputs:
       enable_readiness: ${{ steps.resolve.outputs.enable_readiness }}
