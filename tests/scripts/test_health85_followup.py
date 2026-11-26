@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from scripts import ci_time_budget as budget
 from scripts import health85_followup as follow
 
@@ -101,6 +102,8 @@ def test_qualifying_sources_publish_once_then_observe_merge(monkeypatch):
             return None
 
         def request(self, method, path, payload=None):
+            if method == "GET" and path.endswith("/issues/4501"):
+                return {"state": "open"}
             if "/actions/runs/" in path:
                 index = int(path.rsplit("/", 1)[1]) - 1000
                 return {
@@ -187,6 +190,8 @@ def test_branch_creation_crash_resumes_original_frozen_series_after_window_chang
             return {"object": {"sha": "a" * 40}}
 
         def request(self, method, path, payload=None):
+            if method == "GET" and path.endswith("/issues/4501"):
+                return {"state": "open"}
             if "/actions/runs/" in path:
                 i = int(path.rsplit("/", 1)[1]) - 1000
                 return {
@@ -206,3 +211,49 @@ def test_branch_creation_crash_resumes_original_frozen_series_after_window_chang
     result = follow.reconcile(API(), {}, NOW + timedelta(days=2))
     assert result["action"] == "evidence_pr_created"
     assert result["budget"] == frozen
+
+
+@pytest.mark.parametrize("frozen", [False, True], ids=["new-bundle", "frozen-branch"])
+def test_closed_delivery_issue_preserves_observations_without_publication(monkeypatch, frozen):
+    report = native_series(monkeypatch)
+    monkeypatch.delenv("GITHUB_RUN_ID")
+
+    class API:
+        def pages(self, path, **params):
+            assert path.endswith("/pulls")
+            return []
+
+        def optional(self, path):
+            assert path.endswith(follow.DELIVERY_BRANCH)
+            return {"object": {"sha": "a" * 40}} if frozen else None
+
+        def request(self, method, path, payload=None):
+            assert method == "GET" and path.endswith("/issues/4501")
+            return {"state": "closed", "state_reason": "completed"}
+
+    result = follow.reconcile(API(), report, NOW)
+    assert result["action"] == "delivery_issue_closed"
+    assert result["budget"] == follow.evaluate(report, NOW)
+    assert not result["completion_reconciled"]
+    assert (result["blocking"], result["drainable"]) == (0, 0)
+
+
+@pytest.mark.parametrize("state", [None, "unknown"])
+def test_unknown_delivery_issue_state_refuses_publication(monkeypatch, state):
+    report = native_series(monkeypatch)
+    monkeypatch.delenv("GITHUB_RUN_ID")
+
+    class API:
+        def pages(self, path, **params):
+            assert path.endswith("/pulls")
+            return []
+
+        def optional(self, path):
+            return None
+
+        def request(self, method, path, payload=None):
+            assert method == "GET" and path.endswith("/issues/4501")
+            return {"state": state}
+
+    with pytest.raises(RuntimeError, match="no recognized state"):
+        follow.reconcile(API(), report, NOW)
