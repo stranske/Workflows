@@ -55,13 +55,16 @@ jobs:
               -p "${HEALTH_PORT}:${HEALTH_PORT}" \
               "$image_ref" >/dev/null
           trap 'docker rm -f "$container_name" >/dev/null 2>&1 || true' EXIT
-          for attempt in $(seq 1 10); do
+          max_attempts=10
+          for attempt in $(seq 1 "$max_attempts"); do
             if curl --fail --silent --max-time 2 "$health_url" >/dev/null; then
               echo "Health check passed"
               exit 0
             fi
             echo "Waiting for container (attempt ${attempt})"
-            sleep 3
+            if [ "$attempt" -lt "$max_attempts" ] || [ "${DEBUG_BUILD}" = "true" ]; then
+              sleep 3
+            fi
           done
           echo "Container failed health check" >&2
           if [ "${DEBUG_BUILD}" = "true" ]; then

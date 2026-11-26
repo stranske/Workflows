@@ -7,6 +7,12 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**November 26, 21:04 UTC.** The two Integration formatters now use one default-branch lookup. The merged tree selected the real receiver branch for both callers and stopped on a missing helper or ref. The protected receiving PR remains under its own review. [Installed change](https://github.com/stranske/Workflows/pull/5284) · [Gate](https://github.com/stranske/Workflows/actions/runs/45887777831)
+
+The original Trend finding was resolved on its exact head. Maint 71 subsequently prepared 14 of 16 receiving heads and merged zero. The two remaining source-sync PRs need Maint 68 to refresh their stable bases with the existing promotion evidence. The six-hour duplicate-dispatch check on promotion 45849595770 clears at 21:31:15 UTC, provided no newer matching promotion or active writer intervenes. Those two rows are Inv-Man-Intake #1107 and Pension-Data #1061. At this readback the 16 receiving defaults matched 0/128 migrated cutover files, 0/16 newer verifier SDKs, and 16/16 catalog files. Seventy surplus vendored files remained across 14 receivers. [Trend resolution](https://github.com/stranske/Trend_Model_Project/pull/6250#discussion_r4713183073) · [Exact campaign and refresh reason](https://github.com/stranske/Workflows/actions/runs/45894655232/job/140165458579)
+
+The five additional structural keeps cover Docker smoke, Health 44, Maint 72, Maint 84 and Maint 86. Docker requires its own result on Dockerfile-only changes. Health 44 owns a previous-snapshot comparison that the weekly self-check cannot supply. Maint 72 writes receiving PRs and Maint 84 prunes Workflows issue stubs. Maint 86 is the only hosted writer of a rollback PR requiring human review. The trial to consolidate Maint 72's manifest reader incorrectly selected an extra receiver on a valid input, so the parsers remain separate. See the [grouped workflow decisions](workflow-decisions.md) for their production checks.
+
 The November 26 family review consolidated dependency PR labeling and lock maintenance in one Workflows-local definition. The label job retains the trusted PR-open event and the lock backstop keeps its separate read, publish and exact-head checks. The old standalone writer can be removed while retaining the automatic permission that a routed bot PR uses. [Real label write](https://github.com/stranske/Workflows/actions/runs/41415863321/job/125179423860) · [Stale lock input](https://github.com/stranske/Workflows/pull/2389)
 
 Health 40, Health 42 and Maint 52 stay. Two dedicated allowlist setup steps and their checkout-root scratch files were removed. The read-only YAML and API checks and the annotated review have different audiences. [Health 42 output](https://github.com/stranske/Workflows/actions/runs/45874189200/job/140097021853) · [Maint 52 output](https://github.com/stranske/Workflows/actions/runs/45874189409/job/140096991171)
@@ -151,15 +157,15 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 27 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 32 pending checks have a recorded structural decision |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
 | 3 · Scripts, tools and packages | 365/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 895/1,540 | 128/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 899/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,023/5,554** | **296/487** | **161/198** |
+| **Total** | **3,027/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,812 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,816 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
