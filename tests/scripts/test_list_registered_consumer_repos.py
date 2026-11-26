@@ -58,6 +58,24 @@ def test_extract_repos_stops_at_next_top_level_key(tmp_path) -> None:
     assert lrcr.extract_repos(manifest) == ["stranske/Only-One"]
 
 
+def test_extract_repos_stops_at_neighboring_env_key(tmp_path: Path) -> None:
+    manifest = _write_manifest(
+        tmp_path,
+        [
+            "env:",
+            "  REGISTERED_CONSUMER_REPOS: |",
+            "    stranske/One",
+            "",
+            "    stranske/One",
+            "  MAINTENANCE_MODE: weekly",
+            "  OTHER_VALUE: |",
+            "    stranske/Not-Registered",
+        ],
+    )
+
+    assert lrcr.extract_repos(manifest) == ["stranske/One", "stranske/One"]
+
+
 def test_extract_repos_returns_empty_for_missing_block(tmp_path) -> None:
     manifest = _write_manifest(
         tmp_path,
@@ -71,6 +89,15 @@ def test_extract_repos_returns_empty_for_missing_block(tmp_path) -> None:
     assert lrcr.extract_repos(manifest) == []
 
 
+@pytest.mark.parametrize("header", ["OTHER_KEY: |", "REGISTERED_CONSUMER_REPOS: weekly"])
+def test_extract_repos_can_require_literal_block(tmp_path: Path, header: str) -> None:
+    manifest = _write_manifest(tmp_path, ["env:", f"  {header}"])
+
+    assert lrcr.extract_repos(manifest) == []
+    with pytest.raises(ValueError, match="Could not find REGISTERED_CONSUMER_REPOS"):
+        lrcr.extract_repos(manifest, require_block=True)
+
+
 def test_extract_repos_returns_empty_for_empty_block(tmp_path) -> None:
     manifest = _write_manifest(
         tmp_path,
@@ -78,12 +105,14 @@ def test_extract_repos_returns_empty_for_empty_block(tmp_path) -> None:
             "env:",
             "  REGISTERED_CONSUMER_REPOS: |",
             "",
+            "  MAINTENANCE_MODE: weekly",
             "concurrency:",
             "  group: example",
         ],
     )
 
     assert lrcr.extract_repos(manifest) == []
+    assert lrcr.extract_repos(manifest, require_block=True) == []
 
 
 def test_main_custom_separator(tmp_path) -> None:

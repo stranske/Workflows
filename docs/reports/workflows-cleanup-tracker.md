@@ -7,6 +7,14 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**November 26, 22:10 UTC.** All 16 source-sync PRs merged. The receiving default branches have all 128 Agents 70 cutover files, all 16 corrected verifier SDK workflows and all 16 expected model catalogs. Zero source-sync PRs remained open. Seventy surplus files remain in 14 receivers. The promoted source predates the directory-pruning change. Verify the next ordinary promotion that includes it. The seven-day agent-PR and Keepalive comparison is due December 2. [Fleet result and receiving branches](https://github.com/stranske/Workflows/actions/runs/45901009621) · [Directory pruning change](https://github.com/stranske/Workflows/pull/5252)
+
+The final five architectural decisions keep Reusable 20 for receiving PR metadata, Maint 69 for publishing to Integration-Tests, the Muse launcher for its supported runtime refs, the connector moderator for its comment policy, and the managed fork publisher for the required Gate status on fork heads. All 198 original definitions now have a direction. Production acceptance is complete for 161. The other 37 have recorded completion conditions, including the shared hosted handoff for 12 legacy definitions. [Grouped decisions and individual receipts](workflow-decisions.md)
+
+This source change narrows Reusable 20's initial checkout on main from 435 tracked files to six. It combines two Integration source checkouts while preserving the eight-file receiving diff, lockfile and executable modes. It also moves Maint 72 onto the shared registry reader after repairing an indentation bug that gave Maint 83 two spurious targets. The proposed shared Muse helper failed on a supported historical runtime, so its launcher stays separate. Net hosted time for the new changes is unmeasured.
+
+The preceding Health 44 and Docker improvements are on main. Both required Gate jobs finished within 600 seconds (475 and 559 seconds). The merged Docker shell's ordinary failure path still made all ten probes and cleaned up, with the terminal wait removed. [Installed change](https://github.com/stranske/Workflows/pull/5285) · [Gate](https://github.com/stranske/Workflows/actions/runs/45895674233)
+
 **November 26, 21:04 UTC.** The two Integration formatters now use one default-branch lookup. The merged tree selected the real receiver branch for both callers and stopped on a missing helper or ref. The protected receiving PR remains under its own review. [Installed change](https://github.com/stranske/Workflows/pull/5284) · [Gate](https://github.com/stranske/Workflows/actions/runs/45887777831)
 
 The original Trend finding was resolved on its exact head. Maint 71 subsequently prepared 14 of 16 receiving heads and merged zero. The two remaining source-sync PRs need Maint 68 to refresh their stable bases with the existing promotion evidence. The six-hour duplicate-dispatch check on promotion 45849595770 clears at 21:31:15 UTC, provided no newer matching promotion or active writer intervenes. Those two rows are Inv-Man-Intake #1107 and Pension-Data #1061. At this readback the 16 receiving defaults matched 0/128 migrated cutover files, 0/16 newer verifier SDKs, and 16/16 catalog files. Seventy surplus vendored files remained across 14 receivers. [Trend resolution](https://github.com/stranske/Trend_Model_Project/pull/6250#discussion_r4713183073) · [Exact campaign and refresh reason](https://github.com/stranske/Workflows/actions/runs/45894655232/job/140165458579)
@@ -157,15 +165,15 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 32 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 37 pending checks have a recorded structural decision |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
-| 3 · Scripts, tools and packages | 365/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 899/1,540 | 128/177 | — |
+| 3 · Scripts, tools and packages | 366/752 | 34/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 908/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,027/5,554** | **296/487** | **161/198** |
+| **Total** | **3,037/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,816 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,826 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
