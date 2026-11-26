@@ -424,6 +424,11 @@ def new_operation_record(
 def operation_schema_path() -> Path:
     """Sealed packages keep the historical installed path; checkout reads docs/contracts."""
     root = Path(__file__).resolve().parents[1]
+    if (
+        os.environ.get("CLOSER_CORE_PACKAGE_ROOT") == str(root)
+        or (root / "closer-core-package.json").is_file()
+    ):
+        return root / OPERATION_SCHEMA_INSTALLED
     checkout_schema = root / OPERATION_SCHEMA_SOURCE
     if checkout_schema.is_file():
         return checkout_schema

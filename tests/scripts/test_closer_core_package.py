@@ -84,6 +84,33 @@ def test_relocate_and_run_validate(source_commit: str) -> None:
         assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
+def test_sealed_runtime_ignores_checkout_schema_after_verification(
+    source_commit: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
+    package = tmp_path / "sealed"
+    core_pkg.materialize_package_tree(ROOT, package, descriptor)
+    record = ROOT / "tests/fixtures/closer-operation/v1/minimal-operation.json"
+    probe_dependencies = core_pkg.verify_runtime_dependencies
+
+    def place_stale_schema_after_closed_tree_check(*args, **kwargs):
+        stale = package / core_pkg.OPERATION_SCHEMA_SOURCE
+        stale.parent.mkdir(parents=True)
+        stale.write_text(json.dumps({"not": {}}))
+        return probe_dependencies(*args, **kwargs)
+
+    monkeypatch.setattr(
+        core_pkg, "verify_runtime_dependencies", place_stale_schema_after_closed_tree_check
+    )
+    result = core_pkg.run_sealed_entrypoint(
+        package, descriptor, ["validate", str(record)], python=sys.executable
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert core_pkg.verify_installed_tree(package, descriptor) == [
+        "installed tree differs from closed package files"
+    ]
+
+
 def test_tampered_tree_refused_before_run(source_commit: str) -> None:
     descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
     with tempfile.TemporaryDirectory() as tmp:
