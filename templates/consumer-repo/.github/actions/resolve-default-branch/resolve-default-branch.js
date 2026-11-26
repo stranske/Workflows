@@ -35,6 +35,7 @@ async function resolveDefaultBranch({
   repo = 'Workflows',
   fallbackRef = '',
   failOnError = true,
+  requireRetryHelper = false,
   task = 'resolve-default-branch',
   env = process.env,
   cwd = process.cwd(),
@@ -42,7 +43,7 @@ async function resolveDefaultBranch({
 }) {
   const fallback = String(fallbackRef || '').trim();
   const target = `${owner}/${repo}`;
-  let withRetry = (fn) => fn(github);
+  let withRetry;
 
   const retryHelper = loadRetryHelper({ env, cwd, loader });
   if (retryHelper?.createTokenAwareRetry) {
@@ -57,6 +58,12 @@ async function resolveDefaultBranch({
       withRetry = retry.withRetry;
     }
   }
+
+  if (!withRetry && requireRetryHelper) {
+    core.setFailed(`Token-aware retry helper unavailable for ${target}`);
+    return '';
+  }
+  withRetry ??= (fn) => fn(github);
 
   const setResolvedRef = (ref) => {
     core.setOutput('ref', ref);

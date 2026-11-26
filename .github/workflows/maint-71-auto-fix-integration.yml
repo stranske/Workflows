@@ -143,26 +143,11 @@ jobs:
       - name: Resolve integration repo default branch
         if: steps.check_status.outputs.should_fix == 'true' && steps.integration_token.outputs.token_available == 'true'
         id: integration_ref
-        uses: actions/github-script@v9
+        uses: ./.github/actions/resolve-default-branch
         with:
-          script: |
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
-              github,
-              core,
-              env: process.env,
-              task: 'maint-71-auto-fix-integration-ref',
-              capabilities: ['contents:read']
-            });
-            const { data } = await withRetry((client) => client.rest.repos.get({
-              owner: 'stranske',
-              repo: 'Workflows-Integration-Tests'
-            }));
-            if (!data?.default_branch) {
-              core.setFailed('Could not determine integration repo default branch');
-              return;
-            }
-            core.setOutput('ref', data.default_branch);
+          repo: Workflows-Integration-Tests
+          task: maint-71-auto-fix-integration-ref
+          require_retry_helper: 'true'
 
       - name: Checkout Integration-Tests repo
         if: steps.check_status.outputs.should_fix == 'true' && steps.integration_token.outputs.token_available == 'true'

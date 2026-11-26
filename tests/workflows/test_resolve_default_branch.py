@@ -28,6 +28,8 @@ def test_resolve_default_branch_action_contract_and_template_copy() -> None:
     resolve_step = action["runs"]["steps"][0]
     assert resolve_step["env"]["RESOLVE_DEFAULT_BRANCH_ACTION_PATH"] == "${{ github.action_path }}"
     script = resolve_step["with"]["script"]
+    assert resolve_step["env"]["REQUIRE_RETRY_HELPER"] == "${{ inputs.require_retry_helper }}"
+    assert "requireRetryHelper: process.env.REQUIRE_RETRY_HELPER" in script
     assert "resolve-default-branch.js" in script
     assert "RESOLVE_DEFAULT_BRANCH_ACTION_PATH" in script
     assert "GITHUB_ACTION_PATH" not in script
@@ -96,6 +98,45 @@ const { resolveDefaultBranch } = require('./.github/actions/resolve-default-bran
         check=False,
     )
     assert result.returncode == 0, result.stderr + result.stdout
+
+
+@skip_if_no_node
+def test_integration_formatters_require_token_aware_retry(tmp_path) -> None:
+    for workflow in ("maint-70-fix-integration-formatting", "maint-71-auto-fix-integration"):
+        definition = yaml.safe_load(
+            (REPO_ROOT / ".github/workflows" / f"{workflow}.yml").read_text()
+        )
+        job = next(iter(definition["jobs"].values()))
+        lookup = next(step for step in job["steps"] if step.get("id") == "integration_ref")
+        assert lookup["uses"] == "./.github/actions/resolve-default-branch"
+        assert lookup["with"]["repo"] == "Workflows-Integration-Tests"
+        assert lookup["with"]["require_retry_helper"] == "true"
+
+    # Simulate an incomplete checkout. Ordinary partial-checkout callers can still resolve.
+    script = r"""
+const assert = require('node:assert/strict');
+const { resolveDefaultBranch } = require(process.argv[1]);
+(async () => {
+  for (const strict of [true, false]) {
+    let reads = 0;
+    const failures = [];
+    const github = { rest: { repos: { get: async () => {
+      reads++;
+      return { data: { default_branch: 'release' } };
+    } } } };
+    const core = { setOutput() {}, setFailed(message) { failures.push(message); } };
+    const ref = await resolveDefaultBranch({ github, core, env: {}, requireRetryHelper: strict });
+    assert.equal(reads, strict ? 0 : 1);
+    assert.equal(failures.length, strict ? 1 : 0);
+    assert.equal(ref, strict ? '' : 'release');
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+    subprocess.run(
+        ["node", "-e", script, str(ACTION_DIR / "resolve-default-branch.js")],
+        cwd=tmp_path,
+        check=True,
+    )
 
 
 @skip_if_no_node
