@@ -1,0 +1,241 @@
+name: Maint 90 Sync Finding Assessment
+# Automatic producer for the Maint 71 finding-verification fallback
+# (config/consumer_sync_review_policy.json, finding_verification_fallback).
+# A sync-PR finding whose originating reviewer leaves the targeted reassessment
+# unanswered past the window gets an independent Codex assessment and a
+# regression run with a negative control. A PASS is published on the delivery's
+# durable issue and Maint 71 is dispatched with the resolution proof; anything
+# else is handed to the owner once per finding and head. Maint 71 remains the
+# only resolver and merger.
+
+on:
+  schedule:
+    - cron: "11,41 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Assess and validate, but do not comment or dispatch Maint 71"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maint-90-sync-finding-assessment
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+      has_assessments: ${{ steps.discover.outputs.has_assessments }}
+      redispatch: ${{ steps.discover.outputs.redispatch }}
+      has_work: ${{ steps.discover.outputs.has_work }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: List registered consumer repositories
+        id: repos
+        run: |
+          repos=$(python scripts/list_registered_consumer_repos.py --separator ',')
+          echo "list=${repos}" >> "$GITHUB_OUTPUT"
+      - name: Select held sync-PR findings
+        id: discover
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          REGISTERED_REPOS: ${{ steps.repos.outputs.list }}
+          TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT }}
+          script: |
+            const { discover } = require('./.github/scripts/maint90_finding_assessment_run.js');
+            await discover({ github, context, core });
+
+  assess:
+    needs: discover
+    if: needs.discover.outputs.has_assessments == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out the receiver at the exact head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ matrix.item.candidate.repository }}
+          ref: ${{ matrix.item.candidate.head_sha }}
+          path: case/receiver
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out the Workflows delivery source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stranske/Workflows
+          ref: ${{ matrix.item.candidate.source_commit }}
+          path: case/workflows
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Write the assessment prompt
+        env:
+          ITEM_JSON: ${{ toJSON(matrix.item) }}
+        run: |
+          mkdir -p out
+          node -e '
+            const fs = require("fs");
+            const item = JSON.parse(process.env.ITEM_JSON);
+            fs.writeFileSync("out/item.json", JSON.stringify(item, null, 2));
+            fs.writeFileSync("out/prompt.txt", item.prompt);
+          '
+      - name: Install Codex CLI
+        run: |
+          set -euo pipefail
+          prefix=".github/actions/verifier-codex-cli"
+          npm ci --prefix "$prefix" --ignore-scripts
+          echo "CODEX_CLI=${GITHUB_WORKSPACE}/${prefix}/node_modules/.bin/codex" >> "$GITHUB_ENV"
+      - name: Run the independent assessment (codex-6.1-sol-medium)
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_HOME: ${{ runner.temp }}/.codex-maint90
+        run: |
+          set -euo pipefail
+          if [ -z "$CODEX_AUTH_JSON" ]; then
+            echo "::error::CODEX_AUTH_JSON is not set"
+            exit 1
+          fi
+          mkdir -p "$CODEX_HOME"
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          set +e
+          (cd case && "$CODEX_CLI" exec \
+            --sandbox read-only \
+            --skip-git-repo-check \
+            --model gpt-6.1-sol \
+            -c 'model_reasoning_effort="medium"' \
+            --output-last-message ../out/codex-output.md \
+            - < ../out/prompt.txt > ../out/codex-stdout.log 2> ../out/codex-stderr.log)
+          status=$?
+          set -e
+          rm -rf "$CODEX_HOME"
+          tail -c 4000 out/codex-stderr.log || true
+          echo "codex exit ${status}"
+          touch out/codex-output.md
+      - name: Remove Codex credentials
+        if: always()
+        env:
+          CODEX_HOME: ${{ runner.temp }}/.codex-maint90
+        run: rm -rf "$CODEX_HOME"
+      - name: Parse the assessment
+        run: |
+          node -e '
+            const fs = require("fs");
+            const { parseAssessment } = require("./.github/scripts/maint71_finding_assessment.js");
+            const parsed = parseAssessment(fs.readFileSync("out/codex-output.md", "utf8"));
+            fs.writeFileSync("out/assessment.json", JSON.stringify(parsed, null, 2));
+            console.log(JSON.stringify(parsed, null, 2));
+          '
+      - name: Upload assessment
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: assessment-${{ matrix.item.slug }}
+          path: |
+            out/item.json
+            out/assessment.json
+            out/codex-output.md
+          retention-days: 30
+
+  regress:
+    # No secrets: this job executes the verifier's test command.
+    needs: [discover, assess]
+    if: needs.discover.outputs.has_assessments == 'true' && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out the receiver at the exact head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ matrix.item.candidate.repository }}
+          ref: ${{ matrix.item.candidate.head_sha }}
+          path: case/receiver
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out the Workflows delivery source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stranske/Workflows
+          ref: ${{ matrix.item.candidate.source_commit }}
+          path: case/workflows
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download assessment
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        continue-on-error: true
+        with:
+          name: assessment-${{ matrix.item.slug }}
+          path: in
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "22"
+      - name: Run the regression with and without the fix
+        env:
+          ITEM_JSON: ${{ toJSON(matrix.item) }}
+        run: |
+          mkdir -p out in
+          printf '%s' "$ITEM_JSON" > out/item.json
+          python .github/scripts/maint90_run_regression.py \
+            --assessment in/assessment.json --item out/item.json \
+            --receiver case/receiver --workflows case/workflows \
+            --output out/regression.json
+      - name: Upload regression
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: regression-${{ matrix.item.slug }}
+          path: out/regression.json
+          retention-days: 30
+
+  publish:
+    needs: [discover, assess, regress]
+    if: always() && needs.discover.result == 'success' && needs.discover.outputs.has_work == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download assessments and regressions
+        if: needs.discover.outputs.has_assessments == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        continue-on-error: true
+        with:
+          path: assessments
+      - name: Publish verifications and dispatch Maint 71
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          MATRIX_JSON: ${{ needs.discover.outputs.matrix }}
+          REDISPATCH_JSON: ${{ needs.discover.outputs.redispatch }}
+          ARTIFACT_ROOT: assessments
+          DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+          PUBLISHER_LOGIN: stranske
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT }}
+          script: |
+            const { publish } = require('./.github/scripts/maint90_finding_assessment_run.js');
+            await publish({ github, context, core });

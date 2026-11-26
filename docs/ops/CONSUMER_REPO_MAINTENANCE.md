@@ -2397,6 +2397,31 @@ current head's request could never elapse (trip-planner#1957, 2026-11-06). The
 current head still needs its own bound request, and the assessment itself stays
 exact-head. Substantive feedback after that first request refuses the path.
 
+**Automatic producer (Maint 90).** Until 2026-11-27 nothing produced these
+results, so every unanswered finding waited for a person: four sync PRs in
+November (trip-planner#1957, Portable-Alpha-Extension-Model#2454 and #2536,
+Trend_Model_Project#6250) held the fleet for 8 hours to 7 days and all were
+cleared by hand. `maint-90-sync-finding-assessment.yml` now runs twice an hour.
+It selects unresolved threads whose first targeted request is older than the
+window, with a bound request on the current head and no substantive reviewer
+reply. It runs an independent `codex-6.1-sol-medium` assessment in a read-only
+sandbox. Then, in a job with no secrets, it runs the named test with the fix
+(must exit 0) and with the fix reverted (must exit non-zero). Commands are
+limited to `python -m pytest`, `pytest`, `node --test` and `npm test --` and run
+without a shell. A PASS is checked against the production validators, published
+on the durable issue and dispatched to Maint 71 with the resolution proof.
+Maint 71 still performs every check above and remains the only resolver.
+A FAIL, a broken negative control, unverifiable fix provenance or a rejected
+proof becomes one `maint71-finding-assessment-attempt:v1` hand-off comment for
+that finding and head; a new head gets a new assessment. A published
+verification is re-dispatched while Maint 71 is busy and handed off after two
+completed Maint 71 runs that leave the thread open. The Codex connector rotates
+the cheer after its stock summary, so the known cheers are listed in
+`inline_targeted_stock_completion.summary_variants`. A receipt-shaped reply with
+an unlisted cheer still counts as an answer, and Maint 90 reports it as
+`unknown_stock_summary` so the list can be extended. Maint 90 prints
+`findings held N, drainable now M` on every run.
+
 Pass the normal resolution proof with
 `acceptance_mode=independent-verification` and
 `reviewer_acceptance_url=<durable-issue>#issuecomment-<id>`. Maint 71 fetches
