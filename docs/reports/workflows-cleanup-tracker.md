@@ -7,7 +7,7 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
-November 26, 2026 UTC. Decisions cover **2,984/5,554 files, 274/487 folders and 160/198 workflows** in the November 19 inventory. Of 27 original root files, 26 have placement decisions. The current root has 22 tracked files. The remaining root decision requires a receiving Linux lint assertion for the Actionlint executable. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Latest verified rolling comparison](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
+November 26, 2026 UTC. Decisions cover **2,984/5,554 files, 274/487 folders and 161/198 workflows** in the November 19 inventory. Of 27 original root files, 26 have placement decisions. The current root has 22 tracked files. The remaining root decision requires a receiving Linux lint assertion for the Actionlint executable. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Latest verified rolling comparison](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
 
 - **Earlier twelve-hour sample through 09:40 Chicago time, November 25.** Main went from 4,770 to 4,720 tracked paths and from 99,747,169 to 97,226,347 checkout bytes. Root files stayed at 22. Published decisions changed by +104 files, +9 folders and +12 workflows. Of 40 merged cleanup Gates, 17 selected both primary jobs. 34/34 selected primary jobs met 600 seconds, with a maximum of 540 seconds. 11 whole Gates exceeded 600 seconds. Billed cost was unavailable. [Default comparison](https://github.com/stranske/Workflows/compare/fd856d39926baa878e6ff8043dcef4a3ec28d431...8fbd7dd7ecaf75ca893cf933967d24c3c1ccdbf4)
 - **First hosted handoff.** The shared-state comparison retained the first eligible handoff in Auto-Pilot on both hosts and recognized the existing experiment reservation after publication. Auto-Pilot monitored the already-open #5135 from #5136, added `agent:auto`, and recorded `REVIEW_NEEDED` in the capability assessment. The scoped read found zero new shared-opener starts. Two Cursor keepalive continuations used the existing repair PR #5135. The manual hosted opener still needs an ordinary judge and start, a Mac feedback database receipt, and restart, outage and concurrent-claim verification. [First handoff](https://github.com/stranske/Workflows/issues/5136) · [Matched shadow](https://github.com/stranske/Orchestrator/actions/runs/45554321359/job/139002622861)
@@ -38,7 +38,7 @@ November 26, 2026 UTC. Decisions cover **2,984/5,554 files, 274/487 folders and 
 - **Keepalive state ownership.** Keep the root file for the active Workflows checkout and compiled delivery plan. Keep the template copy for the independently documented manual install. Withholding either file broke its reader and restoring it recovered the same genuine state. The guide now tells maintainers to inspect the compiler’s resolved source and preserves the manual route. [Updated source-selection guide](../guides/dual-location-sync-gotcha.md)
 - **Legacy local instruction parser.** Its only local runtime reader now owns the same parser, retaining both the authentic 2,612-byte result and the existing named Node check. The managed plan and the independent Trend consumer remain unchanged. [Guarded source](https://github.com/stranske/Workflows/pull/5219)
 - **Standalone dependency starter retired.** The former new-copy source is absent. Its 3,566-byte historical recipe remains recoverable by hash. The 608-file receiver census found zero exact or normalized renamed copies. Travel retains its independent Maint 51. The corrected managed consumer guide still needs ordinary installation, and the November 30 weekly lock publication stays open. The current guide matches 0/16 receiving defaults. [Source retirement](https://github.com/stranske/Workflows/pull/5243) · [Native paired verification](https://github.com/stranske/Workflows/actions/runs/45795499450) · [Recover the old recipe](https://github.com/stranske/Workflows/blob/3c2524c625d0bd46c3208abc2f6ec44050363674/templates/dependency-refresh.yml) · [Current dependency tracking](https://github.com/stranske/Workflows/issues/2390)
-- **Health 68 fleet alert coverage reopened.** The ordinary comparison found 241 differences and reported all 16 repositories covered. The exact PR heads carried the previous plan and lacked the revised user guide, so the actionable alert was skipped for uncovered drift. Verified manual scoped artifacts and fleet comparison remain in use. The source lane can test stale-plan rejection against current-plan coverage on the next ordinary full run. [Native comparison](https://github.com/stranske/Workflows/actions/runs/45794376564/artifacts/15104715702) · [Source repair](https://github.com/stranske/Workflows/pull/5245)
+- **Health 68 fleet alert coverage verified.** The preceding comparisons marked all 16 prior-plan PRs as coverage for newer plans and skipped their alerts. The first ordinary run after #5245 reported 16 actionable receivers and published the corresponding alert. Authentic matching-plan controls still cover the intended recipients. Scoped operator reports remain artifact-only. [Original misclassification](https://github.com/stranske/Workflows/actions/runs/45794376564/artifacts/15104715702) · [Installed fleet result](https://github.com/stranske/Workflows/actions/runs/45800627725/artifacts/15106464263) · [Actionable alert](https://github.com/stranske/Workflows/issues/5248) · [Source correction](https://github.com/stranske/Workflows/pull/5245)
 - **Copilot instructions placement retained.** All 16 approved defaults have the original managed file at GitHub’s repository-wide discovery path. Both alternative targets compiled without that discovery path. The authoring correction and its ordinary receiver rollout have their own evidence. The four legacy leaves and their coordinated transition remain open. [Discovery contract](https://docs.github.com/en/copilot/concepts/prompting-and-context/custom-instructions#about-repository-custom-instructions) · [Authoring correction](https://github.com/stranske/Workflows/pull/5244)
 - **Maint 78 CLI package.** Keep the dedicated 0.160.0 manifest, lock and package folder. The verifier’s 0.153.2 lock failed installation. Moving the exact pair broke the reader, and retargeting changed the evidence fingerprint. Restoring the original path reproduced the native 67-case readiness report. [Native readiness archive](https://github.com/stranske/Workflows/actions/runs/45117733830/artifacts/14791928017)
 - **Signature action wiring.** Keep its public action and directory. The current named host case passes the declared job set and expected 12-character hash through the action. The missing-path and mismatched-hash controls both failed before restoration. [Default 3.13 coverage archive, including the named signature test](https://github.com/stranske/Workflows/actions/runs/45785874685/artifacts/15100679950)
@@ -118,13 +118,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 160/198 completed · 2 drainable now · 36 blocked |
+| 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
 | 3 · Scripts, tools and packages | 346/752 | 23/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 874/1,540 | 117/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 197/334 | 26/47 | — |
-| **Total** | **2,984/5,554** | **274/487** | **160/198** |
+| **Total** | **2,984/5,554** | **274/487** | **161/198** |
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
@@ -132,9 +132,9 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 |---|---:|
 | [Keep in current role](workflow-decisions.md#keep) | 114 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 10 |
-| [Other verified decisions](workflow-decisions.md#verified) | 36 |
+| [Other verified decisions](workflow-decisions.md#verified) | 37 |
 | [Awaiting verification](workflow-decisions.md#waiting) | 17 |
-| [In review](workflow-decisions.md#review) | 5 |
+| [In review](workflow-decisions.md#review) | 4 |
 | [Proposed changes](workflow-decisions.md#proposed) | 16 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
