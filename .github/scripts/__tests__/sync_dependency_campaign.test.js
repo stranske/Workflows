@@ -2135,13 +2135,15 @@ test('a blocked fleet waits for complete exact-head review clearance, then wakes
   const live = { state: 'open', draft: false, body: formatDeliveryRecord(record),
     head: { sha: base.head_sha, ref: base.branch } };
   const review = { headRefOid: base.head_sha, reviewDecision: null,
-    reviewThreads: { nodes: [{ isResolved: true }], pageInfo: { hasNextPage: false } } };
-  const reconcile = async (rows, pullRequest = review, pr = live) => {
-    const client = { rest: { pulls: { get: async () => ({ data: pr }) } },
+    reviewThreads: { nodes: [{ isResolved: true, isOutdated: false }], pageInfo: { hasNextPage: false } } };
+  const reconcile = async (rows, pullRequest = review, pr = live, rules = []) => {
+    const client = { rest: { pulls: { get: async () => ({ data: pr }) },
+      repos: { getBranchRules() {}, getBranchProtection: async () => ({ data: {} }) } },
+      paginate: async () => { if (rules instanceof Error) throw rules; return rules; },
       graphql: async (_query, binding) => {
         assert.deepEqual(binding, { owner: 'stranske', repo: 'Trend_Model_Project', pr: 6250 });
         return { repository: { pullRequest: { state: 'OPEN', isDraft: pr.draft,
-          headRefName: pr.head.ref, body: pr.body, ...pullRequest } } };
+          headRefName: pr.head.ref, baseRefName: 'main', body: pr.body, ...pullRequest } } };
       } };
     return reconcileClosedDeliveryHandoffs(rows, [], client, operation => operation(client), now);
   };
@@ -2151,7 +2153,7 @@ test('a blocked fleet waits for complete exact-head review clearance, then wakes
     { ...review, reviewDecision: 'CHANGES_REQUESTED' },
     { ...review, headRefOid: 'd'.repeat(40) },
     { ...review, reviewThreads: { nodes: [], pageInfo: { hasNextPage: true } } },
-    { ...review, reviewThreads: { ...review.reviewThreads, nodes: [{ isResolved: false }] } },
+    { ...review, reviewThreads: { ...review.reviewThreads, nodes: [{ isResolved: false, isOutdated: false }] } },
   ]) {
     assert.deepEqual((await reconcile([blocked], partial)).records, []);
   }
@@ -2159,6 +2161,14 @@ test('a blocked fleet waits for complete exact-head review clearance, then wakes
     ...record, delivery_state: 'sealed', review_started_at: prior, sealed_at: prior,
     sealed_head_sha: 'd'.repeat(40),
   }) })).records, []);
+
+  const outdated = { ...review, reviewThreads: { ...review.reviewThreads,
+    nodes: [{ isResolved: false, isOutdated: true }] } };
+  assert.equal((await reconcile([blocked], outdated)).records.length, 1);
+  assert.equal((await reconcile([blocked], outdated, live, [{
+    type: 'pull_request', parameters: { required_review_thread_resolution: true },
+  }])).records.length, 0);
+  assert.equal((await reconcile([blocked], outdated, live, new Error('rules unavailable'))).records.length, 0);
 
   const recovered = await reconcile([blocked]);
   const queued = mergeDeliveryHandoffs(report.handoff_records, recovered.records, now);
