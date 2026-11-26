@@ -309,8 +309,15 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     }
 
     async function runCase({
-      headRepo, baseRepo, error, authoredHead = { sha: head }, liveHead = head, existingComment,
+      headRepo, baseRepo, error, authoredHead = head, liveHead = head, existingComment,
+      includeSummaryHead = true,
     }) {
+      const pullRequest = { number: 1 };
+      if (authoredHead) {
+        pullRequest.head = { sha: authoredHead, repo: { full_name: headRepo } };
+        pullRequest.base = { repo: { full_name: baseRepo } };
+      }
+      const summaryHead = includeSummaryHead ? ` head=${head.slice(0, 12)}` : '';
       const warnings = [];
       const summaryRaw = [];
       let summaryWrites = 0;
@@ -356,7 +363,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           if (id === 'fs') {
             return {
               existsSync: () => true,
-              readFileSync: () => `<!-- gate-summary: pr=1 head=${head.slice(0, 12)} -->\\nGATE SUMMARY BODY`,
+              readFileSync: () => `<!-- gate-summary: pr=1${summaryHead} -->\\nGATE SUMMARY BODY`,
             };
           }
           if (id === './.github/scripts/comment-dedupe.js') return { upsertAnchoredComment };
@@ -367,13 +374,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           eventName: 'pull_request',
           sha: 'a55d942429457202e2cd1fe33170714875093679',
           repo: { owner: 'stranske', repo: 'Workflows' },
-          payload: {
-            pull_request: {
-              number: 1,
-              head: { ...authoredHead, repo: { full_name: headRepo } },
-              base: { repo: { full_name: baseRepo } },
-            },
-          },
+          payload: { pull_request: pullRequest },
         },
         github,
       };
@@ -400,6 +401,10 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       const out = {
         fork_read_only: await runCase({
           ...FORK, error: makeError(403, 'Resource not accessible by integration'),
+        }),
+        fork_read_only_pr_only_summary: await runCase({
+          ...FORK, includeSummaryHead: false,
+          error: makeError(403, 'Resource not accessible by integration'),
         }),
         fork_read_only_update: await runCase({
           ...FORK,
@@ -447,7 +452,13 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         happy_path: await runCase({ ...FORK, error: null }),
         missing_authored_head: await runCase({
           ...FORK,
-          authoredHead: {},
+          authoredHead: null,
+          error: makeError(403, 'Resource not accessible by integration'),
+        }),
+        missing_authored_head_pr_only_summary: await runCase({
+          ...FORK,
+          authoredHead: null,
+          includeSummaryHead: false,
           error: makeError(403, 'Resource not accessible by integration'),
         }),
         stale_fork: await runCase({
@@ -498,10 +509,13 @@ def test_comment_fork_read_only_403_does_not_fail_the_gate(
     assert case["threw"] is None, case["threw"]
 
 
+@pytest.mark.parametrize("scenario", ["fork_read_only", "fork_read_only_pr_only_summary"])
 def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
-    comment_outcomes: dict[str, Any],
+    comment_outcomes: dict[str, Any], scenario: str
 ) -> None:
-    case = comment_outcomes["fork_read_only"]
+    case = comment_outcomes[scenario]
+    assert case["threw"] is None, case
+    assert case["summaryWrites"] == 1, case
     assert case["pullRequests"] == [
         {"owner": "stranske", "repo": "Workflows", "pull_number": 1}
     ], case
@@ -509,7 +523,6 @@ def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
     assert [request["issue_number"] for request in case["commentRequests"]] == [1], case
     assert case["summaryRaw"] == [case["commentRequests"][0]["body"]], case
     assert "GATE SUMMARY BODY" in case["summaryRaw"][0], case
-    assert case["summaryWrites"] == 1, case
 
 
 def test_comment_fork_read_only_update_falls_back_to_the_job_summary(
@@ -580,10 +593,13 @@ def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any]) -> None:
     assert [request["issue_number"] for request in case["commentRequests"]] == [1], case
 
 
+@pytest.mark.parametrize(
+    "scenario", ["missing_authored_head", "missing_authored_head_pr_only_summary"]
+)
 def test_comment_without_an_authored_fork_head_skips_publication(
-    comment_outcomes: dict[str, Any],
+    comment_outcomes: dict[str, Any], scenario: str
 ) -> None:
-    case = comment_outcomes["missing_authored_head"]
+    case = comment_outcomes[scenario]
     assert case["threw"] is None, case
     assert any("no matching authored PR head" in warning for warning in case["warnings"]), case
     assert case["pullRequests"] == [], case
