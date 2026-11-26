@@ -306,7 +306,9 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       return e;
     }
 
-    async function runCase({ headRepo, baseRepo, error, authoredHead = headSha, liveHead = headSha }) {
+    async function runCase({
+      headRepo, baseRepo, error, authoredHead = headSha, liveHead = headSha, useResolvedPr = false,
+    }) {
       const warnings = [];
       const summaryRaw = [];
       const apiCalls = [];
@@ -338,8 +340,13 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           },
         },
       };
+      const pullRequest = {
+        number: 1,
+        head: { sha: authoredHead, repo: { full_name: headRepo } },
+        base: { repo: { full_name: baseRepo } },
+      };
       const sandbox = {
-        process: { env: {} },
+        process: { env: useResolvedPr ? { GATE_PR_JSON: JSON.stringify(pullRequest) } : {} },
         console: { log() {} },
         require: (id) => {
           if (id === 'path') return { resolve: (p) => '/tmp/' + p };
@@ -356,12 +363,9 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         context: {
           repo: { owner: 'stranske', repo: 'Workflows' },
           eventName: 'pull_request',
+          sha: 'c'.repeat(40),
           payload: {
-            pull_request: {
-              number: 1,
-              head: { sha: authoredHead, repo: { full_name: headRepo } },
-              base: { repo: { full_name: baseRepo } },
-            },
+            pull_request: useResolvedPr ? { number: pullRequest.number } : pullRequest,
           },
         },
         github: githubStub,
@@ -429,6 +433,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         }),
         fork_server_error: await runCase({ ...FORK, error: makeError(500, 'boom') }),
         happy_path: await runCase({ ...FORK, error: null }),
+        resolved_pr_head: await runCase({ ...FORK, useResolvedPr: true, error: null }),
         missing_head: await runCase({ ...FORK, authoredHead: null, error: null }),
         superseded_head: await runCase({ ...FORK, liveHead: 'b'.repeat(40), error: null }),
       };
@@ -528,8 +533,11 @@ def test_comment_non_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) 
     assert case["threw"]["status"] == 500
 
 
-def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any]) -> None:
-    case = comment_outcomes["happy_path"]
+@pytest.mark.parametrize("name", ["happy_path", "resolved_pr_head"])
+def test_comment_with_matching_authored_head_is_silent(
+    comment_outcomes: dict[str, Any], name: str
+) -> None:
+    case = comment_outcomes[name]
     assert case["apiCalls"] == [["get", 1], ["create", 1]], case
     assert case["threw"] is None
     assert case["warnings"] == []
