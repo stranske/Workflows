@@ -136,6 +136,7 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
     assert summary.endswith(
         "\n\n_Snapshot at publication. See the linked run and required checks for final results._"
     )
+    assert "_Updated automatically; will refresh" not in summary
 
 
 def test_dedupe_runs_prefers_present_and_priority() -> None:
