@@ -93,7 +93,10 @@ def test_source_delta_selects_only_changed_manifest_sources() -> None:
             "scripts/langchain/capability_check.py",
             ["scripts/langchain/response_content.py", "scripts/langchain/trace_utils.py"],
         ),
-        ("scripts/langchain/issue_optimizer.py", ["scripts/langchain/trace_utils.py"]),
+        (
+            "scripts/langchain/issue_optimizer.py",
+            ["scripts/langchain/response_content.py", "scripts/langchain/trace_utils.py"],
+        ),
     ],
 )
 def test_source_delta_includes_trace_helper_for_consolidated_importers(

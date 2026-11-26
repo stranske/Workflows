@@ -29,8 +29,10 @@ from scripts.langchain.structured_output import (
 try:
     from scripts.langchain.injection_guard import check_prompt_injection
     from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
+    from scripts.langchain.response_content import text_from_response_content
 except ModuleNotFoundError:
     from injection_guard import check_prompt_injection
+    from response_content import text_from_response_content
     from issue_pr_context import ContextOptions, build_issue_context
 
 AGENT_LIMITATIONS = [
@@ -1089,8 +1091,8 @@ def apply_suggestions(
                         operation="apply_suggestions",
                         issue_number=issue_num,
                     )
-                    content = getattr(response, "content", None) or str(response)
-                    formatted = content.strip()
+                    content = getattr(response, "content", response)
+                    formatted = (text_from_response_content(content) or "").strip()
                     if _formatted_output_valid(formatted):
                         formatted = _deduplicate_task_lines(formatted)
                         if _section_duplication_ratio(formatted) > 0:
@@ -1133,8 +1135,8 @@ def apply_suggestions(
                                     operation="apply_suggestions",
                                     issue_number=issue_num,
                                 )
-                                content = getattr(response, "content", None) or str(response)
-                                formatted = content.strip()
+                                content = getattr(response, "content", response)
+                                formatted = (text_from_response_content(content) or "").strip()
                                 if _formatted_output_valid(formatted):
                                     formatted = _deduplicate_task_lines(formatted)
                                     if _section_duplication_ratio(formatted) > 0:

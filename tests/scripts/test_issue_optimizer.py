@@ -203,6 +203,54 @@ def test_apply_suggestions_llm_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "## Tasks" in result["formatted_body"]
 
 
+@pytest.mark.parametrize(
+    ("content", "accepted"),
+    [
+        (
+            [
+                {"type": "text", "text": "## Tasks\n- [ ] Preserve"},
+                {"type": "thinking", "text": "Reasoning must not enter the issue"},
+                {
+                    "type": "text",
+                    "text": " original task\n\n## Acceptance Criteria\n- [ ] pytest passes",
+                },
+            ],
+            True,
+        ),
+        (
+            [
+                {
+                    "type": "thinking",
+                    "text": "## Tasks\n- [ ] Hidden\n\n## Acceptance Criteria\n- [ ] Hidden",
+                },
+                {"type": "tool_use", "text": "Not issue text"},
+            ],
+            False,
+        ),
+        ([{"type": "text", "text": "Unstructured response"}], False),
+    ],
+    ids=["ordered-mixed-blocks", "no-text", "invalid-markdown"],
+)
+def test_apply_suggestions_extracts_only_ordered_valid_provider_text(
+    monkeypatch: pytest.MonkeyPatch, content: list[dict[str, str]], accepted: bool
+) -> None:
+    mock_chain = mock.MagicMock()
+    mock_chain.invoke.return_value = types.SimpleNamespace(content=content)
+    _install_fake_langchain(monkeypatch, mock_chain)
+    monkeypatch.setattr(issue_optimizer, "_get_llm_client", lambda: (mock.MagicMock(), "anthropic"))
+
+    result = issue_optimizer.apply_suggestions("Original body", {}, use_llm=True)
+
+    assert result["used_llm"] is accepted
+    assert result["provider_used"] == ("anthropic" if accepted else None)
+    assert "Reasoning must not enter the issue" not in result["formatted_body"]
+    assert "Hidden" not in result["formatted_body"]
+    if accepted:
+        assert "- [ ] Preserve original task" in result["formatted_body"]
+    else:
+        assert "Original body" in result["formatted_body"]
+
+
 def test_extract_suggestions_json_invalid_payload() -> None:
     assert issue_optimizer._extract_suggestions_json("no marker") is None
     assert issue_optimizer._extract_suggestions_json("suggestions-json: {not json") is None
@@ -1093,8 +1141,12 @@ def test_apply_suggestions_recovers_with_openai_after_github_models_token_limit(
     primary_chain = mock.MagicMock()
     primary_chain.invoke.side_effect = RuntimeError("token limit")
     openai_chain = mock.MagicMock()
-    openai_chain.invoke.return_value = _response_with(
-        "## Tasks\n- [ ] Preserve original task\n\n## Acceptance Criteria\n- [ ] pytest passes"
+    openai_chain.invoke.return_value = types.SimpleNamespace(
+        content=[
+            {"type": "output_text", "text": "## Tasks\n- [ ] Preserve original task"},
+            {"type": "reasoning", "text": "Not issue text"},
+            {"type": "output_text", "text": "\n\n## Acceptance Criteria\n- [ ] pytest passes"},
+        ]
     )
     mock_template = mock.MagicMock()
     mock_template.__or__ = mock.MagicMock(side_effect=[primary_chain, openai_chain])
