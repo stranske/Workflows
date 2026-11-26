@@ -14,13 +14,15 @@ from tests._autofix_diag import DiagnosticsRecorder, autofix_recorder  # noqa: F
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Expose repair classification markers in requested JUnit reports.
+    """Expose repair classification markers in compatible JUnit reports.
 
     ``user_properties`` are serialized only by pytest's JUnit reporter.  Skip
-    the collection work for ordinary local runs, and deliberately record only
-    markers the repair classifier recognizes.
+    ordinary runs and xunit2, whose schema does not allow testcase properties.
     """
-    if not config.getoption("xmlpath", default=None):
+    if not config.getoption("xmlpath", default=None) or config.getini("junit_family") not in {
+        "xunit1",
+        "legacy",
+    }:
         return
     for item in items:
         for name in ("cosmetic", "runtime"):

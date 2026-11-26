@@ -16,7 +16,11 @@ WORKFLOW = ROOT / ".github/workflows/maint-45-cosmetic-repair.yml"
 TARGET = "baseline[approved].py"
 
 
-def _run_junit(cwd: Path, report: Path, *selectors: str) -> subprocess.CompletedProcess[str]:
+def _run_junit(
+    cwd: Path, report: Path, *selectors: str, junit_family: str = "xunit1"
+) -> subprocess.CompletedProcess[str]:
+    env = os.environ | {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTHONDONTWRITEBYTECODE": "1"}
+    env.pop("PYTEST_ADDOPTS", None)
     return subprocess.run(
         [
             sys.executable,
@@ -24,19 +28,22 @@ def _run_junit(cwd: Path, report: Path, *selectors: str) -> subprocess.Completed
             "pytest",
             "-q",
             "-o",
-            "junit_family=xunit1",
+            f"junit_family={junit_family}",
             f"--junitxml={report}",
             *selectors,
         ],
         cwd=cwd,
-        env=os.environ | {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTHONDONTWRITEBYTECODE": "1"},
+        env=env,
         text=True,
         capture_output=True,
         timeout=60,
     )
 
 
-def test_original_junit_preserves_real_repository_cosmetic_marks(tmp_path: Path) -> None:
+@pytest.mark.parametrize("junit_family", ["xunit1", "xunit2"])
+def test_original_junit_preserves_real_repository_cosmetic_marks(
+    tmp_path: Path, junit_family: str
+) -> None:
     report = tmp_path / "pytest-report.xml"
     result = _run_junit(
         ROOT,
@@ -44,14 +51,16 @@ def test_original_junit_preserves_real_repository_cosmetic_marks(tmp_path: Path)
         "tests/workflows/test_autofix_pr_comment.py::test_load_json_and_coercion_helpers",
         "tests/workflows/test_workflow_multi_failure_demo.py::test_cosmetic_failure",
         "tests/workflows/test_workflow_multi_failure_demo.py::test_lint_failure",
+        junit_family=junit_family,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+    expected = {"cosmetic"} if junit_family == "xunit1" else set()
     assert {
         case.get("name"): _extract_markers(case)
         for case in ElementTree.parse(report).iter("testcase")
     } == {
-        "test_load_json_and_coercion_helpers": {"cosmetic"},
-        "test_cosmetic_failure": {"cosmetic"},
+        "test_load_json_and_coercion_helpers": expected,
+        "test_cosmetic_failure": expected,
         "test_lint_failure": set(),
     }
 
