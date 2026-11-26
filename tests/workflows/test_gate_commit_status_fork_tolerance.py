@@ -299,6 +299,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     const src = nodeFs.readFileSync(process.argv[2], 'utf8');
     const { upsertAnchoredComment } = require(process.argv[3]);
     const head = '3e6c6b39a22f3f33c1352edfd4fb27e442639680';
+    const previousSummary = { id: 42, body: '<!-- gate-summary: pr=1 head=2121584e2f90 -->' };
 
     function makeError(status, message, response = null) {
       const e = new Error(message);
@@ -307,18 +308,21 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       return e;
     }
 
-    async function runCase({ headRepo, baseRepo, error, authoredHead = { sha: head }, liveHead = head }) {
+    async function runCase({
+      headRepo, baseRepo, error, authoredHead = { sha: head }, liveHead = head, existingComment,
+    }) {
       const warnings = [];
       const summaryRaw = [];
       let summaryWrites = 0;
       const pullRequests = [];
       const commentRequests = [];
+      const commentUpdates = [];
       const summaryStub = {
         addHeading() { return summaryStub; },
         addRaw(text) { summaryRaw.push(String(text)); return summaryStub; },
         async write() { summaryWrites += 1; },
       };
-      const listComments = async () => ({ data: [] });
+      const listComments = async () => ({ data: existingComment ? [existingComment] : [] });
       const github = {
         __testMock: true,
         rest: {
@@ -334,6 +338,11 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
               commentRequests.push(request);
               if (error) throw error;
               return { data: { id: 1 } };
+            },
+            updateComment: async (request) => {
+              commentUpdates.push(request);
+              if (error) throw error;
+              return { data: { id: request.comment_id } };
             },
           },
         },
@@ -375,7 +384,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       } catch (e) {
         threw = { status: e.status === undefined ? null : e.status, message: String(e.message) };
       }
-      return { warnings, summaryRaw, summaryWrites, pullRequests, commentRequests, threw };
+      return { warnings, summaryRaw, summaryWrites, pullRequests, commentRequests, commentUpdates, threw };
     }
 
     const FORK = {
@@ -391,6 +400,11 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       const out = {
         fork_read_only: await runCase({
           ...FORK, error: makeError(403, 'Resource not accessible by integration'),
+        }),
+        fork_read_only_update: await runCase({
+          ...FORK,
+          existingComment: previousSummary,
+          error: makeError(403, 'Resource not accessible by integration'),
         }),
         same_repo_read_only: await runCase({
           ...SAME, error: makeError(403, 'Resource not accessible by integration'),
@@ -439,6 +453,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         stale_fork: await runCase({
           ...FORK,
           liveHead: '2121584e2f908df2eac47ec033488cc8a218e705',
+          existingComment: previousSummary,
           error: makeError(403, 'Resource not accessible by integration'),
         }),
       };
@@ -493,6 +508,22 @@ def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
     assert any("read-only" in warning for warning in case["warnings"]), case["warnings"]
     assert [request["issue_number"] for request in case["commentRequests"]] == [1], case
     assert case["summaryRaw"] == [case["commentRequests"][0]["body"]], case
+    assert "GATE SUMMARY BODY" in case["summaryRaw"][0], case
+    assert case["summaryWrites"] == 1, case
+
+
+def test_comment_fork_read_only_update_falls_back_to_the_job_summary(
+    comment_outcomes: dict[str, Any],
+) -> None:
+    case = comment_outcomes["fork_read_only_update"]
+    assert case["threw"] is None, case
+    assert case["pullRequests"] == [
+        {"owner": "stranske", "repo": "Workflows", "pull_number": 1}
+    ], case
+    assert case["commentRequests"] == [], case
+    assert [request["comment_id"] for request in case["commentUpdates"]] == [42], case
+    assert any("read-only" in warning for warning in case["warnings"]), case
+    assert case["summaryRaw"] == [case["commentUpdates"][0]["body"]], case
     assert "GATE SUMMARY BODY" in case["summaryRaw"][0], case
     assert case["summaryWrites"] == 1, case
 
@@ -566,7 +597,8 @@ def test_comment_for_superseded_fork_head_skips_publication(
     case = comment_outcomes["stale_fork"]
     assert case["threw"] is None, case
     assert case["commentRequests"] == [], case
-    assert case["summaryWrites"] == 0, case
+    assert case["commentUpdates"] == [], case
+    assert case["summaryRaw"] == [] and case["summaryWrites"] == 0, case
 
 
 @pytest.mark.parametrize("name", sorted(GATE_WORKFLOWS))
