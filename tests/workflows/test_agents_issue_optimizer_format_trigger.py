@@ -31,7 +31,9 @@ def test_issue_optimizer_triggers_on_labeled_event() -> None:
     assert "labeled" in types
 
 
-@pytest.mark.parametrize("path", [WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH], ids=["source", "template"])
+@pytest.mark.parametrize(
+    "path", [WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH], ids=["source", "template"]
+)
 def test_issue_optimizer_filters_before_joining_issue_concurrency(path: Path) -> None:
     workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
     job = workflow["jobs"]["optimize_issue"]
