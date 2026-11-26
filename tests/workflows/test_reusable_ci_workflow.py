@@ -1353,6 +1353,7 @@ def _run_finalize_check_results(
     coverage_min: str = "70",
     junit_xml: str | None = None,
     coverage_xml: str | None = None,
+    coverage_json: str | None = None,
     junit_relpath: str = "pytest-junit.xml",
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, str], str]:
     steps = _load_workflow()["jobs"]["tests"]["steps"]
@@ -1370,6 +1371,8 @@ def _run_finalize_check_results(
         junit_target.write_text(junit_xml, encoding="utf-8")
     if coverage_xml is not None:
         (work / "coverage.xml").write_text(coverage_xml, encoding="utf-8")
+    if coverage_json is not None:
+        (work / "coverage.json").write_text(coverage_json, encoding="utf-8")
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -1487,3 +1490,27 @@ def test_finalize_check_results_surfaces_coverage_shortfall_and_missing_junit_fa
     assert "All checks passed!" in ok_result.stdout
     assert ok_result.stderr == ""
     assert ok_summary == ""
+
+
+def test_finalize_check_results_uses_neutral_coverage_wording_when_json_meets_minimum(
+    tmp_path: Path,
+) -> None:
+    result, outputs, summary_md = _run_finalize_check_results(
+        tmp_path,
+        pytest_outcome="success",
+        coverage_min_outcome="failure",
+        coverage_enabled="true",
+        coverage_min="70",
+        coverage_json='{"totals": {"percent_covered": 85.0}}',
+    )
+    assert result.returncode == 1
+    assert outputs == {"pytest_outcome": "success", "coverage_min_outcome": "failure"}
+    expected_detail = (
+        "Coverage minimum check failed: measured 85.00% vs required 70.00% "
+        "(check Enforce coverage minimum step log above)"
+    )
+    assert expected_detail in result.stderr
+    assert "< required" not in result.stderr
+    assert "CI checks failed: coverage minimum failure" in result.stderr
+    assert f"- {expected_detail}" in summary_md
+    assert "< required" not in summary_md

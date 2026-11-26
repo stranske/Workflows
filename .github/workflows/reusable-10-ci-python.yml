@@ -2974,14 +2974,21 @@ jobs:
                               measured = float(pct)
                       except Exception:
                           measured = None
+              target: float | None = None
               try:
-                  target_label = f"{float(coverage_min):.2f}%"
+                  target = float(coverage_min)
+                  target_label = f"{target:.2f}%"
               except ValueError:
                   target_label = f"{coverage_min}%"
-              if measured is not None:
+              if measured is not None and target is not None and measured + 1e-6 < target:
                   details.append(
                       f"Coverage minimum check failed: measured {measured:.2f}% < "
                       f"required {target_label}"
+                  )
+              elif measured is not None:
+                  details.append(
+                      f"Coverage minimum check failed: measured {measured:.2f}% "
+                      f"vs required {target_label} (check Enforce coverage minimum step log above)"
                   )
               else:
                   details.append(
