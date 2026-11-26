@@ -28,6 +28,21 @@ def test_package_digest_stable(source_commit: str) -> None:
     assert d1["package_digest"] == d2["package_digest"]
 
 
+def test_operation_schema_rehomes_from_docs_contracts(source_commit: str) -> None:
+    assert not (ROOT / core_pkg.OPERATION_SCHEMA_INSTALLED).is_file()
+    schema_src = ROOT / core_pkg.OPERATION_SCHEMA_SOURCE
+    assert schema_src.is_file()
+    descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
+    digest = descriptor["files"][core_pkg.OPERATION_SCHEMA_INSTALLED]
+    assert digest == core_pkg.sha256_file(schema_src)
+    with tempfile.TemporaryDirectory() as tmp:
+        pkg = Path(tmp) / "pkg"
+        core_pkg.materialize_package_tree(ROOT, pkg, descriptor)
+        installed = pkg / core_pkg.OPERATION_SCHEMA_INSTALLED
+        assert installed.is_file()
+        assert core_pkg.sha256_file(installed) == digest
+
+
 def test_schema_change_moves_digest(source_commit: str) -> None:
     base = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
     mutated = json.loads(json.dumps(base))
@@ -67,6 +82,33 @@ def test_relocate_and_run_validate(source_commit: str) -> None:
             python=sys.executable,
         )
         assert proc.returncode == 0, proc.stderr or proc.stdout
+
+
+def test_sealed_runtime_ignores_checkout_schema_after_verification(
+    source_commit: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
+    package = tmp_path / "sealed"
+    core_pkg.materialize_package_tree(ROOT, package, descriptor)
+    record = ROOT / "tests/fixtures/closer-operation/v1/minimal-operation.json"
+    probe_dependencies = core_pkg.verify_runtime_dependencies
+
+    def place_stale_schema_after_closed_tree_check(*args, **kwargs):
+        stale = package / core_pkg.OPERATION_SCHEMA_SOURCE
+        stale.parent.mkdir(parents=True)
+        stale.write_text(json.dumps({"not": {}}))
+        return probe_dependencies(*args, **kwargs)
+
+    monkeypatch.setattr(
+        core_pkg, "verify_runtime_dependencies", place_stale_schema_after_closed_tree_check
+    )
+    result = core_pkg.run_sealed_entrypoint(
+        package, descriptor, ["validate", str(record)], python=sys.executable
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert core_pkg.verify_installed_tree(package, descriptor) == [
+        "installed tree differs from closed package files"
+    ]
 
 
 def test_tampered_tree_refused_before_run(source_commit: str) -> None:
@@ -110,7 +152,7 @@ def test_draft_portable_snapshot_integration(source_commit: str) -> None:
     snapshot = Path(tempfile.mkdtemp(prefix="closer-core-draft-"))
     try:
         for rel in core_pkg.CORE_OWNED_PATHS:
-            src = PORTABLE_ROOT / rel
+            src = core_pkg.core_owned_source_path(PORTABLE_ROOT, rel)
             if not src.is_file():
                 pytest.skip(f"missing portable draft file {rel}")
             dest = snapshot / rel

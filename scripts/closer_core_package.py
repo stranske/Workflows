@@ -26,6 +26,9 @@ OWNER = "Workflows"
 PACKAGE_KIND = "closer-core"
 PUBLIC_SCHEMA = 1
 
+OPERATION_SCHEMA_INSTALLED = "fixtures/closer-operation/v1/operation.schema.json"
+OPERATION_SCHEMA_SOURCE = "docs/contracts/schemas/closer-operation-v1.schema.json"
+
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 
@@ -36,7 +39,7 @@ CORE_OWNED_PATHS: tuple[str, ...] = (
     "scripts/check_checks_reported.py",
     "scripts/api_client.py",
     "scripts/reusable_ci_scope.py",
-    "fixtures/closer-operation/v1/operation.schema.json",
+    OPERATION_SCHEMA_INSTALLED,
     ".github/workflows/reusable-10-ci-python.yml",
     ".github/workflows/selftest-reusable-ci.yml",
     ".github/workflows/maint-62-integration-consumer.yml",
@@ -64,6 +67,15 @@ def sha256_file(path: Path) -> str:
     return sha256_bytes(path.read_bytes())
 
 
+def core_owned_source_path(core_root: Path, installed_rel: str) -> Path:
+    """Resolve a checkout file for a sealed installed relative path."""
+    if installed_rel == OPERATION_SCHEMA_INSTALLED:
+        checkout_schema = core_root / OPERATION_SCHEMA_SOURCE
+        if checkout_schema.is_file():
+            return checkout_schema
+    return core_root / installed_rel
+
+
 def sha256_json(value: Any) -> str:
     return sha256_bytes(json.dumps(value, sort_keys=True, separators=(",", ":")).encode())
 
@@ -71,7 +83,7 @@ def sha256_json(value: Any) -> str:
 def _relative_owned_paths(root: Path) -> dict[str, str]:
     digests: dict[str, str] = {}
     for rel in CORE_OWNED_PATHS:
-        path = root / rel
+        path = core_owned_source_path(root, rel)
         if not path.is_file():
             raise CorePackageError(f"missing owned file: {rel}")
         digests[rel] = sha256_file(path)
@@ -176,7 +188,7 @@ def materialize_package_tree(
         raise CorePackageError("destination exists; use a fresh immutable package directory")
     dest.mkdir(parents=True)
     for rel in CORE_OWNED_PATHS:
-        src = core_root / rel
+        src = core_owned_source_path(core_root, rel)
         target = dest / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, target)
