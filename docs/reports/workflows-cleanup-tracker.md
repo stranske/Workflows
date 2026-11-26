@@ -7,6 +7,12 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**November 26, 23:12 UTC.** The final five workflow designs and three code changes are now on main. The installed Reusable 20 main resolver check materialized six files versus 435, the consolidated Integration checkout produced the same eight-file receiver change, and the corrected Maint 72/83 registry selected the right targets on ordinary and neighboring-setting inputs. Structural decisions cover 198/198 original workflows. Production acceptance is 161/198. [Installed change](https://github.com/stranske/Workflows/pull/5286) · [Gate, 378s and 535s](https://github.com/stranske/Workflows/actions/runs/45903432986)
+
+This change retires the one-time #4484 ledger correction from live scripts. Its operator record and 35-batch receipt now share an [issue evidence directory](../evidence/issue-4484/issue-4484-validation.md). The completed ledger still directs the belt to skip all nine tasks. Replaying the pinned correction reproduced the historical result. One general validation check moves to its maintained suite; the remaining issue-specific checks retire with their program. [Original correction](https://github.com/stranske/Workflows/pull/4559)
+
+The follow-up to the fleet recovery changes has reproduced both hosted failures and the exact reviewer feedback case. Scoped promotion still selects just the two named receivers in replay. The general assessor for an open PR remains under development. [Fleet review and release](https://github.com/stranske/Workflows/pull/5287#issuecomment-7205240036)
+
 **November 26, 22:10 UTC.** All 16 source-sync PRs merged. The receiving default branches have all 128 Agents 70 cutover files, all 16 corrected verifier SDK workflows and all 16 expected model catalogs. Zero source-sync PRs remained open. Seventy surplus files remain in 14 receivers. The promoted source predates the directory-pruning change. Verify the next ordinary promotion that includes it. The seven-day agent-PR and Keepalive comparison is due December 2. [Fleet result and receiving branches](https://github.com/stranske/Workflows/actions/runs/45901009621) · [Directory pruning change](https://github.com/stranske/Workflows/pull/5252)
 
 The final five architectural decisions keep Reusable 20 for receiving PR metadata, Maint 69 for publishing to Integration-Tests, the Muse launcher for its supported runtime refs, the connector moderator for its comment policy, and the managed fork publisher for the required Gate status on fork heads. All 198 original definitions now have a direction. Production acceptance is complete for 161. The other 37 have recorded completion conditions, including the shared hosted handoff for 12 legacy definitions. [Grouped decisions and individual receipts](workflow-decisions.md)
@@ -168,12 +174,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 37 pending checks have a recorded structural decision |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
-| 3 · Scripts, tools and packages | 366/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 908/1,540 | 128/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,037/5,554** | **296/487** | **161/198** |
+| 3 · Scripts, tools and packages | 367/752 | 34/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 910/1,540 | 128/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
+| **Total** | **3,042/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,826 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,831 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 

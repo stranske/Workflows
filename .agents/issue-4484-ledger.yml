@@ -133,7 +133,7 @@ tasks:
     restrictions remain.
   - Retained earlier failed acceptance remains nested in previous_evidence; it is not relabeled as a pass.
   - Travel-Plan-Permission#1716 independently confirmed merged at 71d6359516d9796b8ec586549779c34afc778d98.
-  - 'Receipt and source binding: docs/ops/issue-4534-acceptance.json; complete logs retained by native
+  - 'Receipt and source binding: docs/evidence/issue-4484/issue-4534-acceptance.json; complete logs retained by native
     task.'
   previous_evidence:
     id: task-09
@@ -148,7 +148,7 @@ tasks:
     - 'Local workflow acceptance remains incomplete: retained exhaustive batches report 3534 passed, 3
       skipped, 12 failed; the earlier incomplete suite remains UNKNOWN, not PASS.'
     - Successful consumer lint and classification do not establish consumer merge.
-    - 'Receipt provenance: docs/ops/issue-4484-validation.md, PR #4531 continuation.'
+    - 'Receipt provenance: docs/evidence/issue-4484/issue-4484-validation.md, PR #4531 continuation.'
     previous_evidence:
       id: task-09
       title: 'Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha passes on regenerated
@@ -184,7 +184,7 @@ tasks:
     is absent.'
   - Maint 71 report 42325528409 binds the same head and source 75d4c8360c7a31db51366ca08d736cf4be1bc894.
   - Successful consumer lint and classification do not establish consumer merge.
-  - 'Receipt provenance: docs/ops/issue-4484-validation.md, PR #4531 continuation.'
+  - 'Receipt provenance: docs/evidence/issue-4484/issue-4484-validation.md, PR #4531 continuation.'
   previous_evidence:
     id: task-11
     title: The next sync-core round classifies stranske/Travel-Plan-Permission#1716 without this finding.

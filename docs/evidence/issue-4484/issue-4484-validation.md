@@ -1315,3 +1315,51 @@ Applied the existing reconciliation tool output to `.agents/issue-4484-ledger.ym
 `/opt/anaconda3/bin/python3 -m scripts.validate_workflow_test_batches --output <receipt-directory>` exited zero: 35 whole-file batches; 3,652 collected and terminal nodes; 3,643 passed, 9 skipped; no missing, extra, duplicate or borrowed results. Each child retained its existing 110-second bound; no security or privacy changes were needed. GitHub credentials were passed privately to the child environment. The live Health68 probe passed in batch16. Six skips require the Actions Ubuntu Bash4/GNU-find environment; three are existing workflow-update privilege conditions. None is counted as a pass.
 
 The portable summary and hashes of all native batch receipts/logs are retained in [issue-4534-acceptance.json](issue-4534-acceptance.json). Full original receipts/logs remain in the task artifact directory `lane-followthrough-20261108/workflow-batches`. Travel-Plan-Permission#1716 is now independently confirmed merged at merge commit `71d6359516d9796b8ec586549779c34afc778d98`; no historical source shipment was reopened.
+
+## Replay the historical ledger correction
+
+The [original validation record](https://github.com/stranske/Workflows/blob/34e923fe7c4dd99d24de003464f9b1adfe20bb6d/docs/ops/issue-4484-validation.md)
+and [acceptance attachment](https://github.com/stranske/Workflows/blob/34e923fe7c4dd99d24de003464f9b1adfe20bb6d/docs/ops/issue-4534-acceptance.json)
+are available at their original paths in the merge commit.
+
+[#4559](https://github.com/stranske/Workflows/pull/4559) contains the applied
+ledger and the one-off
+[reconciler](https://github.com/stranske/Workflows/blob/34e923fe7c4dd99d24de003464f9b1adfe20bb6d/scripts/reconcile_issue_4484_ledger.py)
+and its
+[original tests](https://github.com/stranske/Workflows/blob/34e923fe7c4dd99d24de003464f9b1adfe20bb6d/tests/scripts/test_reconcile_issue_4484_ledger.py).
+The reconciler takes the original ledger from the parent of #4559. Its output
+contains the intermediate blocked task-09. The applied ledger records the
+later native acceptance for task-09 and retains the intermediate record in
+`previous_evidence`. All other tasks match the reconciliation output.
+
+Run this from a Workflows checkout with the #4559 history and a Python
+environment with PyYAML. The commands use temporary copies of the source
+and ledger. `--check` verifies the correction against the retained evidence.
+
+```sh
+(
+    set -eu
+    pin=34e923fe7c4dd99d24de003464f9b1adfe20bb6d
+    python=/opt/anaconda3/bin/python3
+    replay=$(mktemp -d)
+    git show "${pin}^:.agents/issue-4484-ledger.yml" > "$replay/original.yml"
+    git show "${pin}:.agents/issue-4484-ledger.yml" > "$replay/applied.yml"
+    git show "${pin}:scripts/reconcile_issue_4484_ledger.py" > "$replay/reconcile.py"
+    "$python" - "$replay/applied.yml" > "$replay/expected.yml" <<'PY'
+import sys
+from pathlib import Path
+
+import yaml
+
+ledger = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))
+tasks = ledger["tasks"]
+index = next(i for i, task in enumerate(tasks) if task["id"] == "task-09")
+tasks[index] = tasks[index]["previous_evidence"]
+yaml.safe_dump(ledger, sys.stdout, sort_keys=False, width=100)
+PY
+    "$python" "$replay/reconcile.py" "$replay/original.yml" > "$replay/correction.yml"
+    "$python" "$replay/reconcile.py" "$replay/original.yml" --check "$replay/expected.yml"
+    cmp "$replay/expected.yml" "$replay/correction.yml"
+    printf 'Replay matched the correction retained by #4559. Files are in %s.\n' "$replay"
+)
+```
