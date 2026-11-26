@@ -2792,6 +2792,11 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
     if (!pr) {
       throw new Error(`Failed to fetch PR #${prNumber} for keepalive loop`);
     }
+    if (pr.state !== 'open') {
+      core?.info?.(`Keepalive skipped for PR #${prNumber}: pr-not-open`);
+      // No active PR for the finish job to update.
+      return { prNumber: 0, baseRef: '', action: 'skip', reason: 'pr-not-open' };
+    }
 
     const gateRun = await resolveGateRun({
       github,
