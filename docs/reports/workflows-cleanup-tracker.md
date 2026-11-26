@@ -7,6 +7,10 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+The smoke review retained the public reusable workflow and create-only installation. Dropping the PR trigger would have removed 398 registrations with zero observed runner time saved. Removing automatic installation would break variables-only onboarding and restoration. The generic command still needs an opted-in production run. Two genuine approval expirations occurred before runner allocation. [Trend attempt](https://github.com/stranske/Trend_Model_Project/actions/runs/45586894255/attempts/1) · [LMS attempt](https://github.com/stranske/learning-management-system/actions/runs/45583467132/attempts/1) · [Canonical caller and operator setup](../INTEGRATION_GUIDE.md#cross-repo-smoke-opt-in)
+
+The [runner admission change](https://github.com/stranske/Workflows/pull/5279) moves two previously observed no-write cases ahead of checkout. The [local Action-version wrapper](https://github.com/stranske/Workflows/pull/5278) was removed after four historical outputs and 54 current template inputs matched the hosted updater.
+
 November 26, 2026 UTC. The November 19 inventory now has decisions for **3,015/5,554 files, 296/487 folders and 161/198 workflows**. The original delivery checklist remains at **26/28**. The review reopened 56 file and ten folder decisions and then verified their new placements on main. Of six other forwarding pages reopened, four have since been removed and two still have live readers under review. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Twelve-hour progress and acceptance checks](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
 
 The obsolete local ChatGPT intake deployer was removed after all six approved receiving defaults matched the managed intake and the installed 282-copy, 17-removal plan reproduced byte-for-byte. All three agent routes passed on the merged tree. [Retirement #5272](https://github.com/stranske/Workflows/pull/5272) · [Template receiving commit](https://github.com/stranske/Template/commit/48b3aa12121dda6216496a4155cb184be76dd54c)
@@ -144,12 +148,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
-| 3 · Scripts, tools and packages | 363/752 | 34/43 | — |
+| 3 · Scripts, tools and packages | 364/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 889/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,015/5,554** | **296/487** | **161/198** |
+| **Total** | **3,016/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,804 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,805 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
@@ -158,9 +162,9 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 | [Keep in current role](workflow-decisions.md#keep) | 114 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 10 |
 | [Other verified decisions](workflow-decisions.md#verified) | 37 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 17 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 19 |
 | [In review](workflow-decisions.md#review) | 4 |
-| [Proposed changes](workflow-decisions.md#proposed) | 16 |
+| [Proposed changes](workflow-decisions.md#proposed) | 14 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
 

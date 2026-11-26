@@ -2746,8 +2746,10 @@ def fork_status_packet():
     return packet
 
 
-def test_fork_status_binds_later_publisher_to_original_gate_attempt():
+@pytest.mark.parametrize("workflow_hash", reporter.FORK_WORKFLOW_HASHES)
+def test_fork_status_binds_later_publisher_to_original_gate_attempt(workflow_hash):
     packet = fork_status_packet()
+    packet["fork_publishers"][0]["workflow_sha256"] = workflow_hash
     proof = reporter.gate_status_provenance(**packet)
     assert proof[packet["statuses"][0]["id"]]["publisher_run_id"] == 701
     assert proof[packet["statuses"][0]["id"]]["run_id"] == packet["runs"][0]["id"]
@@ -2904,6 +2906,23 @@ def test_collect_fork_receipt_keeps_publisher_separate_from_event_topology(event
     assert result["status_provenance"][0]["publisher_run_attempt"] == 3
     assert all(r["event"] == event for r in result["workflow_runs"])
     assert len(result["fork_status_publishers"]) == 1
+
+
+def test_skipped_fork_publisher_requires_no_job_log():
+    packet = fork_status_packet()
+    fork = packet["fork_publishers"][0]
+    job = {**fork["jobs"][0], "conclusion": "skipped", "steps": []}
+
+    def transport(endpoint):
+        if "/actions/workflows/pr-00-gate-fork-status.yml/runs?" in endpoint:
+            return [{"total_count": 1, "workflow_runs": [fork["run"]]}]
+        if "/attempts/3/jobs?" in endpoint:
+            return [{"total_count": 1, "jobs": [job]}]
+        pytest.fail(f"Skipped publisher cannot have a receipt: {endpoint}")
+
+    evidence = reporter.Evidence(transport)
+    evidence.content = lambda repo, path, ref: Path(__file__).parents[1].joinpath(path).read_bytes()
+    assert reporter.collect_fork_publishers(evidence, packet["repo"], packet["statuses"]) == []
 
 
 def test_fork_publisher_hashes_match_immutable_audited_source():
