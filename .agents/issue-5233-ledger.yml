@@ -1,0 +1,124 @@
+version: 1
+issue: 5233
+base: main
+branch: codex/issue-5233
+tasks:
+  - id: task-01
+    title: Fix the source failure in `verify.py aggregate in the flat exec-mirror
+      shape` identified by the linked check log.
+    status: doing
+    started_at: '2026-11-26T07:09:43Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Investigate why the Gate summary logic emits ''no matching authored PR
+      head; skipping comment update'' for the fork, deleted_fork, same-repo, rate-limited,
+      other-error (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'written-comment test scenarios in the Workflows source. (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Fix the Gate summary or commit-status source code in stranske/Workflows
+      so the authored PR head is matched in the flat exec-mirror shape used by these
+      tests. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Update the test fixtures in tests/test_gate_commit_status_fork_tolerance.py
+      if the flat exec-mirror shape requires an authored PR head field that the fixtures
+      currently lack. (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add or update a regression test for the reported failure using `pytest`
+      or `node --test`, whichever the source uses.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: '`verify.py aggregate in the flat exec-mirror shape` passes on regenerated
+      sync PR stranske/Orchestrator#1497, verified with `gh run view <run-id>`, and
+      the repository''s test command passes locally.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      that change makes it pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: The next sync-core round classifies stranske/Orchestrator#1497 without
+      this finding.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Fix the failure named in the title (`verify.py aggregate in the flat exec-mirror
+      shape`) at its source; the failing check's log is linked under Evidence and
+      the sync PR is stranske/Orchestrator#1497.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add or extend a test that reproduces the failure and passes after the fix
+      (`pytest` or `node --test`, whichever the source uses).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Acceptance: `verify.py aggregate in the flat exec-mirror shape` passes
+      on regenerated sync PR stranske/Orchestrator#1497, verified with `gh run view
+      <run-id>`. (The agent cannot trigger or retry CI, and it cannot run the maint-68
+      sync workflow to regenerate the Orchestrator PR. It also cannot edit .github/workflows/*.yml
+      (protected). If the root cause is in the workflow file, the agent cannot fix
+      it. | Limit the agent''s scope to source and test changes in stranske/Workflows,
+      verified by running pytest locally. A human should trigger the sync regeneration
+      and confirm the result on stranske/Orchestrator#1497. If the root cause is in
+      a workflow YAML, escalate to a human maintainer.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Acceptance: The next sync-core round classifies stranske/Orchestrator#1497
+      without this finding. (This depends on an external system (sync-core) running
+      on its own schedule. The agent cannot observe or influence it. | Move this to
+      a human-verified post-merge check and remove it from the agent''s acceptance
+      criteria.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
