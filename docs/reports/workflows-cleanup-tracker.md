@@ -174,12 +174,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 37 pending checks have a recorded structural decision |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
-| 3 · Scripts, tools and packages | 367/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 910/1,540 | 128/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,042/5,554** | **296/487** | **161/198** |
+| 3 · Scripts, tools and packages | 366/752 | 34/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 909/1,540 | 128/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
+| **Total** | **3,038/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,831 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,827 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
