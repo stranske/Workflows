@@ -6,69 +6,97 @@ tasks:
   - id: task-01
     title: Fix the source failure behind `flat exec-mirror shard 2/6`, reported in
       `tests/test_gate_commit_status_fork_tolerance.py`.
-    status: doing
+    status: done
     started_at: '2026-11-26T07:00:24Z'
-    finished_at: null
-    commit: ''
-    notes: []
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - 'Downstream consumer fixture fixed via stranske/Orchestrator#1500; regenerated
+        stranske/Orchestrator#1497 head f1053c7cae729813acd22e5c065002d538d40fb9 passes
+        `flat exec-mirror shard 2/6` on run 45784110938 (gh run view: success).'
+      - tests/workflows/test_gate_commit_status_fork_tolerance.py now runs the real
+        .github/scripts/comment-dedupe.js upsertAnchoredComment with pull_request.head.sha
+        and pulls.get mocks; regression cases fork_read_only_pr_only_summary, fork_read_only_update,
+        missing_authored_head, missing_authored_head_pr_only_summary, stale_fork.
   - id: task-02
     title: 'Identify why the gate summary logic in the Workflows source finds no matching
       authored PR head for the fork-tolerance test fixtures (verify: confirm completion
       in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - 'Root cause: the Orchestrator test fixture omitted pull_request.head.sha and
+        pulls.get, so no authored PR head matched. Downstream consumer fixture fixed
+        via stranske/Orchestrator#1500; regenerated stranske/Orchestrator#1497 head
+        f1053c7cae729813acd22e5c065002d538d40fb9 passes `flat exec-mirror shard 2/6`
+        on run 45784110938 (gh run view: success).'
   - id: task-03
     title: 'Fix the authored PR head matching logic so that summaryRaw is populated
       (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - Matching fixed at the consumer fixture (stranske/Orchestrator#1500); Workflows
+        source helper unchanged and now covered by real-helper tests.
   - id: task-04
     title: 'summaryWrites is greater than zero in the failing scenarios (verify: confirm
       completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - tests/workflows/test_gate_commit_status_fork_tolerance.py now runs the real
+        .github/scripts/comment-dedupe.js upsertAnchoredComment with pull_request.head.sha
+        and pulls.get mocks; regression cases fork_read_only_pr_only_summary, fork_read_only_update,
+        missing_authored_head, missing_authored_head_pr_only_summary, stale_fork.
   - id: task-05
     title: 'Confirm that all five failing assertions in tests/test_gate_commit_status_fork_tolerance.py
       pass after the fix (verify: tests pass)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - Fork-tolerance assertions pass in Gate run 45786621442 and locally.
   - id: task-06
     title: Add or extend a regression test reproducing the reported failure, using
       `pytest` or `node --test` as appropriate for the source.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - tests/workflows/test_gate_commit_status_fork_tolerance.py now runs the real
+        .github/scripts/comment-dedupe.js upsertAnchoredComment with pull_request.head.sha
+        and pulls.get mocks; regression cases fork_read_only_pr_only_summary, fork_read_only_update,
+        missing_authored_head, missing_authored_head_pr_only_summary, stale_fork.
   - id: task-07
     title: '`flat exec-mirror shard 2/6` passes on regenerated sync PR stranske/Orchestrator#1497,
       verified with `gh run view <run-id>`, and the repository''s test command passes
       locally.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - 'Downstream consumer fixture fixed via stranske/Orchestrator#1500; regenerated
+        stranske/Orchestrator#1497 head f1053c7cae729813acd22e5c065002d538d40fb9 passes
+        `flat exec-mirror shard 2/6` on run 45784110938 (gh run view: success).'
   - id: task-08
     title: Reintroducing the reported behavior makes the regression test fail; reverting
       that deliberate break makes it pass.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - 'authoredHead deliberate break fails the regression tests; revert passes (see
+        PR #5231 body).'
   - id: task-09
     title: The next sync-core round classifies stranske/Orchestrator#1497 without
       this finding.
@@ -76,24 +104,33 @@ tasks:
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'Post-merge external observation: next sync-core round should classify stranske/Orchestrator#1497
+        without this finding; not checkable from this branch.'
   - id: task-10
     title: Fix the failure named in the title (`flat exec-mirror shard 2/6`) at its
       source; the failing check's log is linked under Evidence and the sync PR is
       stranske/Orchestrator#1497.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - 'Downstream consumer fixture fixed via stranske/Orchestrator#1500; regenerated
+        stranske/Orchestrator#1497 head f1053c7cae729813acd22e5c065002d538d40fb9 passes
+        `flat exec-mirror shard 2/6` on run 45784110938 (gh run view: success).'
   - id: task-11
     title: Add or extend a test that reproduces the failure and passes after the fix
       (`pytest` or `node --test`, whichever the source uses).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - tests/workflows/test_gate_commit_status_fork_tolerance.py now runs the real
+        .github/scripts/comment-dedupe.js upsertAnchoredComment with pull_request.head.sha
+        and pulls.get mocks; regression cases fork_read_only_pr_only_summary, fork_read_only_update,
+        missing_authored_head, missing_authored_head_pr_only_summary, stale_fork.
   - id: task-12
     title: 'Acceptance: `flat exec-mirror shard 2/6` passes on regenerated sync PR
       stranske/Orchestrator#1497, verified with `gh run view <run-id>`. (This depends
@@ -104,11 +141,14 @@ tasks:
       tests/test_gate_commit_status_fork_tolerance.py` in the source repo). A human
       or the sync workflow should confirm the downstream shard after the fix merges
       and the sync re-runs.)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T12:00:00Z'
+    finished_at: '2026-11-26T12:00:00Z'
+    commit: 792389faa3c9924428f6adc8ca62c20a2b1647df
+    notes:
+      - 'Downstream consumer fixture fixed via stranske/Orchestrator#1500; regenerated
+        stranske/Orchestrator#1497 head f1053c7cae729813acd22e5c065002d538d40fb9 passes
+        `flat exec-mirror shard 2/6` on run 45784110938 (gh run view: success).'
   - id: task-13
     title: 'Acceptance: The next sync-core round classifies stranske/Orchestrator#1497
       without this finding. (This is an external, asynchronous process outside the
@@ -118,7 +158,9 @@ tasks:
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'Post-merge external observation: next sync-core round should classify stranske/Orchestrator#1497
+        without this finding; not checkable from this branch.'
   - id: task-14
     title: Possible root cause in `.github/workflows/*.yml` (If the fix needs changes
       to a protected workflow file (including maint-68-sync-consumer-repos.yml), the
@@ -130,4 +172,6 @@ tasks:
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'No .github/workflows change needed: root cause was the Orchestrator consumer
+        test fixture (fixed in stranske/Orchestrator#1500).'
