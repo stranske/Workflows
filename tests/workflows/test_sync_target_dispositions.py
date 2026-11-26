@@ -117,3 +117,50 @@ def test_exclusion_without_a_reason_cannot_authorize_exit(
     )
     assert result == 1
     assert f"exclusion for {TARGET!r} needs a reason" in output
+
+
+def test_replacing_a_managed_directory_with_a_file_requires_retirement_first(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result, output = run_validator(
+        tmp_path, capsys, {"copilot_config": [RETAINED, {"source": "doc.md", "target": TARGET}]}
+    )
+    assert result == 1
+    assert f"Managed sync directory {TARGET!r} would be replaced by a file" in output
+
+
+@pytest.mark.parametrize("suffix, expected", [("/new.md", 1), ("-extra/new.md", 0)])
+def test_directory_removal_cannot_also_delete_managed_child(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], suffix: str, expected: int
+) -> None:
+    child = f"{TARGET}{suffix}"
+    result, output = run_validator(
+        tmp_path,
+        capsys,
+        {
+            "copilot_config": [RETAINED, {"source": "doc.md", "target": child}],
+            "removals": [{"target": TARGET, "description": "Retire the old directory"}],
+        },
+    )
+    assert result == expected
+    if expected:
+        assert f"Removal {TARGET!r} would also delete managed sync target {child!r}" in output
+    else:
+        assert "Validated dispositions for 1 departed" in output
+
+
+def test_retained_file_target_kind_is_outside_directory_retirement_rule(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result, output = run_validator(
+        tmp_path,
+        capsys,
+        {
+            "copilot_config": [
+                {"source": TARGET, "is_directory": True},
+                {"source": "shared", "target": "docs/shared.md", "is_directory": True},
+            ]
+        },
+    )
+    assert result == 0
+    assert "Validated dispositions for 0 departed" in output

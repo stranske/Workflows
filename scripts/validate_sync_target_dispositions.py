@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -18,19 +19,30 @@ def load_manifest(path: Path) -> dict[str, Any]:
     return manifest
 
 
-def declared_targets(manifest: dict[str, Any], section: str, field: str) -> set[str]:
+def manifest_entries(
+    manifest: dict[str, Any], section: str
+) -> Iterator[tuple[str, dict[str, Any]]]:
     entries = manifest.get(section, [])
     if not isinstance(entries, list):
         raise ValueError(f"{section} must be a list")
-    targets = set()
     for index, entry in enumerate(entries):
         context = f"{section}[{index}]"
         if not isinstance(entry, dict):
             raise ValueError(f"{context} must be a mapping")
-        value = entry.get(field, entry.get("source") if section in COPY_SYNCED_SECTIONS else None)
-        target, error = _safe_relative_path(value, field, context)
-        if error:
-            raise ValueError(error)
+        yield context, entry
+
+
+def destination(value: Any, field: str, context: str) -> str:
+    target, error = _safe_relative_path(value, field, context)
+    if error:
+        raise ValueError(error)
+    return target
+
+
+def declared_dispositions(manifest: dict[str, Any], section: str, field: str) -> set[str]:
+    targets = set()
+    for context, entry in manifest_entries(manifest, section):
+        target = destination(entry.get(field), field, context)
         if section == "excluded":
             reason = entry.get("reason")
             if not isinstance(reason, str) or not reason.strip():
@@ -39,11 +51,13 @@ def declared_targets(manifest: dict[str, Any], section: str, field: str) -> set[
     return targets
 
 
-def copy_targets(manifest: dict[str, Any]) -> set[str]:
+def copy_targets(manifest: dict[str, Any]) -> dict[str, bool]:
     return {
-        target
+        destination(entry.get("target", entry.get("source")), "target", context): (
+            entry.get("is_directory") is True
+        )
         for section in COPY_SYNCED_SECTIONS
-        for target in declared_targets(manifest, section, "target")
+        for context, entry in manifest_entries(manifest, section)
     }
 
 
@@ -55,20 +69,39 @@ def main(argv: list[str] | None = None) -> int:
     try:
         base = load_manifest(args.base_manifest)
         current = load_manifest(args.manifest)
-        departed = copy_targets(base) - copy_targets(current)
-        dispositions = declared_targets(current, "removals", "target") | declared_targets(
-            current, "excluded", "path"
-        )
+        old_targets = copy_targets(base)
+        new_targets = copy_targets(current)
+        removals = declared_dispositions(current, "removals", "target")
+        exclusions = declared_dispositions(current, "excluded", "path")
     except (OSError, ValueError, yaml.YAMLError) as exc:
         print(f"Cannot validate managed sync target dispositions: {exc}")
         return 1
-    unaccounted = departed - dispositions
+    departed = old_targets.keys() - new_targets.keys()
+    unaccounted = departed - removals - exclusions
+    replacements = {
+        target
+        for target in old_targets.keys() & new_targets.keys()
+        if old_targets[target] and not new_targets[target]
+    }
+    removed_children = [
+        (target, child)
+        for target in removals
+        for child in new_targets
+        if child.startswith(target + "/")
+    ]
     for target in sorted(unaccounted):
         print(
             f"Managed sync target {target!r} disappeared without a disposition. "
             "Add its exact path to removals or to excluded with a reason."
         )
-    if unaccounted:
+    for target in sorted(replacements):
+        print(
+            f"Managed sync directory {target!r} would be replaced by a file. "
+            "Retire the directory and verify receiver removal before adding that file."
+        )
+    for target, child in sorted(removed_children):
+        print(f"Removal {target!r} would also delete managed sync target {child!r}.")
+    if unaccounted or replacements or removed_children:
         return 1
     print(f"Validated dispositions for {len(departed)} departed managed sync target(s).")
     return 0
