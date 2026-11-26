@@ -513,6 +513,17 @@ jobs:
               github.event.workflow_run.pull_requests[0].number ||
               ''
             }}
+          EXPECTED_PR_HEAD: >-
+            ${{
+              github.event.pull_request.head.sha ||
+              (github.event.workflow_run.event == 'pull_request' &&
+                !github.event.workflow_run.pull_requests[1].number &&
+                (!github.event.workflow_run.pull_requests[0].head_sha ||
+                  github.event.workflow_run.pull_requests[0].head_sha == github.event.workflow_run.head_sha) &&
+                github.event.workflow_run.head_sha) ||
+              ''
+            }}
+          WORKFLOW_RUN_PR_HEAD: ${{ github.event.workflow_run.pull_requests[0].head_sha || '' }}
         run: |
           if [ -z "${PR_NUMBER:-}" ]; then
             {
@@ -528,6 +539,8 @@ jobs:
           import hashlib
           import json
           import os
+          import shutil
+          import subprocess
           import urllib.error
           import urllib.request
 
@@ -561,6 +574,7 @@ jobs:
                       return json.loads(response.read().decode("utf-8"))
               except urllib.error.HTTPError as exc:
                   if default is not None and exc.code in (403, 404):
+                      exc.close()
                       return default
                   raise
 
@@ -576,6 +590,52 @@ jobs:
               return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
           pr = api(f"/repos/{repo}/pulls/{pr_number}", default={})
+          head = pr.get("head") or {}
+          head_repo = (head.get("repo") or {}).get("full_name") or ""
+          expected_head = os.environ.get("EXPECTED_PR_HEAD")
+          node = shutil.which("node") if expected_head else None
+          if (
+              node
+              and pr.get("number") == int(pr_number)
+              and pr.get("state") == "open"
+              and head.get("sha") == expected_head
+              and head_repo.casefold() == repo.casefold()
+          ):
+              # Only the repository-owned release branch can skip history here.
+              # The updater still checks labels, title and body on the normal path.
+              release_check = subprocess.run(
+                  [node, "-e", """
+                    const { isReleasePleasePr } = require('./.github/scripts/agents_pr_meta_update_body.js');
+                    const ref = require('node:fs').readFileSync(0, 'utf8');
+                    process.exitCode = isReleasePleasePr({ head: { ref } }) ? 0 : 1;
+                  """],
+                  input=head.get("ref") or "",
+                  text=True,
+                  check=False,
+                  stdout=subprocess.DEVNULL,
+                  env={"PATH": os.environ["PATH"]},
+              )
+              if release_check.returncode == 0:
+                  # Match the updater's commit-to-PR fallback when Gate lacks a flat head_sha.
+                  association_verified = (
+                      os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
+                      or os.environ.get("WORKFLOW_RUN_PR_HEAD") == expected_head
+                  )
+                  if not association_verified:
+                      try:
+                          associated = api(f"/repos/{repo}/commits/{expected_head}/pulls", default=[])
+                          association_verified = (
+                              isinstance(associated, list)
+                              and bool(associated)
+                              and isinstance(associated[0], dict)
+                              and associated[0].get("number") == pr["number"]
+                          )
+                      except (urllib.error.URLError, TimeoutError, ValueError):
+                          pass
+                  if association_verified:
+                      print("skip-release-pr")
+                      raise SystemExit(0)
+
           labels = api(f"/repos/{repo}/issues/{pr_number}/labels", default=[])
           body = pr.get("body") or ""
           payload = {
@@ -590,9 +650,20 @@ jobs:
           print(json.dumps(payload, sort_keys=True))
           PY
 
+          fingerprint_inputs=$(cat /tmp/state-fingerprint-inputs.json)
+          if [ "$fingerprint_inputs" = skip-release-pr ]; then
+            {
+              echo "should_run=false"
+              echo "reason=release-please-pr"
+              echo "current_hash="
+              echo "prior_hash="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           python scripts/state_fingerprint.py compare \
             --workflow "${GITHUB_WORKFLOW}" \
-            --inputs "$(cat /tmp/state-fingerprint-inputs.json)" \
+            --inputs "$fingerprint_inputs" \
             --storage pr-comment
 
       - name: Report unchanged state skip
