@@ -1350,9 +1350,6 @@ jobs:
             exit 0
           fi
 
-          # Save PR body to temp file
-          printf '%s' "$PR_BODY" > pr_body.md
-
           # Run full LLM analysis and save JSON output
           # The analyze_codex_session.py script auto-detects text vs JSONL input,
           # so it works with Claude's plain-text session logs (data_source=summary).
@@ -1366,7 +1363,7 @@ jobs:
 
           python3 .workflows-lib/scripts/analyze_codex_session.py \
             --session-file "$SESSION_LOG" \
-            --pr-body-file pr_body.md \
+            --pr-body-file <(printf '%s' "$PR_BODY") \
             --output json > "$ANALYSIS_FILE" || {
               echo "::warning::LLM analysis failed, continuing without it"
               cat "$ANALYSIS_FILE" 2>/dev/null || true

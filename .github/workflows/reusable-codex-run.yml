@@ -1806,9 +1806,6 @@ jobs:
             exit 0
           fi
 
-          # Save PR body to temp file
-          echo "$PR_BODY" > pr_body.md
-
           # Run full LLM analysis and save JSON output
           # Scripts are in .workflows-lib from Workflows repo checkout
           # Note: logging goes to stderr, JSON output goes to stdout -> file
@@ -1823,7 +1820,7 @@ jobs:
 
           python3 .workflows-lib/scripts/analyze_codex_session.py \
             --session-file "$SESSION_JSONL" \
-            --pr-body-file pr_body.md \
+            --pr-body-file <(echo "$PR_BODY") \
             --output json > "$ANALYSIS_FILE" || {
               echo "::warning::LLM analysis failed, continuing without it"
               cat "$ANALYSIS_FILE" 2>/dev/null || true  # Show error for debugging
