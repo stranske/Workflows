@@ -296,6 +296,8 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     const nodeFs = require('fs');
     const vm = require('vm');
     const src = nodeFs.readFileSync(process.argv[2], 'utf8');
+    const commentDedupe = require(process.argv[3]);
+    const HEAD_SHA = 'a'.repeat(40);
 
     function makeError(status, message, response = null) {
       const e = new Error(message);
@@ -304,13 +306,28 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       return e;
     }
 
-    async function runCase({ headRepo, baseRepo, error }) {
+    async function runCase({ headRepo, baseRepo, error, headSha = HEAD_SHA, liveHead = HEAD_SHA }) {
       const warnings = [];
       const summaryRaw = [];
+      let commentAttempts = 0;
       const summaryStub = {
         addHeading() { return summaryStub; },
         addRaw(text) { summaryRaw.push(String(text)); return summaryStub; },
         async write() { summaryRaw.push('<written>'); },
+      };
+      const github = {
+        __testMock: true,
+        paginate: async () => [],
+        rest: {
+          pulls: { get: async () => ({ data: { head: { sha: liveHead } } }) },
+          issues: {
+            listComments: async () => ({ data: [] }),
+            createComment: async () => {
+              commentAttempts += 1;
+              if (error) throw error;
+            },
+          },
+        },
       };
       const sandbox = {
         process: { env: {} },
@@ -323,22 +340,26 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
               readFileSync: () => 'GATE SUMMARY BODY',
             };
           }
-          return {
-            upsertAnchoredComment: async () => { if (error) throw error; },
-          };
+          if (id === './.github/scripts/comment-dedupe.js') return commentDedupe;
+          throw new Error(`Unexpected require: ${id}`);
         },
-        core: { warning: (m) => warnings.push(String(m)), summary: summaryStub },
+        core: {
+          info() {},
+          warning: (m) => warnings.push(String(m)),
+          summary: summaryStub,
+        },
         context: {
+          eventName: 'pull_request',
           repo: { owner: 'stranske', repo: 'Workflows' },
           payload: {
             pull_request: {
               number: 1,
-              head: { repo: { full_name: headRepo } },
+              head: { sha: headSha, repo: { full_name: headRepo } },
               base: { repo: { full_name: baseRepo } },
             },
           },
         },
-        github: {},
+        github,
       };
       vm.createContext(sandbox);
       let threw = null;
@@ -347,7 +368,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       } catch (e) {
         threw = { status: e.status === undefined ? null : e.status, message: String(e.message) };
       }
-      return { warnings, summaryRaw, threw };
+      return { warnings, summaryRaw, threw, commentAttempts };
     }
 
     const FORK = {
@@ -403,6 +424,8 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         }),
         fork_server_error: await runCase({ ...FORK, error: makeError(500, 'boom') }),
         happy_path: await runCase({ ...FORK, error: null }),
+        missing_head: await runCase({ ...FORK, headSha: null }),
+        stale_head: await runCase({ ...FORK, liveHead: 'b'.repeat(40) }),
       };
       process.stdout.write(JSON.stringify(out));
     })();
@@ -428,7 +451,14 @@ def comment_outcomes(
     runner_path.write_text(COMMENT_RUNNER_JS, encoding="utf-8")
 
     completed = subprocess.run(
-        [node, str(runner_path), str(step_path)],
+        [
+            node,
+            str(runner_path),
+            str(step_path),
+            str(REPO_ROOT / ".github/scripts/comment-dedupe.js"),
+        ],
+        cwd=workdir,
+        env={"PATH": os.environ.get("PATH", "")},
         capture_output=True,
         text=True,
         check=False,
@@ -448,6 +478,7 @@ def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
     comment_outcomes: dict[str, Any],
 ) -> None:
     case = comment_outcomes["fork_read_only"]
+    assert case["commentAttempts"] == 1, case
     assert any("read-only" in warning for warning in case["warnings"]), case["warnings"]
     assert "GATE SUMMARY BODY" in " ".join(case["summaryRaw"]), case["summaryRaw"]
     assert "<written>" in case["summaryRaw"]
@@ -468,15 +499,20 @@ def test_comment_rate_limit_403_never_uses_fork_fallback(
         "fork_rate_limit_header_string",
         "fork_rate_limit_header_number",
         "fork_secondary_abuse",
-        "fork_secondary_retry_after",
         "fork_rate_limit_response_body",
     ):
         case = comment_outcomes[key]
-        assert case["threw"] is not None, key
-        expected_status = 429 if key == "fork_rate_limit_429" else 403
-        assert case["threw"]["status"] == expected_status, key
-        assert case["warnings"] == [], key
+        assert case["commentAttempts"] == 1, case
+        assert case["threw"] is None, case
+        assert any("Rate limit" in warning for warning in case["warnings"]), case
         assert case["summaryRaw"] == [], key
+
+    # The helper rethrows a retry-after-only 403, which the workflow must also distinguish
+    # from a fork permission refusal.
+    case = comment_outcomes["fork_secondary_retry_after"]
+    assert case["threw"]["status"] == 403, case
+    assert case["warnings"] == [], case
+    assert case["summaryRaw"] == [], case
 
 
 def test_comment_positive_quota_permission_403_uses_fork_fallback(
@@ -496,9 +532,20 @@ def test_comment_non_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) 
 
 def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any]) -> None:
     case = comment_outcomes["happy_path"]
+    assert case["commentAttempts"] == 1, case
     assert case["threw"] is None
     assert case["warnings"] == []
     assert case["summaryRaw"] == []
+
+
+@pytest.mark.parametrize("name", ["missing_head", "stale_head"])
+def test_comment_requires_current_authored_head(
+    comment_outcomes: dict[str, Any], name: str
+) -> None:
+    case = comment_outcomes[name]
+    assert case["commentAttempts"] == 0, case
+    assert case["threw"] is None, case
+    assert case["summaryRaw"] == [], case
 
 
 @pytest.mark.parametrize("name", sorted(GATE_WORKFLOWS))
