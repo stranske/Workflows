@@ -7,7 +7,11 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
-November 26, 2026 UTC. The November 19 inventory now has decisions for **3,014/5,554 files, 296/487 folders and 161/198 workflows**. The original delivery checklist remains at **26/28**. The review reopened 56 file and ten folder decisions and then verified their new placements on main. Of six other forwarding pages reopened, four have since been removed and two still have live readers under review. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Twelve-hour progress and acceptance checks](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
+November 26, 2026 UTC. The November 19 inventory now has decisions for **3,015/5,554 files, 296/487 folders and 161/198 workflows**. The original delivery checklist remains at **26/28**. The review reopened 56 file and ten folder decisions and then verified their new placements on main. Of six other forwarding pages reopened, four have since been removed and two still have live readers under review. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Twelve-hour progress and acceptance checks](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
+
+The obsolete local ChatGPT intake deployer was removed after all six approved receiving defaults matched the managed intake and the installed 282-copy, 17-removal plan reproduced byte-for-byte. All three agent routes passed on the merged tree. [Retirement #5272](https://github.com/stranske/Workflows/pull/5272) · [Template receiving commit](https://github.com/stranske/Template/commit/48b3aa12121dda6216496a4155cb184be76dd54c)
+
+The November 26 fleet retry cleared Travel and prepared 15 of 16 repositories. Trend’s outstanding review held all fleet merges. The first scheduled run of the Workflows continuation fix correctly held the unresolved Trend review and dispatched zero retries. Its exact-head clearance path produced one preparation request in a controlled replay. A separate change addresses the native reviewer reply format. At the 15:39 UTC read, receiving defaults had 0/128 Agents 70 cutover files, 0/16 corrected verifier workflows and 16/16 model catalogs. Directory pruning needs a later promotion carrying the new manifest. [Full fleet result](https://github.com/stranske/Workflows/actions/runs/45852790021) · [Deployed hold](https://github.com/stranske/Workflows/actions/runs/45854949875) · [Reviewer reply handling](https://github.com/stranske/Workflows/pull/5274)
 
 The tracked root went from **22 files and 17 directories to 17 files and 14 directories**. Sixteen of today's 17 root files and six of today's 14 root directories have completed placement decisions. The remaining root file is `actionlint`, with an outstanding receiving Linux check. The eight open directories are `.github`, `config`, `docs`, `evidence`, `scripts`, `templates`, `tests` and `tools`. In the original inventory, 26 of 27 root files and 11 of 19 top-level directories have decisions. [Verified source tree](https://github.com/stranske/Workflows/tree/ad5f9f9ea626de91b498660f938b26046ed66648)
 
@@ -138,12 +142,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
-| 3 · Scripts, tools and packages | 362/752 | 34/43 | — |
+| 3 · Scripts, tools and packages | 363/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 889/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,014/5,554** | **296/487** | **161/198** |
+| **Total** | **3,015/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,803 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,804 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
