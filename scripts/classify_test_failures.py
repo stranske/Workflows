@@ -189,7 +189,7 @@ def _expand_report_pattern(pattern: str) -> list[str]:
         if path.exists():
             paths = [path]
         else:
-            paths = list(Path(path.anchor).glob(str(path.relative_to(path.anchor))))
+            paths = list(Path(path.anchor).glob(pattern[len(path.anchor) :]))
     else:
         paths = list(Path().glob(pattern))
     if paths:

@@ -193,6 +193,9 @@ def test_main_classifies_absolute_file_and_recursive_glob(
         assert classify_test_failures.main([argument]) == 0
         assert json.loads(capsys.readouterr().out) == expected
 
+    assert classify_test_failures.main([str(tmp_path / "**" / "*.xml") + "/"]) == 0
+    assert json.loads(capsys.readouterr().out)["total_failures"] == 0
+
 
 def test_main_accepts_missing_absolute_report(tmp_path: Path, capsys) -> None:
     assert classify_test_failures.main([str(tmp_path / "missing.xml")]) == 0
