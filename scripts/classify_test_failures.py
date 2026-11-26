@@ -182,6 +182,21 @@ def classify_reports(
     return summary.as_dict()
 
 
+def _expand_report_pattern(pattern: str) -> list[str]:
+    """Return filesystem paths for one CLI report argument."""
+    path = Path(pattern)
+    if path.is_absolute():
+        if path.exists():
+            paths = [path]
+        else:
+            paths = list(Path(path.anchor).glob(str(path.relative_to(path.anchor))))
+    else:
+        paths = list(Path().glob(pattern))
+    if paths:
+        return [str(p) for p in paths]
+    return [pattern]
+
+
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -202,11 +217,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ns = _parse_args(argv)
     expanded: list[str] = []
     for pattern in ns.reports:
-        paths = list(Path().glob(pattern))
-        if paths:
-            expanded.extend(str(p) for p in paths)
-        else:
-            expanded.append(pattern)
+        expanded.extend(_expand_report_pattern(pattern))
     summary = classify_reports(expanded)
     payload = json.dumps(summary, indent=2, sort_keys=True)
     if ns.output:
