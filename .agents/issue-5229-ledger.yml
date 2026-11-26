@@ -4,70 +4,78 @@ base: main
 branch: codex/issue-5229
 tasks:
   - id: task-01
-    title: Update `tests/test_post_ci_summary.py::test_build_summary_comment_handles_missing_runs_and_defaults`
+    title: Update `tests/tools/test_post_ci_summary.py::test_build_summary_comment_handles_missing_runs_and_defaults`
       in `stranske/Workflows` to assert the intentional footer wording from `tools/post_ci_summary.py`.
-    status: doing
+    status: done
     started_at: '2026-11-26T07:00:33Z'
-    finished_at: null
-    commit: ''
-    notes: []
+    finished_at: '2026-11-26T10:58:33Z'
+    commit: 3d139e1f
+    notes:
+      - 'tests/tools/test_post_ci_summary.py asserts the _Snapshot at publication_ footer and rejects the outdated _Updated automatically; will refresh_ wording (tests/test_post_ci_summary.py does not exist in Workflows).'
   - id: task-02
-    title: '`python -m pytest tests/test_post_ci_summary.py -q --noconftest` passes.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    title: '`python -m pytest tests/tools/test_post_ci_summary.py -q --noconftest` passes.'
+    status: done
+    started_at: '2026-11-26T07:00:33Z'
+    finished_at: '2026-11-26T10:58:33Z'
+    commit: 3d139e1f
+    notes:
+      - 'python -m pytest tests/tools/test_post_ci_summary.py -q --noconftest: 73 passed.'
   - id: task-03
     title: 'Source gates pass: `node --test .github/scripts/__tests__/*.test.js` and
       `python3 -m pytest -q tests/`.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T07:00:33Z'
+    finished_at: '2026-11-26T10:58:33Z'
+    commit: 3d139e1f
+    notes:
+      - 'Gate and Selftest CI checks passed on head 3d139e1fd78b3106a9486b7631a1efaf948021df.'
   - id: task-04
     title: Reintroducing the outdated footer assertion makes the named test fail;
       reverting that deliberate break restores a passing result.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T07:00:33Z'
+    finished_at: '2026-11-26T10:58:33Z'
+    commit: 3d139e1f
+    notes:
+      - 'Deliberate break (footer assertion set back to _Updated automatically; will refresh_) failed test_build_summary_comment_handles_missing_runs_and_defaults; reverting restored 73 passed.'
   - id: task-05
     title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Trend_Model_Project#6250
       without this review thread, and sync-core stops bumping this issue.
-    status: todo
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'External post-merge step: Maint-68/Maint-71 sync runs and stranske/Trend_Model_Project#6250 review-thread verification happen outside this repo after merge; not agent-executable.'
   - id: task-06
     title: 'Fix the finding at its source in `stranske/Workflows`: `tools/post_ci_summary.py`
       (the consumer PR stranske/Trend_Model_Project#6250 is generated from it by `.github/workflows/maint-68-sync-consumer-repos.yml`
       and must not be edited by hand).'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T07:00:33Z'
+    finished_at: '2026-11-26T10:58:33Z'
+    commit: 3d139e1f
+    notes:
+      - 'No source change needed: tools/post_ci_summary.py:940 already emits the intentional _Snapshot at publication_ footer; the stale test assertion was the defect.'
   - id: task-07
     title: Add or extend a test beside `tools/post_ci_summary.py` that fails on the
       behaviour the reviewer describes and passes after the fix.
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-26T07:00:33Z'
+    finished_at: '2026-11-26T10:58:33Z'
+    commit: 3d139e1f
+    notes:
+      - 'tests/tools/test_post_ci_summary.py (beside tools/post_ci_summary.py) fails on the outdated footer and passes on the intentional one.'
   - id: task-08
     title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
       sync candidate and confirm the review thread on stranske/Trend_Model_Project#6250
       is resolved.
-    status: todo
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'External post-merge step: Maint-68/Maint-71 sync runs and stranske/Trend_Model_Project#6250 review-thread verification happen outside this repo after merge; not agent-executable.'
   - id: task-09
     title: 'Acceptance criterion: The next `.github/workflows/maint-71-merge-sync-prs.yml`
       run reports stranske/Trend_Model_Project#6250 without this review thread, and
@@ -78,11 +86,12 @@ tasks:
       this to a separate human-verified follow-up checklist, for example ''Maintainer
       confirms after the sync run that the thread is resolved''. Keep the agent-verifiable
       criteria limited to the source-repo test changes.)'
-    status: todo
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'External post-merge step: Maint-68/Maint-71 sync runs and stranske/Trend_Model_Project#6250 review-thread verification happen outside this repo after merge; not agent-executable.'
   - id: task-10
     title: 'Implementation Notes: Use `.github/workflows/maint-68-sync-consumer-repos.yml`
       to regenerate the sync candidate and confirm the review thread is resolved after
@@ -90,8 +99,9 @@ tasks:
       files, and it cannot confirm thread resolution in the consumer repo. | Label
       this as a maintainer-only post-merge step. The agent''s scope ends at the fix
       and verification in stranske/Workflows.)'
-    status: todo
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'External post-merge step: Maint-68/Maint-71 sync runs and stranske/Trend_Model_Project#6250 review-thread verification happen outside this repo after merge; not agent-executable.'
