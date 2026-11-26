@@ -2857,6 +2857,8 @@ jobs:
           COVERAGE_MIN_OUTCOME: ${{ steps.coverage_min.outcome || 'skipped' }}
           COVERAGE_ENABLED: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) }}
           COVERAGE_MIN: ${{ inputs['coverage-min'] }}
+          JUNIT_PATH: ${{ steps.coverage_paths.outputs.junit_path || 'pytest-junit.xml' }}
+          COVERAGE_JSON_PATH: ${{ steps.coverage_paths.outputs.coverage_json || 'coverage.json' }}
         run: |
           set -euo pipefail
           failures=()
@@ -2891,6 +2893,112 @@ jobs:
 
           echo "Total failures: ${#failures[@]}"
           if [ "${#failures[@]}" -gt 0 ]; then
+            if command -v python >/dev/null 2>&1; then
+              python - <<'PY' || true
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          try:
+              from defusedxml import ElementTree as SafeET
+          except ImportError:
+              SafeET = None
+
+          details: list[str] = []
+          pytest_outcome = (os.environ.get("PYTEST_OUTCOME") or "").strip()
+          if pytest_outcome and pytest_outcome not in {"success", "skipped"}:
+              junit_candidates = [
+                  Path(os.environ.get("JUNIT_PATH") or "pytest-junit.xml"),
+                  Path("pytest-junit.xml"),
+              ]
+              junit_file = next((p for p in junit_candidates if p.is_file()), None)
+              failed_cases: list[str] = []
+              if junit_file is not None and SafeET is not None:
+                  try:
+                      for case in SafeET.parse(junit_file).getroot().iter("testcase"):
+                          issue = case.find("failure")
+                          if issue is None:
+                              issue = case.find("error")
+                          if issue is None:
+                              continue
+                          target = (
+                              case.get("file") or case.get("classname") or "<unknown>"
+                          ).strip()
+                          name = (case.get("name") or "<unnamed>").strip()
+                          raw_msg = (issue.get("message") or (issue.text or "")).strip()
+                          first_line = raw_msg.splitlines()[0].strip() if raw_msg else ""
+                          if len(first_line) > 200:
+                              first_line = first_line[:197] + "..."
+                          entry = f"{target}::{name}"
+                          if first_line:
+                              entry = f"{entry} ({first_line})"
+                          failed_cases.append(entry)
+                  except Exception:
+                      failed_cases = []
+              if failed_cases:
+                  details.extend(f"Failed test: {item}" for item in failed_cases[:20])
+                  if len(failed_cases) > 20:
+                      details.append(f"... and {len(failed_cases) - 20} more failing test(s)")
+              else:
+                  details.append(
+                      f"Pytest {pytest_outcome} without testcase failure entries in JUnit XML "
+                      "(check Pytest step log above)."
+                  )
+
+          coverage_enabled = (os.environ.get("COVERAGE_ENABLED") or "").strip() == "true"
+          coverage_min = (os.environ.get("COVERAGE_MIN") or "").strip()
+          coverage_outcome = (os.environ.get("COVERAGE_MIN_OUTCOME") or "").strip()
+          if (
+              coverage_enabled
+              and coverage_min
+              and coverage_outcome
+              and coverage_outcome not in {"success", "skipped"}
+          ):
+              measured: float | None = None
+              cov_xml = Path("coverage.xml")
+              if cov_xml.is_file() and SafeET is not None:
+                  try:
+                      rate_attr = SafeET.parse(cov_xml).getroot().get("line-rate")
+                      if rate_attr is not None:
+                          measured = float(rate_attr) * 100.0
+                  except Exception:
+                      measured = None
+              if measured is None:
+                  cov_json = Path(os.environ.get("COVERAGE_JSON_PATH") or "coverage.json")
+                  if cov_json.is_file():
+                      try:
+                          totals = json.loads(cov_json.read_text(encoding="utf-8")).get("totals")
+                          pct = totals.get("percent_covered") if isinstance(totals, dict) else None
+                          if isinstance(pct, (int, float)) and not isinstance(pct, bool):
+                              measured = float(pct)
+                      except Exception:
+                          measured = None
+              try:
+                  target_label = f"{float(coverage_min):.2f}%"
+              except ValueError:
+                  target_label = f"{coverage_min}%"
+              if measured is not None:
+                  details.append(
+                      f"Coverage minimum check failed: measured {measured:.2f}% < "
+                      f"required {target_label}"
+                  )
+              else:
+                  details.append(
+                      "Coverage minimum check failed: coverage report unavailable "
+                      f"(required {target_label})"
+                  )
+
+          for line in details:
+              print(line, file=sys.stderr)
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path and details:
+              with open(summary_path, "a", encoding="utf-8") as handle:
+                  handle.write("\n### Failed CI check details\n\n")
+                  for line in details:
+                      handle.write(f"- {line}\n")
+          PY
+            fi
             printf 'CI checks failed: %s\n' "${failures[*]}" >&2
             exit 1
           fi

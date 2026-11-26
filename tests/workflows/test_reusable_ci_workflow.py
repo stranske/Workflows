@@ -1342,3 +1342,148 @@ def test_integration_coverage_helpers_ship_through_both_existing_paths(tmp_path:
 
     missing = apply_subset(subset, tmp_path / "missing-source", tmp_path / "failed")
     assert not missing.ok and set(missing.missing_sources) == set(helpers)
+
+
+def _run_finalize_check_results(
+    tmp_path: Path,
+    *,
+    pytest_outcome: str,
+    coverage_min_outcome: str,
+    coverage_enabled: str = "true",
+    coverage_min: str = "70",
+    junit_xml: str | None = None,
+    coverage_xml: str | None = None,
+    junit_relpath: str = "pytest-junit.xml",
+) -> tuple[subprocess.CompletedProcess[str], dict[str, str], str]:
+    steps = _load_workflow()["jobs"]["tests"]["steps"]
+    finalize = next(step for step in steps if step.get("id") == "finalize-tests")
+    assert finalize["name"] == "Finalize check results"
+    assert finalize["env"]["JUNIT_PATH"] == (
+        "${{ steps.coverage_paths.outputs.junit_path || 'pytest-junit.xml' }}"
+    )
+
+    work = tmp_path / "work"
+    work.mkdir()
+    if junit_xml is not None:
+        junit_target = work / junit_relpath
+        junit_target.parent.mkdir(parents=True, exist_ok=True)
+        junit_target.write_text(junit_xml, encoding="utf-8")
+    if coverage_xml is not None:
+        (work / "coverage.xml").write_text(coverage_xml, encoding="utf-8")
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "python").symlink_to(sys.executable)
+    outputs = tmp_path / "github-output"
+    outputs.touch()
+    summary = tmp_path / "step-summary.md"
+    summary.touch()
+
+    result = subprocess.run(
+        ["bash", "-c", finalize["run"]],
+        cwd=work,
+        env={
+            **os.environ,
+            "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+            "PYTEST_OUTCOME": pytest_outcome,
+            "COVERAGE_MIN_OUTCOME": coverage_min_outcome,
+            "COVERAGE_ENABLED": coverage_enabled,
+            "COVERAGE_MIN": coverage_min,
+            "JUNIT_PATH": junit_relpath,
+            "COVERAGE_JSON_PATH": "coverage.json",
+            "GITHUB_OUTPUT": str(outputs),
+            "GITHUB_STEP_SUMMARY": str(summary),
+        },
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    return result, _step_outputs(outputs), summary.read_text(encoding="utf-8")
+
+
+def test_finalize_check_results_surfaces_failing_junit_testcases_and_preserves_gate(
+    tmp_path: Path,
+) -> None:
+    junit = (
+        '<testsuites><testsuite name="pytest" failures="1" errors="1" tests="3">'
+        '<testcase classname="tests.workflows.test_maint82_sync_campaign_contract" '
+        'name="test_campaign_workflow_bot_agnostic_identity" time="0.01"/>'
+        '<testcase classname="tests.workflows.test_maint82_sync_campaign_contract" '
+        'file="tests/workflows/test_maint82_sync_campaign_contract.py" '
+        'name="test_due_delivery_dispatch_is_scoped_and_manual_admin_cannot_wake_it" time="0.02">'
+        '<failure message="AssertionError: assert &#39;planMaint71Continuations(eligibleHandoffs&#39; in workflow">'
+        "tests/workflows/test_maint82_sync_campaign_contract.py:112: AssertionError"
+        "</failure></testcase>"
+        '<testcase classname="tests.workflows.test_Collection" name="test_setup_boom" time="0.00">'
+        '<error message="RuntimeError: fixture boom">boom</error></testcase>'
+        "</testsuite></testsuites>"
+    )
+    result, outputs, summary_md = _run_finalize_check_results(
+        tmp_path,
+        pytest_outcome="failure",
+        coverage_min_outcome="success",
+        junit_xml=junit,
+        junit_relpath="artifacts/coverage/runtimes/3.14/pytest-junit.xml",
+    )
+    assert result.returncode == 1
+    assert outputs == {"pytest_outcome": "failure", "coverage_min_outcome": "success"}
+    expected_failure = (
+        "Failed test: tests/workflows/test_maint82_sync_campaign_contract.py::"
+        "test_due_delivery_dispatch_is_scoped_and_manual_admin_cannot_wake_it "
+        "(AssertionError: assert 'planMaint71Continuations(eligibleHandoffs' in workflow)"
+    )
+    expected_error = (
+        "Failed test: tests.workflows.test_Collection::test_setup_boom (RuntimeError: fixture boom)"
+    )
+    assert expected_failure in result.stderr
+    assert expected_error in result.stderr
+    assert "CI checks failed: pytest failure" in result.stderr
+    assert "### Failed CI check details" in summary_md
+    assert f"- {expected_failure}" in summary_md
+
+
+def test_finalize_check_results_surfaces_coverage_shortfall_and_missing_junit_fallback(
+    tmp_path: Path,
+) -> None:
+    cov_case = tmp_path / "cov"
+    cov_case.mkdir()
+    cov_result, cov_outputs, cov_summary = _run_finalize_check_results(
+        cov_case,
+        pytest_outcome="success",
+        coverage_min_outcome="failure",
+        coverage_enabled="true",
+        coverage_min="70",
+        coverage_xml='<coverage line-rate="0.6425"/>',
+    )
+    assert cov_result.returncode == 1
+    assert cov_outputs == {"pytest_outcome": "success", "coverage_min_outcome": "failure"}
+    assert "Coverage minimum check failed: measured 64.25% < required 70.00%" in cov_result.stderr
+    assert "CI checks failed: coverage minimum failure" in cov_result.stderr
+    assert "- Coverage minimum check failed: measured 64.25% < required 70.00%" in cov_summary
+
+    no_junit_case = tmp_path / "no-junit"
+    no_junit_case.mkdir()
+    no_junit_result, no_junit_outputs, _ = _run_finalize_check_results(
+        no_junit_case,
+        pytest_outcome="failure",
+        coverage_min_outcome="skipped",
+        coverage_enabled="false",
+    )
+    assert no_junit_result.returncode == 1
+    assert no_junit_outputs == {"pytest_outcome": "failure", "coverage_min_outcome": "skipped"}
+    assert "Pytest failure without testcase failure entries in JUnit XML" in no_junit_result.stderr
+    assert "CI checks failed: pytest failure" in no_junit_result.stderr
+
+    ok_case = tmp_path / "ok"
+    ok_case.mkdir()
+    ok_result, ok_outputs, ok_summary = _run_finalize_check_results(
+        ok_case,
+        pytest_outcome="success",
+        coverage_min_outcome="success",
+    )
+    assert ok_result.returncode == 0
+    assert ok_outputs == {"pytest_outcome": "success", "coverage_min_outcome": "success"}
+    assert "All checks passed!" in ok_result.stdout
+    assert ok_result.stderr == ""
+    assert ok_summary == ""
