@@ -1,4 +1,4 @@
-"""Archived plan ledger: listed paths and stubs must resolve."""
+"""The archive ledger preserves current and historical navigation."""
 
 from __future__ import annotations
 
@@ -30,13 +30,17 @@ ARCHIVED_KEEPALIVE = {
 }
 
 STUBS = [
-    "docs/plans/SHORT_TERM_PLAN.md",
     "docs/plans/SHORT_TERM_PLAN_SUMMARY.md",
-    "docs/plans/LONG_TERM_PLAN.md",
-    "docs/WORKFLOW_AUDIT_2025-12-25.md",
-    "docs/WORKFLOW_AUDIT_2026-01-09.md",
     "docs/WORKFLOW_AUDIT_2026-11-19.md",
 ]
+
+ORIGINAL_REVISION = "09c73c658d6d4afa2ac5115814087a43fe8bf0d5"
+ORIGINAL_ROUTES = {
+    "docs/plans/SHORT_TERM_PLAN.md": "january-short-plan-original",
+    "docs/plans/LONG_TERM_PLAN.md": "january-long-plan-original",
+    "docs/WORKFLOW_AUDIT_2025-12-25.md": "december-audit-original",
+    "docs/WORKFLOW_AUDIT_2026-01-09.md": "january-audit-original",
+}
 
 ACTIVE_PLANS = [
     "docs/TODO_EXTENDED_AUTOPILOT.md",
@@ -72,6 +76,11 @@ def test_archive_plans_ledger_links_resolve() -> None:
         "audits/february-2026-agent-evaluations.tar.gz",
         *ARCHIVED_KEEPALIVE,
     }
+    original_base = f"https://github.com/stranske/Workflows/blob/{ORIGINAL_REVISION}"
+    for former_path, reference in ORIGINAL_ROUTES.items():
+        assert f"[`{former_path}`][{reference}]" in text
+        assert f"[{reference}]: {original_base}/{former_path}" in text.splitlines()
+
     for target in MARKDOWN_LINK.findall(text):
         if target.startswith("#"):
             continue
@@ -127,7 +136,11 @@ def test_workflow_audit_procedure_resolves_from_archive_ledger() -> None:
     text = ARCHIVE_LEDGER.read_text(encoding="utf-8")
     assert "docs/ci/WORKFLOW_AUDIT_PROCEDURE.md" in text
     path = _resolve_link(ARCHIVE_LEDGER, "../ci/WORKFLOW_AUDIT_PROCEDURE.md")
-    assert path.is_file()
+    links = MARKDOWN_LINK.findall(path.read_text(encoding="utf-8"))
+    for audit in ("WORKFLOW_AUDIT_2025-12-25.md", "WORKFLOW_AUDIT_2026-01-09.md"):
+        target = f"../archive/audits/{audit}"
+        assert target in links
+        assert _resolve_link(path, target).is_file()
 
 
 def test_operator_guide_links_current_branch_sync_recovery() -> None:

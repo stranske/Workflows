@@ -1,6 +1,6 @@
 # Archived Plans and Audit Reports (updated 2026-11-18)
 
-This ledger records superseded plans, point-in-time audits and historical keepalive records. Compatibility stubs remain for the archived plans and workflow audits that had former `docs/` paths.
+This ledger records superseded plans, point-in-time audits and historical keepalive records. It lists the maintained archive copies and links to pinned earlier revisions where available.
 
 For retired GitHub workflows, see [`ARCHIVE_WORKFLOWS.md`](ARCHIVE_WORKFLOWS.md).
 
@@ -62,8 +62,11 @@ before running its recovery command. Use the current references for operational 
 
 | Former path | Archive path | Superseded by |
 |-------------|--------------|---------------|
-| `docs/plans/SHORT_TERM_PLAN.md` | [`plans/SHORT_TERM_PLAN.md`](plans/SHORT_TERM_PLAN.md) | [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md), [`docs/validation/overview.md`](../validation/overview.md) |
-| `docs/plans/LONG_TERM_PLAN.md` | [`plans/LONG_TERM_PLAN.md`](plans/LONG_TERM_PLAN.md) | [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md), keepalive docs |
+| [`docs/plans/SHORT_TERM_PLAN.md`][january-short-plan-original] | [`plans/SHORT_TERM_PLAN.md`](plans/SHORT_TERM_PLAN.md) | [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md), [`docs/validation/overview.md`](../validation/overview.md) |
+| [`docs/plans/LONG_TERM_PLAN.md`][january-long-plan-original] | [`plans/LONG_TERM_PLAN.md`](plans/LONG_TERM_PLAN.md) | [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md), keepalive docs |
+
+[january-short-plan-original]: https://github.com/stranske/Workflows/blob/09c73c658d6d4afa2ac5115814087a43fe8bf0d5/docs/plans/SHORT_TERM_PLAN.md
+[january-long-plan-original]: https://github.com/stranske/Workflows/blob/09c73c658d6d4afa2ac5115814087a43fe8bf0d5/docs/plans/LONG_TERM_PLAN.md
 
 ## Historical short-term plan briefing
 
@@ -173,9 +176,12 @@ Historical snapshots from the December 2025–January 2026 audit cycle. Monthly 
 
 | Former path | Archive path |
 |-------------|--------------|
-| `docs/WORKFLOW_AUDIT_2025-12-25.md` | [`audits/WORKFLOW_AUDIT_2025-12-25.md`](audits/WORKFLOW_AUDIT_2025-12-25.md) |
-| `docs/WORKFLOW_AUDIT_2026-01-09.md` | [`audits/WORKFLOW_AUDIT_2026-01-09.md`](audits/WORKFLOW_AUDIT_2026-01-09.md) |
+| [`docs/WORKFLOW_AUDIT_2025-12-25.md`][december-audit-original] | [`audits/WORKFLOW_AUDIT_2025-12-25.md`](audits/WORKFLOW_AUDIT_2025-12-25.md) |
+| [`docs/WORKFLOW_AUDIT_2026-01-09.md`][january-audit-original] | [`audits/WORKFLOW_AUDIT_2026-01-09.md`](audits/WORKFLOW_AUDIT_2026-01-09.md) |
 | `docs/WORKFLOW_AUDIT_2026-11-19.md` | [`audits/WORKFLOW_AUDIT_2026-11-19.md`](audits/WORKFLOW_AUDIT_2026-11-19.md) |
+
+[december-audit-original]: https://github.com/stranske/Workflows/blob/09c73c658d6d4afa2ac5115814087a43fe8bf0d5/docs/WORKFLOW_AUDIT_2025-12-25.md
+[january-audit-original]: https://github.com/stranske/Workflows/blob/09c73c658d6d4afa2ac5115814087a43fe8bf0d5/docs/WORKFLOW_AUDIT_2026-01-09.md
 
 ## January 2026 Template handoff
 
