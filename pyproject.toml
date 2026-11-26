@@ -134,6 +134,10 @@ ignore = [
     "E501",  # Line too long (handled by black)
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# The issue 3988 replay script is retained byte-for-byte with its historical evidence.
+"evidence/issue-3988/collect_observations.py" = ["I001", "UP017"]
+
 [tool.ruff.lint.isort]
 # Treat scripts.* and tools.* as third-party so import ordering matches consumer
 # repos. Consumer repos have src = ["src", "tests"] which excludes scripts/ and
