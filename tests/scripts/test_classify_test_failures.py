@@ -175,3 +175,32 @@ def test_main_with_missing_report_prints_empty_summary(tmp_path: Path, capsys, m
     assert status == 0
     captured = capsys.readouterr()
     assert '"total_failures": 0' in captured.out
+
+
+def test_main_classifies_absolute_file_and_recursive_glob(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    nested = tmp_path / ".hidden"
+    nested.mkdir()
+    report = _write_junit(nested, "report[1].xml", '<testcase name="case"><failure/></testcase>')
+    monkeypatch.chdir(tmp_path)
+    assert classify_test_failures.main([str(report.relative_to(tmp_path))]) == 0
+    expected = json.loads(capsys.readouterr().out)
+    assert expected["total_failures"] == 1
+    expected["runtime"][0]["file"] = str(report)
+
+    recursive = str(tmp_path / "**" / "*.xml")
+    arguments = [str(report), recursive]
+    if tmp_path.anchor == "/":
+        arguments.append("//" + recursive)
+    for argument in arguments:
+        assert classify_test_failures.main([argument]) == 0
+        assert json.loads(capsys.readouterr().out) == expected
+
+    assert classify_test_failures.main([str(tmp_path / "**" / "*.xml") + "/"]) == 0
+    assert json.loads(capsys.readouterr().out)["total_failures"] == 0
+
+
+def test_main_accepts_missing_absolute_report(tmp_path: Path, capsys) -> None:
+    assert classify_test_failures.main([str(tmp_path / "missing.xml")]) == 0
+    assert json.loads(capsys.readouterr().out)["total_failures"] == 0
