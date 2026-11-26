@@ -140,11 +140,11 @@ fingerprint_refreshed = 2026-10-15
 # retain their established in-tree versus sparse-checkout issue-update implementations.
 main = .github/workflows/agents-issue-optimizer.yml
 template = templates/consumer-repo/.github/workflows/agents-issue-optimizer.yml
-main_sha256 = 8d4c8c270485a18773e9a1bee32f9f08a195292cb824fd5f12e8b779dba53738
-template_sha256 = f000f6b8e33a7ac8b707d22b46320cf9d5ad78da0a7bb73ded06a701ffa7c3f5
+main_sha256 = d920747f132e2ce3ec46624fed7a187d6492f2f2c1a0dd639a679cd42118680a
+template_sha256 = a18af6d109953330f4a55ea48d96526f005c538f6b5dff4fda6aa0d6e16e99f7
 divergence = Rewrite-failed outcome 2026-11-04: both Phase 3 steps record a completed-but-invalid rewrite as `<!-- issue-optimizer:rewrite-failed -->` (posted with github.token) and exit 0, skip agents:formatted, and release the format lease; applied identically to root and consumer, no new divergence, divergence_reviewed retained. Prior divergence: LANGCHAIN_MODEL 2026-09-30: both surfaces moved the inline optimizer model from claude-sonnet-4-5-20250929 to claude-sonnet-5-5, applied identically; no new divergence, divergence_reviewed retained. Prior divergence: client-id rename 2026-08-24: every create-github-app-token step moved from the deprecated `app-id` input to `client-id`, applied identically to root and consumer, with the secret VALUE unchanged (the action forwards either input to the same appId slot -- main.js:21, lib/main.js:37). Fingerprints refreshed for that change; the divergence itself is unchanged and was NOT re-reviewed, which is why divergence_reviewed keeps its old date. Prior divergence unchanged: Fingerprints refreshed 2026-08-24: both surfaces now link recursion-pause comments to the managed WORKFLOW_USER_GUIDE recovery section instead of a nonexistent Agents.md anchor. The Workflows-local surface links to templates/consumer-repo/WORKFLOW_USER_GUIDE.md because there is no root guide, while the distributed consumer links to its root WORKFLOW_USER_GUIDE.md. Prior fingerprint refresh 2026-08-24: both surfaces treat automated issues as format-ineligible, complementing the shared guard cleanup that removes stale agents:format leases from exempt issues. Underlying divergence re-reviewed 2026-08-23: root remains in-tree (scripts/langchain + .github/scripts/issue_format.py); consumer vendors those via Workflows sparse-checkout under workflows-scripts/. Do not align wholesale — that would strip consumer action pins/token setup.
 divergence_reviewed = 2026-08-23
-fingerprint_refreshed = 2026-11-21
+fingerprint_refreshed = 2026-11-26
 
 [pair.12]
 main = .github/workflows/agents-keepalive-loop-reporter.yml
