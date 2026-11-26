@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.9](https://github.com/stranske/Workflows/compare/v1.52.8...v1.52.9) (2026-11-26)
+
+
+### Bug Fixes
+
+* bind Gate comments to the authored attempt ([#5206](https://github.com/stranske/Workflows/issues/5206)) ([4eaf777](https://github.com/stranske/Workflows/commit/4eaf777d7b41f34f2c15184eb2f5f0982e6bd5b3))
+
 ## [1.52.8](https://github.com/stranske/Workflows/compare/v1.52.7...v1.52.8) (2026-11-26)
 
 
