@@ -150,15 +150,31 @@ jobs:
             ref="main"
           fi
           echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+          {
+            echo 'sparse_checkout<<RESOLVER_PATHS'
+            echo '.github/actions/resolve-default-branch'
+            case "$ref" in
+              main|refs/heads/main)
+                printf '%s\n' \
+                  .github/scripts/error_classifier.js \
+                  .github/scripts/github-api-with-retry.js \
+                  .github/scripts/package.json \
+                  .github/scripts/token_load_balancer.js
+                ;;
+              *)
+                # Older refs may have different dependency trees.
+                echo '.github/scripts'
+                ;;
+            esac
+            echo 'RESOLVER_PATHS'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Checkout resolver action
         uses: actions/checkout@v7
         with:
           repository: stranske/Workflows
           ref: ${{ steps.workflows_workflow_ref.outputs.ref }}
-          sparse-checkout: |
-            .github/actions/resolve-default-branch
-            .github/scripts
+          sparse-checkout: ${{ steps.workflows_workflow_ref.outputs.sparse_checkout }}
           sparse-checkout-cone-mode: false
           path: workflows-resolver
           fetch-depth: 1

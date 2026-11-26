@@ -215,29 +215,65 @@ def test_resolve_default_branch_inline_workflow_copies_removed() -> None:
     assert action_uses >= 10
 
 
-def test_pr_meta_bootstraps_resolver_from_workflows_checkout() -> None:
-    """PR meta cannot require unsynced consumers to already have the new action."""
-    assert_workflow_bootstraps_resolver_from_workflows_checkout("reusable-20-pr-meta.yml")
-
-
-def assert_workflow_bootstraps_resolver_from_workflows_checkout(workflow_name: str) -> None:
-    workflow = REPO_ROOT / ".github" / "workflows" / workflow_name
-    data = yaml.safe_load(workflow.read_text(encoding="utf-8"))
-    steps = next(
-        job["steps"]
-        for job in data["jobs"].values()
-        if any(step.get("name") == "Resolve Workflows ref" for step in job.get("steps", []))
+@pytest.mark.parametrize(
+    ("ref", "expected_ref", "narrow"),
+    [
+        ("", "main", True),
+        ("main", "main", True),
+        ("refs/heads/main", "refs/heads/main", True),
+        ("release/test", "release/test", False),
+        ("refs/heads/release/test", "refs/heads/release/test", False),
+        ("refs/tags/main", "refs/tags/main", False),
+        ("v1.52.16", "v1.52.16", False),
+        ("refs/tags/v1.52.16", "refs/tags/v1.52.16", False),
+        ("a" * 40, "a" * 40, False),
+    ],
+)
+def test_pr_meta_bootstraps_resolver_from_workflows_checkout(
+    tmp_path: Path, ref: str, expected_ref: str, narrow: bool
+) -> None:
+    """Bootstrap from Workflows and preserve all dependencies on alternate refs."""
+    workflow = REPO_ROOT / ".github" / "workflows" / "reusable-20-pr-meta.yml"
+    steps = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["keepalive_dispatch"][
+        "steps"
+    ]
+    determine_ref = next(step for step in steps if step.get("id") == "workflows_workflow_ref")
+    assert determine_ref["env"]["WORKFLOW_REF"] == "${{ github.workflow_ref }}"
+    caller = "stranske/trip-planner/.github/workflows/agents-80-pr-event-hub.yml"
+    output = tmp_path / "workflow-output"
+    subprocess.run(
+        ["bash", "-c", determine_ref["run"]],
+        env={"WORKFLOW_REF": f"{caller}@{ref}" if ref else caller, "GITHUB_OUTPUT": str(output)},
+        check=True,
     )
+    ref_line, opener, *paths, delimiter = output.read_text().splitlines()
+    assert ref_line == f"ref={expected_ref}"
+    assert opener == "sparse_checkout<<RESOLVER_PATHS"
+    assert delimiter == "RESOLVER_PATHS"
+    assert paths[0] == ".github/actions/resolve-default-branch"
+    if narrow:
+        assert paths[1:] == [
+            ".github/scripts/error_classifier.js",
+            ".github/scripts/github-api-with-retry.js",
+            ".github/scripts/package.json",
+            ".github/scripts/token_load_balancer.js",
+        ]
+    else:
+        assert paths[1:] == [".github/scripts"]
 
-    resolver_checkout = next(
-        step for step in steps if step.get("name") == "Checkout resolver action"
+    bootstrap = next(step for step in steps if step["name"] == "Checkout resolver action")
+    assert bootstrap["uses"] == "actions/checkout@v7"
+    assert bootstrap["with"]["repository"] == "stranske/Workflows"
+    assert bootstrap["with"]["path"] == "workflows-resolver"
+    assert bootstrap["with"]["ref"] == "${{ steps.workflows_workflow_ref.outputs.ref }}"
+    assert bootstrap["with"]["sparse-checkout"] == (
+        "${{ steps.workflows_workflow_ref.outputs.sparse_checkout }}"
     )
-    assert resolver_checkout["uses"] == "actions/checkout@v7"
-    assert resolver_checkout["with"]["path"] == "workflows-resolver"
-    assert ".github/actions/resolve-default-branch" in resolver_checkout["with"]["sparse-checkout"]
-
-    resolve_step = next(step for step in steps if step.get("name") == "Resolve Workflows ref")
-    assert resolve_step["uses"] == "./workflows-resolver/.github/actions/resolve-default-branch"
-    assert "./consumer/.github/actions/resolve-default-branch" not in workflow.read_text(
-        encoding="utf-8"
+    determine_default = next(step for step in steps if step.get("id") == "workflows_ref")
+    assert (
+        determine_default["uses"] == "./workflows-resolver/.github/actions/resolve-default-branch"
     )
+    library = next(step for step in steps if step["name"] == "Checkout Workflows scripts")
+    assert library["with"]["ref"] == "${{ steps.workflows_ref.outputs.ref }}"
+    assert library["with"]["path"] == "workflows-lib"
+    assert ".github/scripts" in library["with"]["sparse-checkout"].splitlines()

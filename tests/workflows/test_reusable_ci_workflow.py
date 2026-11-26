@@ -1318,7 +1318,7 @@ def test_integration_coverage_helpers_ship_through_both_existing_paths(tmp_path:
     checkout = next(
         step
         for step in workflow["jobs"]["sync"]["steps"]
-        if step.get("name") == "Checkout Workflows delivery tree"
+        if step.get("name") == "Checkout Workflows repo"
     )
     assert set(helpers) <= set(checkout["with"]["sparse-checkout"].split())
     delivery = publish_integration_sync.DELIVERY_PATHS

@@ -253,11 +253,14 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files(manifest: dict) -> No
     apply_script = steps["Apply template updates"]["run"]
     changes_script = steps["Check for changes"]["run"]
     commit_script = steps["Commit and push changes"]["run"]
-    sparse = steps["Checkout Workflows repo"]["with"]["sparse-checkout"]
-    delivery = steps["Checkout Workflows delivery tree"]["with"]
+    checkouts = [
+        step for step in steps.values() if step.get("uses", "").startswith("actions/checkout@")
+    ]
+    assert [step["with"]["path"] for step in checkouts] == ["workflows"]
+    sparse = checkouts[0]["with"]["sparse-checkout"].splitlines()
 
     assert "sync_integration_manifest_subset.py" in apply_script
-    assert '--source-root "../workflows-delivery"' in apply_script
+    assert '--source-root "../workflows"' in apply_script
     assert "git status --porcelain" in changes_script
     assert "git diff --quiet" not in changes_script
     assert "scripts/publish_integration_sync.py" in commit_script
@@ -274,21 +277,17 @@ def test_maint_69_runs_the_helper_and_sees_untracked_files(manifest: dict) -> No
         "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",
         "tools/coverage_guard.py",
     ):
-        assert needed in delivery["sparse-checkout"]
+        assert needed in sparse
     template_sources = {
         f"templates/consumer-repo/{source}"
         for source, tree in subset._select_copy_entries(manifest, WIT)
         if tree == "template"
     }
-    assert template_sources <= set(delivery["sparse-checkout"].split())
-    assert delivery["path"] == "workflows-delivery"
-    # The API-client install tree must stay free of .github/scripts/package.json: its
-    # file:node_modules dependency made `Setup API client` fail on every run after #4341.
-    assert ".github/scripts" not in sparse.split()
-    # #4345 anchors it to the workspace: a relative path is resolved twice after `cd`.
+    assert template_sources <= set(sparse)
+    assert "!/.github/scripts/node_modules/" in sparse
     assert (
         steps["Setup API client"]["with"]["install_dir"]
-        == "${{ github.workspace }}/workflows/.github/scripts"
+        == "${{ github.workspace }}/workflows/.github"
     )
     assert "schedule" in workflow[True]  # PyYAML parses the bare `on:` key as boolean True
 

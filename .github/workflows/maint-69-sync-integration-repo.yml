@@ -53,28 +53,9 @@ jobs:
             templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml
             templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml
             .github/workflows/autofix-versions.env
-            .github/actions/setup-api-client
-            .github/scripts/error_classifier.js
-            .github/scripts/github-api-with-retry.js
-            .github/scripts/github-rate-limited-wrapper.js
-            .github/scripts/sync_tracker_state
-            .github/scripts/token_load_balancer.js
-            scripts/sync_dev_dependencies.py
-            scripts/sync_integration_coverage_omit.py
-            scripts/sync_integration_manifest_subset.py
-            scripts/publish_integration_sync.py
-          sparse-checkout-cone-mode: false
-
-      # The delivery tree is separate from `workflows/`: Setup API client runs `npm install` in
-      # workflows/.github/scripts, and a checked-out .github/scripts/package.json (a file:
-      # dependency on a node_modules that is not there) makes that install fail.
-      - name: Checkout Workflows delivery tree
-        uses: actions/checkout@v7
-        with:
-          path: workflows-delivery
-          sparse-checkout: |
             .github/sync-manifest.yml
             .github/scripts
+            !/.github/scripts/node_modules/
             .github/actions/setup-api-client
             templates/consumer-repo/.github/scripts/agents_dispatch_summary.js
             templates/consumer-repo/.github/scripts/agents_orchestrator_resolve.js
@@ -83,6 +64,10 @@ jobs:
             tools/coverage_guard.py
             tools/coverage_trend.py
             scripts/coverage_history_append.py
+            scripts/sync_dev_dependencies.py
+            scripts/sync_integration_coverage_omit.py
+            scripts/sync_integration_manifest_subset.py
+            scripts/publish_integration_sync.py
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token
@@ -196,8 +181,8 @@ jobs:
           # Deliver the manifest-declared .github/scripts/* the hubs require() at runtime, the
           # maint-coverage-guard workflow, and the manifest's removals (retired workflows).
           python "../workflows/scripts/sync_integration_manifest_subset.py" \
-            --manifest "../workflows-delivery/.github/sync-manifest.yml" \
-            --source-root "../workflows-delivery" \
+            --manifest "../workflows/.github/sync-manifest.yml" \
+            --source-root "../workflows" \
             --target-root "." \
             --repo "${INTEGRATION_REPO}"
           echo "✅ Synced manifest hub scripts and removals"
@@ -315,7 +300,9 @@ jobs:
           github_token: ${{ github.token }}
           service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
           owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
-          install_dir: ${{ github.workspace }}/workflows/.github/scripts
+          # Use a separate npm package root one level above scripts/. This keeps
+          # its checked-out package.json out of npm and supports Node module lookup.
+          install_dir: ${{ github.workspace }}/workflows/.github
 
       - name: Resolve recovered integration sync alert
         if: >-
