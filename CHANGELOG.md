@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.15](https://github.com/stranske/Workflows/compare/v1.52.14...v1.52.15) (2026-11-26)
+
+
+### Bug Fixes
+
+* **belt:** initialize dispatcher API client before resolving Workflows ref ([#5261](https://github.com/stranske/Workflows/issues/5261)) ([16b7e80](https://github.com/stranske/Workflows/commit/16b7e8076ad90811b72267bc858b6a7bbcc4e526))
+* **keepalive:** stop Codex from publishing to closed PRs ([#5260](https://github.com/stranske/Workflows/issues/5260)) ([18540f8](https://github.com/stranske/Workflows/commit/18540f8f763d0125b6e3b2205415045ec03b0ffc))
+
 ## [1.52.14](https://github.com/stranske/Workflows/compare/v1.52.13...v1.52.14) (2026-11-26)
 
 
