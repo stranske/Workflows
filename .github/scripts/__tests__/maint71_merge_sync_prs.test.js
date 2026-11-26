@@ -1309,6 +1309,8 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
     ? (STALE_CANARY_HOURS + 1) * 60 : 20;
   const observed = new Date(refreshNow - ageMinutes * 60 * 1000).toISOString();
   const reviewStarted = state === 'seal_review_wait' ? new Date(refreshNow - 60000).toISOString() : observed;
+  const gateResolverAt = ['checks_failed', 'seal_drained', 'producer_success_red', 'aged_green'].includes(state)
+    ? new Date(refreshNow).toISOString() : new Date(Date.parse(observed) - 60000).toISOString();
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
   const sealRecovery = state.startsWith('seal_') && state !== 'seal_drained';
   const neverSealed = state.startsWith('seal_never_');
@@ -1467,10 +1469,7 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
     if (method === github.rest.actions.listJobsForWorkflowRun) return [
       { id: 9, name: 'resolve Gate PR context', head_sha: head, run_attempt: 1,
         status: 'completed', conclusion: 'success',
-        started_at: ['seal_drained', 'producer_success_red', 'aged_green'].includes(state)
-          ? new Date(refreshNow).toISOString() : new Date(Date.parse(observed) - 60000).toISOString(),
-        completed_at: ['seal_drained', 'producer_success_red', 'aged_green'].includes(state)
-          ? new Date(refreshNow).toISOString() : new Date(Date.parse(observed) - 60000).toISOString() },
+        started_at: gateResolverAt, completed_at: gateResolverAt },
       { id: 1, name: 'classify changed paths', status: 'completed', conclusion: 'failure' },
       { id: 2, name: 'gate-summary', status: 'completed', conclusion: 'failure' },
       { id: 3, name: 'generated delivery seal', status: 'completed', conclusion: 'failure' },
@@ -3848,6 +3847,57 @@ function sealedRefreshFixture(t) {
   return { api, pr, record, gate, files, payload, state, withRetry, parseDeliveryRecord,
     decide: async (now = refreshNow) => deferSealedCanaryRefresh({ state: state(), payload, withRetry, now }) };
 }
+
+test('keyed full-plan refresh rechecks a sibling seal before dispatch', async t => {
+  const fixture = sealedRefreshFixture(t);
+  const repository = 'stranske/Ready';
+  const api = refreshHarness();
+  const candidate = refreshCanary({ repo: 'Template', pr: 13, head_sha: 'd'.repeat(40),
+    plan_id: 'sha256:' + 'a'.repeat(64), plan_scope: 'full', check_status: 'checks_failed' });
+  const plan = { plan_id: candidate.plan_id, plan_scope: 'full', scope_base_sha: '',
+    source_commit: candidate.source_commit };
+  const payload = { ...fixture.payload, files: { ...fixture.payload.files, 'stranske/Template': {} } };
+  const digest = payload.digest;
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async sha => sha === plan.source_commit
+    ? payload : { digest: 'sha256:' + 'b'.repeat(64), files: payload.files });
+  const recoveryKey = require('node:crypto').createHash('sha256')
+    .update(`stranske/Template:${digest}:${candidate.head_sha}`).digest('hex');
+  let active = false;
+  const withRetry = callback => api.withRetry(client => fixture.withRetry(native => callback({
+    ...client,
+    paginate: native.paginate,
+    rest: { ...client.rest,
+      pulls: { ...native.rest.pulls, list: async query => query.owner + '/' + query.repo === repository
+        ? native.rest.pulls.list(query) : { data: [] } },
+      actions: { ...client.rest.actions, listWorkflowRuns: async query => {
+        if (query.workflow_id === 'pr-00-gate.yml') return native.rest.actions.listWorkflowRuns(query);
+        const runs = active && query.status === 'queued'
+          ? [producerRun({ status: 'queued', conclusion: null,
+            display_title: 'Maint 68 promote auto active-plan source' })] : [];
+        return { data: { workflow_runs: runs } };
+      } },
+    },
+  })));
+  const check = () => {
+    candidate.refresh_state = canaryRefreshDecision({ runs: [], sha: plan.source_commit,
+      candidates: api.expectedCanaries, driftKey: recoveryKey, deliveryDigest: digest,
+      refreshPlan: plan, now: api.now });
+    return refreshStableCanaries({ ...api, withRetry, canaries: [candidate] });
+  };
+  assert.equal((await check()).refresh_dispatched, 0);
+  assert.match(api.summaries.join(''), /sealed cycle stranske\/Ready/);
+  fixture.pr.state = 'closed';
+  active = true;
+  assert.equal((await check()).refresh_dispatched, 0, 'an active writer still holds');
+  assert.match(api.summaries.join(''), /already writer-active/);
+  active = false;
+  assert.equal((await check()).refresh_dispatched, 1, 'the closed sibling releases before the deadline');
+  assert.equal(api.dispatches.length, 1);
+  assert.equal(api.dispatches[0].inputs.expected_plan_id, plan.plan_id);
+  assert.equal(api.dispatches[0].inputs.scope_head_sha, plan.source_commit);
+  assert.equal(api.dispatches[0].inputs.refresh_key, recoveryKey);
+  assert.deepEqual(api.failures, []);
+});
 
 test('changed delivered file while sealed queues refresh, then applies after merge or bounded wait', async t => {
   const f = sealedRefreshFixture(t);
