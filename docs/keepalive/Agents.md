@@ -204,6 +204,17 @@ validate them with its disposable Git regression tests. A checkpoint with only
 excluded artifacts creates no commit; unpushed existing commits retain their
 existing push path.
 
+### Codex keepalive publication
+
+Before publishing to a keepalive PR, the normal publisher and the pre-timeout
+watchdog read the current PR using the existing GitHub App installation token.
+The target must still be an open PR on the same repository and branch. The push
+must be a fast-forward of that exact remote head. Git rejects the update if the
+branch has since disappeared or advanced. A known closed PR leaves the worker
+output artifact available without reporting published changes; an unavailable
+or inconsistent PR lookup refuses publication. Git and the PR state API are
+separate, so a close that retains an unchanged branch can still race the push.
+
 ### Cursor target PR lifecycle
 
 Cursor's agent step clears `GH_TOKEN`, `GITHUB_TOKEN` and `WORKFLOWS_TOKEN`;

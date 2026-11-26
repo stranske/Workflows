@@ -992,6 +992,123 @@ jobs:
             echo "- Candidate order: \`$candidates\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Prepare Codex branch publisher
+        id: branch_publisher
+        # Pin the source API wrapper and publisher before the agent runs.
+        env:
+          MODE: ${{ inputs.mode }}
+          PR_NUM: ${{ inputs.pr_number }}
+          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = keepalive ] && [ -n "$PR_NUM" ]; then
+            # The reusable workflow and the caller's general-purpose scripts can have different refs.
+            if ! source_sha=$(jq -er '
+              select(.workflow_repository | ascii_downcase == "stranske/workflows")
+              | .workflow_sha | select(test("^[0-9a-f]{40}$"))
+            ' <<< "$WORKFLOW_JOB_CONTEXT"); then
+              echo "::error::Could not identify the defining Workflows publisher revision." >&2
+              exit 1
+            fi
+            source_file="$source_sha:scripts/api_client.py"
+            if ! git -C .workflows-lib cat-file -e "$source_file" 2>/dev/null; then
+              timeout 60s git -C .workflows-lib fetch --no-tags --depth=1 --no-write-fetch-head \
+                origin "$source_sha"
+            fi
+            client=$(git -C .workflows-lib show "$source_file" | base64 | tr -d '\n')
+            printf 'api_client=%s\n' "$client" >> "$GITHUB_OUTPUT"
+          fi
+          cat >> "$GITHUB_OUTPUT" <<'OUT'
+          shell<<CODEX_PUBLISHER
+          set -u
+          mode=$1
+          pr_number=$2
+          branch=$3
+          remote_url=$4
+          operation=${5:-push}
+          if [ "$mode" != keepalive ] || [ -z "$pr_number" ]; then
+            if [ "$operation" = verify ]; then exit 0; fi
+            git push "$remote_url" "HEAD:$branch" >&2 || exit $?
+            git rev-parse HEAD
+            exit $?
+          fi
+
+          if [[ ! "$pr_number" =~ ^[1-9][0-9]*$ ]] || [ -z "${PUSH_TOKEN:-}" ]; then
+            echo "::error::Keepalive publication needs a PR number and the existing app token." >&2
+            exit 79
+          fi
+
+          if ! pr=$(timeout 15s python3 -IS - "$GITHUB_REPOSITORY" "$pr_number" 2>/dev/null <<'PY'
+          import base64
+          import os
+          import sys
+          import urllib.request
+
+          from types import ModuleType
+
+          api = ModuleType("workflows_publication_api")
+          exec(
+              compile(base64.b64decode(os.environ["CODEX_API_CLIENT"], validate=True),
+                      "Workflows/scripts/api_client.py", "exec"),
+              api.__dict__,
+          )
+          class RejectRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          opener = urllib.request.build_opener(RejectRedirect())
+          pr = api.request_json_once(
+              "GET", f"/repos/{sys.argv[1]}/pulls/{sys.argv[2]}", os.environ["PUSH_TOKEN"],
+              opener=opener.open,
+          )
+          fields = (str(pr["number"]), pr["state"], pr["head"]["repo"]["full_name"],
+                    pr["head"]["ref"], pr["head"]["sha"], pr["base"]["repo"]["full_name"])
+          if any(not isinstance(field, str) or any(c in field for c in "\t\n\r") for field in fields):
+              sys.exit(1)
+          print("\t".join(fields))
+          PY
+          ); then
+            echo "::error::Could not verify PR state before keepalive publication." >&2
+            exit 79
+          fi
+          IFS=$'\t' read -r number state head_repo head_ref head_sha base_repo <<< "$pr"
+          if [[ "$number" != "$pr_number" || "$head_repo" != "$GITHUB_REPOSITORY" ||
+            "$base_repo" != "$GITHUB_REPOSITORY" || "$head_ref" != "$branch" ||
+            ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Keepalive publication target does not match the PR head." >&2
+            exit 79
+          fi
+          if [ "$state" = closed ]; then
+            echo "::notice::Keepalive PR is closed; skipping branch publication." >&2
+            exit 78
+          fi
+          if [ "$state" != open ]; then
+            echo "::error::Keepalive publication requires a known open PR state." >&2
+            exit 79
+          fi
+          if [ "$operation" = verify ]; then exit 0; fi
+
+          # Anchor the push to the exact existing remote head and allow only a fast-forward.
+          # Git's ref comparison also rejects deletion or advancement after the PR read.
+          commit=$(git rev-parse --verify HEAD) || exit 1
+          if ! git merge-base --is-ancestor "$head_sha" "$commit"; then
+            echo "::warning::PR head has moved; refusing to publish stale keepalive work." >&2
+            exit 1
+          fi
+          ref="refs/heads/$branch"
+          if ! pushed=$(git push --porcelain --force-with-lease="$ref:$head_sha" \
+            "$remote_url" "$commit:$ref"); then
+            exit 1
+          fi
+          # Porcelain's leading space confirms an actual fast-forward update.
+          if [[ "$pushed" != *$'\n \t'* ]]; then
+            echo "::notice::No keepalive ref update was applied." >&2
+            exit 78
+          fi
+          printf '%s\n' "$commit"
+          CODEX_PUBLISHER
+          OUT
+
       - name: Run Codex
         id: run_codex
         env:
@@ -1000,11 +1117,14 @@ jobs:
           CODEX_MODEL_SELECTION_REASON: ${{ steps.codex_model.outputs.selection_reason }}
           PROMPT_FILE: ${{ steps.prompt.outputs.file }}
           PR_NUM: ${{ inputs.pr_number }}
+          MODE: ${{ inputs.mode }}
           SANDBOX: ${{ inputs.sandbox }}
           EXTRA_ARGS_RAW: ${{ inputs.codex_args }}
           REASONING_EFFORT: ${{ steps.codex_model.outputs.reasoning_effort || inputs.codex_reasoning_effort }}
           MAX_RUNTIME_MIN: ${{ inputs.max_runtime_minutes }}
           TARGET_BRANCH: ${{ inputs.pr_ref || github.ref_name }}
+          PUSH_CODEX_BRANCH: ${{ steps.branch_publisher.outputs.shell }}
+          CODEX_API_CLIENT: ${{ steps.branch_publisher.outputs.api_client }}
         run: |
           set -euo pipefail
 
@@ -1181,10 +1301,25 @@ jobs:
                       --allow-unrelated-histories 2>/dev/null || true
                   fi
                 fi
+                watchdog_publish() {
+                  if [ -z "${PUSH_CODEX_BRANCH:-}" ]; then
+                    echo "::error::Codex publisher definition is unavailable." >&2
+                    return 79
+                  fi
+                  local saved_sha
+                  saved_sha=$(PUSH_TOKEN="$PUSH_TOKEN" bash -c "$PUSH_CODEX_BRANCH" -- \
+                    "$MODE" "$PR_NUM" "$TARGET_BRANCH" "$REMOTE_URL") || return $?
+                  [[ "$saved_sha" =~ ^[0-9a-f]{40}$ ]] || return 79
+                }
+
                 # Push with one retry
                 watchdog_push_ok=false
-                if git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" 2>/dev/null; then
+                push_status=0
+                watchdog_publish || push_status=$?
+                if [ "$push_status" -eq 0 ]; then
                   watchdog_push_ok=true
+                elif [ "$push_status" -eq 78 ] || [ "$push_status" -eq 79 ]; then
+                  exit 0
                 else
                   echo "::warning::Watchdog push failed (attempt 1), retrying after fetch/rebase..."
                   sleep 3
@@ -1196,8 +1331,12 @@ jobs:
                         --allow-unrelated-histories 2>/dev/null || true
                     }
                   fi
-                  if git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}" 2>/dev/null; then
+                  push_status=0
+                  watchdog_publish || push_status=$?
+                  if [ "$push_status" -eq 0 ]; then
                     watchdog_push_ok=true
+                  elif [ "$push_status" -eq 78 ] || [ "$push_status" -eq 79 ]; then
+                    exit 0
                   else
                     echo "::warning::Watchdog push failed after retry"
                   fi
@@ -1738,6 +1877,8 @@ jobs:
           PR_REF: ${{ inputs.pr_ref }}
           PUSH_ALLOWED: ${{ steps.run_base.outputs.push_allowed }}
           PUSH_TOKEN: ${{ steps.run_base.outputs.push_token }}
+          PUSH_CODEX_BRANCH: ${{ steps.branch_publisher.outputs.shell }}
+          CODEX_API_CLIENT: ${{ steps.branch_publisher.outputs.api_client }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -1777,6 +1918,34 @@ jobs:
           TARGET_BRANCH="${TARGET_REF#refs/heads/}"
           echo "Target branch: ${TARGET_BRANCH}"
 
+          REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
+          publish() {
+            if [ -z "${PUSH_CODEX_BRANCH:-}" ]; then
+              # The always-run final publisher can execute after a prior step is skipped.
+              if [ "$MODE" = keepalive ] && [ -n "$PR_NUMBER" ]; then
+                echo "::error::Codex publisher definition is unavailable." >&2
+                return 79
+              fi
+              if [ "${1:-push}" = verify ]; then return 0; fi
+              git push "$REMOTE_URL" "HEAD:$TARGET_BRANCH" >&2 || return $?
+              git rev-parse HEAD
+              return $?
+            fi
+            bash -c "$PUSH_CODEX_BRANCH" -- "$MODE" "$PR_NUMBER" "$TARGET_BRANCH" "$REMOTE_URL" "$@"
+          }
+
+          record_publication() {
+            if [[ ! "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::Codex publisher returned no verified commit SHA." >&2
+              return 1
+            fi
+            echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "changes-made=true" >> "$GITHUB_OUTPUT"
+          }
+
+          echo "changes-made=false" >> "$GITHUB_OUTPUT"
+          echo "commit-sha=" >> "$GITHUB_OUTPUT"
+
           # Count changed files
           CHANGED_FILES=$(git status --porcelain | wc -l)
           echo "files-changed=${CHANGED_FILES}" >> "$GITHUB_OUTPUT"
@@ -1786,7 +1955,6 @@ jobs:
             echo "No uncommitted changes."
             # Check if Codex made commits that we need to push
             # This happens when Codex commits during its run (workspace-write mode)
-            REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
             git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
 
             UNPUSHED_COMMITS=0
@@ -1799,9 +1967,6 @@ jobs:
 
             if [ "$UNPUSHED_COMMITS" -gt 0 ]; then
               echo "Found ${UNPUSHED_COMMITS} unpushed commit(s) from Codex - pushing them."
-              COMMIT_SHA=$(git rev-parse HEAD)
-              echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
-              echo "changes-made=true" >> "$GITHUB_OUTPUT"
               if [ "$PUSH_ALLOWED" != "true" ]; then
                 echo "::error::GitHub App token missing; refusing to push without app identity."
                 exit 1
@@ -1813,23 +1978,26 @@ jobs:
                   git rebase --abort 2>/dev/null || true
                   if ! git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" \
                     --allow-unrelated-histories; then
+                    pr_status=0
+                    publish verify || pr_status=$?
+                    if [ "$pr_status" -eq 78 ]; then exit 0; fi
                     echo "::error::Merge fallback failed; refusing to push an inconsistent state."
                     exit 1
                   fi
                 fi
-                COMMIT_SHA=$(git rev-parse HEAD)
-                echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
               fi
-              # Use plain push (not --force-with-lease) because git fetch <URL>
-              # updates FETCH_HEAD but not the local tracking ref, causing
-              # --force-with-lease to reject with "stale info".
               for attempt in 1 2 3; do
                 echo "Push attempt ${attempt}/3 (unpushed commits path)..."
-                if git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"; then
-                            echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Codex "\
-                              "(attempt ${attempt}, SHA: ${COMMIT_SHA})"
-                  exit 0
-                fi
+                push_status=0
+                COMMIT_SHA=$(publish) || push_status=$?
+                case "$push_status" in
+                  0)
+                    record_publication
+                    echo "::notice::Pushed ${UNPUSHED_COMMITS} commit(s) from Codex on attempt ${attempt}"
+                    exit 0 ;;
+                  78) exit 0 ;;
+                  79) exit 1 ;;
+                esac
                 echo "::warning::Push failed (attempt ${attempt})"
                 if [ "$attempt" -lt 3 ]; then
                   sleep $((attempt * 5))
@@ -1841,8 +2009,6 @@ jobs:
                       git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" \
                         --allow-unrelated-histories || true
                     fi
-                    COMMIT_SHA="$(git rev-parse HEAD)"
-                    echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
                   fi
                 fi
               done
@@ -1873,8 +2039,6 @@ jobs:
           if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ] &&
             ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             echo "Only agent bootstrap files changed - skipping commit to reduce noise."
-            echo "changes-made=false" >> "$GITHUB_OUTPUT"
-            echo "commit-sha=" >> "$GITHUB_OUTPUT"
             git checkout -- agents/ 2>/dev/null || true
             exit 0
           fi
@@ -1882,12 +2046,9 @@ jobs:
           if [ "$CHANGED_FILES" -eq 0 ] &&
             ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             echo "No changes to commit after excluding status files."
-            echo "changes-made=false" >> "$GITHUB_OUTPUT"
-            echo "commit-sha=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "changes-made=true" >> "$GITHUB_OUTPUT"
           echo "::notice::Codex made changes to ${CHANGED_FILES} file(s)"
 
           commit_message="chore(codex-${MODE}): apply updates"
@@ -1898,12 +2059,8 @@ jobs:
           if [ "$PUSH_ALLOWED" != "true" ]; then
             echo "::error::GitHub App token missing; refusing to push without app identity."
             echo "::error::This preserves workflow triggers that require app identity."
-            echo "commit-sha=" >> "$GITHUB_OUTPUT"
             exit 1
           fi
-
-            # Define REMOTE_URL early since it is used in multiple code paths
-            REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
 
           # Shared artifact contract also used by the pre-timeout checkpoint.
           python3 .workflows-lib/scripts/stage_agent_changes.py
@@ -1918,13 +2075,13 @@ jobs:
             UNPUSHED=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo "0")
             if [ "$UNPUSHED" -gt 0 ]; then
               echo "::notice::Found ${UNPUSHED} unpushed commit(s) - pushing them."
-              git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"
-              echo "commit-sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-              echo "changes-made=true" >> "$GITHUB_OUTPUT"
+              push_status=0
+              COMMIT_SHA=$(publish) || push_status=$?
+              if [ "$push_status" -eq 78 ]; then exit 0; fi
+              if [ "$push_status" -ne 0 ]; then exit 1; fi
+              record_publication
               exit 0
             fi
-            echo "changes-made=false" >> "$GITHUB_OUTPUT"
-            echo "commit-sha=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -1934,13 +2091,8 @@ jobs:
           echo "::endgroup::"
           git commit -m "$commit_message" || { echo "::error::git commit failed"; exit 1; }
 
-          # Capture commit SHA before push
-          COMMIT_SHA=$(git rev-parse HEAD)
-          echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
-
           # Pull and rebase before push to handle concurrent changes (e.g., Autofix)
           # This prevents push failures when the branch has been updated while Codex ran
-          REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
           echo "::group::Sync with remote before push"
           git fetch "${REMOTE_URL}" "${TARGET_BRANCH}" 2>/dev/null || true
           if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
@@ -1950,13 +2102,14 @@ jobs:
               git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" \
                 --allow-unrelated-histories || true
             fi
-            # Update commit SHA after rebase/merge
-            COMMIT_SHA=$(git rev-parse HEAD)
-            echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
           fi
           echo "::endgroup::"
 
-          git push "${REMOTE_URL}" "HEAD:${TARGET_BRANCH}"
+          push_status=0
+          COMMIT_SHA=$(publish) || push_status=$?
+          if [ "$push_status" -eq 78 ]; then exit 0; fi
+          if [ "$push_status" -ne 0 ]; then exit 1; fi
+          record_publication
 
           echo "::notice::Pushed commit ${COMMIT_SHA} with ${CHANGED_FILES} file(s) changed"
 

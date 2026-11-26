@@ -58,7 +58,14 @@ class _RequestsModule(Protocol):
     def request(self, method: str, url: str, **kwargs: Any) -> _Response: ...
 
 
-requests = cast(_RequestsModule, importlib.import_module("requests"))
+# The single-attempt urllib path can run on an interpreter without Requests.
+requests: _RequestsModule | None
+try:
+    requests = cast(_RequestsModule, importlib.import_module("requests"))
+except ModuleNotFoundError as exc:
+    if exc.name != "requests":
+        raise
+    requests = None
 
 
 def _should_retry(status_code: int, detail: Any) -> bool:
@@ -114,6 +121,9 @@ def _request_response(
     max_attempts: int = DEFAULT_RETRY_ATTEMPTS,
     backoff: float = DEFAULT_RETRY_BACKOFF,
 ) -> _Response:
+    transport = requests
+    if transport is None:
+        transport = cast(_RequestsModule, importlib.import_module("requests"))
     attempts = max(1, max_attempts)
     for attempt in range(1, attempts + 1):
         try:
@@ -126,12 +136,12 @@ def _request_response(
             }
             if payload is not None:
                 request_kwargs["json"] = payload
-            response = requests.request(
+            response = transport.request(
                 method,
                 url,
                 **request_kwargs,
             )
-        except requests.RequestException as exc:
+        except transport.RequestException as exc:
             if attempt >= attempts:
                 raise RuntimeError("GitHub API request failed.") from exc
             _sleep_with_backoff(backoff, attempt)
