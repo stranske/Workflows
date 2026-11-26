@@ -308,6 +308,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
 
     async function runCase({
       headRepo, baseRepo, error, authoredHead = headSha, liveHead = headSha, useResolvedPr = false,
+      existingComment = null,
     }) {
       const warnings = [];
       const summaryRaw = [];
@@ -322,7 +323,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         __testMock: true,
         paginate: async (method) => {
           if (method !== listComments) throw new Error('unexpected pagination');
-          return [];
+          return existingComment ? [existingComment] : [];
         },
         rest: {
           pulls: {
@@ -336,6 +337,9 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
             createComment: async ({ issue_number }) => {
               apiCalls.push(['create', issue_number]);
               if (error) throw error;
+            },
+            updateComment: async ({ comment_id, body }) => {
+              apiCalls.push(['update', comment_id, body]);
             },
           },
         },
@@ -358,7 +362,9 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           if (id === 'fs') {
             return {
               existsSync: () => true,
-              readFileSync: () => 'GATE SUMMARY BODY',
+              readFileSync: () =>
+                `<!-- gate-summary: pr=1 head=${(authoredHead || liveHead).slice(0, 12)} -->\\n` +
+                'GATE SUMMARY BODY',
             };
           }
           if (id === './.github/scripts/comment-dedupe.js') return commentHelper;
@@ -395,6 +401,11 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     };
 
     (async () => {
+      const currentHead = 'b'.repeat(40);
+      const existingComment = {
+        id: 42,
+        body: `<!-- gate-summary: pr=1 head=${headSha.slice(0, 12)} -->\\nOLD SUMMARY`,
+      };
       const out = {
         fork_read_only: await runCase({
           ...FORK, error: makeError(403, 'Resource not accessible by integration'),
@@ -441,7 +452,12 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         deleted_fork_head: await runCase({ ...FORK, headRepo: null, error: null }),
         resolved_pr_head: await runCase({ ...FORK, useResolvedPr: true, error: null }),
         missing_head: await runCase({ ...FORK, authoredHead: null, error: null }),
-        superseded_head: await runCase({ ...FORK, liveHead: 'b'.repeat(40), error: null }),
+        matching_head_with_existing_comment: await runCase({
+          ...FORK, authoredHead: currentHead, liveHead: currentHead, existingComment, error: null,
+        }),
+        superseded_head: await runCase({
+          ...FORK, authoredHead: currentHead, liveHead: 'd'.repeat(40), existingComment, error: null,
+        }),
       };
       process.stdout.write(JSON.stringify(out));
     })();
@@ -552,6 +568,17 @@ def test_comment_with_matching_authored_head_is_silent(
     assert case["threw"] is None
     assert case["warnings"] == []
     assert case["summaryRaw"] == []
+
+
+def test_comment_with_matching_authored_head_updates_the_existing_summary(
+    comment_outcomes: dict[str, Any],
+) -> None:
+    case = comment_outcomes["matching_head_with_existing_comment"]
+    body = f"<!-- gate-summary: pr=1 head={'b' * 12} -->\nGATE SUMMARY BODY"
+    assert case["apiCalls"] == [["get", 1], ["update", 42, body]], case
+    assert case["threw"] is None, case
+    assert case["warnings"] == [], case
+    assert case["summaryRaw"] == [], case
 
 
 def test_comment_with_missing_or_superseded_head_is_skipped(
