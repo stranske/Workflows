@@ -311,6 +311,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     }) {
       const warnings = [];
       const summaryRaw = [];
+      const headReads = [];
       let commentAttempts = 0;
       let summaryWrites = 0;
       const summaryStub = {
@@ -322,7 +323,12 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         __testMock: true,
         paginate: async () => [],
         rest: {
-          pulls: { get: async () => ({ data: { head: { sha: liveHead } } }) },
+          pulls: {
+            get: async ({ pull_number }) => {
+              headReads.push(pull_number);
+              return { data: { head: { sha: liveHead } } };
+            },
+          },
           issues: {
             listComments: async () => ({ data: [] }),
             createComment: async () => {
@@ -375,7 +381,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       } catch (e) {
         threw = { status: e.status === undefined ? null : e.status, message: String(e.message) };
       }
-      return { warnings, summaryRaw, summaryWrites, threw, commentAttempts };
+      return { warnings, summaryRaw, summaryWrites, threw, commentAttempts, headReads };
     }
 
     const FORK = {
@@ -434,7 +440,8 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           }),
         }),
         fork_server_error: await runCase({ ...FORK, error: makeError(500, 'boom') }),
-        happy_path: await runCase({ ...FORK, error: null }),
+        fork_written: await runCase(FORK),
+        same_repo_written: await runCase(SAME),
         missing_head: await runCase({ ...READ_ONLY_FORK, headSha: null }),
         stale_head: await runCase({ ...FORK, liveHead: 'c'.repeat(40) }),
       };
@@ -485,12 +492,16 @@ def test_comment_fork_read_only_403_does_not_fail_the_gate(
     assert case["threw"] is None, case["threw"]
 
 
-@pytest.mark.parametrize("name", ["fork_read_only", "fork_read_only_resolved_head"])
+@pytest.mark.parametrize(
+    "name",
+    ["fork_read_only", "fork_read_only_resolved_head", "fork_read_only_positive_quota"],
+)
 def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
     comment_outcomes: dict[str, Any], name: str
 ) -> None:
     case = comment_outcomes[name]
     assert case["threw"] is None, case
+    assert case["headReads"] == [1], case
     assert case["summaryWrites"] == 1, case
     assert case["commentAttempts"] == 1, case
     assert len(case["warnings"]) == 1, case
@@ -500,8 +511,10 @@ def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
 
 def test_comment_same_repo_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) -> None:
     case = comment_outcomes["same_repo_read_only"]
+    assert case["commentAttempts"] == 1, case
     assert case["threw"] is not None
     assert case["threw"]["status"] == 403
+    assert case["summaryWrites"] == 0, case
 
 
 def test_comment_rate_limit_403_never_uses_fork_fallback(
@@ -529,27 +542,21 @@ def test_comment_rate_limit_403_never_uses_fork_fallback(
     assert case["summaryRaw"] == [], case
 
 
-def test_comment_positive_quota_permission_403_uses_fork_fallback(
-    comment_outcomes: dict[str, Any],
-) -> None:
-    case = comment_outcomes["fork_read_only_positive_quota"]
-    assert case["threw"] is None
-    assert any("read-only" in warning for warning in case["warnings"])
-    assert "GATE SUMMARY BODY" in " ".join(case["summaryRaw"])
-
-
 def test_comment_non_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) -> None:
     case = comment_outcomes["fork_server_error"]
     assert case["threw"] is not None
     assert case["threw"]["status"] == 500
 
 
-def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any]) -> None:
-    case = comment_outcomes["happy_path"]
+@pytest.mark.parametrize("name", ["fork_written", "same_repo_written"])
+def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any], name: str) -> None:
+    case = comment_outcomes[name]
+    assert case["headReads"] == [1], case
     assert case["commentAttempts"] == 1, case
     assert case["threw"] is None
     assert case["warnings"] == []
     assert case["summaryRaw"] == []
+    assert case["summaryWrites"] == 0, case
 
 
 @pytest.mark.parametrize(
