@@ -1,5 +1,8 @@
+import shutil
+import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 WORKFLOW = Path(".github/workflows/maint-82-sync-dependency-campaign.yml")
@@ -104,12 +107,32 @@ def test_campaign_forwards_only_evidence_for_the_selected_maint71_lane():
 
 
 def test_due_delivery_dispatch_is_scoped_and_manual_admin_cannot_wake_it():
-    workflow = WORKFLOW.read_text(encoding="utf-8")
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = data["jobs"]["campaign"]["steps"]
+    dispatch = next(
+        step for step in steps if step.get("name") == "Dispatch due Maint 71 continuations"
+    )
+    assert dispatch["if"] == "${{ steps.inputs.outputs.dry_run != 'true' }}"
+    assert dispatch["env"]["DELIVERY_HANDOFFS_JSON"] == (
+        "${{ steps.campaign.outputs.maint71_delivery_handoffs || '[]' }}"
+    )
 
-    assert "record.repository !== 'stranske/Collab-Admin'" in workflow
-    assert "handoff_verification_blocked_keys" in workflow
-    assert "!blockedHandoffKeys.has(`${record.repository}#${record.pr}`)" in workflow
-    assert "planMaint71Continuations(eligibleHandoffs" in workflow
-    assert "maint71_delivery_handoffs" in workflow
-    assert "selectMaint71ContinuationRepos(" in workflow
-    assert "inputs.repos = scopedRepos.join(',')" in workflow
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is required to exercise the authored GitHub scripts")
+    result = subprocess.run(
+        [
+            node,
+            "--test",
+            "--test-reporter=tap",
+            "--test-name-pattern",
+            "authored refresh holds blocked peers and dispatches only verified receiver scope",
+            ".github/scripts/__tests__/maint82_continuation_dispatch.test.js",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "# tests 1" in result.stdout and "# pass 1" in result.stdout
