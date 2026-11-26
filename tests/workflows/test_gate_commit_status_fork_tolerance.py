@@ -299,6 +299,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     const commentDedupe = require(process.argv[3]);
     const HEAD_SHA = 'a'.repeat(40);
     const NEXT_HEAD_SHA = 'c'.repeat(40);
+    const SAME_PREFIX_HEAD_SHA = HEAD_SHA.slice(0, 12) + 'd'.repeat(28);
 
     function makeError(status, message, response = null) {
       const e = new Error(message);
@@ -309,7 +310,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
 
     async function runCase({
       headRepo, baseRepo, error, eventHead = HEAD_SHA, liveHead = HEAD_SHA, resolvedHead,
-      summaryHead = null,
+      summaryHead = resolvedHead ?? eventHead,
     }) {
       const headMarker = summaryHead ? ` head=${summaryHead.slice(0, 12)}` : '';
       const summaryBody = `GATE SUMMARY BODY\\n<!-- gate-summary: pr=1${headMarker} -->`;
@@ -407,9 +408,9 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     (async () => {
       const out = {
         fork_read_only: await runCase(READ_ONLY_FORK),
+        fork_read_only_legacy_summary: await runCase({ ...READ_ONLY_FORK, summaryHead: null }),
         fork_read_only_new_head: await runCase({
           ...READ_ONLY_FORK, eventHead: NEXT_HEAD_SHA, liveHead: NEXT_HEAD_SHA,
-          summaryHead: NEXT_HEAD_SHA,
         }),
         fork_read_only_resolved_head: await runCase({
           ...READ_ONLY_FORK, eventHead: null, resolvedHead: HEAD_SHA,
@@ -465,6 +466,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         stale_head_with_current_summary_marker: await runCase({
           ...FORK, liveHead: NEXT_HEAD_SHA, summaryHead: NEXT_HEAD_SHA,
         }),
+        stale_head_with_matching_short_sha: await runCase({ ...FORK, liveHead: SAME_PREFIX_HEAD_SHA }),
       };
       process.stdout.write(JSON.stringify(out));
     })();
@@ -517,6 +519,7 @@ def test_comment_fork_read_only_403_does_not_fail_the_gate(
     "name",
     [
         "fork_read_only",
+        "fork_read_only_legacy_summary",
         "fork_read_only_new_head",
         "fork_read_only_resolved_head",
         "fork_read_only_resolved_stale_event",
@@ -601,6 +604,7 @@ def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any], name: st
         ),
         ("stale_head", [1], []),
         ("stale_head_with_current_summary_marker", [1], []),
+        ("stale_head_with_matching_short_sha", [1], []),
     ],
 )
 def test_comment_requires_current_authored_head(
