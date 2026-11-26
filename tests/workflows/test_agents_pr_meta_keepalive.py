@@ -87,7 +87,9 @@ def test_hosted_body_fingerprint_skips_only_verified_release_prs(
         else:
             assert request.selector.endswith(f"/commits/{head}/pulls")
             if associated_pr is None:
-                raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", {}, denied_response)
+                raise urllib.error.HTTPError(
+                    request.full_url, 403, "Forbidden", {}, denied_response
+                )
             payload = [{"number": associated_pr}]
         return io.BytesIO(json.dumps(payload).encode())
 
