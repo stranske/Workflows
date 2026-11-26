@@ -6,6 +6,7 @@ const {
   isConsumerOpenPr,
   updateTrackerBody,
 } = require('./sync_tracker_state');
+const { mergeEligibility, parseDeliveryRecord } = require('./sync_pr_lease_contract');
 
 const CAMPAIGN_SCHEMA = 'sync-dependabot-campaign/v1';
 const CAMPAIGN_MARKER = 'sync-dependabot-campaign:v1';
@@ -495,6 +496,9 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
     ...(cleanString(record.checks_recovery_head)
       ? { checks_recovery_head: cleanString(record.checks_recovery_head) }
       : {}),
+    ...(cleanString(record.review_recovery_head)
+      ? { review_recovery_head: cleanString(record.review_recovery_head) }
+      : {}),
     // Preserve Maint 71's source observation time across the campaign reducer.
     // Replacing it with this run's time would make a delayed old handoff look new.
     observed_at: cleanString(record.observed_at || observedAt),
@@ -545,15 +549,23 @@ function preparedDeliveryContinuation(record = {}) {
 // trip-planner#2024 sat prepared after all 13 deliveries had merged. This plans ONE campaign continuation per plan
 // once every candidate record of the plan is prepared and no delivery record of the plan is still in flight. Its key
 // binds the candidates' exact heads, so an acknowledged run is not repeated until a head changes.
+function campaignPlanKey(record) {
+  return [record.plan_id, record.plan_scope, record.scope_base_sha, record.source_commit].join('\u0000');
+}
+
+function heldCampaignPlans(handoffs, blockedKeys) {
+  return new Set(handoffs.filter(record =>
+    reviewBlockedCampaignHandoff(record) || blockedKeys.has(`${record.repository}#${record.pr}`),
+  ).map(campaignPlanKey));
+}
+
 function candidateCommitContinuations(handoffs = []) {
-  const planKey = (record) => [record.plan_id, record.plan_scope, record.scope_base_sha, record.source_commit]
-    .join('\u0000');
   const isCandidate = (record) => record.branch === 'sync/workflows-candidate'
     || record.continuation?.lane === 'candidate';
   const groups = new Map();
   for (const record of handoffs) {
     if (!isCandidate(record) || !record.plan_id || !record.source_commit) continue;
-    const key = planKey(record);
+    const key = campaignPlanKey(record);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(record);
   }
@@ -564,7 +576,7 @@ function candidateCommitContinuations(handoffs = []) {
       && record.next_command === 'merge-current-delivery');
     if (!prepared) continue;
     const deliveryInFlight = handoffs.some((record) => !isCandidate(record)
-      && planKey(record) === key
+      && campaignPlanKey(record) === key
       && record.continuation?.lane === 'delivery'
       && record.continuation?.class !== 'terminal');
     if (deliveryInFlight) continue;
@@ -616,7 +628,7 @@ function mergeContinuationAcknowledgments(previous = [], runs = [], intents = []
     .filter(ack => queued.has(`${ack.lane}:${ack.key}`) && cleanInteger(ack.run_id))
     .map(ack => [`${ack.lane}:${ack.key}`, ack]));
   for (const run of cleanArray(runs)) {
-    if (run.status !== 'completed' || run.conclusion !== 'success'
+    if (run.status !== 'completed'
       || run.repository?.full_name !== repository || run.head_branch !== defaultBranch
       || String(run.path || '').split('@')[0] !== '.github/workflows/maint-71-merge-sync-prs.yml'
       || !['workflow_dispatch', 'repository_dispatch', 'schedule'].includes(run.event)
@@ -625,6 +637,10 @@ function mergeContinuationAcknowledgments(previous = [], runs = [], intents = []
     const title = cleanString(run.display_title).replace(/\s+/g, ' ');
     const match = title.match(/^Merge Sync PRs \[(candidate|campaign|delivery|dev-tool)\] ([\w-]{1,128})$/);
     if (!match || !queued.has(`${match[1]}:${match[2]}`)) continue;
+    // Any observed terminal writer consumes the one review-recovery wake.
+    // Ordinary continuations retain their established success-only rule.
+    const reviewWake = match[1] === 'campaign' && /^review-[a-f0-9]{20}$/.test(match[2]);
+    if (run.conclusion !== 'success' && !reviewWake) continue;
     const ack = { lane: match[1], key: match[2], run_id: run.id,
       run_attempt: run.run_attempt, completed_at: run.updated_at };
     // Keep the latest completion: Actions history is newest-first, and the resume_after guard in
@@ -663,13 +679,27 @@ async function observeMaint71Runs({ read, owner, repo, workflowRun, completionRu
   return runs;
 }
 
-function planMaint71Continuations(records = [], { now = new Date().toISOString(), acknowledgments = [] } = {}) {
+function planMaint71Continuations(records = [], {
+  now = new Date().toISOString(), acknowledgments = [], blockedKeys = [],
+} = {}) {
   const nowMs = Date.parse(now);
   if (!Number.isFinite(nowMs)) throw new Error(`invalid continuation time: ${now}`);
   const normalized = excludeOwnerBlockedRecords(records)
     .map((record) => normalizeDeliveryHandoff(record))
     .filter(Boolean);
-  const handoffs = [...normalized, ...candidateCommitContinuations(normalized)];
+  const unknown = new Set(blockedKeys);
+  const heldPlans = heldCampaignPlans(normalized, unknown);
+  const handoffs = [...normalized, ...candidateCommitContinuations(normalized)]
+    .filter(record => !unknown.has(`${record.repository}#${record.pr}`)
+      && (preparedDeliveryContinuation(record).lane !== 'campaign'
+        || !heldPlans.has(campaignPlanKey(record))));
+  // Recovery is plan-wide. Multiple review rows clearing in one observation
+  // share a dispatch key and must wait for the latest verified clearance.
+  const recoveryTimes = new Map();
+  for (const record of handoffs.filter(record => record.continuation.reason === 'review_recovered')) {
+    const previous = recoveryTimes.get(record.continuation.key) || '';
+    recoveryTimes.set(record.continuation.key, [previous, record.continuation.resume_after].sort().at(-1));
+  }
   const deliveryActive = handoffs.some((record) => {
     const continuation = preparedDeliveryContinuation(record);
     return continuation.lane === 'delivery' && continuation.class === 'transient';
@@ -678,12 +708,15 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
   for (const record of handoffs) {
     const continuation = preparedDeliveryContinuation(record);
     if (continuation.class !== 'transient') continue;
+    if (continuation.lane === 'campaign' && continuation.reason !== 'review_recovered'
+      && handoffs.some(other => other.continuation.reason === 'review_recovered'
+        && campaignPlanKey(other) === campaignPlanKey(record))) continue;
+    const resumeAfter = recoveryTimes.get(continuation.key) || continuation.resume_after || record.observed_at;
     if (hasContinuationAcknowledgment(acknowledgments,
-      { lane: continuation.lane, continuation_key: continuation.key,
-        resume_after: continuation.resume_after || record.observed_at })) continue;
+      { lane: continuation.lane, continuation_key: continuation.key, resume_after: resumeAfter })) continue;
     if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) continue;
     if (deliveryActive && continuation.lane === 'candidate') continue;
-    const dueMs = Date.parse(continuation.resume_after || record.observed_at);
+    const dueMs = Date.parse(resumeAfter);
     if (!Number.isFinite(dueMs) || dueMs > nowMs) continue;
     const current = dueByLane.get(continuation.lane);
     if (!current || dueMs < Date.parse(current.resume_after)) {
@@ -755,12 +788,15 @@ function selectMaint71ContinuationRepos(
     .map((record) => record.repository))];
 }
 
-function formatMaint71ContinuationPlannerRows(records = [], { now = new Date().toISOString() } = {}) {
+function formatMaint71ContinuationPlannerRows(records = [], {
+  now = new Date().toISOString(), acknowledgments = [], blockedKeys = [],
+} = {}) {
   const handoffs = excludeOwnerBlockedRecords(records)
     .map((record) => normalizeDeliveryHandoff(record))
     .filter(Boolean);
+  const heldPlans = heldCampaignPlans(handoffs, new Set(blockedKeys));
   const plannedHandoffs = new Set(
-    planMaint71Continuations(handoffs, { now }).map((continuation) => deliveryHandoffIdentity(
+    planMaint71Continuations(handoffs, { now, acknowledgments, blockedKeys }).map((continuation) => deliveryHandoffIdentity(
       continuation,
       { lane: continuation.lane, key: continuation.continuation_key },
     )),
@@ -770,7 +806,9 @@ function formatMaint71ContinuationPlannerRows(records = [], { now = new Date().t
     const planned = plannedHandoffs.has(deliveryHandoffIdentity(record, continuation));
     let verdict = 'planned';
     if (!planned) {
-      if (continuation.class !== 'transient') {
+      if (continuation.lane === 'campaign' && heldPlans.has(campaignPlanKey(record))) {
+        verdict = 'held:campaign-review-or-identity';
+      } else if (continuation.class !== 'transient') {
         verdict = `skipped:class=${continuation.class || 'missing'}:${continuation.reason || 'unknown'}`;
       } else if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) {
         verdict = `skipped:unsupported-lane:${continuation.lane || 'missing'}`;
@@ -823,6 +861,12 @@ function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', li
     if (retained?.checks_recovery_head && retained.checks_recovery_head === normalized.head_sha
       && !normalized.checks_recovery_head) {
       normalized.checks_recovery_head = retained.checks_recovery_head;
+    }
+    if (retained?.review_recovery_head === normalized.head_sha
+      && campaignPlanKey(retained) === campaignPlanKey(normalized)
+      && retained.delivery_generation === normalized.delivery_generation
+      && !normalized.review_recovery_head) {
+      normalized.review_recovery_head = retained.review_recovery_head;
     }
     byKey.set(key, normalized);
   }
@@ -902,6 +946,48 @@ function checksRecoveredHandoff(retained = {}, pr = {}, now = '') {
   };
 }
 
+function reviewBlockedCampaignHandoff(record) {
+  return record.continuation.lane === 'campaign'
+    && record.continuation.class === 'actionable'
+    && record.continuation.reason === 'review_blocked';
+}
+
+async function campaignReviewClear(retained, withRetry, now) {
+  if (!retained.plan_id || !retained.plan_scope || !retained.source_commit) return false;
+  const [owner, repo] = retained.repository.split('/');
+  const data = await withRetry(client => client.graphql(
+    `query($owner:String!, $repo:String!, $pr:Int!) {
+      repository(owner:$owner, name:$repo) {
+        pullRequest(number:$pr) {
+          state
+          isDraft
+          headRefOid
+          headRefName
+          body
+          reviewDecision
+          reviewThreads(first:100) {
+            pageInfo { hasNextPage }
+            nodes { isResolved }
+          }
+        }
+      }
+    }`,
+    { owner, repo, pr: retained.pr },
+  ));
+  const pr = data?.repository?.pullRequest;
+  const threads = pr?.reviewThreads;
+  if (pr?.state !== 'OPEN' || pr.isDraft !== false
+    || pr.headRefOid !== retained.head_sha || pr.headRefName !== retained.branch
+    || ![null, 'APPROVED'].includes(pr.reviewDecision)
+    || threads?.pageInfo?.hasNextPage !== false || !Array.isArray(threads?.nodes)
+    || !threads.nodes.every(thread => thread?.isResolved === true)) return false;
+  const record = parseDeliveryRecord(pr.body);
+  return Boolean(record?.delivery_state && record.generation === retained.delivery_generation
+    && record.source_commit === retained.source_commit && record.head_observed_sha === retained.head_sha
+    && mergeEligibility(record, { now, planId: retained.plan_id, repository: retained.repository,
+      requireSealed: record.delivery_state === 'sealed', headSha: retained.head_sha }).eligible);
+}
+
 async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api, withRetry, now = '') {
   const records = [];
   const errors = [];
@@ -945,6 +1031,29 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
         }
         const recovered = checksRecoveredHandoff(retained, pr, now);
         if (recovered) records.push(recovered);
+        const pendingReviewWake = retained.continuation.reason === 'review_recovered';
+        const newReviewWake = reviewBlockedCampaignHandoff(retained)
+          && retained.review_recovery_head !== retained.head_sha;
+        if (pendingReviewWake || newReviewWake) {
+          const observedAt = now || new Date().toISOString();
+          if (!await campaignReviewClear(retained, withRetry, observedAt)) {
+            // A prior clearance cannot authorize a wake after review or the record changes.
+            if (pendingReviewWake) blockedKeys.push(key);
+          } else if (newReviewWake) {
+            const hash = crypto.createHash('sha256').update(campaignPlanKey(retained)).digest('hex').slice(0, 20);
+            records.push({
+              ...retained,
+              disposition: 'review-cleared-awaiting-preparation',
+              blocker_owner: 'maint-71',
+              next_command: 'prepare-and-authorize-exact-head-campaign',
+              review_state: 'clear',
+              continuation: { class: 'transient', lane: 'campaign', reason: 'review_recovered',
+                resume_after: observedAt, key: `review-${hash}` },
+              review_recovery_head: retained.head_sha,
+              observed_at: observedAt,
+            });
+          }
+        }
         continue;
       }
       if (pr.state !== 'closed') {
@@ -2299,6 +2408,8 @@ function formatCampaignRunSummaryMarkdown(state = {}, issue = null) {
 
   const continuationRows = formatMaint71ContinuationPlannerRows(state.delivery_handoffs, {
     now: cleanString(state.updated_at) || new Date().toISOString(),
+    acknowledgments: state.continuation_acknowledgments,
+    blockedKeys: state.handoff_verification_blocked_keys,
   });
   if (continuationRows.length > 0) {
     lines.push('', '### Maint 71 Delivery Handoffs', '');

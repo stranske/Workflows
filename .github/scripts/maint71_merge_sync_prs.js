@@ -5811,6 +5811,11 @@ async function run({ github, context, core }) {
         results.push({
           ...deliveryContext,
           status: 'review_blocked',
+          delivery_disposition: deliveryState.disposition,
+          blocker_owner: requestedSyncHash === 'campaign'
+            && deliveryState.next_command === 'repair-upstream-and-request-reviewer-disposition'
+            ? 'source' : deliveryState.blocker_owner,
+          next_command: deliveryState.next_command,
           active_review_thread_count: activeReviewThreads,
         });
         continue;

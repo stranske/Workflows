@@ -59,3 +59,16 @@ test('a completed key covers only observations through its completion time', asy
   assert.equal((await dispatch([run], [intent])).length, 0);
   assert.equal((await dispatch([earlier], [continuation])).length, 0);
 });
+
+
+test('review recovery dispatches once and a terminal failure does not reauthorize it', async () => {
+  const recovered = { ...continuation, lane: 'campaign', reason: 'review_recovered',
+    continuation_key: 'review-1234567890abcdefabcd', resume_after: '2026-11-26T15:22:00Z' };
+  const title = `Merge Sync PRs [campaign] ${recovered.continuation_key}`;
+  assert.equal((await dispatch([], [recovered, recovered])).length, 1);
+  assert.equal((await dispatch([{ status: 'queued', display_title: title }], [recovered])).length, 0);
+  assert.equal((await dispatch([{
+    status: 'completed', conclusion: 'failure', display_title: title,
+    updated_at: '2026-11-26T15:23:00Z',
+  }], [recovered])).length, 0);
+});

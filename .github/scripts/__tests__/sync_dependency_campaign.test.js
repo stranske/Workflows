@@ -2099,6 +2099,84 @@ test('planMaint71Continuations re-plans a checks_failed handoff whose checks rec
   assert.equal(afterPush[0].checks_recovery_head, undefined);
 });
 
+test('a blocked fleet waits for complete exact-head review clearance, then wakes preparation once', async () => {
+  const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
+  const { buildCampaignCommitAuthorization, buildMergeReport, buildMarkdownSummary } = require('../sync_pr_merge_contract');
+  const now = '2026-11-26T15:22:00Z';
+  const prior = '2026-11-26T08:48:00Z';
+  const base = {
+    owner: 'stranske', branch: 'sync/workflows-delivery', head_sha: 'a'.repeat(40),
+    delivery_generation: '6b72242c32d8', continuation_lane: 'campaign',
+    plan_scope: 'full', plan_id: 'sha256:6b72242c32d8', source_commit: 'b'.repeat(40),
+    check_state: 'ready', delivery_disposition: 'current',
+    blocker_owner: 'maint-71', next_command: 'merge-current-delivery',
+  };
+  const waiting = { ...base, repo: 'Trend_Model_Project', pr: 6250, status: 'review_blocked',
+    delivery_disposition: 'review-blocked', review_state: 'blocked',
+    blocker_owner: 'source', next_command: 'repair-upstream-and-request-reviewer-disposition' };
+  const prepared = { ...base, repo: 'Ready', pr: 701, status: 'campaign_prepared' };
+  const repos = [waiting, prepared].map(result => `${result.owner}/${result.repo}`);
+  const build = results => buildMergeReport({ results, registeredRepos: repos,
+    targetRepos: repos, syncHash: 'campaign', generatedAt: prior });
+  const report = build([waiting, prepared]);
+  const [blocked] = report.handoff_records;
+  const authorize = report => buildCampaignCommitAuthorization({ report, expectedRepositories: repos,
+    planId: base.plan_id, sourceCommit: base.source_commit });
+  assert.equal(authorize(report).authorized, false);
+  assert.equal(authorize(report).rows.length, 1);
+  assert.match(buildMarkdownSummary(report), /Ready but held by fleet authorization: 1/);
+  assert.match(buildMarkdownSummary(report), /Trend_Model_Project#6250: review blocked; owner=source/);
+
+  const record = { durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+    plan_id: base.plan_id, generation: base.delivery_generation, repository: blocked.repository,
+    desired_tree_hash: 'c'.repeat(40), source_commit: base.source_commit,
+    head_observed_sha: base.head_sha, head_observed_at: prior,
+    lease_expires_at: '2026-11-29T06:42:27Z', delivery_state: 'staging' };
+  const live = { state: 'open', draft: false, body: formatDeliveryRecord(record),
+    head: { sha: base.head_sha, ref: base.branch } };
+  const review = { headRefOid: base.head_sha, reviewDecision: null,
+    reviewThreads: { nodes: [{ isResolved: true }], pageInfo: { hasNextPage: false } } };
+  const reconcile = async (rows, pullRequest = review, pr = live) => {
+    const client = { rest: { pulls: { get: async () => ({ data: pr }) } },
+      graphql: async (_query, binding) => {
+        assert.deepEqual(binding, { owner: 'stranske', repo: 'Trend_Model_Project', pr: 6250 });
+        return { repository: { pullRequest: { state: 'OPEN', isDraft: pr.draft,
+          headRefName: pr.head.ref, body: pr.body, ...pullRequest } } };
+      } };
+    return reconcileClosedDeliveryHandoffs(rows, [], client, operation => operation(client), now);
+  };
+
+  assert.deepEqual(planMaint71Continuations(report.handoff_records, { now }), []);
+  for (const partial of [
+    { ...review, reviewDecision: 'CHANGES_REQUESTED' },
+    { ...review, headRefOid: 'd'.repeat(40) },
+    { ...review, reviewThreads: { nodes: [], pageInfo: { hasNextPage: true } } },
+    { ...review, reviewThreads: { ...review.reviewThreads, nodes: [{ isResolved: false }] } },
+  ]) {
+    assert.deepEqual((await reconcile([blocked], partial)).records, []);
+  }
+  assert.deepEqual((await reconcile([blocked], review, { ...live, body: formatDeliveryRecord({
+    ...record, delivery_state: 'sealed', review_started_at: prior, sealed_at: prior,
+    sealed_head_sha: 'd'.repeat(40),
+  }) })).records, []);
+
+  const recovered = await reconcile([blocked]);
+  const queued = mergeDeliveryHandoffs(report.handoff_records, recovered.records, now);
+  const intents = planMaint71Continuations(queued, { now });
+  assert.equal(intents.length, 1);
+  assert.equal(intents[0].reason, 'review_recovered');
+  assert.deepEqual(selectMaint71ContinuationRepos(intents[0], queued, repos), repos);
+  assert.equal(authorize(report).authorized, false, 'a wake is not campaign merge authorization');
+  assert.equal(authorize(build([{ ...waiting, status: 'campaign_prepared' }, prepared])).authorized, true);
+  const noLongerClear = await reconcile(recovered.records, { ...review, reviewDecision: 'REVIEW_REQUIRED' });
+  assert.deepEqual(planMaint71Continuations(queued, { now, blockedKeys: noLongerClear.blockedKeys }), []);
+  assert.deepEqual(planMaint71Continuations(queued, { now, acknowledgments: [
+    { lane: 'campaign', key: intents[0].continuation_key, run_id: 42, completed_at: now },
+  ] }), []);
+  const rereported = mergeDeliveryHandoffs(queued, [{ ...blocked, observed_at: now }], now);
+  assert.deepEqual((await reconcile([rereported.find(row => row.repository === blocked.repository)])).records, []);
+});
+
 test('planMaint71Continuations wakes the campaign commit once a plan\'s candidates are prepared and its deliveries are done', () => {
   // 2026-11-11: all 13 deliveries of plan 1f1233 merged one by one; PAEM#2493, TPP#1739 and trip-planner#2024 sat
   // campaign_prepared (terminal) and nothing planned the campaign commit.

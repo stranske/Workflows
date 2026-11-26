@@ -4067,6 +4067,16 @@ This proves no delivery started; it fabricates neither a plan tuple nor a
 completed delivery. Older unknown effects are not discarded by age or merely
 because a later workflow reported success.
 
+### Fleet preparation held by exact-head review
+
+A Maint 71 campaign report names the review blocker, its owner and ready peers
+when the full-plan commit remains held. Maint 82 leaves the campaign queued
+while review is open. After it reads the exact current PR head, live delivery
+record and complete review clearance, it can wake the campaign once. Maint 71
+then performs normal preparation, including any seal and exact-head Gate still
+due. The wake leaves the full-plan commit authorization and all merge checks
+in force.
+
 ### No-change qualification across campaign stages
 
 Candidate qualification and campaign prepare, commit and re-entry use the same

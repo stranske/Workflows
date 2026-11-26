@@ -157,7 +157,8 @@ jobs:
               (record) => record.repository !== 'stranske/Collab-Admin'
                 && !blockedHandoffKeys.has(`${record.repository}#${record.pr}`),
             );
-            const plannedContinuations = planMaint71Continuations(eligibleHandoffs, {
+            const plannedContinuations = planMaint71Continuations(result.state.delivery_handoffs, {
+              blockedKeys: [...blockedHandoffKeys],
               now: new Date().toISOString(),
               acknowledgments: result.state.continuation_acknowledgments,
             });
@@ -264,8 +265,8 @@ jobs:
                 )
                 .map((run) => normalizeTitle(run.display_title)),
             );
-            const successfulRuns = (runs.workflow_runs || [])
-              .filter((run) => run.status === 'completed' && run.conclusion === 'success');
+            const completedRuns = (runs.workflow_runs || [])
+              .filter((run) => run.status === 'completed');
             if (activeTitles.size > 0) {
               core.notice('Maint 71 writer already active or queued; durable intents remain pending');
               return;
@@ -283,7 +284,8 @@ jobs:
                 continue;
               }
               const observedAt = Date.parse(continuation.resume_after);
-              const alreadyCompleted = key && successfulRuns.some((run) => {
+              const alreadyCompleted = key && completedRuns.some((run) => {
+                if (run.conclusion !== 'success' && continuation.reason !== 'review_recovered') return false;
                 if (normalizeTitle(run.display_title) !== title) return false;
                 const completedAt = Date.parse(run.updated_at);
                 // Preserve deduplication when either timestamp is unavailable.

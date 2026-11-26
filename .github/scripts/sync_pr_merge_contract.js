@@ -2064,6 +2064,10 @@ function buildMergeReport({
   generatedAt = new Date().toISOString(),
 } = {}) {
   const normalizedSyncHash = normalizeSyncHash(syncHash);
+  const summary = summarizeResults(results);
+  if (normalizedSyncHash === SYNC_CAMPAIGN_SELECTOR) {
+    summary.campaign_prepared = results.filter(result => result.status === 'campaign_prepared').length;
+  }
   return {
     schema: REPORT_SCHEMA,
     generated_at: generatedAt,
@@ -2079,7 +2083,7 @@ function buildMergeReport({
         ? ''
         : syncBranchForHash(normalizedSyncHash),
     },
-    summary: summarizeResults(results),
+    summary,
     results,
     handoff_records: (results || [])
       .map((result) => buildDeliveryHandoff({ ...result, cleanup_branches: Boolean(cleanupBranches) }, generatedAt))
@@ -2111,7 +2115,17 @@ function buildMarkdownSummary(report) {
       lines.push(`| ${status} | ${count} |`);
     }
   }
-  for (const result of report.results || []) {
+  const results = report.results || [];
+  if (normalizeSyncHash(inputs.sync_hash) === SYNC_CAMPAIGN_SELECTOR && summary.campaign_prepared) {
+    const blockers = results.filter(result => result.status === 'review_blocked');
+    if (blockers.length) {
+      lines.push('', `Ready but held by fleet authorization: ${summary.campaign_prepared}`);
+      for (const row of blockers) {
+        lines.push(`- ${row.owner}/${row.repo}#${row.pr}: review blocked; owner=${row.blocker_owner}; next=${row.next_command}`);
+      }
+    }
+  }
+  for (const result of results) {
     const restage = result.gate_request?.forced_restage;
     if (restage) lines.push('', `seal: ${result.owner ? `${result.owner}/` : ''}${result.repo}#${result.pr_number || result.pr} rerun refused; forced restage ${restage.state} run=${restage.run_id || 'unknown'}${restage.reason ? ` (${restage.reason})` : ''}`);
   }
