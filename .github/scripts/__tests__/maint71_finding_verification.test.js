@@ -331,15 +331,61 @@ test('generic review, forged publisher, stale receipt, missing regression, and p
   assert.equal(validate(f.args).ok, false);
 });
 
+function bindReceiverFix(f) {
+  const { proof } = f.args;
+  const receiverFix = { repository: proof.repository, pr: 2, base_ref: 'main', merge_sha: 'b'.repeat(40) };
+  for (const value of [proof, f.result]) {
+    delete value.source_fix_sha;
+    value.receiver_fix = { ...receiverFix };
+    value.evidence_url = `https://github.com/${receiverFix.repository}/pull/${receiverFix.pr}`;
+  }
+  return receiverFix;
+}
+
+test('receiver repair is expressly typed and binds the separate campaign and every native fix field', () => {
+  const f = fixture(); bindReceiverFix(f);
+  const shape = () => validateReviewResolutionProof(f.args.proof, { owner: 'stranske', repo: 'Ready',
+    prNumber: 1, headSha: f.args.proof.head_sha, actor: 'stranske', trustedActors: ['stranske'] });
+  assert.equal(shape().ok, true);
+  assert.equal(validate(f.finish()).ok, true);
+  for (const field of ['repository', 'pr', 'base_ref', 'merge_sha']) {
+    const altered = fixture(); bindReceiverFix(altered);
+    delete altered.result.receiver_fix[field];
+    assert.equal(validate(altered.finish()).reason, 'verification_binding_mismatch:receiver_fix');
+  }
+  for (const field of ['source_commit', 'plan_id', 'generation']) {
+    const altered = fixture(); bindReceiverFix(altered);
+    altered.result[field] = 'replaced';
+    assert.equal(validate(altered.finish()).reason, `verification_binding_mismatch:${field}`);
+  }
+  f.result.source_fix_sha = 'b'.repeat(40);
+  assert.equal(validate(f.finish()).reason, 'verification_binding_mismatch:receiver_fix');
+  f.args.proof.acceptance_mode = 'native-conversation-disposition';
+  assert.ok(shape().errors.includes('invalid_receiver_fix'));
+  f.args.proof.acceptance_mode = 'independent-verification';
+  f.args.proof.source_fix_sha = 'b'.repeat(40);
+  assert.ok(shape().errors.includes('invalid_receiver_fix'));
+  delete f.args.proof.source_fix_sha;
+  f.args.proof.evidence_url = 'https://github.com/stranske/Other/pull/2';
+  assert.deepEqual(shape().errors, ['invalid_evidence_url']);
+});
+
 // Exercise the actual controller closure with API doubles, including both race
 // checkpoints. Extracting the closure avoids a test-only production export.
-for (const lane of ['sync', 'dev-tool']) {
+for (const lane of ['sync', 'dev-tool', 'receiver']) {
 for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head', 'graphql-branch',
   'graphql-plan', 'graphql-tree', 'graphql-lease', 'graphql-repository',
-  'attestation-edited', 'attestation-deleted']) {
+  'attestation-edited', 'attestation-deleted', ...(lane === 'receiver' ? [
+    'rest-base', 'graphql-base', 'wrong-fix-repo', 'fix-unmerged', 'fix-fork', 'fix-base',
+    'fix-unrelated', 'fix-changed', 'source-missing', 'unassessed', 'untrusted-publisher', 'negative-missing',
+  ] : [])]) {
   test(`controller resolves only unchanged live verification: ${lane}:${race}`, async () => {
     const f = fixture();
     const { args } = f;
+    const receiverFix = lane === 'receiver' ? bindReceiverFix(f) : null;
+    if (race === 'wrong-fix-repo') args.proof.receiver_fix.repository = 'stranske/Other';
+    if (race === 'untrusted-publisher') args.comment.user.login = 'unauthorized';
+    if (race === 'negative-missing') f.result.validation = [];
     if (race === 'expired') args.now += 25 * 60 * 60 * 1000;
     Object.assign(args.record, { schema: 'sync-pr-delivery-record/v1',
       repository: args.proof.repository, head_observed_sha: args.proof.head_sha,
@@ -357,20 +403,50 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
     let reads = 0;
     let resolutions = 0;
     let attestationReads = 0;
+    let receiverFixReads = 0;
+    const repoIdentity = { full_name: args.proof.repository };
+    const generatedPull = { number: 1, state: 'open',
+      base: { ref: 'main', repo: repoIdentity },
+      head: { ref: branch, sha: args.proof.head_sha, repo: repoIdentity } };
     const body = (record) => `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`;
     const github = { paginate: async () => [],
-      rest: { repos: { compareCommitsWithBasehead: async () => ({ data: { status: 'ahead' } }) },
+      rest: { repos: {
+        getCommit: async ({ repo, ref }) => {
+          assert.equal(repo, 'Workflows'); assert.equal(ref, args.record.source_commit);
+          return { data: { sha: race === 'source-missing' ? 'different' : ref } };
+        },
+        compareCommitsWithBasehead: async ({ repo, basehead }) => {
+          if (!receiverFix) return { data: { status: 'ahead' } };
+          assert.equal(repo, 'Ready');
+          assert.equal(basehead, `${receiverFix.merge_sha}...${args.proof.head_sha}`);
+          return { data: { status: race === 'fix-unrelated' ? 'diverged' : 'ahead', behind_by: 0, ahead_by: 2,
+            base_commit: { sha: receiverFix.merge_sha }, merge_base_commit: { sha: receiverFix.merge_sha } } };
+        },
+      },
         issues: { getComment: async () => {
           attestationReads++;
           if (attestationReads === 2 && race === 'attestation-deleted') throw new Error('404 deleted');
-          return { data: attestationReads === 2 && race === 'attestation-edited'
+          return { data: race === 'unassessed' || (attestationReads === 2 && race === 'attestation-edited')
             ? { ...args.comment, body: 'Acceptance withdrawn' } : args.comment };
         } },
-        pulls: { get: async ({ repo }) => ({ data: repo === 'Workflows'
-          ? { merged_at: '2026-10-04T00:00:00Z', merge_commit_sha: args.proof.source_fix_sha }
-          : { state: 'open', head: { ref: race === 'rest-branch' ? 'other-branch' : branch,
-            sha: race === 'rest-head' ? 'changed' : args.proof.head_sha },
-            body: body(args.record) } }) } },
+        pulls: { get: async ({ repo, pull_number }) => {
+          if (repo === 'Workflows') return { data: {
+            merged_at: '2026-10-04T00:00:00Z', merge_commit_sha: args.proof.source_fix_sha } };
+          assert.equal(repo, 'Ready');
+          if (receiverFix && pull_number === receiverFix.pr) {
+            receiverFixReads++;
+            return { data: { number: receiverFix.pr, state: 'closed', merged: race !== 'fix-unmerged',
+              merged_at: '2026-10-04T00:00:00Z', merge_commit_sha: receiverFix.merge_sha,
+              base: { ref: race === 'fix-base' ? 'different' : 'main', repo: repoIdentity },
+              head: { ref: 'codex/repair', sha: (race === 'fix-changed' && receiverFixReads === 2 ? '0' : 'f').repeat(40),
+                repo: race === 'fix-fork' ? { full_name: 'someone/Ready' } : repoIdentity } } };
+          }
+          assert.equal(pull_number, 1);
+          return { data: { ...generatedPull,
+            base: { ...generatedPull.base, ref: race === 'rest-base' ? 'other-base' : 'main' },
+            head: { ...generatedPull.head, ref: race === 'rest-branch' ? 'other-branch' : branch,
+              sha: race === 'rest-head' ? 'changed' : args.proof.head_sha }, body: body(args.record) } };
+        } } },
       graphql: async (query) => {
         if (query.includes('resolveReviewThread')) { resolutions++; return {}; }
         reads++;
@@ -382,6 +458,7 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
         return { repository: { pullRequest: {
           headRefOid: reads === 2 && race === 'graphql-head' ? 'changed' : args.proof.head_sha,
           headRefName: reads === 2 && race === 'graphql-branch' ? 'unknown-renamed-lane' : branch,
+          baseRefName: reads === 2 && race === 'graphql-base' ? 'other-base' : 'main',
           body: body(record), reviewThreads: args.threads,
         } } };
       },
@@ -410,12 +487,16 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
     };
     const resolve = vm.runInNewContext(`(function() { ${source.slice(start, end)} return resolveProvenReviewDebt; })()`, sandbox);
     const result = await resolve({ owner: 'stranske', repo: 'Ready',
-      pr: { number: 1, head: { sha: args.proof.head_sha, ref: branch } }, deliveryRecord: args.record });
+      pr: generatedPull, deliveryRecord: args.record });
     assert.equal(resolutions, race === 'none' ? 1 : 0, JSON.stringify(result));
     assert.equal(result.errors.length, race === 'none' ? 0 : 1);
     if (race === 'expired') {
       assert.equal(result.errors[0],
         `${args.proof.thread_id}:failed_transport_or_freshness_unproven`);
+    }
+    if (receiverFix && race === 'none') assert.equal(receiverFixReads, 2);
+    if (['wrong-fix-repo', 'source-missing', 'unassessed', 'untrusted-publisher', 'negative-missing'].includes(race)) {
+      assert.equal(receiverFixReads, 0);
     }
   });
 }

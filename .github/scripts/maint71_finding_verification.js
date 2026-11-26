@@ -14,6 +14,47 @@ const findingVerification = (body) => readSingleMarker(body,
 const targetedRequest = (body) => readSingleMarker(body,
   /<!-- maint71-review-(?:reassessment|disposition):v1 ([\s\S]*?) -->/g);
 
+function receiverFixIdentity(fix) {
+  if (!fix || typeof fix !== 'object' || Object.keys(fix).length !== 4
+    || typeof fix.repository !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(fix.repository)
+    || !Number.isSafeInteger(fix.pr) || fix.pr < 1
+    || typeof fix.base_ref !== 'string' || !fix.base_ref.trim()
+    || typeof fix.merge_sha !== 'string' || !/^[a-f0-9]{40}$/.test(fix.merge_sha)) return null;
+  return JSON.stringify([fix.repository, fix.pr, fix.base_ref, fix.merge_sha]);
+}
+
+function isReceiverFindingPull(pr, proof) {
+  const { repository, base_ref } = proof.receiver_fix;
+  return pr?.number === proof.pr && pr.state === 'open' && pr.head?.sha === proof.head_sha
+    && pr.head.repo?.full_name === repository && pr.base?.repo?.full_name === repository
+    && pr.base.ref === base_ref;
+}
+
+async function readReceiverFix({ owner, repo, proof, read }) {
+  const fix = proof.receiver_fix;
+  // Resolve only within the controller-selected receiver. The evidence URL is
+  // a canonical citation and never supplies the API owner, repo or route.
+  const { data: pr } = await read((client) => client.rest.pulls.get({
+    owner, repo, pull_number: fix.pr,
+  }));
+  if (pr?.number !== fix.pr || pr.state !== 'closed' || pr.merged !== true
+    || !Number.isFinite(Date.parse(pr.merged_at)) || pr.merge_commit_sha !== fix.merge_sha
+    || pr.base?.ref !== fix.base_ref || pr.base.repo?.full_name !== fix.repository
+    || pr.head?.repo?.full_name !== fix.repository || !pr.head.ref
+    || !/^[a-f0-9]{40}$/.test(pr.head.sha || '')) return null;
+  return JSON.stringify([pr.merged_at, pr.head.ref, pr.head.sha]);
+}
+
+async function receiverFixPrecedesHead({ owner, repo, proof, read }) {
+  const mergeSha = proof.receiver_fix.merge_sha;
+  const { data: comparison } = await read((client) => client.rest.repos.compareCommitsWithBasehead({
+    owner, repo, basehead: `${mergeSha}...${proof.head_sha}`,
+  }));
+  return comparison?.status === 'ahead' && comparison.behind_by === 0
+    && Number.isSafeInteger(comparison.ahead_by) && comparison.ahead_by > 0
+    && comparison.base_commit?.sha === mergeSha && comparison.merge_base_commit?.sha === mergeSha;
+}
+
 // An explicitly authorized owner attests an independent, completed assessment.
 // This is NOT a fabricated originating-reviewer reply or a generic clean review.
 function validateIndependentFindingVerification({
@@ -56,10 +97,19 @@ function validateIndependentFindingVerification({
   const binding = {
     repository: proof.repository, pr: proof.pr, head_sha: proof.head_sha,
     thread_id: proof.thread_id, originating_reviewer: proof.originating_reviewer,
-    source_fix_sha: proof.source_fix_sha, evidence_url: proof.evidence_url,
+    ...(!Object.hasOwn(proof, 'receiver_fix') && { source_fix_sha: proof.source_fix_sha }),
+    evidence_url: proof.evidence_url,
     plan_id: record.plan_id, generation: record.generation, source_commit: record.source_commit,
     finding_sha256: sha256(String(original.body || '')),
   };
+  if (Object.hasOwn(proof, 'receiver_fix')) {
+    const identity = receiverFixIdentity(proof.receiver_fix);
+    if (proof.acceptance_mode !== 'independent-verification' || !identity
+      || receiverFixIdentity(result.receiver_fix) !== identity
+      || Object.hasOwn(proof, 'source_fix_sha') || Object.hasOwn(result, 'source_fix_sha')) {
+      return deny('verification_binding_mismatch:receiver_fix');
+    }
+  } else if (Object.hasOwn(result, 'receiver_fix')) return deny('verification_binding_mismatch:receiver_fix');
   for (const [key, value] of Object.entries(binding)) {
     if (!value || result[key] !== value) return deny(`verification_binding_mismatch:${key}`);
   }
@@ -140,6 +190,7 @@ function validateIndependentFindingVerification({
     && !(result.reviewer_unanswered === true && isStockFindingReceipt(item.body, profile)))) {
     return deny('reviewer_changed_after_verification');
   }
+  if (proof.receiver_fix) binding.receiver_fix = proof.receiver_fix;
   return { ok: true, assessment_id: result.assessment_id, binding };
 }
 
@@ -452,7 +503,7 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
     const data = await read((client) => client.graphql(`
       query($owner:String!,$repo:String!,$number:Int!,$after:String) {
         repository(owner:$owner,name:$repo) { pullRequest(number:$number) {
-          headRefOid headRefName body reviewThreads(first:100,after:$after) {
+          headRefOid headRefName baseRefName body reviewThreads(first:100,after:$after) {
             pageInfo { hasNextPage endCursor } nodes { id isResolved isOutdated
               comments(first:100) { pageInfo { hasNextPage endCursor } nodes { ${fields} } }
             }
@@ -465,7 +516,8 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
       throw new Error('Incomplete review-thread inventory');
     }
     if (snapshot && (snapshot.headRefOid !== fresh.headRefOid
-      || snapshot.headRefName !== fresh.headRefName || snapshot.body !== fresh.body)) {
+      || snapshot.headRefName !== fresh.headRefName || snapshot.baseRefName !== fresh.baseRefName
+      || snapshot.body !== fresh.body)) {
       throw new Error('Delivery changed during review pagination');
     }
     snapshot = fresh;
@@ -534,4 +586,5 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
 
 module.exports = { sha256, nativeAnswerLines, validateIndependentFindingVerification, validateNativeConversationDisposition,
   collectFindingReviewState, collectOriginatingCompletions, collectAuthenticatedInlineStockCompletion,
-  collectBoundInlineStockCompletion, validateIndependentFindingFromNative };
+  collectBoundInlineStockCompletion, validateIndependentFindingFromNative,
+  receiverFixIdentity, isReceiverFindingPull, readReceiverFix, receiverFixPrecedesHead };
