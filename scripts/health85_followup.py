@@ -137,6 +137,14 @@ def reconcile(api: GitHub, report: dict, now: datetime) -> dict:
         )
         return result
     existing = api.optional(f"{ROOT}/git/ref/heads/{branch}")
+    if existing is None and not budget["qualifying_seven_day_series"]:
+        return result
+    issue_state = api.request("GET", f"{ROOT}/issues/4501").get("state")
+    if issue_state == "closed":
+        result.update(action="delivery_issue_closed", blocking=0, drainable=0)
+        return result
+    if issue_state != "open":
+        raise RuntimeError("Health85 delivery issue #4501 has no recognized state")
     if existing is not None:
         # A ref-created / PR-not-created crash resumes the original frozen series,
         # even when today's observations differ or no longer qualify.
@@ -149,8 +157,6 @@ def reconcile(api: GitHub, report: dict, now: datetime) -> dict:
             result["action"] = "existing_branch_requires_reconciliation"
             return result
     else:
-        if not budget["qualifying_seven_day_series"]:
-            return result
         if not sources_completed(api, budget):
             result["action"] = "await_completed_native_sources"
             return result
