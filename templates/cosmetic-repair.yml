@@ -3,9 +3,8 @@
 # Copy this file to your repo's .github/workflows/ directory.
 # This workflow auto-fixes cosmetic issues (formatting, docstrings) and opens a PR.
 #
-# Prerequisites:
-# - black, ruff, isort installed as dev dependencies
-# - Optionally: scripts/ci_cosmetic_repair.py for advanced repairs
+# Set the formatter paths below to match your project. This workflow installs
+# Black, isort, Ruff and docformatter on the runner.
 #
 # Note: This is a simplified version. For the full cosmetic repair system
 # with pytest failure classification, copy from stranske/Workflows.

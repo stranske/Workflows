@@ -18,6 +18,10 @@ inputs:
     description: Whether to fail the step when no default branch can be resolved and no fallback is set.
     required: false
     default: 'true'
+  require_retry_helper:
+    description: Fail if token-aware retries are unavailable.
+    required: false
+    default: 'false'
   task:
     description: Retry helper task name for logging and token selection.
     required: false
@@ -35,6 +39,7 @@ runs:
       id: resolve
       uses: actions/github-script@v9
       env:
+        REQUIRE_RETRY_HELPER: ${{ inputs.require_retry_helper }}
         RESOLVE_DEFAULT_BRANCH_ACTION_PATH: ${{ github.action_path }}
       with:
         script: |
@@ -49,6 +54,7 @@ runs:
             repo: '${{ inputs.repo }}',
             fallbackRef: '${{ inputs.fallback_ref }}',
             failOnError: '${{ inputs.fail_on_error }}' !== 'false',
+            requireRetryHelper: process.env.REQUIRE_RETRY_HELPER === 'true',
             task: '${{ inputs.task }}',
             env: process.env,
           });
