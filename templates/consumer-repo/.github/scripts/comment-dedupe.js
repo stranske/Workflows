@@ -400,6 +400,25 @@ async function upsertAnchoredComment({
   const targetAnchor = extractAnchoredMetadata(commentBody, anchorPattern);
   const existing = findAnchoredComment(comments, { anchorPattern, fallbackMarker, targetAnchor });
 
+  if (isGateSummary) {
+    const eventPr = context.payload?.pull_request;
+    const expectedHead = eventPr?.head?.sha;
+    if (!expectedHead || eventPr.number !== pr) {
+      warn(core, 'Gate summary is missing the authored PR head; skipping comment update.');
+      return;
+    }
+    try {
+      const { data: livePr } = await github.rest.pulls.get({ owner, repo, pull_number: pr });
+      if (livePr?.head?.sha !== expectedHead) {
+        info(core, 'Gate summary belongs to a superseded PR head; skipping comment update.');
+        return;
+      }
+    } catch (error) {
+      warn(core, `Could not confirm the current PR head; skipping Gate summary comment: ${error.message}`);
+      return;
+    }
+  }
+
   if (existing) {
     try {
       await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: commentBody });

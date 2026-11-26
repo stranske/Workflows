@@ -211,3 +211,58 @@ test('upsertAnchoredComment skips gate summary when agent label is present', asy
 
   assert.deepEqual(actions, []);
 });
+
+test('inline Gate rechecks current authored head before updating or creating a comment', async () => {
+  const oldHead = '2121584e2f908df2eac47ec033488cc8a218e705';
+  const newHead = 'd9cf7f4f5de926960dad94d599c9bcff02bf1295';
+  const existing = { id: 7179478207, body: '<!-- gate-summary: pr=5202 head=65b7a91f15ca -->' };
+  for (const [head, liveHead, knownComment, outcome] of [
+    [oldHead, newHead, existing, []],
+    [oldHead, newHead, null, []],
+    [newHead, newHead, existing, ['update']],
+    [newHead, newHead, null, ['create']],
+    [newHead, null, existing, []],
+  ]) {
+    const changes = [];
+    const order = [];
+    const listComments = () => {};
+    const github = {
+      rest: {
+        issues: {
+          listLabelsOnIssue: () => {},
+          listComments,
+          updateComment: async () => { order.push('edit'); changes.push('update'); },
+          createComment: async () => { order.push('edit'); changes.push('create'); },
+        },
+        pulls: {
+          get: async args => {
+            order.push('head');
+            assert.deepEqual(args, { owner: 'stranske', repo: 'Workflows', pull_number: 5202 });
+            if (!liveHead) throw new Error('PR unavailable');
+            return { data: { head: { sha: liveHead } } };
+          },
+        },
+      },
+      paginate: async method => {
+        if (method !== listComments) return [];
+        order.push('comments');
+        return knownComment ? [knownComment] : [];
+      },
+    };
+
+    await upsertAnchoredComment({
+      github,
+      context: {
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        eventName: 'pull_request',
+        payload: { pull_request: { number: 5202, head: { sha: head } } },
+      },
+      prNumber: 5202,
+      body: `<!-- gate-summary: pr=5202 head=${head.slice(0, 12)} -->\nsummary`,
+      anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
+      fallbackMarker: '<!-- gate-summary:',
+    });
+    assert.deepEqual(changes, outcome);
+    assert.deepEqual(order, outcome.length ? ['comments', 'head', 'edit'] : ['comments', 'head']);
+  }
+});
