@@ -52,11 +52,11 @@ fingerprint_refreshed = 2026-11-11
 [pair.2]
 main = .github/workflows/agents-71-codex-belt-dispatcher.yml
 template = templates/consumer-repo/.github/workflows/agents-71-codex-belt-dispatcher.yml
-main_sha256 = ecdeda26e3c26a6df2de3524210158a9bcc624f17b01e005b4e064436fd92a7a
-template_sha256 = b8ad87005dfda0db96dd3b1b16259c3fae04752bf6afcddc20f62ef47d894426
+main_sha256 = 54502e43d2606bad2463a45b67b50bdfc2b8a0100f82d8eca9b795dcb3b779c5
+template_sha256 = 2643a33431dcf5b61e468fb08e79feb17744e9ddfdf809458a6cdcd817fae719
 divergence = Root-only Health 40 claim recovery 2026-09-24 plus belt ready-label contract: the Workflows-local dispatcher imports the shared stale-claim timeout and advertises reclaim via Health 40 while both surfaces load belt-labels.json for ready/in-progress transitions and empty-queue discrimination. The consumer template has no Health 40 reclaim workflow and therefore must not promise that local behavior; consumer action pins and Codex-specific wording remain preserved. Prior divergence re-baselined 2026-08-16 for workflow_dispatch input handling; that prior divergence is unchanged and was not re-reviewed here.
 divergence_reviewed = 2026-08-16
-fingerprint_refreshed = 2026-09-24
+fingerprint_refreshed = 2026-11-26
 
 [pair.3]
 main = .github/workflows/agents-72-codex-belt-worker.yml

@@ -117,6 +117,24 @@ def test_dispatcher_is_reusable_and_exposes_worker_context():
         assert key in outputs, f"Dispatcher must expose '{key}' output for orchestrator hand-off"
 
 
+@pytest.mark.parametrize(
+    "prefix", [pathlib.Path(), pathlib.Path("templates/consumer-repo")], ids=["hosted", "consumer"]
+)
+def test_dispatcher_initializes_api_client_before_resolving_workflows_ref(prefix):
+    workflow = yaml.safe_load(
+        (prefix / WORKFLOW_ROOT / "agents-71-codex-belt-dispatcher.yml").read_text()
+    )
+    steps = {step["name"]: step for step in workflow["jobs"]["dispatch"]["steps"]}
+    order = list(steps)
+    assert (
+        order.index("Checkout consumer repo")
+        < order.index("Setup API client")
+        < order.index("Resolve Workflows ref")
+        < order.index("Checkout Workflows retry helpers")
+    )
+    assert steps["Setup API client"]["with"]["install_dir"] == "${{ runner.temp }}/belt-api-client"
+
+
 def test_worker_keeps_concurrency_and_pat_guard():
     workflow = _load_workflow("agents-72-codex-belt-worker.yml")
 
