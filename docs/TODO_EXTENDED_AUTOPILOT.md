@@ -235,7 +235,7 @@ if (agentConfig.capabilities?.verifier_checkbox) {
 - `.github/scripts/agent_registry.js` - agent routing logic
 - `docs/analysis/autopilot-40pr-evaluation-feb-2026.md` - evaluation report
 - `docs/analysis/verify-compare-40pr-evaluation-feb-2026.md` - verifier evaluation
-- [Original manual finalization prompt](https://github.com/stranske/Workflows/blob/0baa7fa50c111de283c03533bd32f13f5f0629a1/skills/pr-finalize/prompt.md) used as a design reference.
+- The [retired PR finalizer's original prompt](ops/LOCAL_LANES.md#retired-pr-finalizer) remains a design reference.
 
 ## Success Metrics (After Implementation)
 

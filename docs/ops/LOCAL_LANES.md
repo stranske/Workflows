@@ -72,6 +72,12 @@ requested and reported model.
 the Claude tasks `handoff-claude-opener` / `handoff-claude-closer`, and the baton relay
 (`lane-handoff.json`, `handoff-relay.sh`, `handoff-prerun.sh`).
 
+### Retired PR finalizer
+
+The local closer owns agent PR review, checks, guarded merge, and post-merge verification. Use the [lane overview](#lanes-overview) for the current procedure.
+
+The retired manual skill's [original prompt](https://github.com/stranske/Workflows/blob/0baa7fa50c111de283c03533bd32f13f5f0629a1/skills/pr-finalize/prompt.md) and [command descriptor](https://github.com/stranske/Workflows/blob/0baa7fa50c111de283c03533bd32f13f5f0629a1/skills/pr-finalize/skill.json) record its original design, arguments, and defaults. The [original removal](https://github.com/stranske/Workflows/pull/4808) covers both copies.
+
 ## State locations
 
 Current lane state lives under `~/.codex`, outside any repo checkout:
