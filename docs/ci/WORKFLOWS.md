@@ -162,7 +162,7 @@ The gate uses the shared `.github/scripts/detect-changes.js` helper to decide wh
 
 [`reusable-13-cross-repo-smoke.yml`](../../.github/workflows/reusable-13-cross-repo-smoke.yml) runs on `workflow_call`. It checks out the host repository and a dependency at the requested ref (default `main`), logs the resolved dependency SHA, runs any caller-supplied install commands, then runs the smoke command from the host workspace.
 
-To opt in with the [synced consumer caller](../../templates/consumer-repo/.github/workflows/cross-repo-smoke.yml), set `CROSS_REPO_SMOKE_ENABLED=true`, `CROSS_REPO_SMOKE_DEPENDENCY_REPO` and `CROSS_REPO_SMOKE_RUN_COMMAND`. Supply the `CROSS_REPO_TOKEN` secret with read access to the dependency. Use `CROSS_REPO_SMOKE_DEPENDENCY_REF` to select a branch, tag or SHA. The caller skips pull requests from forks.
+For installation, required variables and the dependency read token, see the [cross-repository smoke setup guide](../INTEGRATION_GUIDE.md#cross-repo-smoke-opt-in).
 
 ## Coverage Guardrails & Follow-ups
 

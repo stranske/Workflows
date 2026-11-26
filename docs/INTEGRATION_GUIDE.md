@@ -903,10 +903,16 @@ backward compatibility, but new manual setup should prefer the current defaults.
 
 ### Cross-Repo Smoke (opt-in)
 
-The synced `cross-repo-smoke.yml` caller is safe to ship to every consumer repo.
-It remains a no-op until you set repository variables and the `CROSS_REPO_TOKEN`
-secret. When enabled, it delegates to
-`stranske/Workflows/.github/workflows/reusable-13-cross-repo-smoke.yml@main`.
+The [consumer caller](../templates/consumer-repo/.github/workflows/cross-repo-smoke.yml)
+is installed when the file is missing. Sync preserves an existing customized caller.
+The generic caller registers main pushes, PRs targeting main, and manual dispatches.
+Its job skips before runner allocation unless the three variables below select it.
+Pull requests whose head repository is a fork also skip.
+GitHub can still require approval before it evaluates the job.
+
+Configure the `CROSS_REPO_TOKEN` repository secret with read access to the dependency
+before enabling the caller. The secret is used at checkout. Only the repository
+variables control opt-in.
 
 Required repository variables when enabling:
 
@@ -926,28 +932,9 @@ Optional repository variables:
 | `CROSS_REPO_SMOKE_HOST_INSTALL_COMMAND` | *(empty)* | Host install command (workspace root) |
 | `CROSS_REPO_SMOKE_DEPENDENCY_INSTALL_COMMAND` | *(empty)* | Dependency install command (dependency checkout path) |
 
-Example caller wiring (already present in the synced template):
-
-```yaml
-jobs:
-  cross-repo-smoke:
-    if: >-
-      vars.CROSS_REPO_SMOKE_ENABLED == 'true' &&
-      vars.CROSS_REPO_SMOKE_DEPENDENCY_REPO != '' &&
-      vars.CROSS_REPO_SMOKE_RUN_COMMAND != '' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
-    uses: stranske/Workflows/.github/workflows/reusable-13-cross-repo-smoke.yml@main
-    with:
-      dependency_repo: ${{ vars.CROSS_REPO_SMOKE_DEPENDENCY_REPO }}
-      dependency_ref: ${{ vars.CROSS_REPO_SMOKE_DEPENDENCY_REF || 'main' }}
-      setup_node: ${{ vars.CROSS_REPO_SMOKE_SETUP_NODE == 'true' }}
-      node_version: ${{ vars.CROSS_REPO_SMOKE_NODE_VERSION || '20' }}
-      host_install_command: ${{ vars.CROSS_REPO_SMOKE_HOST_INSTALL_COMMAND || '' }}
-      dependency_install_command: ${{ vars.CROSS_REPO_SMOKE_DEPENDENCY_INSTALL_COMMAND || '' }}
-      run_command: ${{ vars.CROSS_REPO_SMOKE_RUN_COMMAND }}
-    secrets:
-      CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
-```
+For a manual installation, copy the complete [caller](../templates/consumer-repo/.github/workflows/cross-repo-smoke.yml)
+to `.github/workflows/cross-repo-smoke.yml` in the receiving repository. Check for an
+existing project-specific workflow at that path first.
 
 The reusable workflow exports `DEPENDENCY_PATH` (basename of `dependency_repo`)
 to the smoke command environment so scripts can reference the sibling checkout.
