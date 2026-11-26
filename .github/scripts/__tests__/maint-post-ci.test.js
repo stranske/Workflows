@@ -875,3 +875,41 @@ test('inline Gate uses its own attempt and labels the authored PR head', async t
   }]);
   assert.equal(JSON.parse(core.outputs.runs)[0].jobs[0].conclusion, 'success');
 });
+
+test('PR-bound Gate dispatch reports its own attempt instead of the older PR run', async () => {
+  const head = '3e6c6b39a22f3f33c1352edfd4fb27e442639680';
+  const attempt = Number(process.env.GITHUB_RUN_ATTEMPT || 1);
+  const context = {
+    eventName: 'workflow_dispatch',
+    repo: { owner: 'stranske', repo: 'Workflows' },
+    runId: 42257890176,
+    sha: head,
+    payload: { inputs: { pr_number: '4470' }, pull_request: { number: 4470, head: { sha: head } } },
+  };
+  const exactQueries = [];
+  const github = {
+    rest: { actions: {
+      getWorkflowRunAttempt: async ({ run_id, attempt_number }) => {
+        exactQueries.push(run_id);
+        return { data: { id: run_id, run_attempt: attempt_number, head_sha: head } };
+      },
+      listJobsForWorkflowRunAttempt() {},
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [{ id: 100, head_sha: head }] } }),
+      listJobsForWorkflowRun() {},
+    } },
+    paginate: async (_fn, { run_id }) => [{ name: 'pytest', conclusion: run_id === 100 ? 'skipped' : 'success' }],
+  };
+
+  const current = createCore();
+  await discoverWorkflowRuns({ github, context, core: current });
+  assert.equal(current.outputs.head_sha, head);
+  assert.equal(current.outputs.gate_run_id, '42257890176');
+  assert.deepEqual(exactQueries, [42257890176]);
+  assert.equal(JSON.parse(current.outputs.runs)[0].jobs[0].conclusion, 'success');
+
+  const unrelated = createCore();
+  await discoverWorkflowRuns({ github, context: { ...context, sha: 'unrelated' }, core: unrelated });
+  assert.equal(unrelated.outputs.gate_run_id, '');
+  assert.deepEqual(JSON.parse(unrelated.outputs.runs)[0].jobs, []);
+  assert.deepEqual(exactQueries, [42257890176]);
+});

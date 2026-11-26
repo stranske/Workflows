@@ -40,10 +40,12 @@ async function discoverWorkflowRuns({ github: rawGithub, context, core }) {
     ? workflowRun.pull_requests.find(item => item && item.head && item.head.sha)
     : null;
   const recoveringGate = context.eventName === 'workflow_run';
-  const inlineGate = context.eventName === 'pull_request' && context.payload.pull_request?.head?.sha;
+  const dispatchedGate = context.eventName === 'workflow_dispatch';
+  const inlineHead = (context.eventName === 'pull_request' || dispatchedGate)
+    ? context.payload.pull_request?.head?.sha : '';
   const headSha = recoveringGate
     ? await resolveRecoveryHead(github, context.repo, workflowRun, prFromPayload, core)
-    : (inlineGate || context.sha || '').trim();
+    : (inlineHead || context.sha || '').trim();
   if (recoveringGate && !headSha) {
     core.notice('Skipping Maint 46 recovery: originating Gate does not match the associated PR head.');
     core.setOutput('runs', '[]');
@@ -124,6 +126,10 @@ async function discoverWorkflowRuns({ github: rawGithub, context, core }) {
   }
 
   async function loadInlineGate() {
+    if (dispatchedGate && context.sha !== headSha) {
+      core.warning('Gate dispatch ref does not match the resolved PR head.');
+      return null;
+    }
     const runId = context.runId;
     const attempt = Number(process.env.GITHUB_RUN_ATTEMPT || 1);
     try {
@@ -203,7 +209,7 @@ async function discoverWorkflowRuns({ github: rawGithub, context, core }) {
   const collected = [];
   for (const target of workflowTargets) {
     const originatingGate = recoveringGate && target.key === 'gate';
-    const currentGate = inlineGate && target.key === 'gate';
+    const currentGate = inlineHead && target.key === 'gate';
     let run;
     if (originatingGate) {
       run = workflowRun;

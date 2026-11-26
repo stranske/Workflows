@@ -923,7 +923,9 @@ def build_summary_comment(
     if triage_block:
         body_parts.extend(triage_block)
         body_parts.append("")
-    body_parts.append("_Updated automatically; will refresh on subsequent CI/Docker completions._")
+    body_parts.append(
+        "_Snapshot at publication. See the linked run and required checks for final results._"
+    )
 
     return "\n".join(part for part in body_parts if part is not None)
 

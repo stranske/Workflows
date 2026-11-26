@@ -403,8 +403,9 @@ async function upsertAnchoredComment({
   if (isGateSummary) {
     const eventPr = context.payload?.pull_request;
     const expectedHead = eventPr?.head?.sha;
-    if (!expectedHead || eventPr.number !== pr) {
-      warn(core, 'Gate summary is missing the authored PR head; skipping comment update.');
+    if (!expectedHead || eventPr.number !== pr ||
+        (context.eventName === 'workflow_dispatch' && context.sha !== expectedHead)) {
+      warn(core, 'Gate summary has no matching authored PR head; skipping comment update.');
       return;
     }
     try {
