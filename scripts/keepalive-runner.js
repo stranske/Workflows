@@ -1,5 +1,6 @@
 'use strict';
 
+const { Buffer } = require('node:buffer');
 const {
   extractScopeTasksAcceptanceSections: extractScopeTasksAcceptanceSectionsFromIssue,
   hasNonPlaceholderScopeTasksAcceptanceContent,
