@@ -4,7 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-const { SKIP_MARKER, analyseSkipComments } = require('../keepalive_guard_utils');
+const templateScripts = path.resolve(__dirname, '../../../templates/consumer-repo/.github/scripts');
+const { SKIP_MARKER, analyseSkipComments } = require(path.join(templateScripts, 'keepalive_guard_utils.js'));
 
 function createSummary() {
   return {
@@ -45,8 +46,8 @@ function createCore() {
 }
 
 function loadRunnerWithGate(stub) {
-  const gatePath = require.resolve('../keepalive_gate.js');
-  const runnerPath = require.resolve('../keepalive_orchestrator_gate_runner.js');
+  const gatePath = require.resolve(path.join(templateScripts, 'keepalive_gate.js'));
+  const runnerPath = require.resolve(path.join(templateScripts, 'keepalive_orchestrator_gate_runner.js'));
   const gateModule = require(gatePath);
   const original = gateModule.evaluateKeepaliveGate;
   gateModule.evaluateKeepaliveGate = stub;

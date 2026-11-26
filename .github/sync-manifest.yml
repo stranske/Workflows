@@ -532,6 +532,7 @@ scripts:
     description: "Worker gate logic for keepalive workflow"
 
   - source: .github/scripts/keepalive_orchestrator_gate_runner.js
+    source_tree: template
     description: "Orchestrator gate runner for keepalive"
 
   - source: .github/scripts/keepalive_post_work.js

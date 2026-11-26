@@ -78,6 +78,7 @@ jobs:
             .github/actions/setup-api-client
             templates/consumer-repo/.github/scripts/agents_dispatch_summary.js
             templates/consumer-repo/.github/scripts/agents_orchestrator_resolve.js
+            templates/consumer-repo/.github/scripts/keepalive_orchestrator_gate_runner.js
             templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
             tools/coverage_guard.py
             tools/coverage_trend.py
