@@ -1024,10 +1024,11 @@ jobs:
             exit 79
           fi
 
-          if ! pr=$(timeout 15s python3 -I - "$GITHUB_REPOSITORY" "$pr_number" 2>/dev/null <<'PY'
+          if ! pr=$(timeout 15s python3 -IS - "$GITHUB_REPOSITORY" "$pr_number" 2>/dev/null <<'PY'
           import base64
           import os
           import sys
+          import urllib.request
 
           from types import ModuleType
 
@@ -1037,8 +1038,14 @@ jobs:
                       "Workflows/scripts/api_client.py", "exec"),
               api.__dict__,
           )
-          pr = api.fetch_pull_request(
-              sys.argv[1], int(sys.argv[2]), os.environ["PUSH_TOKEN"], retry_attempts=1
+          class RejectRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          opener = urllib.request.build_opener(RejectRedirect())
+          pr = api.request_json_once(
+              "GET", f"/repos/{sys.argv[1]}/pulls/{sys.argv[2]}", os.environ["PUSH_TOKEN"],
+              opener=opener.open,
           )
           fields = (str(pr["number"]), pr["state"], pr["head"]["repo"]["full_name"],
                     pr["head"]["ref"], pr["head"]["sha"], pr["base"]["repo"]["full_name"])

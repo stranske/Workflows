@@ -88,7 +88,10 @@ def publisher(tmp_path):
         "sleep": "exit 0",
         "timeout": 'shift; exec "$@"',
         "python3": """
-            if [ "$1" = -I ]; then exec "$REAL_PYTHON" "$@"; fi
+            if [ "$1" = -IS ]; then
+              shift 2
+              exec "$REAL_PYTHON" -IS "$HTTP_REPLAY" "$@"
+            fi
             exec "$REAL_GIT" add tracked.txt
         """,
     }
@@ -97,18 +100,40 @@ def publisher(tmp_path):
         path.write_text("#!/bin/bash\n" + body)
         path.chmod(0o700)
 
-    client = """
+    driver = tmp_path / "api-replay.py"
+    driver.write_text(r"""
+import importlib.util
+import io
+import json
 import os
 import subprocess
+import sys
+import urllib.error
+import urllib.request
+import urllib.response
 
-def fetch_pull_request(repo, number, token, *, retry_attempts):
+assert importlib.util.find_spec("requests") is None
+repo, number = sys.argv[1:]
+assert repo == "stranske/Workflows" and number == "5232"
+
+def https_open(self, request):
+    assert request.method == "GET"
+    assert request.full_url == "https://api.github.com/repos/stranske/Workflows/pulls/5232"
+    assert request.get_header("Authorization") == "Bearer test-app"
     with open(os.environ["CALLS"], "a") as file:
-        file.write("read\\n")
-    assert repo == "stranske/Workflows" and number == 5232
-    assert token == "test-app" and retry_attempts == 1
+        file.write("read\n")
     state = os.environ["STATE"]
     if state == "unavailable":
-        raise OSError("unavailable")
+        raise urllib.error.URLError("unavailable")
+    if state == "unauthorized":
+        raise urllib.error.HTTPError(request.full_url, 403, "auth", {}, None)
+    if state == "redirect":
+        # Returning a redirect exercises urllib's actual handler chain and the workflow's refusal.
+        response = urllib.response.addinfourl(
+            io.BytesIO(b""), {"location": "https://other.invalid/pull"}, request.full_url, 302
+        )
+        response.msg = "Temporary redirect"
+        return response
     if state == "close-on-retry":
         with open(os.environ["CALLS"]) as file:
             state = "closed" if "push" in file.read().splitlines() else "open"
@@ -118,14 +143,22 @@ def fetch_pull_request(repo, number, token, *, retry_attempts):
              "show-ref", "--verify", "--quiet", "refs/heads/topic"],
         )
         state = "closed" if ref.returncode else "open"
-    return {
-        "number": number,
+    payload = {
+        "number": int(number),
         "state": state,
         "head": {"repo": {"full_name": os.environ["HEAD_REPO"]},
                  "ref": os.environ["HEAD_REF"], "sha": os.environ["PR_HEAD"]},
         "base": {"repo": {"full_name": repo}},
     }
-"""
+    response = urllib.response.addinfourl(
+        io.BytesIO(json.dumps(payload).encode()), {}, request.full_url, 200
+    )
+    response.msg = "OK"
+    return response
+
+urllib.request.HTTPSHandler.https_open = https_open
+exec(compile(sys.stdin.read(), "<publisher>", "exec"))
+""")
     calls = tmp_path / "calls"
     calls.touch()
     outputs = tmp_path / "outputs"
@@ -134,7 +167,10 @@ def fetch_pull_request(repo, number, token, *, retry_attempts):
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "REAL_GIT": GIT,
         "REAL_PYTHON": str(Path(sys.executable).resolve()),
-        "CODEX_API_CLIENT": base64.b64encode(client.encode()).decode(),
+        "CODEX_API_CLIENT": base64.b64encode(
+            (ROOT / "scripts/api_client.py").read_bytes()
+        ).decode(),
+        "HTTP_REPLAY": str(driver),
         "TEST_REMOTE": str(bare),
         "CALLS": str(calls),
         "GITHUB_OUTPUT": str(outputs),
@@ -191,10 +227,22 @@ def test_closed_pr_refuses_final_publication(publisher, work):
         ("open", REPO, "keepalive", "5232", ["read", "push"]),
         ("open", "another/fork", "keepalive", "5232", ["read"]),
         ("unavailable", REPO, "keepalive", "5232", ["read"]),
+        ("unauthorized", REPO, "keepalive", "5232", ["read"]),
+        ("redirect", REPO, "keepalive", "5232", ["read"]),
+        ("unknown", REPO, "keepalive", "5232", ["read"]),
         ("closed", REPO, "autofix", "5232", ["push"]),
         ("closed", REPO, "keepalive", "", ["push"]),
     ],
-    ids=["open", "wrong-repo", "unavailable", "autofix", "no-pr"],
+    ids=[
+        "open",
+        "wrong-repo",
+        "unavailable",
+        "unauthorized",
+        "redirect",
+        "unknown",
+        "autofix",
+        "no-pr",
+    ],
 )
 def test_publication_matches_open_target(publisher, state, head_repo, mode, pr_number, expected):
     _, final, local, bare, patch, env, _, _ = publisher
