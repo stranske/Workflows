@@ -342,9 +342,14 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       };
       const pullRequest = {
         number: 1,
-        head: { sha: authoredHead, repo: { full_name: headRepo } },
         base: { repo: { full_name: baseRepo } },
       };
+      if (authoredHead) {
+        pullRequest.head = {
+          sha: authoredHead,
+          repo: headRepo === null ? null : { full_name: headRepo },
+        };
+      }
       const sandbox = {
         process: { env: useResolvedPr ? { GATE_PR_JSON: JSON.stringify(pullRequest) } : {} },
         console: { log() {} },
@@ -433,6 +438,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         }),
         fork_server_error: await runCase({ ...FORK, error: makeError(500, 'boom') }),
         happy_path: await runCase({ ...FORK, error: null }),
+        deleted_fork_head: await runCase({ ...FORK, headRepo: null, error: null }),
         resolved_pr_head: await runCase({ ...FORK, useResolvedPr: true, error: null }),
         missing_head: await runCase({ ...FORK, authoredHead: null, error: null }),
         superseded_head: await runCase({ ...FORK, liveHead: 'b'.repeat(40), error: null }),
@@ -484,6 +490,7 @@ def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
     comment_outcomes: dict[str, Any],
 ) -> None:
     case = comment_outcomes["fork_read_only"]
+    assert case["apiCalls"] == [["get", 1], ["create", 1]], case
     assert any("read-only" in warning for warning in case["warnings"]), case["warnings"]
     assert "GATE SUMMARY BODY" in " ".join(case["summaryRaw"]), case["summaryRaw"]
     assert "<written>" in case["summaryRaw"]
@@ -491,6 +498,7 @@ def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
 
 def test_comment_same_repo_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) -> None:
     case = comment_outcomes["same_repo_read_only"]
+    assert case["apiCalls"] == [["get", 1], ["create", 1]], case
     assert case["threw"] is not None
     assert case["threw"]["status"] == 403
 
@@ -507,6 +515,7 @@ def test_comment_rate_limit_403_never_uses_fork_fallback(
         "fork_rate_limit_response_body",
     ):
         case = comment_outcomes[key]
+        assert case["apiCalls"] == [["get", 1], ["create", 1]], case
         assert case["threw"] is None, case
         assert any("Rate limit while creating" in warning for warning in case["warnings"]), case
         assert case["summaryRaw"] == [], key
@@ -529,11 +538,12 @@ def test_comment_positive_quota_permission_403_uses_fork_fallback(
 
 def test_comment_non_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) -> None:
     case = comment_outcomes["fork_server_error"]
+    assert case["apiCalls"] == [["get", 1], ["create", 1]], case
     assert case["threw"] is not None
     assert case["threw"]["status"] == 500
 
 
-@pytest.mark.parametrize("name", ["happy_path", "resolved_pr_head"])
+@pytest.mark.parametrize("name", ["happy_path", "deleted_fork_head", "resolved_pr_head"])
 def test_comment_with_matching_authored_head_is_silent(
     comment_outcomes: dict[str, Any], name: str
 ) -> None:
