@@ -1,0 +1,303 @@
+"""Exercise the actual Codex publication shell against disposable Git refs."""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+import yaml
+
+ROOT = Path(__file__).resolve().parents[2]
+WORKFLOW = ROOT / ".github/workflows/reusable-codex-run.yml"
+GIT = shutil.which("git")
+REPO = "stranske/Workflows"
+
+
+def git(cwd: Path, *args: str) -> str:
+    return subprocess.check_output([GIT, *args], cwd=cwd, text=True).strip()
+
+
+@pytest.fixture
+def publisher(tmp_path):
+    steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["codex"]["steps"]
+    worker = next(step for step in steps if step.get("id") == "run_codex")
+    final = next(step for step in steps if step.get("id") == "commit")
+    local = tmp_path / "local"
+    local.mkdir()
+    bare = tmp_path / "remote"
+    git(tmp_path, "init", "--bare", "-q", str(bare))
+    git(local, "init", "-q", "-b", "topic")
+    git(local, "config", "user.name", "Test")
+    git(local, "config", "user.email", "test@example.invalid")
+    patch = local / "tracked.txt"
+    patch.write_text("base\n")
+    git(local, "add", "tracked.txt")
+    git(local, "commit", "-qm", "base")
+    head = git(local, "rev-parse", "HEAD")
+    git(local, "push", "-q", str(bare), "HEAD:refs/heads/topic")
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    stubs = {
+        "git": """
+            case "$1" in
+              push)
+                printf 'push\n' >> "$CALLS"
+                if [ -n "${MOVE_AT_PUSH:-}" ]; then
+                  "$REAL_GIT" --git-dir="$TEST_REMOTE" update-ref refs/heads/topic "$MOVE_AT_PUSH"
+                fi
+                case "$2" in
+                  --porcelain) exec "$REAL_GIT" push "$2" "$3" "$TEST_REMOTE" "$5" ;;
+                  *) exec "$REAL_GIT" push "$TEST_REMOTE" "$3" ;;
+                esac ;;
+              fetch)
+                if [ "$STATE" = close-on-retry ]; then
+                  printf '%s\n' "$PR_HEAD" > .git/FETCH_HEAD
+                  exit 0
+                fi
+                exec "$REAL_GIT" fetch "$TEST_REMOTE" "$3" ;;
+              pull) exec "$REAL_GIT" pull --no-rebase "$TEST_REMOTE" "$4" --allow-unrelated-histories ;;
+              *) exec "$REAL_GIT" "$@" ;;
+            esac
+        """,
+        "sleep": "exit 0",
+        "timeout": 'shift; exec "$@"',
+        "gh": """
+            printf 'read\n' >> "$CALLS"
+            [ "$GH_TOKEN" = test-app ] && [ "$4" = repos/stranske/Workflows/pulls/5232 ] ||
+              exit 2
+            [ "$STATE" != unavailable ] || exit 1
+            if [ "$STATE" = close-on-retry ]; then
+              if grep -qx push "$CALLS"; then STATE=closed; else STATE=open; fi
+            fi
+            printf '5232\t%s\t%s\t%s\t%s\tstranske/Workflows\n' \
+              "$STATE" "$HEAD_REPO" "$HEAD_REF" "$PR_HEAD"
+        """,
+        "python3": 'exec "$REAL_GIT" add tracked.txt',
+    }
+    for name, body in stubs.items():
+        path = bin_dir / name
+        path.write_text("#!/bin/bash\n" + body)
+        path.chmod(0o700)
+
+    calls = tmp_path / "calls"
+    calls.touch()
+    outputs = tmp_path / "outputs"
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "REAL_GIT": GIT,
+        "TEST_REMOTE": str(bare),
+        "CALLS": str(calls),
+        "GITHUB_OUTPUT": str(outputs),
+        "GITHUB_REPOSITORY": REPO,
+        "PUSH_ALLOWED": "true",
+        "PUSH_TOKEN": "test-app",
+        "PR_NUMBER": "5232",
+        "PR_REF": "refs/heads/topic",
+        "MODE": "keepalive",
+        "STATE": "open",
+        "HEAD_REF": "topic",
+        "HEAD_REPO": REPO,
+        "PR_HEAD": head,
+    }
+    return worker, final, local, bare, patch, env, calls, outputs
+
+
+def run_final(publisher):
+    _, final, local, _, _, env, calls, outputs = publisher
+    script = final["run"].replace("${{ github.repository }}", REPO)
+    script = script.replace("${{ github.ref_name }}", "topic")
+    result = subprocess.run(
+        ["bash", "-c", script], cwd=local, env=env, capture_output=True, text=True
+    )
+    return (
+        result,
+        calls.read_text().splitlines(),
+        dict(line.split("=", 1) for line in outputs.read_text().splitlines()),
+    )
+
+
+@pytest.mark.parametrize("work", ["staged-work", "existing-commit", "artifact-and-commit"])
+def test_closed_pr_refuses_final_publication(publisher, work):
+    _, final, local, bare, patch, env, _, _ = publisher
+    env["PUSH_CODEX_BRANCH"] = final["env"].get("PUSH_CODEX_BRANCH", "")
+    env["STATE"] = "closed"
+    if work != "artifact-and-commit":
+        git(bare, "update-ref", "-d", "refs/heads/topic")
+    patch.write_text("new work\n")
+    if work != "staged-work":
+        git(local, "commit", "-qam", "worker commit")
+    if work == "artifact-and-commit":
+        (local / "codex-session.jsonl").write_text("local artifact")
+    result, calls, outputs = run_final(publisher)
+    assert result.returncode == 0, result.stderr
+    assert calls == ["read"], "closed PR must make zero Git push attempts"
+    assert outputs["changes-made"] == "false"
+    assert outputs["commit-sha"] == ""
+
+
+@pytest.mark.parametrize(
+    ("state", "head_repo", "mode", "pr_number", "expected"),
+    [
+        ("open", REPO, "keepalive", "5232", ["read", "push"]),
+        ("open", "another/fork", "keepalive", "5232", ["read"]),
+        ("unavailable", REPO, "keepalive", "5232", ["read"]),
+        ("closed", REPO, "autofix", "5232", ["push"]),
+        ("closed", REPO, "keepalive", "", ["push"]),
+    ],
+    ids=["open", "wrong-repo", "unavailable", "autofix", "no-pr"],
+)
+def test_publication_matches_open_target(publisher, state, head_repo, mode, pr_number, expected):
+    _, final, local, bare, patch, env, _, _ = publisher
+    env["PUSH_CODEX_BRANCH"] = final["env"].get("PUSH_CODEX_BRANCH", "")
+    env.update(STATE=state, HEAD_REPO=head_repo, MODE=mode, PR_NUMBER=pr_number)
+    patch.write_text("new work\n")
+    result, calls, outputs = run_final(publisher)
+    assert calls == expected
+    published = "push" in calls
+    assert result.returncode == (0 if published else 1), result.stderr
+    assert outputs["changes-made"] == str(published).lower()
+    expected_sha = git(local, "rev-parse", "HEAD") if published else ""
+    assert outputs["commit-sha"] == expected_sha
+    assert git(bare, "rev-parse", "refs/heads/topic") == (expected_sha or env["PR_HEAD"])
+
+
+def test_open_pr_accepts_concurrent_work_after_normal_rebase(publisher):
+    _, final, local, bare, patch, env, _, _ = publisher
+    env["PUSH_CODEX_BRANCH"] = final["env"]["PUSH_CODEX_BRANCH"]
+    (local / "teammate.txt").write_text("concurrent change")
+    git(local, "add", "teammate.txt")
+    git(local, "commit", "-qm", "concurrent change")
+    head = git(local, "rev-parse", "HEAD")
+    git(local, "push", "-q", str(bare), "HEAD:refs/heads/topic")
+    git(local, "checkout", "-q", "--detach", env["PR_HEAD"])
+    patch.write_text("worker change")
+    env["PR_HEAD"] = head
+    result, calls, outputs = run_final(publisher)
+    assert result.returncode == 0, result.stderr
+    assert calls == ["read", "push"]
+    assert outputs["changes-made"] == "true"
+    accepted = git(bare, "rev-parse", "refs/heads/topic")
+    assert accepted == outputs["commit-sha"]
+    assert git(bare, "rev-parse", accepted + "^") == head
+
+
+def test_closed_pr_with_conflicting_existing_commit_skips_publication(publisher):
+    _, final, local, bare, patch, env, _, _ = publisher
+    env["PUSH_CODEX_BRANCH"] = final["env"]["PUSH_CODEX_BRANCH"]
+    env["STATE"] = "closed"
+    patch.write_text("concurrent change")
+    git(local, "commit", "-qam", "concurrent change")
+    git(local, "push", "-q", str(bare), "HEAD:refs/heads/topic")
+    env["PR_HEAD"] = git(local, "rev-parse", "HEAD")
+    git(local, "checkout", "-q", "--detach", env["PR_HEAD"] + "^")
+    patch.write_text("worker conflict")
+    git(local, "commit", "-qam", "worker change")
+    result, calls, outputs = run_final(publisher)
+    assert result.returncode == 0, result.stderr
+    assert calls == ["read"]
+    assert outputs["changes-made"] == "false"
+    assert outputs["commit-sha"] == ""
+
+
+@pytest.mark.parametrize(
+    ("race", "expected_attempts"),
+    [
+        ("new-branch-head", ["read", "push"]),
+        ("already-published", ["read", "push"]),
+        ("divergent-local", ["read"]),
+    ],
+)
+def test_watchdog_publisher_distinguishes_stale_and_no_op(publisher, race, expected_attempts):
+    worker, _, local, bare, patch, env, calls, _ = publisher
+    policy = worker["env"]["PUSH_CODEX_BRANCH"]
+    patch.write_text("another writer's change")
+    git(local, "commit", "-qam", "concurrent change")
+    other_head = git(local, "rev-parse", "HEAD")
+    git(local, "push", "-q", str(bare), "HEAD:refs/heads/other")
+    git(local, "checkout", "-q", "--detach", env["PR_HEAD"])
+    patch.write_text("worker change")
+    git(local, "commit", "-qam", "worker change")
+    candidate = git(local, "rev-parse", "HEAD")
+
+    # Share the candidate with the private remote without changing the target branch yet.
+    git(local, "push", "-q", str(bare), "HEAD:refs/heads/candidate")
+    if race == "already-published":
+        env["MOVE_AT_PUSH"] = candidate
+    elif race == "new-branch-head":
+        env["MOVE_AT_PUSH"] = other_head
+    else:
+        git(bare, "update-ref", "refs/heads/topic", other_head)
+        env["PR_HEAD"] = other_head
+
+    result = subprocess.run(
+        ["bash", "-c", policy, "--", "keepalive", "5232", "topic", "unused"],
+        cwd=local,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == (78 if race == "already-published" else 1)
+    assert result.stdout == ""
+    assert calls.read_text().splitlines() == expected_attempts
+    expected_head = candidate if race == "already-published" else other_head
+    assert git(bare, "rev-parse", "refs/heads/topic") == expected_head
+
+
+def test_watchdog_refuses_closed_and_missing_branch(publisher):
+    worker, final, local, bare, patch, env, calls, _ = publisher
+    policy = worker["env"]["PUSH_CODEX_BRANCH"]
+    assert policy == final["env"]["PUSH_CODEX_BRANCH"]
+    assert worker["run"].count('bash -c "$PUSH_CODEX_BRANCH"') == 2
+    patch.write_text("new work\n")
+    git(local, "commit", "-qam", "watchdog checkpoint")
+    git(bare, "update-ref", "-d", "refs/heads/topic")
+    command = ["bash", "-c", policy, "--", "keepalive", "5232", "topic", "unused"]
+    closed = subprocess.run(command, cwd=local, env={**env, "STATE": "closed"}, capture_output=True)
+    assert closed.returncode == 78
+    assert calls.read_text().splitlines() == ["read"]
+    missing = subprocess.run(command, cwd=local, env=env, capture_output=True)
+    assert missing.returncode != 0
+    assert calls.read_text().splitlines() == ["read", "read", "push"]
+    assert (
+        subprocess.run(
+            [GIT, "show-ref", "--verify", "refs/heads/topic"], cwd=bare, capture_output=True
+        ).returncode
+        != 0
+    )
+
+
+def test_watchdog_retry_rereads_pr_and_reports_no_saved_work(publisher):
+    worker, _, local, bare, patch, env, calls, outputs = publisher
+    patch.write_text("watchdog checkpoint")
+    git(local, "commit", "-qam", "checkpoint")
+    # Delete the branch before the first Git attempt, then close the PR before retry.
+    git(bare, "update-ref", "-d", "refs/heads/topic")
+    run = worker["run"]
+    start = run.index("GRACE_MIN=5")
+    end = run.index("# Run codex exec", start)
+    script = run[start:end].replace("${{ steps.run_base.outputs.push_token }}", "test-app")
+    script = script.replace("${{ github.repository }}", REPO)
+    script = script.replace('"/tmp/.watchdog-fired-$$"', '"$GITHUB_OUTPUT.watchdog-fired"')
+    env.update(
+        PR_NUM="5232",
+        TARGET_BRANCH="refs/heads/topic",
+        STATE="close-on-retry",
+        MAX_RUNTIME_MIN="7",
+        PUSH_CODEX_BRANCH=worker["env"]["PUSH_CODEX_BRANCH"],
+    )
+    result = subprocess.run(
+        ["bash", "-euo", "pipefail", "-c", script + '\nwait "$WATCHDOG_PID"'],
+        cwd=local,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert calls.read_text().splitlines() == ["read", "push", "read"]
+    assert outputs.read_text() == "watchdog-saved=false\n"
