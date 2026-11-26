@@ -1228,3 +1228,52 @@ def test_cancelled_pytest_receipts_do_not_report_test_failures(tmp_path: Path) -
     assert "  root_cause: Pytest reported failing tests." in post_ci_summary._collect_triage_block(
         tmp_path
     )
+
+
+@pytest.mark.parametrize(
+    ("primary", "grammar", "expected"),
+    [
+        ("success", "success", "✅ success"),
+        ("success", "failure", "❌ failure"),
+        ("failure", "in_progress", "❌ failure"),
+        ("success", "cancelled", "❌ cancelled"),
+        ("success", "in_progress", "⏳ in progress"),
+        ("skipped", "skipped", "⏭️ skipped"),
+        ("success", "skipped", "⏭️ skipped"),
+        ("success", None, "⏳ pending"),
+    ],
+)
+def test_gate_required_group_reports_actual_python_matrix_legs(
+    primary: str, grammar: str | None, expected: str
+) -> None:
+    # Use the two nested job names actually published on Workflows #5211.
+    runs = _sample_runs(
+        {
+            "python ci / python 3.13": primary,
+            "python ci grammar / python 3.13": grammar,
+            "python ci / python 3.14": "success",
+            "python ci grammar / python 3.14": "success",
+            "python ci / lint-format (3.14)": "failure",
+        }
+    )
+    groups = post_ci_summary._load_required_groups(None, runs)
+    segments = post_ci_summary._collect_required_segments(runs, groups)
+    assert segments[:2] == [f"core tests (3.13): {expected}", "core tests (3.14): ✅ success"]
+
+
+def test_gate_required_groups_keep_single_matrix_and_explicit_override() -> None:
+    runs = _sample_runs(
+        {
+            "python ci / python 3.14": "success",
+            "project lint": "failure",
+        }
+    )
+    groups = post_ci_summary._load_required_groups(None, runs)
+    assert post_ci_summary._collect_required_segments(runs, groups)[:2] == [
+        "core tests (3.13): ⏳ pending",
+        "core tests (3.14): ✅ success",
+    ]
+
+    override = '[{"label": "Override", "patterns": ["^project lint$"]}]'
+    groups = post_ci_summary._load_required_groups(override, runs)
+    assert post_ci_summary._collect_required_segments(runs, groups) == ["project lint: ❌ failure"]

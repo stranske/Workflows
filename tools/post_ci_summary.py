@@ -14,7 +14,7 @@ from collections.abc import Iterable, Mapping, MutableSequence, Sequence
 from dataclasses import dataclass
 from html import unescape
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 from urllib.parse import urlsplit
 
 try:
@@ -41,6 +41,7 @@ class JobRecord:
 class RequiredJobGroup(TypedDict):
     label: str
     patterns: list[str]
+    require_all: NotRequired[bool]
 
 
 DEFAULT_REQUIRED_JOB_GROUPS: list[RequiredJobGroup] = [
@@ -103,8 +104,9 @@ def _priority(state: str | None) -> int:
     return 4
 
 
-def _combine_states(states: Iterable[str | None]) -> str:
-    lowered: list[str] = [s.lower() for s in states if isinstance(s, str) and s]
+def _combine_states(states: Iterable[str | None], *, require_all: bool = False) -> str:
+    normalized = [state.lower() if isinstance(state, str) else "" for state in states]
+    lowered = [state for state in normalized if state]
     if not lowered:
         return "missing"
     for candidate in ("failure", "cancelled", "timed_out", "action_required"):
@@ -113,7 +115,9 @@ def _combine_states(states: Iterable[str | None]) -> str:
     for candidate in ("in_progress", "queued", "waiting", "requested"):
         if candidate in lowered:
             return candidate
-    if all(state == "skipped" for state in lowered):
+    if require_all and any(state not in {"success", "skipped"} for state in normalized):
+        return "pending"
+    if "skipped" in lowered and (require_all or all(state == "skipped" for state in lowered)):
         return "skipped"
     if "success" in lowered:
         return "success"
@@ -171,6 +175,7 @@ REQUIRED_JOB_RULES: list[RequiredJobRule] = [
 
 
 DOC_ONLY_JOB_KEYS: tuple[str, ...] = ("core313", "core314", "docker")
+PYTHON_GATE_LEAF = re.compile(r"python ci(?: grammar)? / python 3\.(13|14)", re.IGNORECASE)
 
 
 def _matches_slug(slug: str, variants: Sequence[Sequence[str]]) -> bool:
@@ -182,6 +187,9 @@ def _matches_slug(slug: str, variants: Sequence[Sequence[str]]) -> bool:
 
 
 def _classify_job_key(name: str) -> str | None:
+    matrix = PYTHON_GATE_LEAF.fullmatch(name)
+    if matrix:
+        return f"core3{matrix[1]}"
     slug = _slugify(name)
     for rule in REQUIRED_JOB_RULES:
         if _matches_slug(slug, rule["slug_variants"]):
@@ -192,7 +200,7 @@ def _classify_job_key(name: str) -> str | None:
 def _derive_required_groups_from_runs(
     runs: Sequence[Mapping[str, object]],
 ) -> list[RequiredJobGroup]:
-    job_names: list[tuple[str, str]] = []
+    job_names: list[tuple[str, str | None]] = []
     for run in runs:
         if not isinstance(run, Mapping):
             continue
@@ -208,14 +216,14 @@ def _derive_required_groups_from_runs(
             name = name_value.strip()
             if not name:
                 continue
-            job_names.append((name, _slugify(name)))
+            job_names.append((name, _classify_job_key(name)))
 
     groups: list[RequiredJobGroup] = []
     used: set[str] = set()
     for rule in REQUIRED_JOB_RULES:
         matches: list[str] = []
-        for original, slug in job_names:
-            if _matches_slug(slug, rule["slug_variants"]):
+        for original, key in job_names:
+            if key == rule["key"]:
                 lowered = original.casefold()
                 if lowered in used:
                     continue
@@ -223,7 +231,11 @@ def _derive_required_groups_from_runs(
                 matches.append(original)
         if matches:
             patterns = [rf"^{re.escape(match)}$" for match in matches]
-            groups.append({"label": matches[0], "patterns": patterns})
+            group: RequiredJobGroup = {"label": matches[0], "patterns": patterns}
+            if any(PYTHON_GATE_LEAF.fullmatch(name) for name in matches):
+                group["label"] = rule["label"]
+                group["require_all"] = True
+            groups.append(group)
         else:
             groups.append(
                 {
@@ -744,7 +756,8 @@ def _collect_required_segments(
                     state_value = job.get("conclusion") or job.get("status")
                     matched_states.append(str(state_value) if state_value is not None else None)
 
-        state = _combine_states(matched_states) if matched_states else None
+        require_all = group.get("require_all", False)
+        state = _combine_states(matched_states, require_all=require_all) if matched_states else None
         canonical_name: str | None = None
         if matched_names:
             seen: set[str] = set()
@@ -755,7 +768,7 @@ def _collect_required_segments(
                 seen.add(lowered)
                 canonical_name = candidate
                 break
-        display_label = canonical_name or label or "Job group"
+        display_label = label if require_all else canonical_name or label
         segments.append(f"{display_label}: {_badge(state)} {_display_state(state)}")
 
     return segments
