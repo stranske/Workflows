@@ -58,8 +58,14 @@ class _RequestsModule(Protocol):
     def request(self, method: str, url: str, **kwargs: Any) -> _Response: ...
 
 
-# The single-attempt urllib path does not require the optional retry transport.
-requests: _RequestsModule | None = None
+# The single-attempt urllib path can run on an interpreter without Requests.
+requests: _RequestsModule | None
+try:
+    requests = cast(_RequestsModule, importlib.import_module("requests"))
+except ModuleNotFoundError as exc:
+    if exc.name != "requests":
+        raise
+    requests = None
 
 
 def _should_retry(status_code: int, detail: Any) -> bool:
