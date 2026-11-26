@@ -478,6 +478,52 @@ test('delivery refresh shares active-writer scan, exact-plan debounce and fails 
   }
 });
 
+test('two stale delivery bases bypass full debounce and keep the exact named scope', async () => {
+  const named = ['stranske/Inv-Man-Intake', 'stranske/Pension-Data'];
+  const allDelivery = [...named, 'stranske/Template'];
+  const recent = promotionRun({ updated_at: new Date(now - 1000).toISOString() });
+  const scoped = promotionRun({ id: 11, updated_at: recent.updated_at,
+    display_title: `Maint 68 promote auto repos=${named.join(',')} ${planId} ${sourceCommit}  ` });
+  const queued = { ...scoped, status: 'queued', conclusion: null };
+  const { evidence } = fixture();
+  const decision = { plan_id: planId, evidence, repositories: named,
+    registeredRepositories: [...expectedCanaries, ...allDelivery], priorNoChangeEvidence: '{"results":[]}' };
+  const execute = async (history, request = decision) => {
+    const api = harness(({ status }) => status ? [] : history);
+    api.client.rest.repos.getCommit = async () => ({ data: { sha: sourceCommit,
+      commit: { committer: { date: '2026-10-01T00:00:00Z' } } } });
+    api.client.rest.repos.getContent = async () => ({ data: { content: Buffer.from(JSON.stringify({
+      canaries: expectedCanaries.map((repo) => ({ repo })),
+    })).toString('base64') } });
+    const notices = [];
+    api.core.notice = (message) => notices.push(message);
+    await dispatchDeliveryRefresh({ ...api, expectedCanaries, now, decision: request, cleanupBranches: false });
+    return { dispatched: api.dispatched, notices };
+  };
+  const namedResult = await execute([recent]);
+  assert.equal(namedResult.dispatched.length, 1, 'two named stale base refreshes dispatch immediately');
+  assert.deepEqual(namedResult.dispatched[0].inputs, {
+    phase: 'promote', canary_evidence_json: JSON.stringify(evidence), delivery_scope: 'auto',
+    dry_run: 'false', force: 'false', cleanup_branches: 'false', repos: named.join(','),
+    prior_campaign_no_change_evidence_json: decision.priorNoChangeEvidence,
+  });
+  assert.equal((await execute([queued, recent])).dispatched.length, 0, 'a queued writer omitted from status scans still prevents a duplicate');
+  const fullDecision = { ...decision, repositories: allDelivery };
+  const held = await execute([scoped, { ...recent, display_title: `${recent.display_title}  ` }], fullDecision);
+  assert.equal(held.dispatched.length, 0);
+  assert.match(held.notices.join(' '), /held 3; exact-plan promote 10; debounce_remaining_ms=21599000/);
+  const full = await execute([scoped], fullDecision);
+  assert.equal(full.dispatched.length, 1, 'scoped history cannot consume the full-plan debounce');
+  assert.equal(full.dispatched[0].inputs.repos, undefined);
+  const twoTargetFull = { ...decision, registeredRepositories: [...expectedCanaries, ...named] };
+  assert.equal((await execute([recent], twoTargetFull)).dispatched.length, 0,
+    'two targets still use the full-plan debounce if they are the entire delivery fleet');
+  assert.deepEqual((await execute([scoped], twoTargetFull)).dispatched[0].inputs,
+    full.dispatched[0].inputs, 'full promotions omit the named refresh inputs regardless of fleet size');
+  await assert.rejects(execute([recent], { ...decision, repositories: [...named, 'stranske/unknown'] }),
+    /delivery_refresh_requires_registered_delivery_repositories/);
+});
+
 test('delivery refresh reads every native writer state before considering another plan', async () => {
   const statuses = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
   for (const status of statuses) {

@@ -552,6 +552,67 @@ test('the unanswered path refuses once the originating reviewer answers in the t
   assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
 });
 
+function trend6250ReceiptFixture() {
+  const nodes = require('./fixtures/maint71-trend-6250-review-timeline.json');
+  const f = unansweredFixture({ completedAt: '2026-11-26T17:33:00Z' });
+  const [original, , receipt, followup] = nodes;
+  const binding = JSON.parse(followup.body.match(/<!-- maint71-review-disposition:v1 (.*?) -->/)[1]);
+  const policy = require('../../../config/consumer_sync_review_policy.json');
+  const { proof, record, thread } = f.args;
+  proof.repository = f.result.repository = binding.repository;
+  proof.pr = f.result.pr = binding.pr;
+  proof.head_sha = f.result.head_sha = binding.head_sha;
+  proof.thread_id = f.result.thread_id = thread.id = binding.thread_id;
+  proof.source_fix_sha = f.result.source_fix_sha = binding.source_commit;
+  proof.evidence_url = f.result.evidence_url = 'https://github.com/stranske/Workflows/commit/' + binding.source_commit;
+  record.plan_id = f.result.plan_id = binding.plan_id;
+  record.generation = f.result.generation = binding.generation;
+  record.source_commit = f.result.source_commit = binding.source_commit;
+  thread.comments = { nodes: structuredClone(nodes), pageInfo: { hasNextPage: false } };
+  f.result.finding_sha256 = sha256(original.body);
+  f.result.reassessment_request_url = followup.url;
+  f.result.verifier_profile = policy.finding_verification_fallback.verifier_profiles[0];
+  f.args.policy = policy;
+  f.args.reviewerProfiles = policy.reviewers;
+  f.args.comment.created_at = '2026-11-26T17:33:01Z';
+  f.args.now = Date.parse('2026-11-26T17:34:00Z');
+  return { ...f, receipt, liveReceipt: thread.comments.nodes[2] };
+}
+
+test('Trend #6250 stock receipt leaves the exact-head independent pathway available after two hours', () => {
+  const f = trend6250ReceiptFixture();
+  assert.equal(validate(f.finish()).ok, true);
+
+  f.result.completed_at = '2026-11-26T17:32:35Z';
+  assert.equal(validate(f.finish()).reason, 'reassessment_window_open');
+  f.result.completed_at = '2026-11-26T17:33:00Z';
+
+  const { receipt, liveReceipt } = f;
+  liveReceipt.body = receipt.body.replace('Hooray!', 'Still broken.');
+  assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
+  liveReceipt.body = receipt.body.replace('</details>', '**REJECT**\n</details>');
+  assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
+  liveReceipt.body = receipt.body;
+  f.args.thread.comments.nodes.push({ author: receipt.author,
+    createdAt: '2026-11-26T17:32:59Z', body: 'REJECT\nThe stale footer assertion still fails.' });
+  assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
+});
+
+test('Trend #6250 substantive details from the originating reviewer answer the request', () => {
+  const f = trend6250ReceiptFixture();
+  f.liveReceipt.body = f.receipt.body.replace('</details>', 'The original finding still applies.\n</details>');
+  assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
+});
+
+test('Trend #6250 substantive details from the originating reviewer invalidate a finished assessment', () => {
+  const f = trend6250ReceiptFixture();
+  const lateReceipt = { ...f.receipt, createdAt: '2026-11-26T17:33:03Z' };
+  f.args.topLevelComments = { nodes: [lateReceipt], complete: true };
+  assert.equal(validate(f.finish()).ok, true);
+  lateReceipt.body = f.receipt.body.replace('</details>', 'The original finding still applies.\n</details>');
+  assert.equal(validate(f.finish()).reason, 'reviewer_changed_after_verification');
+});
+
 test('without the policy window or the attestation flag a completion is still required', () => {
   const noWindow = unansweredFixture();
   delete noWindow.args.policy.finding_verification_fallback.unanswered_reassessment_minutes;
