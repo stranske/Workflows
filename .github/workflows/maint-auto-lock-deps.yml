@@ -11,6 +11,9 @@ name: Auto-lock dependency PRs
 # byte-identical output. (Not synced to consumers; consumers rely on the preset.)
 
 on:
+  # zizmor: ignore[dangerous-triggers] target events can only run the checkout-free label job
+  pull_request_target:
+    types: [opened]
   pull_request:
     paths:
       - 'pyproject.toml'
@@ -19,18 +22,42 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Keep the old per-PR label key and one lock key for both lock jobs.
+  group: >-
+    ${{ github.event_name == 'pull_request_target'
+        && format('Auto-label dependency PRs-{0}', github.event.pull_request.number)
+        || format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: true
 
 jobs:
+  label:
+    # Dependabot and Renovate both produce dependency PRs that should carry agents:allow-change.
+    # This pull_request_target workflow must trust the immutable PR author, not
+    # github.actor, because actor can be a maintainer rerunning a bot-authored PR.
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      (github.event.pull_request.user.login == 'dependabot[bot]' || github.event.pull_request.user.login == 'renovate[bot]')
+    permissions:
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add agents:allow-change label
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "agents:allow-change"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+
   regenerate-lock:
     name: Regenerate requirements.lock
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: >-
+      github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       ((github.event.pull_request.user.login == 'dependabot[bot]' && startsWith(github.head_ref, 'dependabot/')) ||
        (github.event.pull_request.user.login == 'renovate[bot]' && startsWith(github.head_ref, 'renovate/')))
@@ -101,7 +128,7 @@ jobs:
 
   publish-lock:
     needs: regenerate-lock
-    if: needs.regenerate-lock.outputs.needs_update == 'true'
+    if: github.event_name == 'pull_request' && needs.regenerate-lock.outputs.needs_update == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write

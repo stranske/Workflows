@@ -669,7 +669,7 @@ when the Orchestrator router starts the work on the owner's machine (`router.cho
    or dependency changes whose patch cannot be inspected.
 
 **Consumers:** `.github/scripts/agents-guard.js`,
-`.github/workflows/maint-auto-label-dep-prs.yml`.
+the Workflows-local label job in `.github/workflows/maint-auto-lock-deps.yml`.
 
 ---
 
