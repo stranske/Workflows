@@ -298,7 +298,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     const src = nodeFs.readFileSync(process.argv[2], 'utf8');
     const commentDedupe = require(process.argv[3]);
     const HEAD_SHA = 'a'.repeat(40);
-    const SUMMARY_BODY = 'GATE SUMMARY BODY\\n<!-- gate-summary: pr=1 -->';
+    const NEXT_HEAD_SHA = 'c'.repeat(40);
 
     function makeError(status, message, response = null) {
       const e = new Error(message);
@@ -309,7 +309,10 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
 
     async function runCase({
       headRepo, baseRepo, error, eventHead = HEAD_SHA, liveHead = HEAD_SHA, resolvedHead,
+      summaryHead = null,
     }) {
+      const headMarker = summaryHead ? ` head=${summaryHead.slice(0, 12)}` : '';
+      const summaryBody = `GATE SUMMARY BODY\\n<!-- gate-summary: pr=1${headMarker} -->`;
       const warnings = [];
       const summaryRaw = [];
       const headReads = [];
@@ -360,7 +363,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           if (id === 'fs') {
             return {
               existsSync: () => true,
-              readFileSync: () => SUMMARY_BODY,
+              readFileSync: () => summaryBody,
             };
           }
           if (id === './.github/scripts/comment-dedupe.js') return commentDedupe;
@@ -404,6 +407,10 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     (async () => {
       const out = {
         fork_read_only: await runCase(READ_ONLY_FORK),
+        fork_read_only_new_head: await runCase({
+          ...READ_ONLY_FORK, eventHead: NEXT_HEAD_SHA, liveHead: NEXT_HEAD_SHA,
+          summaryHead: NEXT_HEAD_SHA,
+        }),
         fork_read_only_resolved_head: await runCase({
           ...READ_ONLY_FORK, eventHead: null, resolvedHead: HEAD_SHA,
         }),
@@ -451,7 +458,13 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         fork_written: await runCase(FORK),
         same_repo_written: await runCase(SAME),
         missing_head: await runCase({ ...READ_ONLY_FORK, eventHead: null }),
-        stale_head: await runCase({ ...FORK, liveHead: 'c'.repeat(40) }),
+        missing_head_with_summary_marker: await runCase({
+          ...READ_ONLY_FORK, eventHead: null, summaryHead: HEAD_SHA,
+        }),
+        stale_head: await runCase({ ...FORK, liveHead: NEXT_HEAD_SHA }),
+        stale_head_with_current_summary_marker: await runCase({
+          ...FORK, liveHead: NEXT_HEAD_SHA, summaryHead: NEXT_HEAD_SHA,
+        }),
       };
       process.stdout.write(JSON.stringify(out));
     })();
@@ -504,6 +517,7 @@ def test_comment_fork_read_only_403_does_not_fail_the_gate(
     "name",
     [
         "fork_read_only",
+        "fork_read_only_new_head",
         "fork_read_only_resolved_head",
         "fork_read_only_resolved_stale_event",
         "fork_read_only_positive_quota",
@@ -580,7 +594,13 @@ def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any], name: st
             [],
             ["Gate summary has no matching authored PR head; skipping comment update."],
         ),
+        (
+            "missing_head_with_summary_marker",
+            [],
+            ["Gate summary has no matching authored PR head; skipping comment update."],
+        ),
         ("stale_head", [1], []),
+        ("stale_head_with_current_summary_marker", [1], []),
     ],
 )
 def test_comment_requires_current_authored_head(
