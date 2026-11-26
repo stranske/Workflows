@@ -31,6 +31,7 @@ const {
 const {
   buildMarkdownSummary,
   buildCampaignCommitAuthorization,
+  formatCampaignCommitSummary,
   buildDeliveryHandoff,
   buildMergeReport,
   candidateRefreshDecision,
@@ -484,6 +485,42 @@ test('campaign commit authorization binds every prepared exact head', () => {
     planId: 'plan-abc',
     sourceCommit: 'source-abc',
   }).authorized, false);
+});
+
+test('campaign commit summary pairs prepared and drainable counts from the exact roster', () => {
+  const expectedRepositories = [
+    'stranske/Travel', 'stranske/Trend', 'stranske/AlreadyMerged', 'stranske/NoChange',
+  ];
+  const ready = { owner: 'stranske', branch: 'sync/workflows-delivery', pr: 11,
+    head_sha: 'head-11', delivery_generation: 'generation-11', status: 'campaign_prepared',
+    plan_id: 'plan-abc', source_commit: 'source-abc' };
+  const report = {
+    inputs: { sync_hash: 'campaign', registered_repos: expectedRepositories },
+    results: [
+      { ...ready, repo: 'Travel' },
+      { ...ready, repo: 'Trend', pr: 6250, status: 'review_blocked', blocker_owner: 'source',
+        next_command: 'repair-upstream-and-request-reviewer-disposition' },
+      { ...ready, repo: 'AlreadyMerged', pr: 12, status: 'merged' },
+      { ...ready, repo: 'NoChange', pr: undefined, status: 'campaign_no_change_verified' },
+    ],
+  };
+  const summarize = (roster = expectedRepositories) => {
+    const authorization = buildCampaignCommitAuthorization({
+      report, expectedRepositories: roster, planId: 'plan-abc', sourceCommit: 'source-abc',
+    });
+    return formatCampaignCommitSummary({ report, authorization, expectedRepositories: roster });
+  };
+  const held = summarize();
+  assert.match(held, /awaiting merge 1\/4, drainable now 0\/4, already merged 1, verified no change 1/);
+  assert.match(held, /Trend#6250: review_blocked; owner=source; next=repair-upstream-and-request-reviewer-disposition/);
+  report.results[1].next_command = 'settle-review-and-seal-exact-head';
+  assert.match(summarize(), /owner=originating-reviewer; next=obtain-exact-reviewer-disposition/);
+  report.results[1].status = 'campaign_prepared';
+  assert.match(summarize(), /awaiting merge 2\/4, drainable now 2\/4, already merged 1, verified no change 1/);
+  assert.match(summarize([]), /awaiting merge unknown, drainable now 0 \(registered roster unavailable\)/);
+  assert.match(summarize(expectedRepositories.slice(1)), /registered roster mismatch/);
+  report.results = report.results.map(row => ({ ...row, pr: undefined, status: 'campaign_no_change_verified' }));
+  assert.match(summarize(), /awaiting merge 0\/4, drainable now 0\/4, already merged 0, verified no change 4/);
 });
 
 test('hasCampaignCommitAuthorization rejects empty or partial authorization payloads', () => {

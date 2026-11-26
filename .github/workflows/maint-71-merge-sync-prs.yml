@@ -655,6 +655,7 @@ jobs:
           const fs = require('fs');
           const {
             buildCampaignCommitAuthorization,
+            formatCampaignCommitSummary,
           } = require('./.github/scripts/sync_pr_merge_contract.js');
           const report = JSON.parse(
             fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
@@ -678,6 +679,9 @@ jobs:
             process.env.GITHUB_OUTPUT,
             `authorization_json=${JSON.stringify(authorization)}\n`,
           );
+          const summary = formatCampaignCommitSummary({ report, authorization, expectedRepositories });
+          console.log(summary);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n${summary}\n`);
           if (!authorization.authorized) {
             console.log(`Fleet commit remains held: ${authorization.errors.join(', ')}`);
           } else {
