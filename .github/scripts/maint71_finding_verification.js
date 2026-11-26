@@ -156,13 +156,12 @@ function stockReviewedCommit(body, profile) {
 
 function isStockFindingReceipt(body, profile) {
   const stock = profile.inline_targeted_stock_completion;
-  if (!stock?.marker || !stock.summary
+  if (!stock?.marker || !stock.summary || !Array.isArray(stock.details)
     || stockReviewedCommit(body, profile) === null) return false;
-  const [, , summary, , , ...details] = String(body).trimEnd().split(/\r?\n/);
-  const suffix = details.join('\n').trim();
+  const [, , summary, , , gap, ...details] = String(body).trimEnd().split(/\r?\n/);
   return summary === stock.summary
-    && (!suffix || (stock.details_heading && suffix.startsWith(stock.details_heading + '\n')))
-    && !/(?:<!--\s*(?:sync-review-accepted|maint71-)|^\s*[>*_` \t]*(?:ACCEPT|REJECT)\b)/mi.test(suffix);
+    && gap === ''
+    && details.join('\n') === stock.details.join('\n');
 }
 
 // This is completion evidence for the independent assessment only. The native

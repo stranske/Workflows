@@ -82,6 +82,9 @@ const SOURCE_WORKFLOWS = new Set([
   '686ee6836c50bf8d3603749e76dfb5ae1a69e4232c5a323379b5646ff61400cb',
   // Directory pruning uses the same immutable checkout, plan artifact and exact staging inventory.
   'b926353a6aeeab767b3d73a18e76924f41a1f5e7eabf69831a832236af6f4cb9',
+  // Named promotions add a title marker and carry unchanged rows in the continuation job.
+  // Canary source resolution, checkout, validation and plan publication are unchanged.
+  '83bb655d8a247196b56601fe5daaa451e058850693364f3c6a9c32865e7ef468',
 ]);
 
 async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {

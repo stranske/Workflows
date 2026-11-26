@@ -515,6 +515,11 @@ test('two stale delivery bases bypass full debounce and keep the exact named sco
   const full = await execute([scoped], fullDecision);
   assert.equal(full.dispatched.length, 1, 'scoped history cannot consume the full-plan debounce');
   assert.equal(full.dispatched[0].inputs.repos, undefined);
+  const twoTargetFull = { ...decision, registeredRepositories: [...expectedCanaries, ...named] };
+  assert.equal((await execute([recent], twoTargetFull)).dispatched.length, 0,
+    'two targets still use the full-plan debounce if they are the entire delivery fleet');
+  assert.deepEqual((await execute([scoped], twoTargetFull)).dispatched[0].inputs,
+    full.dispatched[0].inputs, 'full promotions omit the named refresh inputs regardless of fleet size');
   await assert.rejects(execute([recent], { ...decision, repositories: [...named, 'stranske/unknown'] }),
     /delivery_refresh_requires_registered_delivery_repositories/);
 });
