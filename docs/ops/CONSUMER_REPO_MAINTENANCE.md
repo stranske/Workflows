@@ -2381,20 +2381,21 @@ does not provide a transaction between the final read and thread resolution.
 When the originating reviewer is out of capacity (Copilot most months), its
 finding must not latch. If the targeted reassessment request has stood for
 `finding_verification_fallback.unanswered_reassessment_minutes` (policy) and
-the originating reviewer has posted nothing in that thread since the request,
-the result may record `reviewer_unanswered=true` with
+the originating reviewer has supplied no disposition or substantive feedback in
+that thread since the request, the result may record `reviewer_unanswered=true` with
 `originating_completion_url=null`; Maint 71 then accepts it without an
-originating completion. A reviewer answer in the thread after the request
-refuses this path (`originating_reviewer_answered`), an earlier assessment
-refuses it (`reassessment_window_open`), and every other binding, validation,
-freshness and re-read check above still applies.
+originating completion. The configured marked Codex stock receipt counts as
+generic review activity. A reviewer answer in the thread after the request
+refuses this path (`originating_reviewer_answered`), and an earlier assessment
+refuses it (`reassessment_window_open`). The other binding, validation,
+freshness and re-read checks still apply.
 
 The window counts from the FIRST trusted reassessment request in that thread for
 the same repository, PR, thread and originating reviewer, on any head. A canary
 whose base moves is refreshed every hour or two, and a window measured from the
 current head's request could never elapse (trip-planner#1957, 2026-11-06). The
 current head still needs its own bound request, and the assessment itself stays
-exact-head. A reviewer answer after that first request refuses the path.
+exact-head. Substantive feedback after that first request refuses the path.
 
 Pass the normal resolution proof with
 `acceptance_mode=independent-verification` and
@@ -3985,11 +3986,12 @@ A producer success alone never supplies these quantities or authorizes promotion
 
 Delivery-base refresh replays the same immutable promotion evidence through the
 shared helper: all active-writer states are scanned independently of source SHA,
-and exact-plan promotion runs are paginated. Any recent matching promotion
-(including success) holds replay for `CANARY_REFRESH_DEBOUNCE_MS`; after that
-window, a persistent base-refresh request may remint the delivery. Unreadable or
-truncated history fails closed. Health 71 only lists workflow runs; it does not
-dispatch these producers.
+and exact-plan promotion runs are paginated. A named subset refreshes immediately
+when the writer is free. Maint 68 keeps the original canary evidence and forwards
+existing exact no-change evidence for untouched repositories to fleet reconciliation.
+Recent full promotions hold another full replay for `CANARY_REFRESH_DEBOUNCE_MS`.
+The hold reports its remaining time and repository count. Unreadable or truncated
+history fails closed. Health 71 reports the native run history.
 
 Upstream finding markers suppress duplicate comments only when authored by
 the authenticated Maint 71 writer. When drained, the summary is

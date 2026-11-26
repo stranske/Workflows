@@ -51,7 +51,9 @@
       "inline_targeted_stock_completion": {
         "bot_id": 199175422,
         "bot_node_id": "BOT_kgDOC98s_g",
-        "marker": "<!-- codex-review-receipt:v1 -->"
+        "marker": "<!-- codex-review-receipt:v1 -->",
+        "summary": "Codex Review: Didn't find any major issues. Hooray!",
+        "details_heading": "<details> <summary>ℹ️ About Codex in GitHub</summary>"
       }
     },
     {

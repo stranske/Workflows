@@ -552,6 +552,51 @@ test('the unanswered path refuses once the originating reviewer answers in the t
   assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
 });
 
+test('Trend #6250 stock receipt leaves the exact-head independent pathway available after two hours', () => {
+  const nodes = require('./fixtures/maint71-trend-6250-review-timeline.json');
+  const f = unansweredFixture({ completedAt: '2026-11-26T17:33:00Z' });
+  const [original, , receipt, followup] = nodes;
+  const binding = JSON.parse(followup.body.match(/<!-- maint71-review-disposition:v1 (.*?) -->/)[1]);
+  const policy = require('../../../config/consumer_sync_review_policy.json');
+  Object.assign(f.args.proof, {
+    repository: binding.repository, pr: binding.pr, head_sha: binding.head_sha, thread_id: binding.thread_id,
+    source_fix_sha: binding.source_commit,
+    evidence_url: 'https://github.com/stranske/Workflows/commit/' + binding.source_commit,
+  });
+  Object.assign(f.args.record, {
+    plan_id: binding.plan_id, generation: binding.generation, source_commit: binding.source_commit,
+  });
+  Object.assign(f.args.thread, {
+    id: binding.thread_id, comments: { nodes: structuredClone(nodes), pageInfo: { hasNextPage: false } },
+  });
+  Object.assign(f.result, {
+    repository: binding.repository, pr: binding.pr, head_sha: binding.head_sha, thread_id: binding.thread_id,
+    plan_id: binding.plan_id, generation: binding.generation, source_commit: binding.source_commit,
+    source_fix_sha: f.args.proof.source_fix_sha, evidence_url: f.args.proof.evidence_url,
+    finding_sha256: sha256(original.body), reassessment_request_url: followup.url,
+    verifier_profile: policy.finding_verification_fallback.verifier_profiles[0],
+  });
+  f.args.policy = policy;
+  f.args.reviewerProfiles = policy.reviewers;
+  f.args.comment.created_at = '2026-11-26T17:33:01Z';
+  f.args.now = Date.parse('2026-11-26T17:33:02Z');
+  assert.equal(validate(f.finish()).ok, true);
+
+  f.result.completed_at = '2026-11-26T17:32:35Z';
+  assert.equal(validate(f.finish()).reason, 'reassessment_window_open');
+  f.result.completed_at = '2026-11-26T17:33:00Z';
+
+  const liveReceipt = f.args.thread.comments.nodes[2];
+  liveReceipt.body = receipt.body.replace('Hooray!', 'Still broken.');
+  assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
+  liveReceipt.body = receipt.body.replace('</details>', '**REJECT**\n</details>');
+  assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
+  liveReceipt.body = receipt.body;
+  f.args.thread.comments.nodes.push({ author: receipt.author,
+    createdAt: '2026-11-26T17:32:59Z', body: 'REJECT\nThe stale footer assertion still fails.' });
+  assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
+});
+
 test('without the policy window or the attestation flag a completion is still required', () => {
   const noWindow = unansweredFixture();
   delete noWindow.args.policy.finding_verification_fallback.unanswered_reassessment_minutes;

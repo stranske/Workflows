@@ -92,14 +92,14 @@ function validateIndependentFindingVerification({
   if (!completion) {
     // Reviewer-unanswered path (owner decision 2026-11-06): a reviewer that is out of
     // capacity (Copilot most months) would otherwise latch its findings forever. When
-    // the targeted request has stood for the policy window and the originating reviewer
-    // has said nothing IN THIS THREAD since, the independent assessment stands on its
+    // the targeted request has stood for the policy window without disposition or
+    // substantive feedback in this thread, the independent assessment stands on its
     // own; every other binding, validation and freshness check below still applies.
     // The window counts from the FIRST trusted reassessment request in this thread, on any
     // head: a busy canary is rebased to a new head every hour or two, and a window tied to
     // the current head's request could never elapse (trip-planner#1957, 2026-11-06). The
-    // reviewer's silence since that first request is the signal; the current head still
-    // needs its own bound request (checked above), and the assessment stays exact-head.
+    // current head still needs its own bound request (checked above), and the
+    // assessment stays exact-head. A marked stock receipt carries no disposition.
     const windowMinutes = Number(fallback.unanswered_reassessment_minutes);
     if (!(windowMinutes > 0) || result.reviewer_unanswered !== true
       || result.originating_completion_url !== null) return deny('originating_completion_missing');
@@ -121,7 +121,8 @@ function validateIndependentFindingVerification({
       return deny('originating_completion_missing');
     }
     if (thread.comments.nodes.some((item) => profile.logins.includes(item?.author?.login)
-      && Date.parse(item?.createdAt || '') > firstRequestedAt)) return deny('originating_reviewer_answered');
+      && Date.parse(item?.createdAt || '') > firstRequestedAt
+      && !isStockFindingReceipt(item.body, profile))) return deny('originating_reviewer_answered');
     if (Date.parse(result.completed_at || '') - firstRequestedAt < windowMinutes * 60 * 1000) {
       return deny('reassessment_window_open');
     }
@@ -135,7 +136,10 @@ function validateIndependentFindingVerification({
   const reviewerComments = [...threads.nodes.flatMap((item) => item.comments.nodes),
     ...(topLevelComments?.nodes || [])];
   if (reviewerComments.some((item) => profile.logins.includes(item.author?.login)
-    && Date.parse(item.createdAt || '') > times[2])) return deny('reviewer_changed_after_verification');
+    && Date.parse(item.createdAt || '') > times[2]
+    && !(result.reviewer_unanswered === true && isStockFindingReceipt(item.body, profile)))) {
+    return deny('reviewer_changed_after_verification');
+  }
   return { ok: true, assessment_id: result.assessment_id, binding };
 }
 
@@ -148,6 +152,17 @@ function stockReviewedCommit(body, profile) {
   const suffix = details.join('\n').trim();
   if (suffix && !/^<details>(?: <summary>[^<\n]+<\/summary>)?\n[\s\S]*\n<\/details>$/.test(suffix)) return null;
   return /^`([0-9a-f]{10,40})`$/.exec(reference.slice(prefix.length))?.[1] || null;
+}
+
+function isStockFindingReceipt(body, profile) {
+  const stock = profile.inline_targeted_stock_completion;
+  if (!stock?.marker || !stock.summary
+    || stockReviewedCommit(body, profile) === null) return false;
+  const [, , summary, , , ...details] = String(body).trimEnd().split(/\r?\n/);
+  const suffix = details.join('\n').trim();
+  return summary === stock.summary
+    && (!suffix || (stock.details_heading && suffix.startsWith(stock.details_heading + '\n')))
+    && !/(?:<!--\s*(?:sync-review-accepted|maint71-)|^\s*[>*_` \t]*(?:ACCEPT|REJECT)\b)/mi.test(suffix);
 }
 
 // This is completion evidence for the independent assessment only. The native

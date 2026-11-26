@@ -3372,6 +3372,7 @@ function promotionRunMatches(run, binding, defaultBranch = 'main') {
   return run.event === 'workflow_dispatch'
     && run.head_branch === defaultBranch
     && String(run.display_title || '').startsWith('Maint 68 promote ')
+    && !/\brepos=/.test(String(run.display_title))
     && String(run.display_title).trim().endsWith(` ${binding.plan_id} ${binding.source_commit}`);
 }
 
@@ -3379,36 +3380,11 @@ function promotionRunMatches(run, binding, defaultBranch = 'main') {
 // active-writer scan and retry window rather than relying on the newest 20 runs.
 async function dispatchDeliveryRefresh({ decision, expectedCanaries, withRetry, context, core, now = Date.now(),
   cleanupBranches = parseBooleanInput(process.env.CLEANUP_BRANCHES_INPUT || context?.payload?.client_payload?.cleanup_branches, true) }) {
-  const state = await readCanaryRefreshState({ withRetry, context, expectedCanaries, now, writerOnly: true });
-  if (['writer-active', ...ACTIVE_SYNC_STATES].includes(state.state)) {
-    core.notice(`Delivery refresh skipped: Maint 68 writer ${state.run_id} is active`);
-    return { dispatched: false };
-  }
-  const rows = Array.isArray(decision.evidence) ? decision.evidence : decision.evidence.results;
-  const binding = rows[0];
-  const { data: source } = await withRetry((client) => client.rest.repos.getCommit({
-    owner: context.repo.owner, repo: context.repo.repo, ref: binding.source_commit,
-  }));
-  const created = source.commit?.committer?.date;
-  if (!Number.isFinite(Date.parse(created))) throw new Error('promotion_source_date_unknown');
-  const runs = await listPromotionRuns({ withRetry, context, created });
-  const recent = runs.find((run) => promotionRunMatches(run, binding,
-    context.payload.repository?.default_branch || 'main')
-    && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS);
-  if (recent) {
-    core.notice(`Delivery refresh skipped: exact-plan promote ${recent.id} is recent; debounce_ms=${CANARY_REFRESH_DEBOUNCE_MS}`);
-    return { dispatched: false };
-  }
-  await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-    owner: context.repo.owner, repo: context.repo.repo,
-    workflow_id: 'maint-68-sync-consumer-repos.yml',
-    ref: context.payload.repository?.default_branch || 'main',
-    inputs: { phase: 'promote', canary_evidence_json: JSON.stringify(decision.evidence),
-      delivery_scope: 'auto', dry_run: 'false', force: 'false',
-      cleanup_branches: String(cleanupBranches) },
-  }));
-  core.notice(`Replayed exact-plan promotion ${decision.plan_id}`);
-  return { dispatched: true };
+  return require('./maint71_delivery_refresh').dispatchDeliveryRefresh({
+    decision, expectedCanaries, withRetry, context, core, now, cleanupBranches,
+    readCanaryRefreshState, listPromotionRuns, fullPromotionMatches: promotionRunMatches,
+    activeStates: ACTIVE_SYNC_STATES, debounceMs: CANARY_REFRESH_DEBOUNCE_MS,
+  });
 }
 
 // The blocking side of promotion: each canary without evidence and the drain
