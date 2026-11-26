@@ -417,6 +417,29 @@ scripts:
     assert first["entries"][0]["content_sha256"].startswith("sha256:")
 
 
+def test_pruning_changes_only_opted_in_effect_and_requires_exclusive_directory(
+    tmp_path: Path,
+) -> None:
+    write_source(tmp_path, "scripts/lib/tool.py", template=False)
+    manifest = write_manifest(
+        tmp_path,
+        "version: 1\nscripts:\n  - source: scripts/lib\n    description: Library\n    is_directory: true\n",
+    )
+    original = manifest.read_text()
+    legacy = compile_manifest(manifest).to_plan()["entries"][0]
+    manifest.write_text(original + "    prune: false\n")
+    assert compile_manifest(manifest).to_plan()["entries"][0] == legacy
+    manifest.write_text(original + "    prune: true\n")
+    opted_in = compile_manifest(manifest).to_plan()["entries"][0]
+    assert opted_in["prune"] is True
+    assert legacy["effect_fingerprint"] != opted_in["effect_fingerprint"]
+    manifest.write_text(
+        manifest.read_text() + "  - source: scripts/lib/tool.py\n    description: Other owner\n"
+    )
+    with pytest.raises(ManifestCompileError, match="overlaps copy target"):
+        compile_manifest(manifest)
+
+
 def test_skip_overwrite_template_sync_and_removal_are_normalized(
     tmp_path: Path,
 ) -> None:
@@ -540,6 +563,8 @@ def test_invalid_include_repos_fails_closed(tmp_path: Path, fragment: str) -> No
         "overwrite_repos: owner/repo",
         "skip_repos: owner/repo",
         "is_directory: 'yes'",
+        "prune: true",
+        "prune: 'false'",
     ],
 )
 def test_invalid_typed_fields_fail_closed(tmp_path: Path, fragment: str) -> None:

@@ -1594,6 +1594,7 @@ Validated fields for each sync entry:
 | `skip_repos` | list of str or `{repo, reason}` dicts | Repo-specific exclusions |
 | `overwrite_repos` | list of str | Repos that ignore `create_only` |
 | `is_directory` | bool, optional | Defaults to `False` |
+| `prune` | bool, optional | Delete tracked consumer files absent from an explicitly managed directory. Defaults to false. The three vendored npm packages opt in. Repository filters still apply, and the dry run lists each removal. |
 | `template_sync` | `"exact"` or absent | Controls template validator |
 | `delivery` | `"copy"` or absent | Runtime-fetched files belong under `runtime_fetched`, not a copy section |
 | `requires` | list of manifest targets, optional | Transitive co-delivery dependencies for source-delta plans; targets must exist and cycles are rejected |

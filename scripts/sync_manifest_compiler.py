@@ -74,6 +74,7 @@ class ManifestEntry:
     effect_fingerprint: str
     requires: tuple[str, ...] = ()
     source_tree: str = "template"
+    prune: bool = False
 
     def plan_record(self) -> dict[str, Any]:
         skip_reasons = {rule.repo: rule.reason for rule in self.skip_repos}
@@ -86,6 +87,7 @@ class ManifestEntry:
             "description": self.description,
             "sync_mode": self.sync_mode,
             "is_directory": self.is_directory,
+            **({"prune": True} if self.prune else {}),
             "include_repos": list(self.include_repos),
             "skip_repos": [rule.repo for rule in self.skip_repos],
             "skip_reasons": skip_reasons,
@@ -374,6 +376,7 @@ def _compile_entry(
         "skip_repos",
         "overwrite_repos",
         "is_directory",
+        "prune",
         "template_sync",
         "delivery",
         "requires",
@@ -429,6 +432,11 @@ def _compile_entry(
     if not isinstance(is_directory, bool):
         errors.append(f"{context}: is_directory must be a boolean")
         is_directory = False
+    prune = raw.get("prune", False)
+    if not isinstance(prune, bool):
+        errors.append(f"{context}: prune must be a boolean")
+    elif prune and (not is_directory or section not in {"scripts", "actions", "copilot_config"}):
+        errors.append(f"{context}: prune requires a directory handled by directory sync")
     skip_repos, skip_errors = _parse_skip_repos(raw.get("skip_repos"), context=context)
     include_repos, include_errors = _parse_repo_list(
         raw.get("include_repos"),
@@ -487,6 +495,8 @@ def _compile_entry(
         "requires": requires,
         "content_sha256": content_sha256,
     }
+    if prune:
+        effect_core["prune"] = True
     return (
         ManifestEntry(
             source=source,
@@ -498,6 +508,7 @@ def _compile_entry(
             skip_repos=skip_repos,
             overwrite_repos=overwrite_repos,
             is_directory=is_directory,
+            prune=prune,
             template_sync=template_sync,
             delivery=delivery,
             section=section,
@@ -582,6 +593,10 @@ def compile_manifest(
         sections[section] = entries
     entries_by_target = {entry.target: entry for entries in sections.values() for entry in entries}
     for entry in entries_by_target.values():
+        if entry.prune:
+            for other in entries_by_target:
+                if other.startswith(entry.target + "/") or entry.target.startswith(other + "/"):
+                    problems.append(f"prune target {entry.target!r} overlaps copy target {other!r}")
         for dependency in entry.requires:
             if dependency not in entries_by_target:
                 problems.append(

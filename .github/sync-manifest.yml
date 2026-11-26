@@ -436,6 +436,7 @@ scripts:
 
   - source: .github/scripts/node_modules/minimatch/
     is_directory: true
+    prune: true
     description: "Vendored minimatch dependency for .github scripts"
     skip_repos:
       - repo: stranske/trip-planner
@@ -443,6 +444,7 @@ scripts:
 
   - source: .github/scripts/node_modules/brace-expansion/
     is_directory: true
+    prune: true
     description: "Vendored brace-expansion dependency (transitive dep of minimatch)"
     skip_repos:
       - repo: stranske/trip-planner
@@ -450,6 +452,7 @@ scripts:
 
   - source: .github/scripts/node_modules/balanced-match/
     is_directory: true
+    prune: true
     description: "Vendored balanced-match dependency (transitive dep of brace-expansion)"
     skip_repos:
       - repo: stranske/trip-planner
