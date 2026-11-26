@@ -189,7 +189,11 @@ def test_main_classifies_absolute_file_and_recursive_glob(
     assert expected["total_failures"] == 1
     expected["runtime"][0]["file"] = str(report)
 
-    for argument in (str(report), str(tmp_path / "**" / "*.xml")):
+    recursive = str(tmp_path / "**" / "*.xml")
+    arguments = [str(report), recursive]
+    if tmp_path.anchor == "/":
+        arguments.append("//" + recursive)
+    for argument in arguments:
         assert classify_test_failures.main([argument]) == 0
         assert json.loads(capsys.readouterr().out) == expected
 

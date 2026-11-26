@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -189,7 +190,10 @@ def _expand_report_pattern(pattern: str) -> list[str]:
         if path.exists():
             paths = [path]
         else:
-            paths = list(Path(path.anchor).glob(pattern[len(path.anchor) :]))
+            relative_pattern = str(path.relative_to(path.anchor))
+            if pattern.endswith(("/", os.sep)):
+                relative_pattern += "/"
+            paths = list(Path(path.anchor).glob(relative_pattern))
     else:
         paths = list(Path().glob(pattern))
     if paths:
