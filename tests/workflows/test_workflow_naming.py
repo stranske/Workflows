@@ -125,6 +125,20 @@ def test_health_44_pull_requests_do_not_use_repo_variable_fingerprints():
     assert source.index("pull-request-no-repo-variable") < source.index("--storage repo-variable")
 
 
+def test_health_44_admits_only_the_expected_classification_result():
+    workflow = WORKFLOW_DIR / "health-44-gate-branch-protection.yml"
+    jobs = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]
+
+    assert jobs["classify"]["if"] == "${{ github.event_name == 'pull_request' }}"
+    assert jobs["enforce"]["needs"] == "classify"
+    assert " ".join(jobs["enforce"]["if"].split()) == (
+        "${{ !cancelled() && "
+        "((github.event_name != 'pull_request' && needs.classify.result == 'skipped') || "
+        "(github.event_name == 'pull_request' && needs.classify.result == 'success' && "
+        "needs.classify.outputs.is_docs_only != 'true')) }}"
+    )
+
+
 def test_health_40_sweep_permissions_cover_called_branch_protection_workflow():
     sweep = yaml.safe_load((WORKFLOW_DIR / "health-40-sweep.yml").read_text(encoding="utf-8"))
     branch_protection = yaml.safe_load(

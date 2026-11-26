@@ -28,6 +28,7 @@ concurrency:
 jobs:
   classify:
     name: classify changed paths
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     outputs:
       is_docs_only: ${{ steps.classify.outputs.is-docs-only || 'false' }}
@@ -45,7 +46,12 @@ jobs:
 
   enforce:
     needs: classify
-    if: ${{ github.event_name != 'pull_request' || needs.classify.outputs.is_docs_only != 'true' }}
+    # A skipped dependency is expected only outside pull requests.
+    if: >-
+      ${{ !cancelled() &&
+          ((github.event_name != 'pull_request' && needs.classify.result == 'skipped') ||
+           (github.event_name == 'pull_request' && needs.classify.result == 'success' &&
+            needs.classify.outputs.is_docs_only != 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
