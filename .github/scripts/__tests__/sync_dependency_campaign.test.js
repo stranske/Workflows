@@ -2136,14 +2136,20 @@ test('a blocked fleet waits for complete exact-head review clearance, then wakes
     head: { sha: base.head_sha, ref: base.branch } };
   const review = { headRefOid: base.head_sha, reviewDecision: null,
     reviewThreads: { nodes: [{ isResolved: true, isOutdated: false }], pageInfo: { hasNextPage: false } } };
-  const reconcile = async (rows, pullRequest = review, pr = live, rules = []) => {
+  const reconcile = async (rows, pullRequest = review, pr = live, rules = [], afterPolicy = pullRequest) => {
+    let policyRead = false;
     const client = { rest: { pulls: { get: async () => ({ data: pr }) },
       repos: { getBranchRules() {}, getBranchProtection: async () => ({ data: {} }) } },
-      paginate: async () => { if (rules instanceof Error) throw rules; return rules; },
+      paginate: async () => {
+        policyRead = true;
+        if (rules instanceof Error) throw rules;
+        return rules;
+      },
       graphql: async (_query, binding) => {
         assert.deepEqual(binding, { owner: 'stranske', repo: 'Trend_Model_Project', pr: 6250 });
         return { repository: { pullRequest: { state: 'OPEN', isDraft: pr.draft,
-          headRefName: pr.head.ref, baseRefName: 'main', body: pr.body, ...pullRequest } } };
+          headRefName: pr.head.ref, baseRefName: 'main', body: pr.body,
+          ...(policyRead ? afterPolicy : pullRequest) } } };
       } };
     return reconcileClosedDeliveryHandoffs(rows, [], client, operation => operation(client), now);
   };
@@ -2169,6 +2175,8 @@ test('a blocked fleet waits for complete exact-head review clearance, then wakes
     type: 'pull_request', parameters: { required_review_thread_resolution: true },
   }])).records.length, 0);
   assert.equal((await reconcile([blocked], outdated, live, new Error('rules unavailable'))).records.length, 0);
+  const advanced = { ...outdated, headRefOid: 'd'.repeat(40) };
+  assert.equal((await reconcile([blocked], outdated, live, [], advanced)).records.length, 0);
 
   const recovered = await reconcile([blocked]);
   const queued = mergeDeliveryHandoffs(report.handoff_records, recovered.records, now);

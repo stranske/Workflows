@@ -952,9 +952,7 @@ function reviewBlockedCampaignHandoff(record) {
     && record.continuation.reason === 'review_blocked';
 }
 
-async function campaignReviewClear(retained, withRetry, now) {
-  if (!retained.plan_id || !retained.plan_scope || !retained.source_commit) return false;
-  const [owner, repo] = retained.repository.split('/');
+async function readCampaignReview(retained, owner, repo, withRetry, now) {
   const data = await withRetry(client => client.graphql(
     `query($owner:String!, $repo:String!, $pr:Int!) {
       repository(owner:$owner, name:$repo) {
@@ -982,21 +980,30 @@ async function campaignReviewClear(retained, withRetry, now) {
     || ![null, 'APPROVED'].includes(pr.reviewDecision)
     || threads?.pageInfo?.hasNextPage !== false || !Array.isArray(threads?.nodes)
     || !threads.nodes.every(thread => typeof thread?.isResolved === 'boolean'
-      && typeof thread?.isOutdated === 'boolean' && (thread.isResolved || thread.isOutdated))) return false;
+      && typeof thread?.isOutdated === 'boolean' && (thread.isResolved || thread.isOutdated))) return null;
   const record = parseDeliveryRecord(pr.body);
   if (!record?.delivery_state || record.generation !== retained.delivery_generation
     || record.source_commit !== retained.source_commit || record.head_observed_sha !== retained.head_sha
     || !mergeEligibility(record, { now, planId: retained.plan_id, repository: retained.repository,
-      requireSealed: record.delivery_state === 'sealed', headSha: retained.head_sha }).eligible) return false;
-  if (threads.nodes.every(thread => thread.isResolved)) return true;
+      requireSealed: record.delivery_state === 'sealed', headSha: retained.head_sha }).eligible) return null;
+  return pr;
+}
+
+async function campaignReviewClear(retained, withRetry, now) {
+  if (!retained.plan_id || !retained.plan_scope || !retained.source_commit) return false;
+  const [owner, repo] = retained.repository.split('/');
+  const read = () => readCampaignReview(retained, owner, repo, withRetry, now);
+  const pr = await read();
+  if (!pr) return false;
+  if (pr.reviewThreads.nodes.every(thread => thread.isResolved)) return true;
   if (!pr.baseRefName) return false;
-  // Outdated is not resolved. Reuse Maint 71's branch conversation-policy check
-  // before treating outdated-only review debt as clear for the preparation wake.
+  // Check branch conversation policy for outdated-only debt. The identity and
+  // complete review must still agree after those separate API reads.
   const { repositoryConversationGate } = require('./maint71_merge_sync_prs');
   const policy = await repositoryConversationGate({
-    connection: threads, owner, repo, branch: pr.baseRefName, read: withRetry,
+    connection: pr.reviewThreads, owner, repo, branch: pr.baseRefName, read: withRetry,
   });
-  return policy.ok;
+  return policy.ok && (await read())?.baseRefName === pr.baseRefName;
 }
 
 async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api, withRetry, now = '') {
