@@ -37,6 +37,18 @@ class TestIssueBridgeSeed(unittest.TestCase):
                 return step
         self.fail(f"step name={name!r} not found in bridge job")
 
+    def test_body_updater_skips_issues_but_context_post_stays_eligible(self) -> None:
+        """The body updater cannot resolve a PR from the original Issues event."""
+        update = self._step_by_name("Populate PR body context section")
+        post = self._step_by_name("Post issue context on PR")
+        assert " ".join(update["if"].split()) == (
+            "${{ github.event_name != 'issues' && steps.ctx.outputs.has_issue == 'true' && "
+            "steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '' }}"
+        )
+        assert post["if"] == (
+            "${{ steps.ctx.outputs.has_issue == 'true' && steps.pr.outputs.number != '' }}"
+        )
+
     def test_mk_step_marker_includes_run_unique_token(self) -> None:
         """Bootstrap marker content must include a run-unique token (parsed via YAML)."""
         mk = self._step_by_id("mk")
