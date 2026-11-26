@@ -158,7 +158,7 @@ def test_main_runs_when_invoked_by_file_path(tmp_path: Path) -> None:
 
     result = subprocess.run(
         [sys.executable, "tools/post_ci_summary.py"],
-        cwd=Path(__file__).resolve().parents[1],
+        cwd=Path(__file__).resolve().parents[2],
         env={
             **os.environ,
             "RUNS_JSON": "[]",
@@ -185,7 +185,7 @@ def test_main_runs_by_file_path_when_tools_package_is_shadowed(tmp_path: Path) -
 
     result = subprocess.run(
         [sys.executable, "tools/post_ci_summary.py"],
-        cwd=Path(__file__).resolve().parents[1],
+        cwd=Path(__file__).resolve().parents[2],
         env={
             **os.environ,
             "PYTHONPATH": str(shadow_root),
@@ -209,7 +209,7 @@ def _exec_post_ci_summary_with_tools_stub() -> types.ModuleType:
     shadowed-tools test exercises the same path behaviorally, but in-process
     reload is required for pytest-cov to attribute those lines.
     """
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     module_path = repo_root / "tools" / "post_ci_summary.py"
     probe_name = "tools.post_ci_summary_import_fallback_probe"
 
@@ -263,7 +263,7 @@ def test_import_fallback_reraises_unrelated_module_not_found(tmp_path: Path) -> 
         encoding="utf-8",
     )
 
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     module_path = repo_root / "tools" / "post_ci_summary.py"
     probe_name = "tools.post_ci_summary_import_fallback_reraise_probe"
 
