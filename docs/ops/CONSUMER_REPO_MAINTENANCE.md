@@ -3472,9 +3472,10 @@ Then regenerate the lock with the repo's documented `uv pip compile` command.
 The dependency drops out of `requirements.lock` (every other, versioned package
 stays pinned), the editable project install resolves it from `@main`, and there
 is no frozen SHA to keep refreshed — the conflict class is gone permanently. uv
-reads `[tool.uv.pip]` from `pyproject.toml`, so the lock regen, the
-`dependency-refresh.yml` automation, and the lockfile-freshness check all honor
-it consistently with no extra wiring.
+reads `[tool.uv.pip]` from `pyproject.toml`, so the lock generator and the
+lockfile-freshness check use the same configuration. The
+[dependency lock preview](../../templates/README.md#dependency-lock-preview)
+shows how to run the project's documented command in a disposable checkout.
 
 If the repo has a dependency-alignment test (`tests/test_dependency_version_alignment.py`,
 which asserts every `pyproject.toml` dependency is pinned in `requirements.lock`),

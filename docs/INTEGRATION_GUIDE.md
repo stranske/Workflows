@@ -118,9 +118,11 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/ci-
 - Manual updates needed
 - Can drift from best practices
 
-For the cosmetic repair and dependency refresh workflows, follow the
+For the cosmetic repair workflow, follow the
 [standalone maintenance copy instructions](../templates/README.md#standalone-maintenance-copies).
-Your repository owns and updates its copies.
+Your repository owns and updates its copy. See the
+[dependency lock preview](../templates/README.md#dependency-lock-preview) for
+the managed refresh route, local command, and archived workflow.
 
 For files selected by the [consumer sync manifest](../.github/sync-manifest.yml),
 registered first-party consumers use managed delivery. Maint 68
@@ -360,7 +362,6 @@ Copy from `/templates/` and customize:
 | `ci-basic.yml` | Simple projects: lint + test |
 | `ci-full.yml` | Production projects: full pipeline with gate |
 | [ci-node-basic.yml](../templates/ci-node-basic.yml) | Run shared Node.js and TypeScript CI with npm and Jest by default |
-| [dependency-refresh.yml](../templates/dependency-refresh.yml) | Keep `requirements.lock` updated |
 | [cosmetic-repair.yml](../templates/cosmetic-repair.yml) | Auto-fix formatting issues |
 
 > **Consuming a `packages/` monorepo dependency (e.g. `app-baseline-kit`)?**
