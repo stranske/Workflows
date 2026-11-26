@@ -185,6 +185,18 @@ async function collectAuthenticatedInlineStockCompletion({
   const [reply] = laterReplies;
   if (laterReplies.length !== 1 || reply.url !== result.originating_completion_url
     || replies.indexOf(request) >= replies.indexOf(reply)) return null;
+  return collectBoundInlineStockCompletion({
+    original, request, reply, profile, threadId: thread.id, owner, repo, number, head, headRef, body, read,
+  });
+}
+
+// Authenticates stock completion for a bound request. Callers separately decide
+// whether the completed review can request a disposition or support an assessment.
+async function collectBoundInlineStockCompletion({
+  original, request, reply, profile, threadId, owner, repo, number, head, headRef, body, read,
+}) {
+  const provenance = profile?.inline_targeted_stock_completion;
+  if (!Number.isSafeInteger(provenance?.bot_id) || !provenance.bot_node_id || !provenance.marker) return null;
   const ref = stockReviewedCommit(reply.body, profile);
   if (!ref || !head.startsWith(ref)) return null;
 
@@ -236,7 +248,7 @@ async function collectAuthenticatedInlineStockCompletion({
   const current = await lookup((client) => client.rest.pulls.get({ ...scope, pull_number: number }));
   if (current?.state !== 'open' || current.number !== number || current.head?.sha !== head
     || current.head.ref !== headRef || current.body !== body) return null;
-  return { url: reply.url, requestUrl: request.url, threadId: thread.id, head, createdAt: reply.createdAt };
+  return { url: reply.url, requestUrl: request.url, threadId, head, createdAt: reply.createdAt };
 }
 
 async function validateIndependentFindingFromNative(args) {
@@ -508,4 +520,4 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
 
 module.exports = { sha256, nativeAnswerLines, validateIndependentFindingVerification, validateNativeConversationDisposition,
   collectFindingReviewState, collectOriginatingCompletions, collectAuthenticatedInlineStockCompletion,
-  validateIndependentFindingFromNative };
+  collectBoundInlineStockCompletion, validateIndependentFindingFromNative };
