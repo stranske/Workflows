@@ -994,8 +994,16 @@ jobs:
 
       - name: Prepare Codex branch publisher
         id: branch_publisher
-        # The shared shell comes from this workflow before the agent runs.
+        # Pin the source API wrapper and publisher before the agent runs.
+        env:
+          MODE: ${{ inputs.mode }}
+          PR_NUM: ${{ inputs.pr_number }}
         run: |
+          set -euo pipefail
+          if [ "$MODE" = keepalive ] && [ -n "$PR_NUM" ]; then
+            client=$(git -C .workflows-lib show HEAD:scripts/api_client.py | base64 | tr -d '\n')
+            printf 'api_client=%s\n' "$client" >> "$GITHUB_OUTPUT"
+          fi
           cat >> "$GITHUB_OUTPUT" <<'OUT'
           shell<<CODEX_PUBLISHER
           set -u
@@ -1016,9 +1024,29 @@ jobs:
             exit 79
           fi
 
-          if ! pr=$(GH_TOKEN="$PUSH_TOKEN" timeout 15s gh api --hostname github.com \
-            "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" \
-            --jq '[.number,.state,.head.repo.full_name,.head.ref,.head.sha,.base.repo.full_name]|@tsv'); then
+          if ! pr=$(timeout 15s python3 -I - "$GITHUB_REPOSITORY" "$pr_number" 2>/dev/null <<'PY'
+          import base64
+          import os
+          import sys
+
+          from types import ModuleType
+
+          api = ModuleType("workflows_publication_api")
+          exec(
+              compile(base64.b64decode(os.environ["CODEX_API_CLIENT"], validate=True),
+                      "Workflows/scripts/api_client.py", "exec"),
+              api.__dict__,
+          )
+          pr = api.fetch_pull_request(
+              sys.argv[1], int(sys.argv[2]), os.environ["PUSH_TOKEN"], retry_attempts=1
+          )
+          fields = (str(pr["number"]), pr["state"], pr["head"]["repo"]["full_name"],
+                    pr["head"]["ref"], pr["head"]["sha"], pr["base"]["repo"]["full_name"])
+          if any(not isinstance(field, str) or any(c in field for c in "\t\n\r") for field in fields):
+              sys.exit(1)
+          print("\t".join(fields))
+          PY
+          ); then
             echo "::error::Could not verify PR state before keepalive publication." >&2
             exit 79
           fi
@@ -1075,6 +1103,7 @@ jobs:
           MAX_RUNTIME_MIN: ${{ inputs.max_runtime_minutes }}
           TARGET_BRANCH: ${{ inputs.pr_ref || github.ref_name }}
           PUSH_CODEX_BRANCH: ${{ steps.branch_publisher.outputs.shell }}
+          CODEX_API_CLIENT: ${{ steps.branch_publisher.outputs.api_client }}
         run: |
           set -euo pipefail
 
@@ -1251,11 +1280,21 @@ jobs:
                       --allow-unrelated-histories 2>/dev/null || true
                   fi
                 fi
+                watchdog_publish() {
+                  if [ -z "${PUSH_CODEX_BRANCH:-}" ]; then
+                    echo "::error::Codex publisher definition is unavailable." >&2
+                    return 79
+                  fi
+                  local saved_sha
+                  saved_sha=$(PUSH_TOKEN="$PUSH_TOKEN" bash -c "$PUSH_CODEX_BRANCH" -- \
+                    "$MODE" "$PR_NUM" "$TARGET_BRANCH" "$REMOTE_URL") || return $?
+                  [[ "$saved_sha" =~ ^[0-9a-f]{40}$ ]] || return 79
+                }
+
                 # Push with one retry
                 watchdog_push_ok=false
                 push_status=0
-                PUSH_TOKEN="$PUSH_TOKEN" bash -c "$PUSH_CODEX_BRANCH" -- \
-                  "$MODE" "$PR_NUM" "$TARGET_BRANCH" "$REMOTE_URL" >/dev/null || push_status=$?
+                watchdog_publish || push_status=$?
                 if [ "$push_status" -eq 0 ]; then
                   watchdog_push_ok=true
                 elif [ "$push_status" -eq 78 ] || [ "$push_status" -eq 79 ]; then
@@ -1272,8 +1311,7 @@ jobs:
                     }
                   fi
                   push_status=0
-                  PUSH_TOKEN="$PUSH_TOKEN" bash -c "$PUSH_CODEX_BRANCH" -- \
-                    "$MODE" "$PR_NUM" "$TARGET_BRANCH" "$REMOTE_URL" >/dev/null || push_status=$?
+                  watchdog_publish || push_status=$?
                   if [ "$push_status" -eq 0 ]; then
                     watchdog_push_ok=true
                   elif [ "$push_status" -eq 78 ] || [ "$push_status" -eq 79 ]; then
@@ -1819,6 +1857,7 @@ jobs:
           PUSH_ALLOWED: ${{ steps.run_base.outputs.push_allowed }}
           PUSH_TOKEN: ${{ steps.run_base.outputs.push_token }}
           PUSH_CODEX_BRANCH: ${{ steps.branch_publisher.outputs.shell }}
+          CODEX_API_CLIENT: ${{ steps.branch_publisher.outputs.api_client }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -1860,10 +1899,25 @@ jobs:
 
           REMOTE_URL="https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}"
           publish() {
+            if [ -z "${PUSH_CODEX_BRANCH:-}" ]; then
+              # The always-run final publisher can execute after a prior step is skipped.
+              if [ "$MODE" = keepalive ] && [ -n "$PR_NUMBER" ]; then
+                echo "::error::Codex publisher definition is unavailable." >&2
+                return 79
+              fi
+              if [ "${1:-push}" = verify ]; then return 0; fi
+              git push "$REMOTE_URL" "HEAD:$TARGET_BRANCH" >&2 || return $?
+              git rev-parse HEAD
+              return $?
+            fi
             bash -c "$PUSH_CODEX_BRANCH" -- "$MODE" "$PR_NUMBER" "$TARGET_BRANCH" "$REMOTE_URL" "$@"
           }
 
           record_publication() {
+            if [[ ! "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::Codex publisher returned no verified commit SHA." >&2
+              return 1
+            fi
             echo "commit-sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
             echo "changes-made=true" >> "$GITHUB_OUTPUT"
           }

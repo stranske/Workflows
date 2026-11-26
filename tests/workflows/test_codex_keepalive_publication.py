@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -28,10 +30,11 @@ def publisher(tmp_path):
     prepare = next(step for step in steps if step.get("id") == "branch_publisher")
     for step in (worker, final):
         assert step["env"]["PUSH_CODEX_BRANCH"] == "${{ steps.branch_publisher.outputs.shell }}"
+        assert step["env"]["CODEX_API_CLIENT"] == "${{ steps.branch_publisher.outputs.api_client }}"
     definition = tmp_path / "publisher-definition"
     subprocess.run(
         ["bash", "-e", "-c", prepare["run"]],
-        env={**os.environ, "GITHUB_OUTPUT": str(definition)},
+        env={**os.environ, "MODE": "autofix", "PR_NUM": "", "GITHUB_OUTPUT": str(definition)},
         check=True,
     )
     content = definition.read_text()
@@ -84,31 +87,45 @@ def publisher(tmp_path):
         """,
         "sleep": "exit 0",
         "timeout": 'shift; exec "$@"',
-        "gh": """
-            printf 'read\n' >> "$CALLS"
-            [ "$GH_TOKEN" = test-app ] && [ "$4" = repos/stranske/Workflows/pulls/5232 ] ||
-              exit 2
-            [ "$STATE" != unavailable ] || exit 1
-            if [ "$STATE" = close-on-retry ]; then
-              if grep -qx push "$CALLS"; then STATE=closed; else STATE=open; fi
-            fi
-            if [ "$STATE" = close-during-fallback ]; then
-              if "$REAL_GIT" --git-dir="$TEST_REMOTE" show-ref --verify --quiet refs/heads/topic; then
-                STATE=open
-              else
-                STATE=closed
-              fi
-            fi
-            printf '5232\t%s\t%s\t%s\t%s\tstranske/Workflows\n' \
-              "$STATE" "$HEAD_REPO" "$HEAD_REF" "$PR_HEAD"
+        "python3": """
+            if [ "$1" = -I ]; then exec "$REAL_PYTHON" "$@"; fi
+            exec "$REAL_GIT" add tracked.txt
         """,
-        "python3": 'exec "$REAL_GIT" add tracked.txt',
     }
     for name, body in stubs.items():
         path = bin_dir / name
         path.write_text("#!/bin/bash\n" + body)
         path.chmod(0o700)
 
+    client = """
+import os
+import subprocess
+
+def fetch_pull_request(repo, number, token, *, retry_attempts):
+    with open(os.environ["CALLS"], "a") as file:
+        file.write("read\\n")
+    assert repo == "stranske/Workflows" and number == 5232
+    assert token == "test-app" and retry_attempts == 1
+    state = os.environ["STATE"]
+    if state == "unavailable":
+        raise OSError("unavailable")
+    if state == "close-on-retry":
+        with open(os.environ["CALLS"]) as file:
+            state = "closed" if "push" in file.read().splitlines() else "open"
+    if state == "close-during-fallback":
+        ref = subprocess.run(
+            [os.environ["REAL_GIT"], f"--git-dir={os.environ['TEST_REMOTE']}",
+             "show-ref", "--verify", "--quiet", "refs/heads/topic"],
+        )
+        state = "closed" if ref.returncode else "open"
+    return {
+        "number": number,
+        "state": state,
+        "head": {"repo": {"full_name": os.environ["HEAD_REPO"]},
+                 "ref": os.environ["HEAD_REF"], "sha": os.environ["PR_HEAD"]},
+        "base": {"repo": {"full_name": repo}},
+    }
+"""
     calls = tmp_path / "calls"
     calls.touch()
     outputs = tmp_path / "outputs"
@@ -116,6 +133,8 @@ def publisher(tmp_path):
         **os.environ,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "REAL_GIT": GIT,
+        "REAL_PYTHON": str(Path(sys.executable).resolve()),
+        "CODEX_API_CLIENT": base64.b64encode(client.encode()).decode(),
         "TEST_REMOTE": str(bare),
         "CALLS": str(calls),
         "GITHUB_OUTPUT": str(outputs),
@@ -279,7 +298,7 @@ def test_watchdog_refuses_closed_and_missing_branch(publisher):
     worker, final, local, bare, patch, env, calls, _ = publisher
     policy = worker["env"]["PUSH_CODEX_BRANCH"]
     assert policy == final["env"]["PUSH_CODEX_BRANCH"]
-    assert worker["run"].count('bash -c "$PUSH_CODEX_BRANCH"') == 2
+    assert worker["run"].count("watchdog_publish || push_status=$?") == 2
     patch.write_text("new work\n")
     git(local, "commit", "-qam", "watchdog checkpoint")
     git(bare, "update-ref", "-d", "refs/heads/topic")
@@ -328,3 +347,49 @@ def test_watchdog_retry_rereads_pr_and_reports_no_saved_work(publisher):
     assert result.returncode == 0, result.stderr
     assert calls.read_text().splitlines() == ["read", "push", "read"]
     assert outputs.read_text() == "watchdog-saved=false\n"
+
+
+def test_publisher_captures_trusted_wrapper_from_git(tmp_path):
+    steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["codex"]["steps"]
+    prepare = next(step for step in steps if step.get("id") == "branch_publisher")
+    library = tmp_path / ".workflows-lib"
+    module = library / "scripts/api_client.py"
+    module.parent.mkdir(parents=True)
+    canonical = (ROOT / "scripts/api_client.py").read_bytes()
+    module.write_bytes(canonical)
+    git(library, "init", "-q")
+    git(library, "add", "scripts/api_client.py")
+    git(
+        library,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "commit",
+        "-qm",
+        "source",
+    )
+    module.write_text("mutated after checkout")
+    output = tmp_path / "publisher"
+    subprocess.run(
+        ["bash", "-e", "-c", prepare["run"]],
+        cwd=tmp_path,
+        env={**os.environ, "MODE": "keepalive", "PR_NUM": "5232", "GITHUB_OUTPUT": str(output)},
+        check=True,
+    )
+    assert (
+        base64.b64decode(output.read_text().splitlines()[0].removeprefix("api_client="))
+        == canonical
+    )
+
+
+@pytest.mark.parametrize("broken_policy", ["", "exit 0"])
+def test_final_publisher_definition_or_result_missing_fails_closed(publisher, broken_policy):
+    _, _, _, _, patch, env, _, _ = publisher
+    env["PUSH_CODEX_BRANCH"] = broken_policy
+    patch.write_text("worker change")
+    result, calls, outputs = run_final(publisher)
+    assert result.returncode == 1
+    assert not calls
+    assert outputs["changes-made"] == "false"
+    assert outputs["commit-sha"] == ""
