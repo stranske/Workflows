@@ -307,10 +307,11 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       return e;
     }
 
-    async function runCase({ headRepo, baseRepo, error, liveHead = head }) {
+    async function runCase({ headRepo, baseRepo, error, authoredHead = { sha: head }, liveHead = head }) {
       const warnings = [];
       const summaryRaw = [];
       let summaryWrites = 0;
+      const pullRequests = [];
       const commentRequests = [];
       const summaryStub = {
         addHeading() { return summaryStub; },
@@ -319,9 +320,13 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       };
       const listComments = async () => ({ data: [] });
       const github = {
+        __testMock: true,
         rest: {
           pulls: {
-            get: async () => ({ data: { head: { sha: liveHead, repo: { full_name: headRepo } } } }),
+            get: async (request) => {
+              pullRequests.push(request);
+              return { data: { head: { sha: liveHead, repo: { full_name: headRepo } } } };
+            },
           },
           issues: {
             listComments,
@@ -351,11 +356,12 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         core: { warning: (m) => warnings.push(String(m)), info() {}, summary: summaryStub },
         context: {
           eventName: 'pull_request',
+          sha: 'a55d942429457202e2cd1fe33170714875093679',
           repo: { owner: 'stranske', repo: 'Workflows' },
           payload: {
             pull_request: {
               number: 1,
-              head: { sha: head, repo: { full_name: headRepo } },
+              head: { ...authoredHead, repo: { full_name: headRepo } },
               base: { repo: { full_name: baseRepo } },
             },
           },
@@ -369,7 +375,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       } catch (e) {
         threw = { status: e.status === undefined ? null : e.status, message: String(e.message) };
       }
-      return { warnings, summaryRaw, summaryWrites, commentRequests, threw };
+      return { warnings, summaryRaw, summaryWrites, pullRequests, commentRequests, threw };
     }
 
     const FORK = {
@@ -425,6 +431,11 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         }),
         fork_server_error: await runCase({ ...FORK, error: makeError(500, 'boom') }),
         happy_path: await runCase({ ...FORK, error: null }),
+        missing_authored_head: await runCase({
+          ...FORK,
+          authoredHead: {},
+          error: makeError(403, 'Resource not accessible by integration'),
+        }),
         stale_fork: await runCase({
           ...FORK,
           liveHead: '2121584e2f908df2eac47ec033488cc8a218e705',
@@ -476,10 +487,14 @@ def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
     comment_outcomes: dict[str, Any],
 ) -> None:
     case = comment_outcomes["fork_read_only"]
+    assert case["pullRequests"] == [
+        {"owner": "stranske", "repo": "Workflows", "pull_number": 1}
+    ], case
     assert any("read-only" in warning for warning in case["warnings"]), case["warnings"]
-    assert "GATE SUMMARY BODY" in " ".join(case["summaryRaw"]), case["summaryRaw"]
-    assert case["summaryWrites"] == 1, case
     assert [request["issue_number"] for request in case["commentRequests"]] == [1], case
+    assert case["summaryRaw"] == [case["commentRequests"][0]["body"]], case
+    assert "GATE SUMMARY BODY" in case["summaryRaw"][0], case
+    assert case["summaryWrites"] == 1, case
 
 
 def test_comment_same_repo_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) -> None:
@@ -532,6 +547,17 @@ def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any]) -> None:
     assert case["warnings"] == []
     assert case["summaryRaw"] == []
     assert [request["issue_number"] for request in case["commentRequests"]] == [1], case
+
+
+def test_comment_without_an_authored_fork_head_skips_publication(
+    comment_outcomes: dict[str, Any],
+) -> None:
+    case = comment_outcomes["missing_authored_head"]
+    assert case["threw"] is None, case
+    assert any("no matching authored PR head" in warning for warning in case["warnings"]), case
+    assert case["pullRequests"] == [], case
+    assert case["commentRequests"] == [], case
+    assert case["summaryRaw"] == [] and case["summaryWrites"] == 0, case
 
 
 def test_comment_for_superseded_fork_head_skips_publication(
