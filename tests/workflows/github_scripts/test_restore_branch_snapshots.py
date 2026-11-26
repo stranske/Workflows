@@ -306,8 +306,11 @@ def test_restore_previous_snapshots_missing_source(
     "exc_type", [rbs.RestoreError("failed"), rbs.requests.RequestException("boom")]
 )
 def test_main_handles_restore_errors(
-    exc_type, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    exc_type, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
+    output = tmp_path / "step-output"
+    output.touch()
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
     monkeypatch.setenv("TARGET_REPO", "owner/repo")
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setenv("SNAPSHOT_DIR", "snapshots")
@@ -322,6 +325,7 @@ def test_main_handles_restore_errors(
     captured = capsys.readouterr()
     assert result == 0
     assert "snapshot" in captured.out.lower()
+    assert output.read_text() == ""
 
 
 def test_main_skips_when_missing_repo_or_token(
@@ -345,6 +349,7 @@ def test_main_reports_success(
     monkeypatch.setenv("TARGET_REPO", "owner/repo")
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snapshots"))
+    monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "step-output"))
     monkeypatch.setattr(rbs, "restore_previous_snapshots", lambda **kwargs: True)
 
     result = rbs.main()
@@ -352,6 +357,7 @@ def test_main_reports_success(
     captured = capsys.readouterr()
     assert result == 0
     assert "restored previous snapshots" in captured.out.lower()
+    assert (tmp_path / "step-output").read_text() == "lookup=complete\n"
 
 
 def test_main_reports_no_artifact(
@@ -360,6 +366,7 @@ def test_main_reports_no_artifact(
     monkeypatch.setenv("TARGET_REPO", "owner/repo")
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snapshots"))
+    monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "step-output"))
     monkeypatch.setattr(rbs, "restore_previous_snapshots", lambda **kwargs: False)
 
     result = rbs.main()
@@ -367,6 +374,7 @@ def test_main_reports_no_artifact(
     captured = capsys.readouterr()
     assert result == 0
     assert "no previous artifact" in captured.out.lower()
+    assert (tmp_path / "step-output").read_text() == "lookup=complete\n"
 
 
 def test_module_entrypoint_triggers_main(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -409,9 +417,15 @@ def test_workflow_restore_step_preserves_exit_status(
         encoding="utf-8",
     )
     timeout.chmod(0o755)
+    output = tmp_path / "step-output"
+    output.touch()
     result = subprocess.run(
         ["/bin/bash", "-e", "-c", restore],
-        env={"PATH": str(tmp_path), "FIXTURE_EXIT": str(restore_exit)},
+        env={
+            "PATH": str(tmp_path),
+            "FIXTURE_EXIT": str(restore_exit),
+            "GITHUB_OUTPUT": str(output),
+        },
         capture_output=True,
         text=True,
         timeout=5,
@@ -420,6 +434,7 @@ def test_workflow_restore_step_preserves_exit_status(
     assert result.returncode == step_exit
     assert result.stdout == notice
     assert result.stderr == ""
+    assert output.read_text() == ("lookup=timed_out\n" if restore_exit == 124 else "")
 
 
 @pytest.mark.parametrize(

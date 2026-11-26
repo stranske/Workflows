@@ -144,8 +144,12 @@ def _format_delta(
     current_snapshot: Mapping[str, Any] | None,
     previous_snapshot: Mapping[str, Any] | None,
 ) -> str:
+    lookup_problem = {
+        "timed_out": "Previous snapshot lookup timed out",
+        "unavailable": "Previous snapshot lookup unavailable",
+    }.get(os.environ.get("SNAPSHOT_HISTORY_LOOKUP", ""))
     if not isinstance(previous_snapshot, Mapping):
-        return "No previous snapshot"
+        return lookup_problem or "No previous snapshot"
     if not isinstance(current_snapshot, Mapping):
         return "–"
 
@@ -189,7 +193,10 @@ def _format_delta(
             f"Require up to date: {_bool_status(previous_strict)} → {_bool_status(current_strict)}"
         )
 
-    return "; ".join(parts) if parts else "No change"
+    delta = "; ".join(parts) if parts else "No change"
+    if lookup_problem:
+        return f"{delta} ({lookup_problem.lower()}, using available snapshot)"
+    return delta
 
 
 def _snapshot_detail(
