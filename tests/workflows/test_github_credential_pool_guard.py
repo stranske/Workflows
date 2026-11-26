@@ -161,7 +161,7 @@ def test_agents_71_dispatcher_setup_survives_later_checkouts():
         for index, step in enumerate(steps)
         if step.get("name") == "Checkout Workflows retry helpers"
     )
-    assert setup_index > workflows_checkout_index
+    assert setup_index < workflows_checkout_index
     install_dir = (setup_steps[0].get("with") or {}).get("install_dir", "")
     assert (
         "runner.temp" in install_dir
@@ -172,7 +172,7 @@ def test_agents_71_dispatcher_setup_survives_later_checkouts():
         for index, step in enumerate(steps)
         if step.get("name") == "Stage API helpers outside checkout clean path"
     )
-    assert setup_index < stage_index
+    assert workflows_checkout_index < stage_index
     stage_script = steps[stage_index].get("run", "")
     assert "RUNNER_TEMP" in stage_script
     assert "github-api-with-retry.js" in stage_script
