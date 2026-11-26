@@ -14,9 +14,10 @@ opposite defect, where a bare ``status === 403`` classified genuine permission
 failures as rate limits.  This test pins both directions.
 
 It runs each Gate's actual JavaScript (extracted from the workflow file) under
-Node against stubbed ``github``/``context``/``core`` objects, so it fails if
-the tolerance is removed or widened.  Both this repo's Gate and the
-consumer-repo template are covered: ``pr-00-gate.yml`` is distributed
+Node against stubbed ``github``/``context``/``core`` objects. The comment
+step also runs the real comment helper, including its live-head check.
+Both this repo's Gate and the consumer-repo template are covered.
+``pr-00-gate.yml`` is distributed
 ``sync_mode: create_only``, so the two copies must not drift apart.
 """
 
@@ -296,6 +297,8 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     const nodeFs = require('fs');
     const vm = require('vm');
     const src = nodeFs.readFileSync(process.argv[2], 'utf8');
+    const { upsertAnchoredComment } = require(process.argv[3]);
+    const head = '3e6c6b39a22f3f33c1352edfd4fb27e442639680';
 
     function makeError(status, message, response = null) {
       const e = new Error(message);
@@ -304,13 +307,32 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       return e;
     }
 
-    async function runCase({ headRepo, baseRepo, error }) {
+    async function runCase({ headRepo, baseRepo, error, liveHead = head }) {
       const warnings = [];
       const summaryRaw = [];
+      let summaryWrites = 0;
+      const commentRequests = [];
       const summaryStub = {
         addHeading() { return summaryStub; },
         addRaw(text) { summaryRaw.push(String(text)); return summaryStub; },
-        async write() { summaryRaw.push('<written>'); },
+        async write() { summaryWrites += 1; },
+      };
+      const listComments = async () => ({ data: [] });
+      const github = {
+        rest: {
+          pulls: {
+            get: async () => ({ data: { head: { sha: liveHead, repo: { full_name: headRepo } } } }),
+          },
+          issues: {
+            listComments,
+            createComment: async (request) => {
+              commentRequests.push(request);
+              if (error) throw error;
+              return { data: { id: 1 } };
+            },
+          },
+        },
+        paginate: async (method) => (await method()).data,
       };
       const sandbox = {
         process: { env: {} },
@@ -320,25 +342,25 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           if (id === 'fs') {
             return {
               existsSync: () => true,
-              readFileSync: () => 'GATE SUMMARY BODY',
+              readFileSync: () => `<!-- gate-summary: pr=1 head=${head.slice(0, 12)} -->\\nGATE SUMMARY BODY`,
             };
           }
-          return {
-            upsertAnchoredComment: async () => { if (error) throw error; },
-          };
+          if (id === './.github/scripts/comment-dedupe.js') return { upsertAnchoredComment };
+          throw new Error(`Unexpected require: ${id}`);
         },
-        core: { warning: (m) => warnings.push(String(m)), summary: summaryStub },
+        core: { warning: (m) => warnings.push(String(m)), info() {}, summary: summaryStub },
         context: {
+          eventName: 'pull_request',
           repo: { owner: 'stranske', repo: 'Workflows' },
           payload: {
             pull_request: {
               number: 1,
-              head: { repo: { full_name: headRepo } },
+              head: { sha: head, repo: { full_name: headRepo } },
               base: { repo: { full_name: baseRepo } },
             },
           },
         },
-        github: {},
+        github,
       };
       vm.createContext(sandbox);
       let threw = null;
@@ -347,7 +369,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       } catch (e) {
         threw = { status: e.status === undefined ? null : e.status, message: String(e.message) };
       }
-      return { warnings, summaryRaw, threw };
+      return { warnings, summaryRaw, summaryWrites, commentRequests, threw };
     }
 
     const FORK = {
@@ -403,6 +425,11 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         }),
         fork_server_error: await runCase({ ...FORK, error: makeError(500, 'boom') }),
         happy_path: await runCase({ ...FORK, error: null }),
+        stale_fork: await runCase({
+          ...FORK,
+          liveHead: '2121584e2f908df2eac47ec033488cc8a218e705',
+          error: makeError(403, 'Resource not accessible by integration'),
+        }),
       };
       process.stdout.write(JSON.stringify(out));
     })();
@@ -421,6 +448,7 @@ def comment_outcomes(
         pytest.skip(message)
 
     workflow = GATE_WORKFLOWS[str(request.param)]
+    comment_helper = workflow.parents[1] / "scripts" / "comment-dedupe.js"
     workdir = tmp_path_factory.mktemp("gate-comment")
     step_path = workdir / "step.js"
     step_path.write_text(_extract_step_script(workflow, COMMENT_STEP_NAME), encoding="utf-8")
@@ -428,7 +456,7 @@ def comment_outcomes(
     runner_path.write_text(COMMENT_RUNNER_JS, encoding="utf-8")
 
     completed = subprocess.run(
-        [node, str(runner_path), str(step_path)],
+        [node, str(runner_path), str(step_path), str(comment_helper)],
         capture_output=True,
         text=True,
         check=False,
@@ -450,7 +478,8 @@ def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
     case = comment_outcomes["fork_read_only"]
     assert any("read-only" in warning for warning in case["warnings"]), case["warnings"]
     assert "GATE SUMMARY BODY" in " ".join(case["summaryRaw"]), case["summaryRaw"]
-    assert "<written>" in case["summaryRaw"]
+    assert case["summaryWrites"] == 1, case
+    assert [request["issue_number"] for request in case["commentRequests"]] == [1], case
 
 
 def test_comment_same_repo_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) -> None:
@@ -468,15 +497,17 @@ def test_comment_rate_limit_403_never_uses_fork_fallback(
         "fork_rate_limit_header_string",
         "fork_rate_limit_header_number",
         "fork_secondary_abuse",
-        "fork_secondary_retry_after",
         "fork_rate_limit_response_body",
     ):
         case = comment_outcomes[key]
-        assert case["threw"] is not None, key
-        expected_status = 429 if key == "fork_rate_limit_429" else 403
-        assert case["threw"]["status"] == expected_status, key
-        assert case["warnings"] == [], key
-        assert case["summaryRaw"] == [], key
+        assert case["threw"] is None, case
+        assert any("Rate limit" in warning for warning in case["warnings"]), case
+        assert case["summaryRaw"] == [] and case["summaryWrites"] == 0, case
+
+    retry_after = comment_outcomes["fork_secondary_retry_after"]
+    assert retry_after["threw"] and retry_after["threw"]["status"] == 403, retry_after
+    assert retry_after["warnings"] == [], retry_after
+    assert retry_after["summaryRaw"] == [] and retry_after["summaryWrites"] == 0, retry_after
 
 
 def test_comment_positive_quota_permission_403_uses_fork_fallback(
@@ -486,6 +517,7 @@ def test_comment_positive_quota_permission_403_uses_fork_fallback(
     assert case["threw"] is None
     assert any("read-only" in warning for warning in case["warnings"])
     assert "GATE SUMMARY BODY" in " ".join(case["summaryRaw"])
+    assert case["summaryWrites"] == 1, case
 
 
 def test_comment_non_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) -> None:
@@ -499,6 +531,16 @@ def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any]) -> None:
     assert case["threw"] is None
     assert case["warnings"] == []
     assert case["summaryRaw"] == []
+    assert [request["issue_number"] for request in case["commentRequests"]] == [1], case
+
+
+def test_comment_for_superseded_fork_head_skips_publication(
+    comment_outcomes: dict[str, Any],
+) -> None:
+    case = comment_outcomes["stale_fork"]
+    assert case["threw"] is None, case
+    assert case["commentRequests"] == [], case
+    assert case["summaryWrites"] == 0, case
 
 
 @pytest.mark.parametrize("name", sorted(GATE_WORKFLOWS))
