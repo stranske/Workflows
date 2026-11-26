@@ -136,10 +136,9 @@ def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
         required_groups_env=None,
     )
 
-    assert summary.endswith(
-        "| _(no jobs reported)_ | ⏳ pending | — |\n\n"
-        "_Snapshot at publication. See the linked run and required checks for final results._"
-    )
+    footer = "_Snapshot at publication. See the linked run and required checks for final results._"
+    assert summary.endswith(f"| _(no jobs reported)_ | ⏳ pending | — |\n\n{footer}")
+    assert summary.count(footer) == 1
     assert "_Updated automatically; will refresh" not in summary
 
 
