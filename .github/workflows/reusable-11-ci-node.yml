@@ -131,73 +131,53 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 1
+    outputs:
+      node-versions: ${{ steps.normalize.outputs.node-versions }}
     steps:
       - name: Validate workflow inputs
+        id: normalize
         env:
           NODE_VERSIONS: ${{ inputs['node-versions'] || '' }}
+          NODE_VERSION: ${{ inputs['node-version'] || '20' }}
           PACKAGE_MANAGER: ${{ inputs['package-manager'] || 'npm' }}
         run: |
           set -euo pipefail
-          if [ -n "${NODE_VERSIONS}" ] && ! python - <<'PY'
-          import json, os, sys
-          raw = os.environ.get("NODE_VERSIONS", "")
-          try:
-              data = json.loads(raw)
-          except json.JSONDecodeError as exc:
-              print(f"Invalid node-versions JSON: {exc}", file=sys.stderr)
-              sys.exit(1)
-          if not isinstance(data, list):
-              print("node-versions must be a JSON array when provided.", file=sys.stderr)
-              sys.exit(1)
-          PY
-          then
-            echo "Invalid node-versions input" >&2
-            exit 1
-          fi
+          python - <<'PY'
+          import json
+          import os
+          import sys
 
-          case "${PACKAGE_MANAGER}" in
-            npm|pnpm|yarn) ;;
-            *)
-              echo "Unsupported package-manager: ${PACKAGE_MANAGER}. Use npm, pnpm, or yarn." >&2
-              exit 1
-              ;;
-          esac
+          try:
+              versions = json.loads(os.environ["NODE_VERSIONS"] or "[]")
+              if not isinstance(versions, list):
+                  sys.exit("node-versions must be a JSON array when provided.")
+              matrix = json.dumps(
+                  versions or [os.environ["NODE_VERSION"]],
+                  separators=(",", ":"),
+                  allow_nan=False,
+              )
+          except ValueError as exc:
+              sys.exit(f"Invalid node-versions JSON: {exc}")
+
+          package_manager = os.environ["PACKAGE_MANAGER"]
+          if package_manager not in {"npm", "pnpm", "yarn"}:
+              sys.exit(f"Unsupported package-manager: {package_manager}. Use npm, pnpm, or yarn.")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"node-versions={matrix}\n")
+          PY
 
   tests:
     name: node ${{ matrix.node-version }}
     needs: validate-inputs
+    if: ${{ needs.validate-inputs.outputs.node-versions != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        node-version: >-
-          ${{ fromJson(
-            (
-              (
-                inputs['node-versions'] != '' &&
-                inputs['node-versions'] != '[]' &&
-                contains(inputs['node-versions'], '[')
-              )
-              && inputs['node-versions']
-            )
-            || (
-              (
-                inputs['node-versions'] != '' &&
-                inputs['node-versions'] != '[]' &&
-                !contains(inputs['node-versions'], '[')
-              )
-              && format('[{0}]', toJson(inputs['node-versions']))
-            )
-            || (
-              (
-                inputs['node-version'] != ''
-              )
-              && format('[{0}]', toJson(inputs['node-version']))
-            )
-            || '["20"]'
-          ) }}
+        node-version: ${{ fromJson(needs.validate-inputs.outputs.node-versions) }}
     defaults:
       run:
         shell: bash

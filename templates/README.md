@@ -18,6 +18,20 @@ This directory contains workflow templates that consumer repositories can copy a
 | [ci-node-basic.yml](ci-node-basic.yml) | Shared CI for Node.js and TypeScript projects using npm and Jest by default | Simple |
 | [cosmetic-repair.yml](cosmetic-repair.yml) | Auto-fix formatting/cosmetic issues | Medium |
 
+### Node.js CI starter
+
+Commit `package.json` and the lockfile for your package manager in the
+configured working directory. The starter defaults to npm and requires
+`package-lock.json`. The pnpm and Yarn installs require `pnpm-lock.yaml` and
+`yarn.lock`, respectively.
+
+For each enabled check, provide the corresponding `package.json` script
+(`lint`, `format:check`, `typecheck` or `test`) or install its fallback tool as
+a project dependency (ESLint, Prettier, TypeScript, or Jest/Vitest). Tests
+default to Jest with coverage. Use the
+[Node CI inputs](../docs/INTEGRATION_GUIDE.md#ci-workflows) to select Vitest or
+disable checks your project does not use.
+
 ### Standalone maintenance copies
 
 Copy the cosmetic repair workflow from a Workflows checkout. Run the commands

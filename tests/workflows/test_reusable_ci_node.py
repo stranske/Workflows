@@ -1,4 +1,4 @@
-"""Exercise tests-enabled and tests-disabled handling in the authored Node workflow."""
+"""Exercise matrix selection and check execution in the authored Node workflow."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import pytest
 import yaml
 
 WORKFLOW = Path(".github/workflows/reusable-11-ci-node.yml")
+STARTER = Path("templates/ci-node-basic.yml")
 NO_TEST_PACKAGE = Path(".github/actions/maint78-codex-cli/package.json")
 RUNNER_COVERAGE_CASES = [
     ("jest", False, ["--runInBand"]),
@@ -50,6 +51,91 @@ def run_shell(step: dict, directory: Path, **extra_env: str) -> subprocess.Compl
         timeout=10,
         check=False,
     )
+
+
+@pytest.fixture
+def matrix_contract():
+    workflow = yaml.safe_load(WORKFLOW.read_text())
+    defaults = {
+        trigger: {key: value["default"] for key, value in settings["inputs"].items()}
+        for trigger, settings in workflow[True].items()
+    }
+    return workflow["jobs"], defaults
+
+
+def run_validation(jobs, directory, inputs):
+    step = jobs["validate-inputs"]["steps"][0]
+    output = directory / "outputs"
+    output.touch()
+    result = run_shell(
+        step,
+        directory,
+        NODE_VERSIONS=inputs.get("node-versions") or "",
+        NODE_VERSION=inputs.get("node-version") or "20",
+        PACKAGE_MANAGER=inputs.get("package-manager") or "npm",
+        GITHUB_OUTPUT=str(output),
+    )
+    return result, output.read_text()
+
+
+def test_matrix_uses_only_the_validation_output(matrix_contract):
+    jobs, _ = matrix_contract
+    validators = jobs["validate-inputs"]
+    step = validators["steps"][0]
+    assert validators["outputs"]["node-versions"] == (
+        "${{ steps." + step["id"] + ".outputs.node-versions }}"
+    )
+    tests = jobs["tests"]
+    assert tests["needs"] == "validate-inputs"
+    assert tests["if"] == "${{ needs.validate-inputs.outputs.node-versions != '' }}"
+    assert tests["strategy"]["matrix"]["node-version"] == (
+        "${{ fromJson(needs.validate-inputs.outputs.node-versions) }}"
+    )
+
+
+def test_real_starter_publishes_three_runtimes(matrix_contract, tmp_path):
+    jobs, defaults = matrix_contract
+    caller = yaml.safe_load(STARTER.read_text())["jobs"]["ci"]["with"]
+    assert set(caller) == {"node-versions"}
+    result, output = run_validation(jobs, tmp_path, defaults["workflow_call"] | caller)
+    assert result.returncode == 0, result.stderr
+    assert output == 'node-versions=["18","20","22"]\n'
+
+
+@pytest.mark.parametrize(
+    ("trigger", "overrides", "expected"),
+    [
+        ("workflow_dispatch", {}, ["20"]),
+        ("workflow_call", {"node-versions": "[]", "node-version": "22"}, ["22"]),
+        ("workflow_call", {"node-versions": "[ ]", "node-version": "22"}, ["22"]),
+        ("workflow_dispatch", {"node-versions": "[ ]"}, ["20"]),
+        ("workflow_call", {"node-versions": "", "node-version": "22"}, ["22"]),
+        ("workflow_call", {"node-version": 'quoted"\\name\n'}, ['quoted"\\name\n']),
+    ],
+)
+def test_validation_normalizes_node_matrix(matrix_contract, tmp_path, trigger, overrides, expected):
+    jobs, defaults = matrix_contract
+    result, output = run_validation(jobs, tmp_path, defaults[trigger] | overrides)
+    assert result.returncode == 0, result.stderr
+    assert output == "node-versions=" + json.dumps(expected, separators=(",", ":")) + "\n"
+
+
+@pytest.mark.parametrize(
+    ("overrides", "error"),
+    [
+        ({"node-versions": "[22,"}, "Invalid node-versions JSON"),
+        ({"node-versions": "[NaN]"}, "Invalid node-versions JSON"),
+        ({"node-versions": "  "}, "Invalid node-versions JSON"),
+        ({"node-versions": '"22"'}, "node-versions must be a JSON array"),
+        ({"package-manager": "bun"}, "Unsupported package-manager: bun"),
+    ],
+)
+def test_invalid_inputs_do_not_publish_a_matrix(matrix_contract, tmp_path, overrides, error):
+    jobs, defaults = matrix_contract
+    result, output = run_validation(jobs, tmp_path, defaults["workflow_call"] | overrides)
+    assert result.returncode != 0
+    assert error in result.stderr
+    assert output == ""
 
 
 def run_tests(step: dict, project: Path, runner: str, coverage: bool):
