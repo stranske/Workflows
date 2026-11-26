@@ -25,6 +25,21 @@ def publisher(tmp_path):
     steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["codex"]["steps"]
     worker = next(step for step in steps if step.get("id") == "run_codex")
     final = next(step for step in steps if step.get("id") == "commit")
+    prepare = next(step for step in steps if step.get("id") == "branch_publisher")
+    for step in (worker, final):
+        assert step["env"]["PUSH_CODEX_BRANCH"] == "${{ steps.branch_publisher.outputs.shell }}"
+    definition = tmp_path / "publisher-definition"
+    subprocess.run(
+        ["bash", "-e", "-c", prepare["run"]],
+        env={**os.environ, "GITHUB_OUTPUT": str(definition)},
+        check=True,
+    )
+    content = definition.read_text()
+    assert content.startswith("shell<<CODEX_PUBLISHER\n")
+    assert content.endswith("\nCODEX_PUBLISHER\n")
+    policy = content.removeprefix("shell<<CODEX_PUBLISHER\n").removesuffix("CODEX_PUBLISHER\n")
+    for step in (worker, final):
+        step["env"]["PUSH_CODEX_BRANCH"] = policy
     local = tmp_path / "local"
     local.mkdir()
     bare = tmp_path / "remote"
@@ -59,7 +74,11 @@ def publisher(tmp_path):
                   exit 0
                 fi
                 exec "$REAL_GIT" fetch "$TEST_REMOTE" "$3" ;;
-              pull) exec "$REAL_GIT" pull --no-rebase "$TEST_REMOTE" "$4" --allow-unrelated-histories ;;
+              pull)
+                if [ "$STATE" = close-during-fallback ]; then
+                  "$REAL_GIT" --git-dir="$TEST_REMOTE" update-ref -d refs/heads/topic
+                fi
+                exec "$REAL_GIT" pull --no-rebase "$TEST_REMOTE" "$4" --allow-unrelated-histories ;;
               *) exec "$REAL_GIT" "$@" ;;
             esac
         """,
@@ -72,6 +91,13 @@ def publisher(tmp_path):
             [ "$STATE" != unavailable ] || exit 1
             if [ "$STATE" = close-on-retry ]; then
               if grep -qx push "$CALLS"; then STATE=closed; else STATE=open; fi
+            fi
+            if [ "$STATE" = close-during-fallback ]; then
+              if "$REAL_GIT" --git-dir="$TEST_REMOTE" show-ref --verify --quiet refs/heads/topic; then
+                STATE=open
+              else
+                STATE=closed
+              fi
             fi
             printf '5232\t%s\t%s\t%s\t%s\tstranske/Workflows\n' \
               "$STATE" "$HEAD_REPO" "$HEAD_REF" "$PR_HEAD"
@@ -186,10 +212,11 @@ def test_open_pr_accepts_concurrent_work_after_normal_rebase(publisher):
     assert git(bare, "rev-parse", accepted + "^") == head
 
 
-def test_closed_pr_with_conflicting_existing_commit_skips_publication(publisher):
+@pytest.mark.parametrize("state", ["closed", "close-during-fallback"])
+def test_closed_pr_with_conflicting_existing_commit_skips_publication(publisher, state):
     _, final, local, bare, patch, env, _, _ = publisher
     env["PUSH_CODEX_BRANCH"] = final["env"]["PUSH_CODEX_BRANCH"]
-    env["STATE"] = "closed"
+    env["STATE"] = state
     patch.write_text("concurrent change")
     git(local, "commit", "-qam", "concurrent change")
     git(local, "push", "-q", str(bare), "HEAD:refs/heads/topic")

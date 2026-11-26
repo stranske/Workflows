@@ -992,6 +992,74 @@ jobs:
             echo "- Candidate order: \`$candidates\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Prepare Codex branch publisher
+        id: branch_publisher
+        # The shared shell comes from this workflow before the agent runs.
+        run: |
+          cat >> "$GITHUB_OUTPUT" <<'OUT'
+          shell<<CODEX_PUBLISHER
+          set -u
+          mode=$1
+          pr_number=$2
+          branch=$3
+          remote_url=$4
+          operation=${5:-push}
+          if [ "$mode" != keepalive ] || [ -z "$pr_number" ]; then
+            if [ "$operation" = verify ]; then exit 0; fi
+            git push "$remote_url" "HEAD:$branch" >&2 || exit $?
+            git rev-parse HEAD
+            exit $?
+          fi
+
+          if [[ ! "$pr_number" =~ ^[1-9][0-9]*$ ]] || [ -z "${PUSH_TOKEN:-}" ]; then
+            echo "::error::Keepalive publication needs a PR number and the existing app token." >&2
+            exit 79
+          fi
+
+          if ! pr=$(GH_TOKEN="$PUSH_TOKEN" timeout 15s gh api --hostname github.com \
+            "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" \
+            --jq '[.number,.state,.head.repo.full_name,.head.ref,.head.sha,.base.repo.full_name]|@tsv'); then
+            echo "::error::Could not verify PR state before keepalive publication." >&2
+            exit 79
+          fi
+          IFS=$'\t' read -r number state head_repo head_ref head_sha base_repo <<< "$pr"
+          if [[ "$number" != "$pr_number" || "$head_repo" != "$GITHUB_REPOSITORY" ||
+            "$base_repo" != "$GITHUB_REPOSITORY" || "$head_ref" != "$branch" ||
+            ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Keepalive publication target does not match the PR head." >&2
+            exit 79
+          fi
+          if [ "$state" = closed ]; then
+            echo "::notice::Keepalive PR is closed; skipping branch publication." >&2
+            exit 78
+          fi
+          if [ "$state" != open ]; then
+            echo "::error::Keepalive publication requires a known open PR state." >&2
+            exit 79
+          fi
+          if [ "$operation" = verify ]; then exit 0; fi
+
+          # Anchor the push to the exact existing remote head and allow only a fast-forward.
+          # Git's ref comparison also rejects deletion or advancement after the PR read.
+          commit=$(git rev-parse --verify HEAD) || exit 1
+          if ! git merge-base --is-ancestor "$head_sha" "$commit"; then
+            echo "::warning::PR head has moved; refusing to publish stale keepalive work." >&2
+            exit 1
+          fi
+          ref="refs/heads/$branch"
+          if ! pushed=$(git push --porcelain --force-with-lease="$ref:$head_sha" \
+            "$remote_url" "$commit:$ref"); then
+            exit 1
+          fi
+          # Porcelain's leading space confirms an actual fast-forward update.
+          if [[ "$pushed" != *$'\n \t'* ]]; then
+            echo "::notice::No keepalive ref update was applied." >&2
+            exit 78
+          fi
+          printf '%s\n' "$commit"
+          CODEX_PUBLISHER
+          OUT
+
       - name: Run Codex
         id: run_codex
         env:
@@ -1006,67 +1074,7 @@ jobs:
           REASONING_EFFORT: ${{ steps.codex_model.outputs.reasoning_effort || inputs.codex_reasoning_effort }}
           MAX_RUNTIME_MIN: ${{ inputs.max_runtime_minutes }}
           TARGET_BRANCH: ${{ inputs.pr_ref || github.ref_name }}
-          # Both publishers run this step-local policy from the reusable workflow.
-          PUSH_CODEX_BRANCH: &publish_codex_branch |
-            set -u
-            mode=$1
-            pr_number=$2
-            branch=$3
-            remote_url=$4
-            operation=${5:-push}
-            if [ "$mode" != keepalive ] || [ -z "$pr_number" ]; then
-              if [ "$operation" = verify ]; then exit 0; fi
-              git push "$remote_url" "HEAD:$branch" >&2 || exit $?
-              git rev-parse HEAD
-              exit $?
-            fi
-
-            if [[ ! "$pr_number" =~ ^[1-9][0-9]*$ ]] || [ -z "${PUSH_TOKEN:-}" ]; then
-              echo "::error::Keepalive publication needs a PR number and the existing app token." >&2
-              exit 79
-            fi
-
-            if ! pr=$(GH_TOKEN="$PUSH_TOKEN" timeout 15s gh api --hostname github.com \
-              "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}" \
-              --jq '[.number,.state,.head.repo.full_name,.head.ref,.head.sha,.base.repo.full_name]|@tsv'); then
-              echo "::error::Could not verify PR state before keepalive publication." >&2
-              exit 79
-            fi
-            IFS=$'\t' read -r number state head_repo head_ref head_sha base_repo <<< "$pr"
-            if [[ "$number" != "$pr_number" || "$head_repo" != "$GITHUB_REPOSITORY" ||
-              "$base_repo" != "$GITHUB_REPOSITORY" || "$head_ref" != "$branch" ||
-              ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
-              echo "::error::Keepalive publication target does not match the PR head." >&2
-              exit 79
-            fi
-            if [ "$state" = closed ]; then
-              echo "::notice::Keepalive PR is closed; skipping branch publication." >&2
-              exit 78
-            fi
-            if [ "$state" != open ]; then
-              echo "::error::Keepalive publication requires a known open PR state." >&2
-              exit 79
-            fi
-            if [ "$operation" = verify ]; then exit 0; fi
-
-            # Anchor the push to the exact existing remote head and allow only a fast-forward.
-            # Git's ref comparison also rejects deletion or advancement after the PR read.
-            commit=$(git rev-parse --verify HEAD) || exit 1
-            if ! git merge-base --is-ancestor "$head_sha" "$commit"; then
-              echo "::warning::PR head has moved; refusing to publish stale keepalive work." >&2
-              exit 1
-            fi
-            ref="refs/heads/$branch"
-            if ! pushed=$(git push --porcelain --force-with-lease="$ref:$head_sha" \
-              "$remote_url" "$commit:$ref"); then
-              exit 1
-            fi
-            # Porcelain's leading space confirms an actual fast-forward update.
-            if [[ "$pushed" != *$'\n \t'* ]]; then
-              echo "::notice::No keepalive ref update was applied." >&2
-              exit 78
-            fi
-            printf '%s\n' "$commit"
+          PUSH_CODEX_BRANCH: ${{ steps.branch_publisher.outputs.shell }}
         run: |
           set -euo pipefail
 
@@ -1810,7 +1818,7 @@ jobs:
           PR_REF: ${{ inputs.pr_ref }}
           PUSH_ALLOWED: ${{ steps.run_base.outputs.push_allowed }}
           PUSH_TOKEN: ${{ steps.run_base.outputs.push_token }}
-          PUSH_CODEX_BRANCH: *publish_codex_branch
+          PUSH_CODEX_BRANCH: ${{ steps.branch_publisher.outputs.shell }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -1891,14 +1899,13 @@ jobs:
               if git rev-parse "FETCH_HEAD" >/dev/null 2>&1; then
                 echo "Rebasing unpushed commits onto ${TARGET_BRANCH} before push."
                 if ! git rebase FETCH_HEAD; then
-                  pr_status=0
-                  publish verify || pr_status=$?
-                  if [ "$pr_status" -eq 78 ]; then exit 0; fi
-                  if [ "$pr_status" -ne 0 ]; then exit 1; fi
                   echo "::warning::Rebase failed; attempting merge strategy before push."
                   git rebase --abort 2>/dev/null || true
                   if ! git pull --no-rebase "${REMOTE_URL}" "${TARGET_BRANCH}" \
                     --allow-unrelated-histories; then
+                    pr_status=0
+                    publish verify || pr_status=$?
+                    if [ "$pr_status" -eq 78 ]; then exit 0; fi
                     echo "::error::Merge fallback failed; refusing to push an inconsistent state."
                     exit 1
                   fi
