@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.7](https://github.com/stranske/Workflows/compare/v1.52.6...v1.52.7) (2026-11-26)
+
+
+### Bug Fixes
+
+* respect tracing opt-out in raw consumer provider template ([#5198](https://github.com/stranske/Workflows/issues/5198)) ([3219a41](https://github.com/stranske/Workflows/commit/3219a41f47196ebf32898b873c001f53d3684ee9))
+
 ## [1.52.6](https://github.com/stranske/Workflows/compare/v1.52.5...v1.52.6) (2026-11-25)
 
 
