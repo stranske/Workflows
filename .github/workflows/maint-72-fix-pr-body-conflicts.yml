@@ -9,8 +9,8 @@
 # 2. On explicit apply, opens a cleanup PR for protected main
 # 3. Retains direct apply for confirmed unprotected main
 #
-# The root cause fix is in reusable-codex-run.yml which unstages pr_body.md
-# before committing. This workflow handles the cleanup of historical commits.
+# Agent analysis passes the fetched body directly to its analyzer. This
+# workflow repairs existing tracked copies and missing receiver ignore rules.
 
 name: Maint 72 Fix PR Body Conflicts
 
