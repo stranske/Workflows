@@ -36,9 +36,11 @@ try:
         require_complete_correction_prompt,
     )
     from scripts.langchain.trace_utils import build_llm_config as _build_llm_config
+    from scripts.langchain.response_content import text_from_response_content
 except ModuleNotFoundError:
     from _llm_client import get_llm_client as _get_llm_client
     from injection_guard import check_prompt_injection
+    from response_content import text_from_response_content
     from issue_pr_context import (
         ContextOptions,
         build_issue_context,
@@ -1370,8 +1372,8 @@ def apply_suggestions(
                         operation="apply_suggestions",
                         issue_number=issue_num,
                     )
-                    content = getattr(response, "content", None) or str(response)
-                    formatted = content.strip()
+                    content = getattr(response, "content", response)
+                    formatted = (text_from_response_content(content) or "").strip()
                     if _formatted_output_valid(formatted):
                         formatted = _deduplicate_task_lines(formatted)
                         if _section_duplication_ratio(formatted) > 0:
@@ -1418,8 +1420,8 @@ def apply_suggestions(
                                     operation="apply_suggestions",
                                     issue_number=issue_num,
                                 )
-                                content = getattr(response, "content", None) or str(response)
-                                formatted = content.strip()
+                                content = getattr(response, "content", response)
+                                formatted = (text_from_response_content(content) or "").strip()
                                 if _formatted_output_valid(formatted):
                                     formatted = _deduplicate_task_lines(formatted)
                                     if _section_duplication_ratio(formatted) > 0:

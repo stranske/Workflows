@@ -31,6 +31,28 @@ def test_issue_optimizer_triggers_on_labeled_event() -> None:
     assert "labeled" in types
 
 
+@pytest.mark.parametrize(
+    "path", [WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH], ids=["source", "template"]
+)
+def test_issue_optimizer_filters_before_joining_issue_concurrency(path: Path) -> None:
+    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    job = workflow["jobs"]["optimize_issue"]
+    condition = " ".join(job["if"].split())
+    assert condition == (
+        "github.event_name == 'workflow_dispatch' || "
+        "(github.event_name == 'issues' && github.event.action == 'labeled' && "
+        """contains(fromJSON('["agents:optimize","agents:apply-suggestions","agents:format"]'), """
+        "github.event.label.name))"
+    )
+    assert "concurrency" not in workflow
+    group = job["concurrency"]
+    assert group["group"] == (
+        "agents-issue-optimizer-${{ github.repository }}-${{ "
+        "github.event.issue.number || github.event.inputs.issue_number || github.run_id }}"
+    )
+    assert group["cancel-in-progress"] is False
+
+
 def test_issue_optimizer_checks_for_format_label() -> None:
     text = WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "agents:format" in text

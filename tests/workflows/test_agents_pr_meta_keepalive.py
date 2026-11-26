@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import io
 import json
 import shutil
 import subprocess
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
+import yaml
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "agents_pr_meta"
 HARNESS = FIXTURES_DIR / "harness.js"
@@ -28,6 +32,80 @@ def _run_scenario(name: str) -> dict:
         return json.loads(result.stdout or "{}")
     except json.JSONDecodeError as exc:  # pragma: no cover - harness should return valid JSON
         pytest.fail(f"Invalid harness output: {exc}: {result.stdout}")
+
+
+@pytest.mark.parametrize(
+    ("event", "branch", "head_matches", "same_repo", "associated_pr", "expected_skip"),
+    [
+        ("pull_request", "release-please--branches--main", True, True, None, True),
+        ("workflow_run", "release-please--branches--main", True, True, 23, True),
+        ("workflow_run", "release-please--branches--main", True, True, 24, False),
+        ("workflow_run", "release-please--branches--main", True, True, None, False),
+        ("pull_request", "release-please--branches--main", False, True, None, False),
+        ("pull_request", "release-please--branches--main", True, False, None, False),
+        ("pull_request", "codex/issue-21", True, True, None, False),
+    ],
+)
+def test_hosted_body_fingerprint_skips_only_verified_release_prs(
+    event, branch, head_matches, same_repo, associated_pr, expected_skip, monkeypatch, capsys
+):
+    _require_node()
+    repo = Path(__file__).resolve().parents[2]
+    monkeypatch.chdir(repo)
+    workflow = yaml.safe_load((repo / ".github/workflows/agents-pr-meta-v4.yml").read_text())
+    steps = workflow["jobs"]["update_body"]["steps"]
+    step = next(step for step in steps if step.get("id") == "fingerprint")
+    prepare = (
+        step["run"]
+        .split("<<'PY' > /tmp/state-fingerprint-inputs.json\n", 1)[1]
+        .split("\nPY\n", 1)[0]
+    )
+    head = "a" * 40
+    monkeypatch.setenv("EXPECTED_PR_HEAD", head if head_matches else "b" * 40)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", event)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "example/repo")
+    monkeypatch.setenv("PR_NUMBER", "23")
+    monkeypatch.delenv("WORKFLOW_RUN_PR_HEAD", raising=False)
+    pr = {
+        "number": 23,
+        "state": "open",
+        "body": "Work on release-please automation.",
+        "head": {
+            "ref": branch,
+            "sha": head,
+            "repo": {"full_name": "example/repo" if same_repo else "fork/repo"},
+        },
+    }
+    denied_response = io.BytesIO()
+
+    def api(request, *, timeout):
+        assert request.get_method() == "GET"
+        if request.selector.endswith("/pulls/23"):
+            payload = pr
+        elif request.selector.endswith("/labels"):
+            payload = []
+        else:
+            assert request.selector.endswith(f"/commits/{head}/pulls")
+            if associated_pr is None:
+                raise urllib.error.HTTPError(
+                    request.full_url, 403, "Forbidden", {}, denied_response
+                )
+            payload = [{"number": associated_pr}]
+        return io.BytesIO(json.dumps(payload).encode())
+
+    monkeypatch.setattr(urllib.request, "urlopen", api)
+    try:
+        exec(compile(prepare, "<hosted fingerprint step>", "exec"), {})  # noqa: S102
+    except SystemExit as ended:
+        assert expected_skip and ended.code == 0
+    output = capsys.readouterr().out.strip()
+    if expected_skip:
+        assert output == "skip-release-pr"
+        assert "reason=release-please-pr" in step["run"]
+    else:
+        assert json.loads(output)["head_sha"] == head
+    if event == "workflow_run" and associated_pr is None:
+        assert denied_response.closed
 
 
 def test_keepalive_detection_dispatches_orchestrator() -> None:

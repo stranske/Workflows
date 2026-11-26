@@ -833,19 +833,16 @@ The Workflows repository includes maintenance workflows that handle sync, update
 
 ## Dependency Management
 
-### `maint-51-dependency-refresh.yml` - Refresh Dependencies
-**Purpose:** Updates Python dependencies to latest compatible versions
+### Renovate dependency and lockfile updates
 
-**Trigger:** Weekly scheduled or manual
-
-**What It Does:**
-1. Runs `pip list --outdated`
-2. Updates `pyproject.toml` with new versions
-3. Regenerates `requirements.txt`
-4. Runs tests
-5. Opens PR if changes
-
-**Use When:** Regular maintenance or after security advisories
+Registered consumers inherit the [fleet Renovate preset](https://github.com/stranske/Workflows/blob/main/renovate-presets/fleet.json).
+It opens dependency proposals and refreshes supported `requirements.lock`
+files through its weekly lockfile maintenance policy. Workflows owns central
+dev-tool pins through the separate source-proposal and sync workflows below.
+Repository-owned maintenance workflows can have different schedules and
+inputs. For a local dry preview, use the project's lockfile command in a
+disposable checkout and inspect the proposed pin changes.
+[Preview and archived standalone recipe](https://github.com/stranske/Workflows/blob/main/templates/README.md#dependency-lock-preview)
 
 ---
 

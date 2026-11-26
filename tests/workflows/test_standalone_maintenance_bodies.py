@@ -1,4 +1,4 @@
-"""Exercise the standalone maintenance templates' authored PR body steps."""
+"""Exercise the standalone cosmetic repair's authored steps."""
 
 import os
 import subprocess
@@ -80,15 +80,8 @@ def _capture_body(repo, steps, tmp_path):
             "x = 1\n",
             '    "odd ``` name\\nEOF.py"',
         ),
-        (
-            "dependency-refresh",
-            "requirements.lock",
-            "demo==1\n# old\n",
-            "demo==2\n# ```\n",
-            "    -demo==1\n    -# old\n    +demo==2\n    +# ```",
-        ),
     ],
-    ids=["cosmetic-odd-name", "dependency-multiline"],
+    ids=["cosmetic-odd-name"],
 )
 def test_standalone_pr_body_reads_real_changes(
     tmp_path, template, filename, before, after, expected
@@ -109,26 +102,20 @@ def test_standalone_pr_body_reads_real_changes(
     assert "See diff for details" not in body
 
 
-@pytest.mark.parametrize("template", ["cosmetic-repair", "dependency-refresh"])
+@pytest.mark.parametrize("template", ["cosmetic-repair"])
 def test_standalone_pr_body_bounds_large_detail(tmp_path, template):
-    if template == "cosmetic-repair":
-        repo, _ = _fixture(tmp_path, "initial.py", "x = 1\n")
-        for index in range(110):
-            path = repo / f"fixture-{index:03}.py"
-            path.write_text("x = 1\n")
-        _git(repo, "add", "--", ".")
-        # The authored detector considers unstaged differences to tracked files.
-        _commit(repo, "many paths")
-        for path in repo.glob("fixture-*.py"):
-            path.write_text("x = 2\n")
-        early, late = "fixture-000.py", "fixture-109.py"
-    else:
-        repo, lock = _fixture(tmp_path, "requirements.lock", "demo==1\n")
-        lock.write_text("demo==2\n# " + "é" * 12000 + "\n# late lock entry\n", encoding="utf-8")
-        early, late = "+demo==2", "late lock entry"
+    repo, _ = _fixture(tmp_path, "initial.py", "x = 1\n")
+    for index in range(110):
+        path = repo / f"fixture-{index:03}.py"
+        path.write_text("x = 1\n")
+    _git(repo, "add", "--", ".")
+    # The authored detector considers unstaged differences to tracked files.
+    _commit(repo, "many paths")
+    for path in repo.glob("fixture-*.py"):
+        path.write_text("x = 2\n")
     body = _capture_body(repo, _steps(template), tmp_path)
-    assert early in body
-    assert late not in body
+    assert "fixture-000.py" in body
+    assert "fixture-109.py" not in body
     assert body.count("Details truncated. See the pull request diff.") == 1
     assert len(body.encode()) < 12500
 
