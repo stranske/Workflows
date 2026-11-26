@@ -29,6 +29,7 @@ jobs:
         startsWith(steps.classify.outputs.classification-rationale, 'classified:') }}
       classification_rationale: >-
         ${{ steps.classify.outputs.classification-rationale || 'path classifier unavailable' }}
+      release_scope: ${{ steps.release_scope.outputs.release-scope }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -46,6 +47,44 @@ jobs:
           SELFTEST_BEFORE: ${{ github.event.before }}
           SELFTEST_FORCED: ${{ github.event.forced }}
         run: node .github/scripts/selftest-guide-scope.js
+      - name: Check exact release metadata
+        id: release_scope
+        if: github.event_name == 'push'
+        env:
+          SELFTEST_BEFORE: ${{ github.event.before }}
+          SELFTEST_FORCED: ${{ github.event.forced }}
+        run: node .github/scripts/selftest-release-scope.js
+
+  release-evidence:
+    name: Check preceding default Python coverage
+    needs: classify
+    if: >-
+      ${{ github.event_name == 'push' && github.run_attempt == '1' &&
+      needs.classify.outputs.release_scope == 'release-only' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    continue-on-error: true
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      verified: ${{ steps.query.outputs.verified }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Bind the successful test jobs to the exact preceding push
+        id: query
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          SELFTEST_BEFORE: ${{ github.event.before }}
+        with:
+          script: |
+            const { fullPredecessor } = require('./.github/scripts/selftest-release-scope.js');
+            const verified = await fullPredecessor({ github, core, context, before: process.env.SELFTEST_BEFORE });
+            core.info(verified ? 'Preceding main push completed both canonical Python jobs.'
+              : 'Preceding main push lacks exact successful coverage. Run the full canonical suite.');
+            core.setOutput('verified', verified);
 
   test-javascript:
     name: JavaScript Tests
@@ -107,10 +146,13 @@ jobs:
   # suite and coverage on 3.14 and run the guide checks on 3.13 below.
   python-ci:
     name: canonical Python suite
-    needs: classify
+    needs: [classify, release-evidence]
     if: >-
-      ${{ github.event_name != 'pull_request' &&
-      (github.event_name == 'workflow_dispatch' || needs.classify.outputs.is_docs_only != 'true') }}
+      ${{ !cancelled() && needs.classify.result == 'success' &&
+      github.event_name != 'pull_request' &&
+      (github.event_name == 'workflow_dispatch' || needs.classify.outputs.is_docs_only != 'true') &&
+      !(needs.release-evidence.result == 'success' &&
+      needs.release-evidence.outputs.verified == 'true') }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
     permissions:
       contents: read
@@ -211,7 +253,7 @@ jobs:
     # Keep the established check name while its assertions move to canonical CI
     # and the intentionally separate autofix/PyPI slow compatibility matrix.
     name: Python Tests
-    needs: [classify, python-ci, guide-python, autofix-compatibility]
+    needs: [classify, release-evidence, python-ci, guide-python, autofix-compatibility]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -219,6 +261,10 @@ jobs:
         env:
           CLASSIFY: ${{ needs.classify.result }}
           DOCS_ONLY: ${{ needs.classify.outputs.is_docs_only }}
+          RELEASE_SCOPE: ${{ needs.classify.outputs.release_scope }}
+          PRIOR_FULL_CI: >-
+            ${{ needs.release-evidence.result == 'success' &&
+            needs.release-evidence.outputs.verified == 'true' }}
           CANONICAL: ${{ needs.python-ci.result }}
           GUIDE_ONLY: ${{ needs.classify.outputs.guide_only }}
           GUIDES: ${{ needs.guide-python.result }}
@@ -226,6 +272,10 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           test "$CLASSIFY" = success
+          if [ "$RELEASE_SCOPE" = invalid ]; then
+            echo '::error::Release manifest and changelog did not pass the exact release metadata check.'
+            exit 1
+          fi
           if [ "$GUIDE_ONLY" = true ]; then
             test "$GUIDES" = success
           else
@@ -236,7 +286,7 @@ jobs:
             test "$COMPATIBILITY" = skipped
           else
             test "$COMPATIBILITY" = success
-            if [ "$EVENT_NAME" = pull_request ]; then
+            if [ "$EVENT_NAME" = pull_request ] || [ "$PRIOR_FULL_CI" = true ]; then
               test "$CANONICAL" = skipped
             else
               test "$CANONICAL" = success

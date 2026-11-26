@@ -510,7 +510,13 @@ Those cases run on both versions with the common lock and four workers, with
 required tool imports preventing missing autofix dependencies from silently skipping
 those cases. PyPI tests retain their existing network/skip behavior.
 On main pushes and Selftest manual dispatches, Selftest calls the canonical reusable
-suite as well, because Gate has no push trigger. An ordinary main push that only
+suite because Gate has no push trigger. A first-attempt main push that only updates
+the root release manifest and changelog can reuse both runtimes' exact successful
+coverage from its immediate predecessor. The versions and compare link must agree.
+An interrupted or unverifiable predecessor requires both runtime jobs on the release
+push. Malformed release metadata fails the normal Python Tests check. The existing
+workflow concurrency and release publisher still govern their respective runs.
+An ordinary main push that only
 edits both operator guides in place runs the full suite and coverage on Python
 3.14 and the guide-owning tests on 3.13. The required `Python Tests` check requires
 both jobs for that push. JavaScript tests, package tests, lint, validation, and
