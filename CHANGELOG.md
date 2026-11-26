@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.17](https://github.com/stranske/Workflows/compare/v1.52.16...v1.52.17) (2026-11-26)
+
+
+### Bug Fixes
+
+* **ci:** surface JUnit test failures and coverage shortfalls in Finalize check results ([#5275](https://github.com/stranske/Workflows/issues/5275)) ([ab57c17](https://github.com/stranske/Workflows/commit/ab57c177d9699da886f3a1beb64130af659cbb37))
+
 ## [1.52.16](https://github.com/stranske/Workflows/compare/v1.52.15...v1.52.16) (2026-11-26)
 
 
