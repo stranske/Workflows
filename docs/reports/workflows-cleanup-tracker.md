@@ -7,7 +7,17 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
-November 26, 2026 UTC. Decisions cover **2,956/5,554 files, 286/487 folders and 161/198 workflows** in the November 19 inventory. The owner reopened 56 file and 10 folder placement decisions for further evidence. Of 27 original root files, 21 have placement decisions. The current root has 22 tracked files. Outstanding root evidence covers the five verifier entry points and a receiving Linux lint assertion for Actionlint. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Latest verified rolling comparison](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
+November 26, 2026 UTC. The November 19 inventory now has decisions for **3,014/5,554 files, 296/487 folders and 161/198 workflows**. The original delivery checklist remains at **26/28**. The review reopened 56 file and ten folder decisions and then verified their new placements on main. Of six other forwarding pages reopened, four have since been removed and two still have live readers under review. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Twelve-hour progress and acceptance checks](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
+
+The tracked root went from **22 files and 17 directories to 17 files and 14 directories**. Sixteen of today's 17 root files and six of today's 14 root directories have completed placement decisions. The remaining root file is `actionlint`, with an outstanding receiving Linux check. The eight open directories are `.github`, `config`, `docs`, `evidence`, `scripts`, `templates`, `tests` and `tools`. In the original inventory, 26 of 27 root files and 11 of 19 top-level directories have decisions. [Verified source tree](https://github.com/stranske/Workflows/tree/ad5f9f9ea626de91b498660f938b26046ed66648)
+
+- The closed issue-3988 packet’s 46 files recover from two immutable revisions. A cold recovery reproduced the original 17-of-51 report and SHA-256. Four retired `pr-finalize` notices now have one maintained destination in the closer guide. This batch removed 50 tracked files and 567,072 bytes. [Archive and operator changes](https://github.com/stranske/Workflows/pull/5265)
+- The closer schema moved into the existing contract schemas directory. Its nine installed package paths and the schema bytes stayed intact. Post-merge package verification accepted the valid record and rejected the invalid record and corrupted installed schema. [Closer schema](https://github.com/stranske/Workflows/pull/5266)
+- The five verifier files moved together to `evidence/issue-4422/`. Five offline CLI outputs matched the baseline byte for byte. All 38 verifier cases passed on the reviewed Gate and again against merged source with its historical inputs. [Verifier relocation](https://github.com/stranske/Workflows/pull/5267)
+The two evidence directories illustrate the unfinished organizational work. In the original inventory, 1,343 of 2,391 files under `docs/evidence/` and 123 of 429 under `evidence/` have recorded decisions. Both directories contain replay material for issues 3820 and 3835, and both directory decisions are still open. In a local comparison, moving the issue-3835 replay and its test import together preserved the result and 28 archive-member hashes. For issue 3820, withholding three historical documentation files left 22/22 recovery tests passing, while withholding a live recovery plan broke four cases. Both issue-level placement decisions remain open for historical-reader and destination checks. Old evidence can be grouped by kind and recovery route. Active workflows, programs, tests, configuration, distributed files and operator guides take priority. The first active comparison retained four files after testing a working alternative for the GitHub comment adapter. The Python renderer and classifier share the diagnostic logic. Moving the publisher into tools preserved the summary but required two forwarding modules and changes to two distributed status-policy files. For each active family, record where a new file belongs and verify its real callers. [Repository map](../STRUCTURE.md)
+
+- Four dated audit and planning redirects were removed after their maintained and immutable destinations were verified. The setup guide and January briefing have documented readers and remain under review. [Forwarding-page removal](https://github.com/stranske/Workflows/pull/5269) · [Archive navigation](../archive/ARCHIVE_PLANS.md)
+
 
 - **Earlier twelve-hour sample through 09:40 Chicago time, November 25.** Main went from 4,770 to 4,720 tracked paths and from 99,747,169 to 97,226,347 checkout bytes. Root files stayed at 22. Published decisions changed by +104 files, +9 folders and +12 workflows. Of 40 merged cleanup Gates, 17 selected both primary jobs. 34/34 selected primary jobs met 600 seconds, with a maximum of 540 seconds. 11 whole Gates exceeded 600 seconds. Billed cost was unavailable. [Default comparison](https://github.com/stranske/Workflows/compare/fd856d39926baa878e6ff8043dcef4a3ec28d431...8fbd7dd7ecaf75ca893cf933967d24c3c1ccdbf4)
 - **First hosted handoff.** The shared-state comparison retained the first eligible handoff in Auto-Pilot on both hosts and recognized the existing experiment reservation after publication. Auto-Pilot monitored the already-open #5135 from #5136, added `agent:auto`, and recorded `REVIEW_NEEDED` in the capability assessment. The scoped read found zero new shared-opener starts. Two Cursor keepalive continuations used the existing repair PR #5135. The manual hosted opener still needs an ordinary judge and start, a Mac feedback database receipt, and restart, outage and concurrent-claim verification. [First handoff](https://github.com/stranske/Workflows/issues/5136) · [Matched shadow](https://github.com/stranske/Orchestrator/actions/runs/45554321359/job/139002622861)
@@ -126,12 +136,14 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked |
-| 1B · Root files | 21/27 | — | — |
-| 2 · Evidence and archives | 1,495/2,901 | 106/220 | — |
-| 3 · Scripts, tools and packages | 360/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 886/1,540 | 125/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 194/334 | 21/47 | — |
-| **Total** | **2,956/5,554** | **286/487** | **161/198** |
+| 1B · Root files | 26/27 | — | — |
+| 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
+| 3 · Scripts, tools and packages | 362/752 | 34/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 889/1,540 | 128/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
+| **Total** | **3,014/5,554** | **296/487** | **161/198** |
+
+**Directory organization.** 2,803 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
