@@ -165,6 +165,10 @@ def test_main_writes_github_output(tmp_path: Path, monkeypatch) -> None:
     output_text = output_path.read_text(encoding="utf-8")
     assert "body<<EOF" in output_text
     assert "Automated Status Summary" in output_text
+    assert output_text.splitlines()[-2:] == [
+        "_Snapshot at publication. See the linked run and required checks for final results._",
+        "EOF",
+    ]
 
 
 def test_main_runs_when_invoked_by_file_path(tmp_path: Path) -> None:
