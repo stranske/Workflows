@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -19,7 +18,11 @@ from tests.tools.test_retained_original_final_projection import (
     failed_row,
     setup_projection,
 )
-from tests.tools.test_retained_verification_recovery import setup_case, write_archive
+from tests.tools.test_retained_verification_recovery import (
+    install_selected_python,
+    setup_case,
+    write_archive,
+)
 
 ROOT = Path(__file__).parents[2]
 
@@ -167,8 +170,7 @@ def test_actual_v2_admission_and_authored_seed_step_retain_original_findings(
     }
     (tmp_path / ".workflows-lib").symlink_to(ROOT, target_is_directory=True)
     bindir = tmp_path / "bin"
-    bindir.mkdir()
-    (bindir / "python3").symlink_to(sys.executable)
+    install_selected_python(bindir)
     env = {
         **os.environ,
         "PATH": str(bindir) + os.pathsep + os.environ["PATH"],

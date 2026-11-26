@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import re
+import shlex
 import subprocess
 import sys
 import zipfile
@@ -28,6 +29,14 @@ from tools.verifier_event_recovery import (
     revalidate_retained,
     verify_revalidation_admission,
 )
+
+
+def install_selected_python(bindir):
+    bindir.mkdir()
+    # Exec the selected path so Python still finds its virtualenv's pyvenv.cfg.
+    launcher = bindir / "python3"
+    launcher.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} "$@"\n', encoding="utf-8")
+    launcher.chmod(0o755)
 
 
 def encoded(value):
@@ -1027,7 +1036,6 @@ def test_authored_recovery_shell_runs_without_credentials_or_provider_generation
 ):
     import os
     import subprocess
-    import sys
 
     setup_case(tmp_path, monkeypatch)
     root = Path(__file__).resolve().parents[2]
@@ -1064,8 +1072,7 @@ def test_authored_recovery_shell_runs_without_credentials_or_provider_generation
     )
     # Pin this test's interpreter while executing the authored shell verbatim.
     bindir = tmp_path / "bin"
-    bindir.mkdir()
-    (bindir / "python3").symlink_to(sys.executable)
+    install_selected_python(bindir)
     env["PATH"] = str(bindir) + os.pathsep + env["PATH"]
     result = subprocess.run(
         ["bash", "-c", step["run"]],
@@ -1089,7 +1096,6 @@ def test_authored_recovery_publisher_event_and_unified_share_current_admission(
     import os
     import re
     import subprocess
-    import sys
 
     from tests.workflows.test_repeat_verification_lifecycle import authored, run_state_step
 
@@ -1098,8 +1104,7 @@ def test_authored_recovery_publisher_event_and_unified_share_current_admission(
     root = Path(__file__).resolve().parents[2]
     (tmp_path / ".workflows-lib").symlink_to(root, target_is_directory=True)
     bindir = tmp_path / "bin"
-    bindir.mkdir()
-    (bindir / "python3").symlink_to(sys.executable)
+    install_selected_python(bindir)
     event = origin["verification_event"]
     env = {
         **os.environ,
