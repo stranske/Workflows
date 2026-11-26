@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 CONTRACT = "closer-operation/v1"
+OPERATION_SCHEMA_INSTALLED = Path("fixtures/closer-operation/v1/operation.schema.json")
+OPERATION_SCHEMA_SOURCE = Path("docs/contracts/schemas/closer-operation-v1.schema.json")
 HEAD_RE = __import__("re").compile(r"^[0-9a-f]{40}$")
 KEY_RE = __import__("re").compile(r"^[0-9a-f]{64}$")
 
@@ -419,13 +421,20 @@ def new_operation_record(
     }
 
 
+def operation_schema_path() -> Path:
+    """Sealed packages keep the historical installed path; checkout reads docs/contracts."""
+    root = Path(__file__).resolve().parents[1]
+    checkout_schema = root / OPERATION_SCHEMA_SOURCE
+    if checkout_schema.is_file():
+        return checkout_schema
+    return root / OPERATION_SCHEMA_INSTALLED
+
+
 def validate_operation_record(record: Mapping[str, Any]) -> list[str]:
     """Validate the shipped schema and recompute both identity boundaries."""
     from jsonschema import Draft202012Validator, FormatChecker
 
-    schema_path = (
-        Path(__file__).resolve().parents[1] / "fixtures/closer-operation/v1/operation.schema.json"
-    )
+    schema_path = operation_schema_path()
     validator = Draft202012Validator(
         json.loads(schema_path.read_text()), format_checker=FormatChecker()
     )

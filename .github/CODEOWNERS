@@ -9,7 +9,7 @@ docs/** @stranske
 /scripts/closer_runtime.py @stranske
 /scripts/closer_operation_github.py @stranske
 /scripts/check_checks_reported.py @stranske
-/fixtures/closer-operation/** @stranske
+/docs/contracts/schemas/closer-operation-v1.schema.json @stranske
 /tests/fixtures/closer-operation/v1/minimal-operation.json @stranske
 /tests/scripts/test_closer_runtime.py @stranske
 /tests/scripts/test_closer_portable_boundaries.py @stranske

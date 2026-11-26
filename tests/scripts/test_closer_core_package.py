@@ -28,6 +28,21 @@ def test_package_digest_stable(source_commit: str) -> None:
     assert d1["package_digest"] == d2["package_digest"]
 
 
+def test_operation_schema_rehomes_from_docs_contracts(source_commit: str) -> None:
+    assert not (ROOT / core_pkg.OPERATION_SCHEMA_INSTALLED).is_file()
+    schema_src = ROOT / core_pkg.OPERATION_SCHEMA_SOURCE
+    assert schema_src.is_file()
+    descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
+    digest = descriptor["files"][core_pkg.OPERATION_SCHEMA_INSTALLED]
+    assert digest == core_pkg.sha256_file(schema_src)
+    with tempfile.TemporaryDirectory() as tmp:
+        pkg = Path(tmp) / "pkg"
+        core_pkg.materialize_package_tree(ROOT, pkg, descriptor)
+        installed = pkg / core_pkg.OPERATION_SCHEMA_INSTALLED
+        assert installed.is_file()
+        assert core_pkg.sha256_file(installed) == digest
+
+
 def test_schema_change_moves_digest(source_commit: str) -> None:
     base = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
     mutated = json.loads(json.dumps(base))
@@ -110,7 +125,7 @@ def test_draft_portable_snapshot_integration(source_commit: str) -> None:
     snapshot = Path(tempfile.mkdtemp(prefix="closer-core-draft-"))
     try:
         for rel in core_pkg.CORE_OWNED_PATHS:
-            src = PORTABLE_ROOT / rel
+            src = core_pkg.core_owned_source_path(PORTABLE_ROOT, rel)
             if not src.is_file():
                 pytest.skip(f"missing portable draft file {rel}")
             dest = snapshot / rel
