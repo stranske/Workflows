@@ -233,8 +233,44 @@ def test_selftest_python_check_requires_guide_results(guide_result, success):
     assert (result.returncode == 0) is success, result.stderr
 
 
+@pytest.mark.parametrize(
+    "release_scope,prior_full_ci,canonical,success",
+    [
+        ("release-only", "true", "skipped", True),
+        ("release-only", "true", "failure", False),
+        ("release-only", "false", "skipped", False),
+        ("release-only", "false", "success", True),
+        ("invalid", "false", "success", False),
+    ],
+)
+def test_selftest_release_requires_predecessor_or_own_coverage(
+    release_scope, prior_full_ci, canonical, success
+):
+    result = _selftest_python_check(
+        "push",
+        "false",
+        canonical,
+        "success",
+        "success",
+        release_scope=release_scope,
+        prior_full_ci=prior_full_ci,
+    )
+    assert (result.returncode == 0) is success, result.stdout
+    if release_scope == "invalid":
+        assert "Release manifest and changelog" in result.stdout
+
+
 def _selftest_python_check(
-    event, docs, canonical, compatibility, classify, *, guide_only="false", guides="skipped"
+    event,
+    docs,
+    canonical,
+    compatibility,
+    classify,
+    *,
+    guide_only="false",
+    guides="skipped",
+    release_scope="full",
+    prior_full_ci="false",
 ):
     workflow = yaml.safe_load((ROOT / ".github/workflows/selftest-ci.yml").read_text())
     script = workflow["jobs"]["test-python"]["steps"][0]["run"]
@@ -245,6 +281,8 @@ def _selftest_python_check(
             "CLASSIFY": classify,
             "DOCS_ONLY": docs,
             "CANONICAL": canonical,
+            "RELEASE_SCOPE": release_scope,
+            "PRIOR_FULL_CI": prior_full_ci,
             "COMPATIBILITY": compatibility,
             "GUIDE_ONLY": guide_only,
             "GUIDES": guides,
