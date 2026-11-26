@@ -306,14 +306,17 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       return e;
     }
 
-    async function runCase({ headRepo, baseRepo, error, headSha = HEAD_SHA, liveHead = HEAD_SHA }) {
+    async function runCase({
+      headRepo, baseRepo, error, headSha = HEAD_SHA, liveHead = HEAD_SHA, resolvedHead,
+    }) {
       const warnings = [];
       const summaryRaw = [];
       let commentAttempts = 0;
+      let summaryWrites = 0;
       const summaryStub = {
         addHeading() { return summaryStub; },
         addRaw(text) { summaryRaw.push(String(text)); return summaryStub; },
-        async write() { summaryRaw.push('<written>'); },
+        async write() { summaryWrites += 1; },
       };
       const github = {
         __testMock: true,
@@ -329,8 +332,17 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           },
         },
       };
+      const eventPr = {
+        number: 1,
+        head: { sha: headSha, repo: { full_name: headRepo } },
+        base: { repo: { full_name: baseRepo } },
+      };
+      const env = {};
+      if (resolvedHead) {
+        env.GATE_PR_JSON = JSON.stringify({ ...eventPr, head: { ...eventPr.head, sha: resolvedHead } });
+      }
       const sandbox = {
-        process: { env: {} },
+        process: { env },
         console: { log() {} },
         require: (id) => {
           if (id === 'path') return { resolve: (p) => '/tmp/' + p };
@@ -351,13 +363,8 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         context: {
           eventName: 'pull_request',
           repo: { owner: 'stranske', repo: 'Workflows' },
-          payload: {
-            pull_request: {
-              number: 1,
-              head: { sha: headSha, repo: { full_name: headRepo } },
-              base: { repo: { full_name: baseRepo } },
-            },
-          },
+          sha: 'b'.repeat(40),
+          payload: { pull_request: eventPr },
         },
         github,
       };
@@ -368,12 +375,15 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       } catch (e) {
         threw = { status: e.status === undefined ? null : e.status, message: String(e.message) };
       }
-      return { warnings, summaryRaw, threw, commentAttempts };
+      return { warnings, summaryRaw, summaryWrites, threw, commentAttempts };
     }
 
     const FORK = {
       headRepo: 'outside-contributor/Workflows',
       baseRepo: 'stranske/Workflows',
+    };
+    const READ_ONLY_FORK = {
+      ...FORK, error: makeError(403, 'Resource not accessible by integration'),
     };
     const SAME = {
       headRepo: 'stranske/Workflows',
@@ -382,8 +392,9 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
 
     (async () => {
       const out = {
-        fork_read_only: await runCase({
-          ...FORK, error: makeError(403, 'Resource not accessible by integration'),
+        fork_read_only: await runCase(READ_ONLY_FORK),
+        fork_read_only_resolved_head: await runCase({
+          ...READ_ONLY_FORK, headSha: null, resolvedHead: HEAD_SHA,
         }),
         same_repo_read_only: await runCase({
           ...SAME, error: makeError(403, 'Resource not accessible by integration'),
@@ -424,8 +435,8 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         }),
         fork_server_error: await runCase({ ...FORK, error: makeError(500, 'boom') }),
         happy_path: await runCase({ ...FORK, error: null }),
-        missing_head: await runCase({ ...FORK, headSha: null }),
-        stale_head: await runCase({ ...FORK, liveHead: 'b'.repeat(40) }),
+        missing_head: await runCase({ ...READ_ONLY_FORK, headSha: null }),
+        stale_head: await runCase({ ...FORK, liveHead: 'c'.repeat(40) }),
       };
       process.stdout.write(JSON.stringify(out));
     })();
@@ -474,14 +485,17 @@ def test_comment_fork_read_only_403_does_not_fail_the_gate(
     assert case["threw"] is None, case["threw"]
 
 
+@pytest.mark.parametrize("name", ["fork_read_only", "fork_read_only_resolved_head"])
 def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
-    comment_outcomes: dict[str, Any],
+    comment_outcomes: dict[str, Any], name: str
 ) -> None:
-    case = comment_outcomes["fork_read_only"]
+    case = comment_outcomes[name]
+    assert case["threw"] is None, case
+    assert case["summaryWrites"] == 1, case
     assert case["commentAttempts"] == 1, case
-    assert any("read-only" in warning for warning in case["warnings"]), case["warnings"]
+    assert len(case["warnings"]) == 1, case
+    assert "read-only" in case["warnings"][0], case
     assert "GATE SUMMARY BODY" in " ".join(case["summaryRaw"]), case["summaryRaw"]
-    assert "<written>" in case["summaryRaw"]
 
 
 def test_comment_same_repo_403_still_fails_the_gate(comment_outcomes: dict[str, Any]) -> None:
@@ -538,14 +552,25 @@ def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any]) -> None:
     assert case["summaryRaw"] == []
 
 
-@pytest.mark.parametrize("name", ["missing_head", "stale_head"])
+@pytest.mark.parametrize(
+    ("name", "warnings"),
+    [
+        (
+            "missing_head",
+            ["Gate summary has no matching authored PR head; skipping comment update."],
+        ),
+        ("stale_head", []),
+    ],
+)
 def test_comment_requires_current_authored_head(
-    comment_outcomes: dict[str, Any], name: str
+    comment_outcomes: dict[str, Any], name: str, warnings: list[str]
 ) -> None:
     case = comment_outcomes[name]
     assert case["commentAttempts"] == 0, case
     assert case["threw"] is None, case
     assert case["summaryRaw"] == [], case
+    assert case["summaryWrites"] == 0, case
+    assert case["warnings"] == warnings, case
 
 
 @pytest.mark.parametrize("name", sorted(GATE_WORKFLOWS))
