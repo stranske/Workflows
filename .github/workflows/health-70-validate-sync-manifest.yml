@@ -1,4 +1,5 @@
 # Validate the sync manifest and its declared sources.
+# Require an explicit disposition for a copy target dropped from the manifest.
 # Check consumer-workflow names against template files and manifest targets.
 # Report action pin violations in the selected hosted and consumer workflows.
 
@@ -12,6 +13,8 @@ on:
       - '.github/codex/**'
       - '.github/scripts/**'
       - 'scripts/check_workflow_action_pins.py'
+      - 'scripts/sync_manifest_compiler.py'
+      - 'scripts/validate_sync_target_dispositions.py'
       - 'templates/consumer-repo/**'
   push:
     branches: [main]
@@ -21,6 +24,8 @@ on:
       - '.github/codex/**'
       - '.github/scripts/**'
       - 'scripts/check_workflow_action_pins.py'
+      - 'scripts/sync_manifest_compiler.py'
+      - 'scripts/validate_sync_target_dispositions.py'
       - 'templates/consumer-repo/**'
 
 permissions:
@@ -38,6 +43,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -72,6 +79,23 @@ jobs:
           python scripts/sync_manifest_compiler.py
           --manifest .github/sync-manifest.yml
           --output-json /tmp/consumer-sync-plan.json
+      - name: Validate removed sync target dispositions
+        id: target_dispositions
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ || "$BASE_SHA" =~ ^0+$ ]]; then
+            echo "::error::The sync target disposition check requires the exact event base SHA."
+            exit 1
+          fi
+          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          fi
+          git show "$BASE_SHA:.github/sync-manifest.yml" > "$RUNNER_TEMP/base-sync-manifest.yml"
+          python -m scripts.validate_sync_target_dispositions \
+            --base-manifest "$RUNNER_TEMP/base-sync-manifest.yml" \
+            --manifest .github/sync-manifest.yml
       - name: Validate manifest
         id: validate
         run: |
@@ -103,6 +127,7 @@ jobs:
         uses: actions/github-script@v9
         env:
           MANIFEST_SCHEMA_OUTCOME: ${{ steps.manifest_schema.outcome }}
+          TARGET_DISPOSITIONS_OUTCOME: ${{ steps.target_dispositions.outcome }}
           TEMPLATE_COMPLETENESS_OUTCOME: ${{ steps.validate.outcome }}
           ACTION_PINS_OUTCOME: ${{ steps.action_pins.outcome }}
         with:
@@ -123,6 +148,9 @@ jobs:
             if (process.env.MANIFEST_SCHEMA_OUTCOME === 'failure') {
               guidance.push('**Validate manifest schema:** Follow the compiler error in the job log. ' +
                 'Correct the reported manifest field or restore the declared source.');
+            }
+            if (process.env.TARGET_DISPOSITIONS_OUTCOME === 'failure') {
+              guidance.push('**Validate removed sync target dispositions:** Check the exact PR base and named target in the job log. Add an explicit removal or reasoned exclusion for any dropped target.');
             }
             if (process.env.TEMPLATE_COMPLETENESS_OUTCOME === 'failure') {
               guidance.push('**Validate manifest:** Review the named workflow in the job log. ' +
