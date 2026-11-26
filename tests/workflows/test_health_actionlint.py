@@ -102,7 +102,6 @@ def test_health_actionlint_reports_failures(
         env={
             **os.environ,
             "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
-            "ALLOWLIST_FILE": "",
             "REPORTER": "github-pr-review",
             "LINT_STATUS": str(lint_status),
             "REPORTER_STATUS": str(reporter_status),
@@ -117,3 +116,66 @@ def test_health_actionlint_reports_failures(
     assert "-efm=%f:%l:%c: %m" in (tmp_path / "reporter-args.txt").read_text().splitlines()
     assert (DIAGNOSTIC in result.stdout) == bool(lint_status)
     assert result.returncode == expected_status
+
+
+@pytest.mark.parametrize(
+    ("workflow_name", "flags"),
+    [
+        ("health-42-actionlint.yml", ["-no-color", "-oneline"]),
+        ("maint-52-validate-workflows.yml", ["-oneline"]),
+    ],
+)
+@pytest.mark.parametrize(
+    ("allowlist", "patterns"),
+    [
+        (None, []),
+        (b"", []),
+        (
+            " \t# a comment\r\n\n  ^a[.]b .* # part of regex$\r\n\u2003two words café\u2003".encode(),
+            ["^a[.]b .* # part of regex$", "two words café"],
+        ),
+        (b"\xff", None),
+    ],
+    ids=["missing", "empty", "regex", "invalid-utf8"],
+)
+def test_lint_steps_read_allowlist_directly(tmp_path, workflow_name, flags, allowlist, patterns):
+    workflow = yaml.safe_load((ROOT / ".github/workflows" / workflow_name).read_text())
+    step = next(
+        item for item in workflow["jobs"]["lint"]["steps"] if item.get("name") == "Run actionlint"
+    )
+    (tmp_path / "pathlib.py").write_text("raise RuntimeError('imported from the checkout')\n")
+    if allowlist is not None:
+        (tmp_path / ".github").mkdir()
+        (tmp_path / ".github/actionlint-allowlist.txt").write_bytes(allowlist)
+
+    linter = tmp_path / "actionlint"
+    linter.write_text('#!/bin/sh\nprintf "%s\\0" "$@" > "$CAPTURE_ARGS"\n')
+    linter.chmod(0o755)
+    reporter = tmp_path / "reviewdog"
+    reporter.write_text("#!/bin/sh\ncat >/dev/null\n")
+    reporter.chmod(0o755)
+    args = tmp_path / "argv"
+
+    result = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", step["run"]],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+            "CAPTURE_ARGS": str(args),
+            "REPORTER": "github-annotations",
+        },
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert not (tmp_path / "actionlint-allowlist.args").exists()
+    if patterns is None:
+        assert result.returncode != 0
+        assert "UnicodeDecodeError" in result.stderr
+        assert not args.exists()
+    else:
+        assert result.returncode == 0, result.stderr
+        expected = [f"-ignore={pattern}" for pattern in patterns] + flags
+        assert args.read_bytes().split(b"\0")[:-1] == [arg.encode() for arg in expected]
