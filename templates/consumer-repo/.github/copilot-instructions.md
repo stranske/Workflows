@@ -1,6 +1,6 @@
 # Copilot Instructions for this Repository
 
-> **Skills Loaded**: This file contains embedded skills that help with CI debugging, GitHub operations, and meta-patterns. Consult the relevant section when facing issues.
+> These repository-wide instructions cover CI debugging, GitHub operations, and recurring tasks.
 
 ## Quick Reference - When to Apply Which Skill
 
@@ -53,7 +53,7 @@ These files are internal task trackers and should never receive Copilot review c
 **Trigger**: CI is failing. Before attempting fixes, diagnose the root cause.
 
 ### Diagnostic Steps
-1. Get the run ID: `gh run list --repo owner/repo --limit 1 --json databaseId`
+1. Find the workflow run for your branch: `gh run list --repo owner/repo --workflow {workflow} --branch {branch} --limit 5`
 2. Get failing job: `gh api repos/{owner}/{repo}/actions/runs/{id}/jobs | jq '.jobs[] | select(.conclusion == "failure")'`
 3. Get logs: `gh run view {id} --repo owner/repo --log-failed`
 
@@ -100,10 +100,11 @@ These files are internal task trackers and should never receive Copilot review c
 - User expressed frustration about repeated issues
 
 **How to create a skill**:
-1. Identify the trigger condition
-2. Document the correct steps
-3. Add common failure patterns
-4. Add to the relevant section of this file
+1. From the repository root, create `.github/skills/{skill-name}/SKILL.md`. Use a lower-case, hyphenated name.
+2. Add YAML front matter with `name` and `description`. Describe when the skill applies in `description`.
+3. Document the procedure and relevant failure patterns in the Markdown body. Keep repository-wide guidance in this instruction file.
+
+See [GitHub's agent skill authoring guide](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills). The [original numbered reference notes](https://github.com/stranske/Workflows/tree/22d88412465618d2616b886e7272d146b7e7c2f8/templates/consumer-repo/.github/copilot-skills) remain available for manual reference.
 
 ---
 
