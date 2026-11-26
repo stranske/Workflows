@@ -39,10 +39,22 @@ Start at the issue and linked PR. Read the opener's start comment, PR labels, cu
 
 ## Replay routing acceptance evidence
 
-The [recorded acceptance report](../evidence/issue-3988/acceptance.md) and its complete packet live under `evidence/issue-3988/`. From a disposable checkout, use the repository-selected Python.
+The [issue 3988 acceptance packet](https://github.com/stranske/Workflows/tree/e1b5c5284108b94eacaab658cfcc60196c2dd0ce/artifacts/issue-3988) is preserved at its immutable revision. [Issue 4515](https://github.com/stranske/Workflows/issues/4515) cites the original paths and commands.
+
+Recover the packet in a disposable Git directory and run the recorded replay with the repository-selected Python.
 
 ```sh
-python -B evidence/issue-3988/collect_observations.py --from-saved
+replay_dir=$(mktemp -d)
+packet_rev=e1b5c5284108b94eacaab658cfcc60196c2dd0ce
+roster_rev=3e7f75d3750e54a1453cf9ea0ce4ed048bf24288
+git init -q "$replay_dir"
+git -C "$replay_dir" fetch --depth=1 https://github.com/stranske/Workflows.git "$packet_rev" "$roster_rev"
+git -C "$replay_dir" checkout "$packet_rev" -- artifacts/issue-3988
+(
+  cd "$replay_dir"
+  python -B -m unittest discover -s artifacts/issue-3988 -p test_collect_observations.py
+  python -B artifacts/issue-3988/collect_observations.py --from-saved
+)
 ```
 
-This command reads the saved histories and rewrites the local routing report. The recorded result is 17 of 51 with complete coverage. The [historical revision](https://github.com/stranske/Workflows/tree/e1b5c5284108b94eacaab658cfcc60196c2dd0ce/artifacts/issue-3988) preserves the original paths and commands cited by [issue 4515](https://github.com/stranske/Workflows/issues/4515).
+The fetch acquires both the packet and the Git revision that defines its roster. For offline recovery, replace the remote URL with a local Workflows repository containing both revisions. Replay uses the saved histories and rewrites the report in the disposable directory. The recorded result is 17 of 51 with complete coverage.

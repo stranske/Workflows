@@ -593,6 +593,10 @@ The Agents 72 worker was replayed on 52 closed Workflows issues. Moving the ledg
 
 The [Python CI starter](../../templates/workflow-templates/) now has a distribution directory under `templates/`. In its previous layout, publishing the bundle as shipped left the custom gallery icon unresolved. The starter retains the same reusable CI job and four input values. It now runs without inherited secrets and advertises supported dependency layouts. The [installation instructions](../../templates/README.md#python-ci-starter-for-the-github-actions-gallery) cover an individual project and an organization gallery. A clean copy resolved the icon and passed Actionlint. No organization gallery installation was observed.
 
+### Routing-acceptance packet recovery
+
+The original issue 3988 packet and its command transcripts live at their immutable revision. The [repository map](../STRUCTURE.md#replay-routing-acceptance-evidence) gives the exact two-revision recovery and offline replay command.
+
 ### Retired finalizer files
 
 The [guarded closer guide](../ops/LOCAL_LANES.md#retired-pr-finalizer) now combines all four former README and INSTALL notices and links to the original prompt and descriptor. Claude Code offered no finalizer command from either layout before the removal.
