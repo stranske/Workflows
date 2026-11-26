@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const {
   extractInstructionSegment,
   computeInstructionByteLength,
-} = require('../../../scripts/keepalive_instruction_segment.js');
+} = require('../../../scripts/keepalive-runner.js');
 
 test('extractInstructionSegment strips status bundle and reports bytes', () => {
   const body = [
