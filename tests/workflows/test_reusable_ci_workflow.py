@@ -1355,12 +1355,16 @@ def _run_finalize_check_results(
     coverage_xml: str | None = None,
     coverage_json: str | None = None,
     junit_relpath: str = "pytest-junit.xml",
+    coverage_json_relpath: str = "coverage.json",
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, str], str]:
     steps = _load_workflow()["jobs"]["tests"]["steps"]
     finalize = next(step for step in steps if step.get("id") == "finalize-tests")
     assert finalize["name"] == "Finalize check results"
     assert finalize["env"]["JUNIT_PATH"] == (
         "${{ steps.coverage_paths.outputs.junit_path || 'pytest-junit.xml' }}"
+    )
+    assert finalize["env"]["COVERAGE_JSON_PATH"] == (
+        "${{ steps.coverage_paths.outputs.coverage_json || 'coverage.json' }}"
     )
 
     work = tmp_path / "work"
@@ -1372,7 +1376,9 @@ def _run_finalize_check_results(
     if coverage_xml is not None:
         (work / "coverage.xml").write_text(coverage_xml, encoding="utf-8")
     if coverage_json is not None:
-        (work / "coverage.json").write_text(coverage_json, encoding="utf-8")
+        cov_json_target = work / coverage_json_relpath
+        cov_json_target.parent.mkdir(parents=True, exist_ok=True)
+        cov_json_target.write_text(coverage_json, encoding="utf-8")
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -1393,7 +1399,7 @@ def _run_finalize_check_results(
             "COVERAGE_ENABLED": coverage_enabled,
             "COVERAGE_MIN": coverage_min,
             "JUNIT_PATH": junit_relpath,
-            "COVERAGE_JSON_PATH": "coverage.json",
+            "COVERAGE_JSON_PATH": coverage_json_relpath,
             "GITHUB_OUTPUT": str(outputs),
             "GITHUB_STEP_SUMMARY": str(summary),
         },
@@ -1514,3 +1520,64 @@ def test_finalize_check_results_uses_neutral_coverage_wording_when_json_meets_mi
     assert "CI checks failed: coverage minimum failure" in result.stderr
     assert f"- {expected_detail}" in summary_md
     assert "< required" not in summary_md
+
+
+def test_finalize_check_results_caps_junit_output_and_handles_staged_and_malformed_reports(
+    tmp_path: Path,
+) -> None:
+    long_message = "AssertionError: " + ("x" * 240)
+    cases = [
+        f'<testcase classname="tests.test_cap" name="test_case_{idx}">'
+        f'<failure message="{long_message if idx == 0 else f"fail {idx}"}"/></testcase>'
+        for idx in range(22)
+    ]
+    capped_case = tmp_path / "capped"
+    capped_case.mkdir()
+    capped_result, capped_outputs, capped_summary = _run_finalize_check_results(
+        capped_case,
+        pytest_outcome="failure",
+        coverage_min_outcome="failure",
+        coverage_enabled="true",
+        coverage_min="70",
+        junit_xml=f'<testsuites><testsuite name="pytest">{"".join(cases)}</testsuite></testsuites>',
+        coverage_json='{"totals": {"percent_covered": 62.5}}',
+        coverage_json_relpath="artifacts/coverage/runtimes/3.14/coverage.json",
+    )
+    assert capped_result.returncode == 1
+    assert capped_outputs == {"pytest_outcome": "failure", "coverage_min_outcome": "failure"}
+    expected_truncated = f"Failed test: tests.test_cap::test_case_0 ({long_message[:197]}...)"
+    assert expected_truncated in capped_result.stderr
+    assert "Failed test: tests.test_cap::test_case_19 (fail 19)" in capped_result.stderr
+    assert "tests.test_cap::test_case_20" not in capped_result.stderr
+    assert "... and 2 more failing test(s)" in capped_result.stderr
+    assert (
+        "Coverage minimum check failed: measured 62.50% < required 70.00%" in capped_result.stderr
+    )
+    assert "CI checks failed: pytest failure coverage minimum failure" in capped_result.stderr
+    assert f"- {expected_truncated}" in capped_summary
+    assert "- ... and 2 more failing test(s)" in capped_summary
+    assert "- Coverage minimum check failed: measured 62.50% < required 70.00%" in capped_summary
+
+    malformed_case = tmp_path / "malformed"
+    malformed_case.mkdir()
+    malformed_result, malformed_outputs, malformed_summary = _run_finalize_check_results(
+        malformed_case,
+        pytest_outcome="failure",
+        coverage_min_outcome="failure",
+        coverage_enabled="true",
+        coverage_min="70",
+        junit_xml="<testsuites><broken",
+        coverage_xml="<coverage broken",
+    )
+    assert malformed_result.returncode == 1
+    assert malformed_outputs == {"pytest_outcome": "failure", "coverage_min_outcome": "failure"}
+    assert "Pytest failure without testcase failure entries in JUnit XML" in malformed_result.stderr
+    assert (
+        "Coverage minimum check failed: coverage report unavailable (required 70.00%)"
+        in malformed_result.stderr
+    )
+    assert "CI checks failed: pytest failure coverage minimum failure" in malformed_result.stderr
+    assert (
+        "- Coverage minimum check failed: coverage report unavailable (required 70.00%)"
+        in malformed_summary
+    )
