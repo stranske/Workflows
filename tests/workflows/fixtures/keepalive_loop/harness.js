@@ -78,6 +78,7 @@ async function main() {
 
   const prNumber = Number(scenario.pr_number) || 101;
   const pr = {
+    state: 'open',
     id: 100000 + prNumber,
     node_id: `PR_rate_limit_fixture_${prNumber}`,
     number: prNumber,

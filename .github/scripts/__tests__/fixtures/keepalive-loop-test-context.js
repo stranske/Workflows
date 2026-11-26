@@ -113,7 +113,7 @@ const buildGithubStub = ({
     rest: {
       pulls: {
         async get() {
-          return { data: { id: 100000 + (pr?.number || 0), node_id: `PR_fixture_${pr?.number || 0}`, ...pr, head: pr?.head || { sha: 'fixture-head' } } };
+          return { data: { state: 'open', id: 100000 + (pr?.number || 0), node_id: `PR_fixture_${pr?.number || 0}`, ...pr, head: pr?.head || { sha: 'fixture-head' } } };
         },
         async update({ body }) {
           pr.body = body;

@@ -321,6 +321,29 @@ test('normaliseConfig preserves verifier_agent / progress_review_threshold / com
   assert.equal(config.complete_gate_failure_rounds, 5);
 });
 
+test('evaluateKeepaliveLoop skips a closed pull request before Gate even with force retry', async () => {
+  const pr = {
+    number: 5235,
+    state: 'closed',
+    head: { ref: 'codex/issue-5233', sha: 'merged-head' },
+    labels: [{ name: 'agent:codex' }, { name: 'agents:keepalive' }],
+    body: prBodyFixture,
+  };
+  const github = buildGithubStub({ pr });
+  github.rest.actions.listWorkflowRuns = async () => assert.fail('closed PR must not reach Gate');
+  const context = buildContext(pr.number, 9001, {
+    eventName: 'pull_request',
+    payload: { action: 'labeled', pull_request: { number: pr.number, state: 'open' } },
+  });
+
+  const result = await evaluateKeepaliveLoop({ github, context, core: buildCore(), forceRetry: true });
+
+  assert.equal(result.action, 'skip');
+  assert.equal(result.reason, 'pr-not-open');
+  assert.equal(result.prNumber, 0);
+  assert.deepEqual(github.actions, []);
+});
+
 test('evaluateKeepaliveLoop waits when agent label is missing', async () => {
   const pr = {
     number: 101,
