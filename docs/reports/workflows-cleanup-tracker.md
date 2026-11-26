@@ -7,7 +7,7 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
-November 26, 2026 UTC. Decisions cover **3,012/5,554 files, 296/487 folders and 161/198 workflows** in the November 19 inventory. Of 27 original root files, 26 have placement decisions. The current root has 22 tracked files. The remaining root decision requires a receiving Linux lint assertion for the Actionlint executable. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Latest verified rolling comparison](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
+November 26, 2026 UTC. Decisions cover **2,956/5,554 files, 286/487 folders and 161/198 workflows** in the November 19 inventory. The owner reopened 56 file and 10 folder placement decisions for further evidence. Of 27 original root files, 21 have placement decisions. The current root has 22 tracked files. Outstanding root evidence covers the five verifier entry points and a receiving Linux lint assertion for Actionlint. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Latest verified rolling comparison](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
 
 - **Earlier twelve-hour sample through 09:40 Chicago time, November 25.** Main went from 4,770 to 4,720 tracked paths and from 99,747,169 to 97,226,347 checkout bytes. Root files stayed at 22. Published decisions changed by +104 files, +9 folders and +12 workflows. Of 40 merged cleanup Gates, 17 selected both primary jobs. 34/34 selected primary jobs met 600 seconds, with a maximum of 540 seconds. 11 whole Gates exceeded 600 seconds. Billed cost was unavailable. [Default comparison](https://github.com/stranske/Workflows/compare/fd856d39926baa878e6ff8043dcef4a3ec28d431...8fbd7dd7ecaf75ca893cf933967d24c3c1ccdbf4)
 - **First hosted handoff.** The shared-state comparison retained the first eligible handoff in Auto-Pilot on both hosts and recognized the existing experiment reservation after publication. Auto-Pilot monitored the already-open #5135 from #5136, added `agent:auto`, and recorded `REVIEW_NEEDED` in the capability assessment. The scoped read found zero new shared-opener starts. Two Cursor keepalive continuations used the existing repair PR #5135. The manual hosted opener still needs an ordinary judge and start, a Mac feedback database receipt, and restart, outage and concurrent-claim verification. [First handoff](https://github.com/stranske/Workflows/issues/5136) · [Matched shadow](https://github.com/stranske/Orchestrator/actions/runs/45554321359/job/139002622861)
@@ -126,12 +126,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked |
-| 1B · Root files | 26/27 | — | — |
-| 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
+| 1B · Root files | 21/27 | — | — |
+| 2 · Evidence and archives | 1,495/2,901 | 106/220 | — |
 | 3 · Scripts, tools and packages | 360/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 887/1,540 | 128/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,012/5,554** | **296/487** | **161/198** |
+| 4 · Workflow source trees, templates, tests and configuration | 886/1,540 | 125/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 194/334 | 21/47 | — |
+| **Total** | **2,956/5,554** | **286/487** | **161/198** |
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
@@ -595,7 +595,7 @@ The [Python CI starter](../../templates/workflow-templates/) now has a distribut
 
 ### Retired finalizer files
 
-The two former `pr-finalize` directories still lead readers to the guarded closer through their existing README and INSTALL pages. The duplicate prompts and descriptors have been retired. Claude Code offered no finalizer command from either layout before the removal. All four original files can be recovered byte-for-byte at the revision linked in the [retirement notice](../../skills/pr-finalize/README.md).
+The [guarded closer guide](../ops/LOCAL_LANES.md#retired-pr-finalizer) now combines all four former README and INSTALL notices and links to the original prompt and descriptor. Claude Code offered no finalizer command from either layout before the removal.
 
 ## Awaiting live verification
 

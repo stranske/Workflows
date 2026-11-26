@@ -31,8 +31,18 @@ Start at the issue and linked PR. Read the opener's start comment, PR labels, cu
 | [Consumer](../templates/consumer-repo) and [integration templates](../templates/integration-repo), [Renovate presets](../renovate-presets) | Material distributed to other repositories and the integration project that exercises shared CI. |
 | [Scripts](../scripts), [tools](../tools), [packages](../packages) | Workflow and operator programs, diagnostics, and libraries consumers install from a repository subdirectory. |
 | [Tests](../tests), [fixtures](../fixtures), [autofix samples](../src/trend_analysis/README.md) | Automated checks, shared inputs and deliberately defective samples used to exercise repair. |
-| [Belt ledgers](../.agents), [stub creation](../.github/workflows/reusable-agents-issue-bridge.yml), [skills](../skills), [Claude skills](../.claude/skills) | The issue bridge creates the optional `agents/` directory for new stubs. Belt records and local tool instructions have separate homes. The [stub maintenance workflow](../.github/workflows/maint-84-prune-agent-stubs.yml) owns eligible stub removal. |
+| [Belt ledgers](../.agents), [stub creation](../.github/workflows/reusable-agents-issue-bridge.yml), [Claude skills](../.claude/skills), [retired PR finalizer](ops/LOCAL_LANES.md#retired-pr-finalizer) | The issue bridge creates the optional `agents/` directory for new stubs. Belt records and local tool instructions have separate homes. The [stub maintenance workflow](../.github/workflows/maint-84-prune-agent-stubs.yml) owns eligible stub removal. |
 | [Docs index](README.md), [operator guides](ops), [archived workflows](archive/ARCHIVE_WORKFLOWS.md), [archived plans](archive/ARCHIVE_PLANS.md), [historical files](archive) | Current guides, operating procedures and the history of retired workflows and superseded plans. |
 | [Issue evidence](evidence) | Issue-specific acceptance records. The [shebang-rejection acceptance test](../tests/scripts/test_shebang_rejection_acceptance_run.py) reads the saved issue 3743 receipts. |
 | [Recovery evidence](../evidence) | Inputs for reconstructing earlier results. The [verifier recovery test](../tests/tools/test_verifier_semantic_package_recovery.py) reads the issue 3820 sources and compares the recovered obligations with the recorded contract. |
-| [Routing acceptance packet](../artifacts/issue-3988/acceptance.md) | Issue 4515 names this location. Run `python -B artifacts/issue-3988/collect_observations.py --from-saved` in a disposable checkout to reproduce the recorded routing-label result. The replay rewrites its local report. Other generated output under `artifacts/` is ignored by Git. |
+| [Routing acceptance packet](#replay-routing-acceptance-evidence) | Offline recovery for the recorded routing-label result on issue 3988. |
+
+## Replay routing acceptance evidence
+
+The [recorded acceptance report](../evidence/issue-3988/acceptance.md) and its complete packet live under `evidence/issue-3988/`. From a disposable checkout, use the repository-selected Python.
+
+```sh
+python -B evidence/issue-3988/collect_observations.py --from-saved
+```
+
+This command reads the saved histories and rewrites the local routing report. The recorded result is 17 of 51 with complete coverage. The [historical revision](https://github.com/stranske/Workflows/tree/e1b5c5284108b94eacaab658cfcc60196c2dd0ce/artifacts/issue-3988) preserves the original paths and commands cited by [issue 4515](https://github.com/stranske/Workflows/issues/4515).
