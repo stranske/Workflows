@@ -998,10 +998,24 @@ jobs:
         env:
           MODE: ${{ inputs.mode }}
           PR_NUM: ${{ inputs.pr_number }}
+          WORKFLOW_JOB_CONTEXT: ${{ toJSON(job) }}
         run: |
           set -euo pipefail
           if [ "$MODE" = keepalive ] && [ -n "$PR_NUM" ]; then
-            client=$(git -C .workflows-lib show HEAD:scripts/api_client.py | base64 | tr -d '\n')
+            # The reusable workflow and the caller's general-purpose scripts can have different refs.
+            if ! source_sha=$(jq -er '
+              select(.workflow_repository | ascii_downcase == "stranske/workflows")
+              | .workflow_sha | select(test("^[0-9a-f]{40}$"))
+            ' <<< "$WORKFLOW_JOB_CONTEXT"); then
+              echo "::error::Could not identify the defining Workflows publisher revision." >&2
+              exit 1
+            fi
+            source_file="$source_sha:scripts/api_client.py"
+            if ! git -C .workflows-lib cat-file -e "$source_file" 2>/dev/null; then
+              timeout 60s git -C .workflows-lib fetch --no-tags --depth=1 --no-write-fetch-head \
+                origin "$source_sha"
+            fi
+            client=$(git -C .workflows-lib show "$source_file" | base64 | tr -d '\n')
             printf 'api_client=%s\n' "$client" >> "$GITHUB_OUTPUT"
           fi
           cat >> "$GITHUB_OUTPUT" <<'OUT'

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 import shutil
 import subprocess
@@ -397,38 +398,60 @@ def test_watchdog_retry_rereads_pr_and_reports_no_saved_work(publisher):
     assert outputs.read_text() == "watchdog-saved=false\n"
 
 
-def test_publisher_captures_trusted_wrapper_from_git(tmp_path):
+@pytest.mark.parametrize("old_script_pin", [False, True], ids=["present", "legacy-pin"])
+def test_publisher_captures_trusted_wrapper_from_git(tmp_path, old_script_pin):
     steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["codex"]["steps"]
     prepare = next(step for step in steps if step.get("id") == "branch_publisher")
+    assert prepare["env"]["WORKFLOW_JOB_CONTEXT"] == "${{ toJSON(job) }}"
     library = tmp_path / ".workflows-lib"
-    module = library / "scripts/api_client.py"
+    origin = tmp_path / "origin" if old_script_pin else library
+    module = origin / "scripts/api_client.py"
     module.parent.mkdir(parents=True)
     canonical = (ROOT / "scripts/api_client.py").read_bytes()
+    git(origin, "init", "-q", "-b", "legacy")
+    git(origin, "config", "user.name", "Test")
+    git(origin, "config", "user.email", "test@example.invalid")
+    module.write_text("import requests  # older local script pin")
+    git(origin, "add", "scripts/api_client.py")
+    git(origin, "commit", "-qm", "legacy")
+    old_sha = git(origin, "rev-parse", "HEAD")
+    git(origin, "switch", "-qc", "publisher")
     module.write_bytes(canonical)
-    git(library, "init", "-q")
-    git(library, "add", "scripts/api_client.py")
-    git(
-        library,
-        "-c",
-        "user.name=Test",
-        "-c",
-        "user.email=test@example.invalid",
-        "commit",
-        "-qm",
-        "source",
-    )
-    module.write_text("mutated after checkout")
+    git(origin, "commit", "-qam", "publisher source")
+    source_sha = git(origin, "rev-parse", "HEAD")
+    if old_script_pin:
+        git(tmp_path, "clone", "-q", "--depth=1", "-b", "legacy", origin.as_uri(), str(library))
+        assert (
+            subprocess.run(
+                [GIT, "cat-file", "-e", source_sha], cwd=library, capture_output=True
+            ).returncode
+            != 0
+        )
+    local_sha = git(library, "rev-parse", "HEAD")
+    assert local_sha == (old_sha if old_script_pin else source_sha)
+    (library / "scripts/api_client.py").write_text("mutated after checkout")
     output = tmp_path / "publisher"
     subprocess.run(
         ["bash", "-e", "-c", prepare["run"]],
         cwd=tmp_path,
-        env={**os.environ, "MODE": "keepalive", "PR_NUM": "5232", "GITHUB_OUTPUT": str(output)},
+        env={
+            **os.environ,
+            "MODE": "keepalive",
+            "PR_NUM": "5232",
+            "GITHUB_OUTPUT": str(output),
+            "WORKFLOW_JOB_CONTEXT": json.dumps(
+                {"workflow_repository": REPO, "workflow_sha": source_sha}
+            ),
+        },
         check=True,
     )
     assert (
         base64.b64decode(output.read_text().splitlines()[0].removeprefix("api_client="))
         == canonical
     )
+    assert git(library, "rev-parse", "HEAD") == local_sha
+    assert (library / "scripts/api_client.py").read_text() == "mutated after checkout"
+    assert not (library / ".git/FETCH_HEAD").exists()
 
 
 @pytest.mark.parametrize("broken_policy", ["", "exit 0"])
