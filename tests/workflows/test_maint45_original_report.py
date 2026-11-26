@@ -9,10 +9,94 @@ from xml.etree import ElementTree
 
 import pytest
 import yaml
+from scripts.classify_test_failures import _extract_markers, classify_reports
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/maint-45-cosmetic-repair.yml"
 TARGET = "baseline[approved].py"
+
+
+def _run_junit(
+    cwd: Path, report: Path, *selectors: str, junit_family: str = "xunit1"
+) -> subprocess.CompletedProcess[str]:
+    env = os.environ | {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTHONDONTWRITEBYTECODE": "1"}
+    env.pop("PYTEST_ADDOPTS", None)
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-o",
+            f"junit_family={junit_family}",
+            f"--junitxml={report}",
+            *selectors,
+        ],
+        cwd=cwd,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=60,
+    )
+
+
+@pytest.mark.parametrize("junit_family", ["xunit1", "xunit2"])
+def test_original_junit_preserves_real_repository_cosmetic_marks(
+    tmp_path: Path, junit_family: str
+) -> None:
+    report = tmp_path / "pytest-report.xml"
+    result = _run_junit(
+        ROOT,
+        report,
+        "tests/workflows/test_autofix_pr_comment.py::test_load_json_and_coercion_helpers",
+        "tests/workflows/test_workflow_multi_failure_demo.py::test_cosmetic_failure",
+        "tests/workflows/test_workflow_multi_failure_demo.py::test_lint_failure",
+        junit_family=junit_family,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    expected = {"cosmetic"} if junit_family == "xunit1" else set()
+    assert {
+        case.get("name"): _extract_markers(case)
+        for case in ElementTree.parse(report).iter("testcase")
+    } == {
+        "test_load_json_and_coercion_helpers": expected,
+        "test_cosmetic_failure": expected,
+        "test_lint_failure": set(),
+    }
+
+
+def test_runtime_markers_and_properties_override_cosmetic_decorators(tmp_path: Path) -> None:
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    for name in ("__init__.py", "conftest.py", "_autofix_diag.py"):
+        shutil.copyfile(ROOT / "tests" / name, tests / name)
+    (tmp_path / "pytest.ini").write_text(
+        "[pytest]\naddopts = --strict-markers\nmarkers =\n    cosmetic\n    runtime\n",
+        encoding="utf-8",
+    )
+    (tests / "test_precedence.py").write_text(
+        """import pytest
+
+@pytest.mark.cosmetic
+@pytest.mark.runtime
+def test_both_decorators():
+    pytest.fail('runtime failure')
+
+@pytest.mark.cosmetic
+@pytest.mark.parametrize(('key', 'value'), [('test_markers', 'runtime'), ('marker:runtime', 'true')])
+def test_explicit_runtime_property(record_property, key, value):
+    record_property(key, value)
+    pytest.fail('runtime failure')
+""",
+        encoding="utf-8",
+    )
+    report = tmp_path / "pytest-report.xml"
+    result = _run_junit(tmp_path, report, "tests/test_precedence.py")
+    assert result.returncode == 1, result.stdout + result.stderr
+    summary = classify_reports([report], reject_repeated_failures=True)
+    assert len(summary["runtime"]) == 3
+    assert all(record["markers"] == ("cosmetic", "runtime") for record in summary["runtime"])
+    assert not summary["cosmetic"] and not summary["unknown"] and not summary["only_cosmetic"]
 
 
 @pytest.mark.parametrize(

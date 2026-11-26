@@ -13,6 +13,24 @@ if importlib.util.find_spec("requests") is None:
 from tests._autofix_diag import DiagnosticsRecorder, autofix_recorder  # noqa: F401
 
 
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Expose repair classification markers in compatible JUnit reports.
+
+    ``user_properties`` are serialized only by pytest's JUnit reporter.  Skip
+    ordinary runs and xunit2, whose schema does not allow testcase properties.
+    """
+    if not config.getoption("xmlpath", default=None) or config.getini("junit_family") not in {
+        "xunit1",
+        "legacy",
+    }:
+        return
+    for item in items:
+        for name in ("cosmetic", "runtime"):
+            entry = ("test_markers", name)
+            if item.get_closest_marker(name) is not None and entry not in item.user_properties:
+                item.user_properties.append(entry)
+
+
 @pytest.fixture
 def injection_samples() -> list[dict[str, str]]:
     import json
