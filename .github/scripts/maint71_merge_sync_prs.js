@@ -1349,7 +1349,10 @@ async function refreshStableCanaries({
           const baseState = reusable || await readCanaryRefreshState({
             withRetry, context, expectedCanaries, now, ...inputs });
           const recoveryKey = canaryRecoveryKey(candidate, baseState);
-          const state = baseState.drift_key === recoveryKey ? baseState
+          // An eligible cached recovery can be history-only. Recheck the
+          // full-plan writer and live sibling seals before requesting Maint 68.
+          const recheck = request?.plan_scope === 'full' && reusable && baseState.eligible;
+          const state = !recheck && baseState.drift_key === recoveryKey ? baseState
             : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
               ...inputs, driftKey: recoveryKey });
           const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
