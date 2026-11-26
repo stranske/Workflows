@@ -744,6 +744,7 @@ scripts:
     # Source-delta delivery must update the helper when an older consumer only
     # has the pre-consolidation trace_utils module.
     requires:
+      - scripts/langchain/response_content.py
       - scripts/langchain/trace_utils.py
 
   - source: scripts/langchain/structured_output.py
