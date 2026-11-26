@@ -108,6 +108,7 @@ def test_build_summary_comment_includes_required_sections(tmp_path: Path, monkey
         coverage_section="Extra coverage notes.",
         coverage_delta=coverage_delta,
         required_groups_env=required_groups_env,
+        triage_block=["### Failure triage", "- Unit Tests failed."],
     )
 
     assert "## Automated Status Summary" in summary
@@ -119,7 +120,27 @@ def test_build_summary_comment_includes_required_sections(tmp_path: Path, monkey
     assert "Coverage Overview" in summary
     assert "Coverage (jobs)" in summary
     assert "Coverage delta:" in summary
-    assert "Extra coverage notes." in summary
+    assert summary.endswith(
+        "Extra coverage notes.\n\n### Failure triage\n- Unit Tests failed.\n\n"
+        "_Snapshot at publication. See the linked run and required checks for final results._"
+    )
+
+
+def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
+    summary = post_ci_summary.build_summary_comment(
+        runs=[],
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section=None,
+        coverage_delta=None,
+        required_groups_env=None,
+    )
+
+    assert summary.endswith(
+        "| _(no jobs reported)_ | ⏳ pending | — |\n\n"
+        "_Snapshot at publication. See the linked run and required checks for final results._"
+    )
+    assert "_Updated automatically; will refresh" not in summary
 
 
 def test_dedupe_runs_prefers_present_and_priority() -> None:
@@ -149,6 +170,10 @@ def test_main_writes_github_output(tmp_path: Path, monkeypatch) -> None:
     output_text = output_path.read_text(encoding="utf-8")
     assert "body<<EOF" in output_text
     assert "Automated Status Summary" in output_text
+    assert output_text.splitlines()[-2:] == [
+        "_Snapshot at publication. See the linked run and required checks for final results._",
+        "EOF",
+    ]
 
 
 def test_main_runs_when_invoked_by_file_path(tmp_path: Path) -> None:
