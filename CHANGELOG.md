@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.10](https://github.com/stranske/Workflows/compare/v1.52.9...v1.52.10) (2026-11-26)
+
+
+### Bug Fixes
+
+* report the required Gate Python runtime results ([#5213](https://github.com/stranske/Workflows/issues/5213)) ([b2504db](https://github.com/stranske/Workflows/commit/b2504db5c790b675fe84acbed622900736601560))
+
 ## [1.52.9](https://github.com/stranske/Workflows/compare/v1.52.8...v1.52.9) (2026-11-26)
 
 
