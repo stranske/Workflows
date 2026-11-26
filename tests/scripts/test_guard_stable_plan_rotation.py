@@ -473,3 +473,81 @@ removals:
     assert rejected.returncode == 1
     assert "Directory content differs from sync plan: scripts/runner_lib" in rejected.stderr
     assert not (tmp_path / "sync_targets.txt").exists()
+
+
+@pytest.mark.parametrize(
+    ("prune", "repo", "dry_run", "selected", "deleted"),
+    [
+        (True, "example/receiver", False, True, True),
+        (True, "example/receiver", True, True, False),
+        (False, "example/receiver", False, False, False),
+        (True, "example/skipped", False, False, False),
+    ],
+    ids=["apply", "preview", "copy-only", "skipped"],
+)
+def test_maint68_directory_pruning_reports_and_stages_only_tracked_surplus(
+    tmp_path: Path, prune: bool, repo: str, dry_run: bool, selected: bool, deleted: bool
+) -> None:
+    source = tmp_path / "workflows"
+    source.mkdir()
+    _git(source, "init", "-q")
+    package = ".github/scripts/node_modules/balanced-match"
+    root = Path(__file__).resolve().parents[2]
+    for path in [f"{package}/package.json", "scripts/sync_status_file_ignores.py"]:
+        _write(source, path, (root / path).read_text())
+    _git(source, "add", "-f", ".")
+    manifest = source / ".github/sync-manifest.yml"
+    entry = {
+        "source": package,
+        "description": "Vendored package",
+        "is_directory": True,
+        "skip_repos": ["example/skipped"],
+    }
+    if prune:
+        entry["prune"] = True
+    manifest.write_text(yaml.safe_dump({"version": 1, "scripts": [entry]}))
+    plan = compile_manifest(manifest).to_plan()
+    _write(tmp_path, "manifest.json", json.dumps(plan))
+
+    consumer, _, _ = _repo_with_pending_delivery(tmp_path)
+    stale = f"{package}/index.js"
+    symlink = f"{package}/old-link"
+    missing = f"{package}/removed-earlier"
+    for path in [stale, missing, f"{package}/package.json"]:
+        _write(consumer, path, "old\n")
+    (consumer / symlink).symlink_to("missing")
+    _git(consumer, "add", "-f", package)
+    _git(consumer, "commit", "-qm", "tracked consumer package")
+    (consumer / missing).unlink()
+    untracked = f"{package}/local.txt"
+    _write(consumer, untracked, "local\n")
+    code = _maint68_step("Detect and apply changes")
+    script = code.split("<< 'SYNC_SCRIPT'\n", 1)[1].split("\nSYNC_SCRIPT", 1)[0]
+    actual = subprocess.run(
+        [sys.executable, "-B", "-c", script],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "CURRENT_REPO": repo,
+            "PLAN_SCOPE": "source-delta",
+            "DRY_RUN": str(dry_run).lower(),
+            "GITHUB_OUTPUT": str(tmp_path / "outputs"),
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    inventory = (tmp_path / "sync_targets.txt").read_text().splitlines()
+    for path in [stale, symlink]:
+        assert (path in inventory) == selected
+        assert (f"removed consumer/{path}:" in actual.stdout) == selected
+        assert os.path.lexists(consumer / path) != deleted
+    assert (missing in inventory) == selected
+    assert untracked not in inventory
+    assert (consumer / untracked).read_text() == "local\n"
+    staged = _run_maint68_staging(tmp_path)
+    assert staged.returncode == 0, staged.stderr
+    removed = _git(consumer, "diff", "--cached", "--diff-filter=D", "--name-only").splitlines()
+    # The publisher stages only on apply. A preview can also name an index-only deletion.
+    expected = ([stale, symlink] if deleted else []) + ([missing] if selected else [])
+    assert removed == sorted(expected)

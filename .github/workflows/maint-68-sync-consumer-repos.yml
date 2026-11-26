@@ -751,7 +751,31 @@ jobs:
                   raise ValueError(f'Directory content differs from sync plan: {source}')
               return files
 
+          def surplus_tracked_files(target, planned):
+              # Inspect Git leaves only. Untracked files and submodules are consumer-owned.
+              index = subprocess.check_output(
+                  ['git', '--literal-pathspecs', 'ls-files', '--stage', '-z', '--', target + '/'],
+                  cwd='consumer',
+              )
+              extra = []
+              for record in index.split(b'\0'):
+                  if not record:
+                      continue
+                  metadata, name = record.split(b'\t', 1)
+                  path = os.fsdecode(name)
+                  if metadata.startswith(b'160000 ') or path in planned:
+                      continue
+                  dst = Path('consumer') / path
+                  if any(parent.is_symlink() for parent in dst.parents):
+                      raise ValueError(f'Symlink above directory prune target: {path}')
+                  if dst.exists() and not (dst.is_symlink() or dst.is_file()):
+                      raise ValueError(f'Directory prune target is not a file: {path}')
+                  # A retry must still stage a tracked deletion already removed from disk.
+                  extra.append(path)
+              return extra
+
           directory_files = {}
+          directory_removals = {}
           targets = set()
           for item in entries:
               target = item['target']
@@ -760,7 +784,10 @@ jobs:
               if item['is_directory']:
                   files = verified_directory_files(item)
                   directory_files[target] = files
-                  targets.update((Path(target) / path).as_posix() for path in files)
+                  planned = {(Path(target) / path).as_posix() for path in files}
+                  targets.update(planned)
+                  if item.get('prune') is True:
+                      directory_removals[target] = surplus_tracked_files(target, planned)
               else:
                   targets.add(target)
           plan_scope = os.environ.get('PLAN_SCOPE', '')
@@ -779,6 +806,8 @@ jobs:
               if tracked_children:
                   child = os.fsdecode(tracked_children.split(b'\0', 1)[0])
                   raise ValueError(f'Sync file target has a tracked consumer child: {child}')
+          for obsolete in directory_removals.values():
+              targets.update(obsolete)
           targets.update(item['target'] for item in removals if item.get('target'))
           if any('\n' in path or '\r' in path for path in targets):
               raise ValueError('Sync target paths must not contain line breaks')
@@ -877,6 +906,13 @@ jobs:
                   print(f"  ⚠ Source directory missing: {src}")
                   return False
 
+              obsolete = directory_removals.get(item['target'], [])
+              for path in obsolete:
+                  dst_file = Path('consumer') / path
+                  if not dry_run:
+                      dst_file.unlink(missing_ok=True)
+                  changes.append(f"removed {dst_file}: {description}")
+
               dir_changes = []
               for rel_path in directory_files[item['target']]:
                   src_file = src / rel_path
@@ -889,7 +925,7 @@ jobs:
 
               if dir_changes:
                   changes.append(f"{dst.name}/ ({len(dir_changes)} files): {description}")
-              return len(dir_changes) > 0
+              return bool(dir_changes or obsolete)
 
           def remove_path(target_path, description):
               """Remove an obsolete path from the consumer repo."""
