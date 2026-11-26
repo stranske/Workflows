@@ -240,7 +240,8 @@ test('resolveExecutionProfile returns registry-backed codex model contract', () 
 test('active role profiles resolve model and effort without changing trial arms', () => {
   const roles = {
     'codex-coordinate': ['gpt-6.2-sol', 'medium'],
-    'codex-routine': ['gpt-5.6-terra', 'medium'],
+    'codex-routine': ['gpt-6.1-terra', 'medium'],
+    'codex-fast': ['gpt-6.1-terra', 'medium'],
     'codex-extract': ['gpt-6-luna', 'low'],
     'codex-hard': ['gpt-6.2-astra', 'medium'],
     'codex-hardest': ['gpt-6.2-astra', 'high'],
