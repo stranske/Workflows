@@ -1961,6 +1961,52 @@ function hasCampaignCommitAuthorization(authorization) {
     && authorization.rows.length > 0;
 }
 
+function formatCampaignCommitSummary({ report, authorization, expectedRepositories }) {
+  const roster = new Set(expectedRepositories);
+  const registered = report.inputs?.registered_repos;
+  if (!roster.size || !Array.isArray(registered) || !registered.length) {
+    return 'Fleet commit preflight: awaiting merge unknown, drainable now 0 (registered roster unavailable).';
+  }
+  if (roster.size !== new Set(registered).size || registered.some(repo => !roster.has(repo))) {
+    return 'Fleet commit preflight: awaiting merge unknown, drainable now 0 (registered roster mismatch).';
+  }
+
+  const results = report.results || [];
+  const byRepository = new Map(results.map(result => [`${result.owner}/${result.repo}`, result]));
+  const authorizedRepositories = new Set(authorization.rows.map(row => row.repository));
+  const prepared = authorization.rows.filter(row => !row.no_change && results.some(result =>
+    result.status === 'campaign_prepared' && `${result.owner}/${result.repo}` === row.repository
+    && Number(result.pr) === row.pr && result.head_sha === row.head_sha
+    && branchNameFromRef(result.branch) === row.branch
+    && result.delivery_generation === row.delivery_generation)).length;
+  const noChange = authorization.rows.filter(row => row.no_change).length;
+  const merged = authorization.rows.length - prepared - noChange;
+  const drainable = authorization.authorized && authorizedRepositories.size === roster.size ? prepared : 0;
+  const lines = [
+    `Fleet commit preflight: awaiting merge ${prepared}/${roster.size}, drainable now ${drainable}/${roster.size}, `
+    + `already merged ${merged}, verified no change ${noChange}.`,
+  ];
+  if (drainable) lines.push('Drainable heads still require their final exact-head merge check.');
+  if (!authorization.authorized) {
+    for (const repository of roster) {
+      if (authorizedRepositories.has(repository)) continue;
+      const result = byRepository.get(repository);
+      // Earlier reports used a seal-stage placeholder for active review debt.
+      const awaitingReviewer = result?.status === 'review_blocked'
+        && result.next_command === 'settle-review-and-seal-exact-head';
+      const owner = awaitingReviewer ? 'originating-reviewer' : result?.blocker_owner || 'maint-71';
+      const next = awaitingReviewer ? 'obtain-exact-reviewer-disposition'
+        : result?.next_command || 'recover-exact-plan-repository-evidence';
+      const subject = result?.pr ? `${repository}#${result.pr}` : repository;
+      lines.push(`- ${subject}: ${result?.status || 'missing exact-plan evidence'}; owner=${owner}; next=${next}`);
+    }
+    if (authorizedRepositories.size === roster.size) {
+      lines.push('- Fleet authorization denied; owner=maint-71; next=reconcile-exact-plan-authorization');
+    }
+  }
+  return lines.join('\n');
+}
+
 function campaignAuthorizationAllowsMerge({ authorization = {}, result = {} } = {}) {
   if (!hasCampaignCommitAuthorization(authorization)) return false;
   const repository = `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, '');
@@ -2248,6 +2294,7 @@ module.exports = {
   parseConsumerRequiredContexts,
   candidateEvidenceAllowsMutation,
   buildCampaignCommitAuthorization,
+  formatCampaignCommitSummary,
   hasCampaignCommitAuthorization,
   campaignAuthorizationAllowsMerge,
   campaignAuthorizationRowForRepository,
