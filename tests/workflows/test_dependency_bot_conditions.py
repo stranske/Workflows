@@ -10,10 +10,7 @@ WORKFLOW_ROOT = pathlib.Path(".github/workflows")
 SYNC_MANIFEST = pathlib.Path(".github/sync-manifest.yml")
 SYNC_WORKFLOW = WORKFLOW_ROOT / "maint-68-sync-consumer-repos.yml"
 OWNERSHIP_PRESET = pathlib.Path("renovate-presets/consumer-managed-paths.json")
-ACTIVE_DEPENDENCY_BOT_WORKFLOWS = (
-    WORKFLOW_ROOT / "maint-auto-label-dep-prs.yml",
-    WORKFLOW_ROOT / "maint-auto-lock-deps.yml",
-)
+DEPENDENCY_BOT_WORKFLOW = WORKFLOW_ROOT / "maint-auto-lock-deps.yml"
 RETIRED_CONSUMER_AUTOMERGE = pathlib.Path(
     "templates/consumer-repo/.github/workflows/dependabot-automerge.yml"
 )
@@ -34,23 +31,36 @@ def _workflow_source(path: pathlib.Path) -> str:
 
 
 def test_dependency_bot_workflows_gate_on_pr_author_not_trigger_actor():
-    for workflow in ACTIVE_DEPENDENCY_BOT_WORKFLOWS:
-        source = _workflow_source(workflow)
-        assert "github.event.pull_request.user.login" in source
-        assert "github.actor == 'dependabot[bot]'" not in source
-        assert "github.actor == 'renovate[bot]'" not in source
+    workflow = yaml.safe_load(_workflow_source(DEPENDENCY_BOT_WORKFLOW))
+    for job in ("label", "regenerate-lock"):
+        condition = workflow["jobs"][job]["if"]
+        for bot in ("dependabot", "renovate"):
+            assert f"github.event.pull_request.user.login == '{bot}[bot]'" in condition
+        assert "github.actor" not in condition
 
 
 def test_auto_label_concurrency_is_scoped_to_pr_number():
-    workflow = yaml.safe_load(_workflow_source(WORKFLOW_ROOT / "maint-auto-label-dep-prs.yml"))
+    assert not (WORKFLOW_ROOT / "maint-auto-label-dep-prs.yml").exists()
+    workflow = yaml.safe_load(_workflow_source(DEPENDENCY_BOT_WORKFLOW))
     assert workflow["concurrency"] == {
-        "group": "${{ github.workflow }}-${{ github.event.pull_request.number }}",
+        "group": (
+            "${{ github.event_name == 'pull_request_target'\n"
+            "    && format('Auto-label dependency PRs-{0}', github.event.pull_request.number)\n"
+            "    || format('{0}-{1}', github.workflow, github.ref) }}"
+        ),
         "cancel-in-progress": True,
     }
+    assert workflow[True]["pull_request_target"] == {"types": ["opened"]}
+    label = workflow["jobs"]["label"]
+    assert label["if"].startswith("github.event_name == 'pull_request_target' && ")
+    assert label["permissions"] == {"pull-requests": "write"}
+    assert "needs" not in label
+    (step,) = label["steps"]
+    assert step["run"] == 'gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "agents:allow-change"'
 
 
 def test_auto_lock_separates_pr_resolution_from_publication():
-    workflow = yaml.safe_load(_workflow_source(WORKFLOW_ROOT / "maint-auto-lock-deps.yml"))
+    workflow = yaml.safe_load(_workflow_source(DEPENDENCY_BOT_WORKFLOW))
     trigger = workflow[True]["pull_request"]
     assert trigger["branches"] == ["main"]
     assert set(trigger["paths"]) == {
@@ -58,9 +68,11 @@ def test_auto_lock_separates_pr_resolution_from_publication():
         "requirements.txt",
         "tools/requirements-llm.txt",
     }
-    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["permissions"] == {}
     resolve = workflow["jobs"]["regenerate-lock"]
-    assert "permissions" not in resolve
+    assert resolve["permissions"] == {"contents": "read"}
+    assert "needs" not in resolve
+    assert resolve["if"].startswith("github.event_name == 'pull_request' && ")
     assert "github.event.pull_request.head.repo.full_name == github.repository" in resolve["if"]
     for bot in ("renovate", "dependabot"):
         assert f"'{bot}[bot]' && startsWith(github.head_ref, '{bot}/')" in resolve["if"]
@@ -73,7 +85,9 @@ def test_auto_lock_separates_pr_resolution_from_publication():
     assert artifact["with"]["path"] == "requirements.lock"
     writer = workflow["jobs"]["publish-lock"]
     assert writer["needs"] == "regenerate-lock"
-    assert writer["if"] == "needs.regenerate-lock.outputs.needs_update == 'true'"
+    assert writer["if"] == (
+        "github.event_name == 'pull_request' && needs.regenerate-lock.outputs.needs_update == 'true'"
+    )
     assert writer["permissions"] == {"contents": "write", "pull-requests": "read"}
     checkout, client, download, publish = writer["steps"]
     assert checkout["with"]["ref"] == "${{ github.event.pull_request.base.sha }}"

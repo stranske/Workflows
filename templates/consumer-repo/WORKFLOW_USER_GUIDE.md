@@ -166,7 +166,7 @@ Issue: "Add user authentication"
 | `agent:needs-attention` | Human intervention required |
 | `agents:auto-pilot-pause` | Auto-pilot paused |
 | `agents:auto-pilot-failed` | Auto-pilot stopped due to errors |
-| `agents:allow-change` | Permission signal for `agents-guard`; bypasses guard-level CODEOWNER approval only for dependency-only `uses:` reference updates from Dependabot/Renovate or repository owner/member/collaborator PRs. Auto-applied to dependency-bot PRs by `maint-auto-label-dep-prs.yml`; arbitrary workflow logic edits still require review. |
+| `agents:allow-change` | Permission signal for `agents-guard`; bypasses guard-level CODEOWNER approval only for dependency-only `uses:` reference updates from Dependabot/Renovate or repository owner/member/collaborator PRs. Workflows applies it to dependency-bot PRs through the label job in `maint-auto-lock-deps.yml`; arbitrary workflow logic edits still require review. |
 | `needs-human` | Escalated to human |
 | `follow-up` | Created as follow-up to another issue/PR |
 | `duplicate` | Potential duplicate detected |
@@ -860,29 +860,11 @@ disposable checkout and inspect the proposed pin changes.
 
 ---
 
-### `maint-auto-label-dep-prs.yml` - Label dependency PRs
-**Purpose:** Auto-labels dependency-bot PRs with `agents:allow-change`
+### Dependency PR labels and lock refresh
 
-**Trigger:** When Dependabot or Renovate opens a PR
+In Workflows, `maint-auto-lock-deps.yml` labels a PR opened by Dependabot or Renovate with `agents:allow-change`. Its checkout-free label job runs independently of the lock refresh. On eligible same-repository bot PRs that change a lock input, the refresh job regenerates `requirements.lock` with its recorded compile command. A separate job commits a changed lock to the exact PR head.
 
-**Labels Applied:**
-- `agents:allow-change` (so dependency-bot protected-workflow version updates can use the guarded dependency-update lane)
-
-**Use When:** Automatic, no action needed
-
----
-
-### `maint-auto-lock-deps.yml` - Auto-lock dependency PRs
-**Purpose:** Keeps `requirements.lock` in sync on dependency-bot PRs
-
-**Trigger:** A `dependabot[bot]`/`renovate[bot]` PR changes a lock input (`pyproject.toml`, `requirements.txt`, `tools/requirements-llm.txt`)
-
-**What It Does:**
-- Re-runs the `uv pip compile` command recorded in the lock header
-- Commits the refreshed `requirements.lock` back to the PR branch if it changed
-- Workflows-local backstop to the fleet Renovate pip-compile manager
-
-**Use When:** Automatic, no action needed
+Consumer repositories use the fleet Renovate preset to refresh their locks.
 
 ---
 

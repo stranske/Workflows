@@ -7,11 +7,17 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+The November 26 family review consolidated dependency PR labeling and lock maintenance in one Workflows-local definition. The label job retains the trusted PR-open event and the lock backstop keeps its separate read, publish and exact-head checks. The old standalone writer can be removed while retaining the automatic permission that a routed bot PR uses. [Real label write](https://github.com/stranske/Workflows/actions/runs/41415863321/job/125179423860) · [Stale lock input](https://github.com/stranske/Workflows/pull/2389)
+
+Health 40, Health 42 and Maint 52 stay. Two dedicated allowlist setup steps and their checkout-root scratch files were removed. The read-only YAML and API checks and the annotated review have different audiences. [Health 42 output](https://github.com/stranske/Workflows/actions/runs/45874189200/job/140097021853) · [Maint 52 output](https://github.com/stranske/Workflows/actions/runs/45874189409/job/140096991171)
+
+The Node starter and reusable now share one version selector. The formerly failing input ran Node 20 against the locked verifier CLI on main. The two Linux Gate reports included all 25 moved metrics cases once in their new suite. [Node on main](https://github.com/stranske/Workflows/actions/runs/45882340385/job/140124517373) · [Gate reports](https://github.com/stranske/Workflows/actions/runs/45876127850)
+
 The smoke review retained the public reusable workflow and create-only installation. Dropping the PR trigger would have removed 398 registrations with zero observed runner time saved. Removing automatic installation would break variables-only onboarding and restoration. The generic command still needs an opted-in production run. Two genuine approval expirations occurred before runner allocation. [Trend attempt](https://github.com/stranske/Trend_Model_Project/actions/runs/45586894255/attempts/1) · [LMS attempt](https://github.com/stranske/learning-management-system/actions/runs/45583467132/attempts/1) · [Canonical caller and operator setup](../INTEGRATION_GUIDE.md#cross-repo-smoke-opt-in)
 
 The [runner admission change](https://github.com/stranske/Workflows/pull/5279) moves two previously observed no-write cases ahead of checkout. The [local Action-version wrapper](https://github.com/stranske/Workflows/pull/5278) was removed after four historical outputs and 54 current template inputs matched the hosted updater.
 
-November 26, 2026 UTC. The November 19 inventory now has decisions for **3,015/5,554 files, 296/487 folders and 161/198 workflows**. The original delivery checklist remains at **26/28**. The review reopened 56 file and ten folder decisions and then verified their new placements on main. Of six other forwarding pages reopened, four have since been removed and two still have live readers under review. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Twelve-hour progress and acceptance checks](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
+November 26, 2026 UTC. The [stage table](#stage-progress-and-workflow-decisions) tracks current decisions against the November 19 inventory. The original delivery checklist remains at **26/28**. The review reopened 56 file and ten folder decisions and then verified their new placements on main. Of six other forwarding pages reopened, four have since been removed and two still have live readers under review. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Twelve-hour progress and acceptance checks](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
 
 The obsolete local ChatGPT intake deployer was removed after all six approved receiving defaults matched the managed intake and the installed 282-copy, 17-removal plan reproduced byte-for-byte. All three agent routes passed on the merged tree. [Retirement #5272](https://github.com/stranske/Workflows/pull/5272) · [Template receiving commit](https://github.com/stranske/Template/commit/48b3aa12121dda6216496a4155cb184be76dd54c)
 
@@ -145,15 +151,15 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked |
+| 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 20 pending checks have a recorded structural decision |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
 | 3 · Scripts, tools and packages | 365/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 889/1,540 | 128/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 890/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,017/5,554** | **296/487** | **161/198** |
+| **Total** | **3,018/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,806 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,807 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
@@ -171,6 +177,8 @@ Completed changes include retiring four archived definitions and moving Health 4
 [Read all 198 workflow decisions, their outputs and outstanding checks](workflow-decisions.md).
 
 ## Hosted orchestration migration
+
+At 19:10 UTC on November 26, all eight recorded handoffs were closed. Seven had legacy belt receipts and zero had an attributable shared opener start (0/5). The Mac replayed all 16 calls from the hosted closer journal. The scheduled seat runs closer and sync; opener is manual. The lane operator needs the next genuine unclaimed handoff, one shared-opener start on each of five eligible issues, a timely hosted start while the Mac is offline, a restart/overlap demonstration, and a guarded exact-head close with receiving sync. Keep the 12 legacy definitions through this cutover. [Hosted opener](https://github.com/stranske/Orchestrator/actions/runs/45826140838) · [Feedback journal](https://github.com/stranske/Orchestrator/actions/runs/45844583394) · [Seat configuration](https://github.com/stranske/Orchestrator/blob/6a92d8859e09ea94ff6503b832c432c08a9118b2/.github/workflows/lane-seat.yml)
 
 **The selected design is a scheduled GitHub Actions seat running the same controller, opener, closer and sync code as the local seat. The lanes and Orchestrator own the seat build.** The shared opener judge shapes the issue and records checkable acceptance criteria. Hosted starts use keepalive. The shared closer owns verification and guarded disposition. Sync classifies and hands off work, and Maint 71 retains merge authority for sync PRs. Gate, the verifier, and the Maint 68/71/82 delivery path serve both seats. [Existing lane contracts](../ops/LOCAL_LANES.md)
 

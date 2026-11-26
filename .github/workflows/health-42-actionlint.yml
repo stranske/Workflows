@@ -61,42 +61,6 @@ jobs:
           echo "reporter=${reporter}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
 
-      - name: Compute actionlint allowlist
-        id: allowlist
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - '.github/actionlint-allowlist.txt' "$GITHUB_OUTPUT" <<'PY'
-          import sys
-          from pathlib import Path
-
-
-          def load_entries(path: Path) -> list[str]:
-              if not path.is_file():
-                  return []
-              entries: list[str] = []
-              for raw in path.read_text(encoding='utf-8').splitlines():
-                  line = raw.strip()
-                  if not line or line.startswith('#'):
-                      continue
-                  entries.append(line)
-              return entries
-
-
-          entries = load_entries(Path(sys.argv[1]))
-          args_path = Path('actionlint-allowlist.args')
-          if entries:
-              args_path.write_text(
-                  '\n'.join(f'-ignore={entry}' for entry in entries) + '\n',
-                  encoding='utf-8',
-              )
-          else:
-              args_path.write_text('', encoding='utf-8')
-
-          with Path(sys.argv[2]).open('a', encoding='utf-8') as handle:
-              handle.write(f'args_file={args_path}\n')
-          PY
-
       - name: Restore cached actionlint
         id: actionlint-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -150,16 +114,25 @@ jobs:
         id: actionlint
         shell: bash
         env:
-          ALLOWLIST_FILE: ${{ steps.allowlist.outputs.args_file }}
           REPORTER: ${{ steps.set-reporter.outputs.reporter }}
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
-          extra_args=()
-          if [ -n "${ALLOWLIST_FILE:-}" ] && [ -f "$ALLOWLIST_FILE" ]; then
-            mapfile -t extra_args < <(sed -e 's/[[:space:]]*$//' -e '/^$/d' "$ALLOWLIST_FILE")
-          fi
+          mapfile -t extra_args < <(python -I - <<'PY'
+          import sys
+          from pathlib import Path
+
+          allowlist = Path('.github/actionlint-allowlist.txt')
+          if allowlist.is_file():
+              for line in allowlist.read_text(encoding='utf-8').splitlines():
+                  entry = line.strip()
+                  if entry and not entry.startswith('#'):
+                      sys.stdout.buffer.write(f'-ignore={entry}\n'.encode('utf-8'))
+          PY
+          )
+          # mapfile does not propagate the input reader's exit status.
+          wait "$!"
 
           extra_args+=("-no-color")
 
