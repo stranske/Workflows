@@ -80,6 +80,8 @@ const SOURCE_WORKFLOWS = new Set([
   '8ff84ede3c45b5d063c72058e9ce396031ae3fc862225d53980e6d1113000330',
   // Verify tracked leaves and stage the selected paths. Source identity and artifacts are unchanged.
   '686ee6836c50bf8d3603749e76dfb5ae1a69e4232c5a323379b5646ff61400cb',
+  // Directory pruning uses the same immutable checkout, plan artifact and exact staging inventory.
+  'b926353a6aeeab767b3d73a18e76924f41a1f5e7eabf69831a832236af6f4cb9',
 ]);
 
 async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {
