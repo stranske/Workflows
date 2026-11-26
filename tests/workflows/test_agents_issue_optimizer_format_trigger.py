@@ -62,6 +62,62 @@ def test_recursion_guard_counts_only_self_dispatched_retries() -> None:
         assert "and (.displayTitle | endswith($issue))" in guard
 
 
+@pytest.mark.parametrize("path", [WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH])
+@pytest.mark.parametrize(
+    ("label", "labels", "read_status", "expected"),
+    [
+        ("agents:optimize", "sync\nagents:auto-pilot", 0, "should_run=false"),
+        ("agents:apply-suggestions", "agents:auto-pilot\nsync", 0, "should_run=false"),
+        ("agents:optimize", "", 0, "phase=analyze\nissue_number=1768\nshould_run=true"),
+        ("agents:apply-suggestions", "sync", 0, "phase=apply\nissue_number=1768\nshould_run=true"),
+        ("agents:apply-suggestions", "", 1, None),
+    ],
+)
+def test_label_phase_checks_owner_before_checkout(
+    path: Path, label: str, labels: str, read_status: int, expected: str | None, tmp_path: Path
+) -> None:
+    import os
+    import subprocess
+
+    steps = yaml.safe_load(path.read_text())["jobs"]["optimize_issue"]["steps"]
+    selector = next(step["run"] for step in steps if step.get("id") == "check")
+    gh = tmp_path / "gh"
+    gh.write_text(
+        "#!/bin/sh\n"
+        'case " $* " in\n'
+        '  *" --repo $GITHUB_REPOSITORY "*) ;;\n'
+        "  *) exit 1 ;;\n"
+        "esac\n"
+        'printf "%s\\n" "$ISSUE_LABELS"\n'
+        'exit "$LABEL_READ_STATUS"\n'
+    )
+    gh.chmod(0o755)
+    output = tmp_path / "output"
+    output.touch()
+    result = subprocess.run(
+        ["bash", "-c", selector],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env={
+            "PATH": f"{tmp_path}:{os.environ['PATH']}",
+            "EVENT_NAME": "issues",
+            "LABEL_NAME": label,
+            "EVENT_ISSUE_NUMBER": "1768",
+            "GITHUB_REPOSITORY": "example/travel",
+            "GITHUB_OUTPUT": str(output),
+            "ISSUE_LABELS": labels,
+            "LABEL_READ_STATUS": str(read_status),
+        },
+    )
+    if expected is None:
+        assert result.returncode != 0
+        assert output.read_text() == ""
+    else:
+        assert result.returncode == 0, result.stderr
+        assert output.read_text().strip() == expected
+
+
 def test_format_optimizer_rechecks_live_hold_and_exemption_state() -> None:
     for path in (WORKFLOW_PATH, CONSUMER_WORKFLOW_PATH):
         text = path.read_text(encoding="utf-8")

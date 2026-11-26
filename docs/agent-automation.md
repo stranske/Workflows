@@ -333,20 +333,7 @@ and retains the `metrics-retention-log` audit artifact for 90 days. Run the CLI 
 - **GitHub App tokens DO trigger other workflows** - no anti-recursion protection
 - The optimizer violation of "labels as status markers only" was masked until App tokens were added
 
-**Current Solution (Fixed 2026-02-06):**
-
-Added protection checks in `agents-issue-optimizer.yml` (lines 57-97):
-```yaml
-elif [[ "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
-  # Skip if auto-pilot label is present (auto-pilot manages this label for state)
-  if gh issue view "${{ github.event.issue.number }}" --json labels \
-      --jq '.labels[].name' | grep -qx 'agents:auto-pilot'; then
-    echo "should_run=false" >> "$GITHUB_OUTPUT"
-    echo "Skipping: auto-pilot label present (manages apply inline)"
-  else
-    # ... run normally for standalone use
-  fi
-```
+**Current ownership check.** The [issue optimizer](../.github/workflows/agents-issue-optimizer.yml) reads the issue’s current labels in the event repository before checkout. On a label-triggered Analyze or Apply, an issue carrying `agents:auto-pilot` stays with Auto-Pilot. A failed label read stops the standalone job before it can run either phase. An explicit operator dispatch keeps its selected phase.
 
 Same protection added for `agents:format` and `agents:optimize` labels.
 
