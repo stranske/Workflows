@@ -21,7 +21,8 @@ concurrency:
 jobs:
   moderate:
     if: >-
-      ${{ github.event.issue.pull_request && github.event.comment && github.event.comment.user }}
+      github.event.issue.pull_request && github.event.comment.user &&
+      github.event.comment.user.type != 'User'
     name: Moderate connector-authored comments
     runs-on: ubuntu-latest
     outputs:

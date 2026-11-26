@@ -2746,8 +2746,10 @@ def fork_status_packet():
     return packet
 
 
-def test_fork_status_binds_later_publisher_to_original_gate_attempt():
+@pytest.mark.parametrize("workflow_hash", reporter.FORK_WORKFLOW_HASHES)
+def test_fork_status_binds_later_publisher_to_original_gate_attempt(workflow_hash):
     packet = fork_status_packet()
+    packet["fork_publishers"][0]["workflow_sha256"] = workflow_hash
     proof = reporter.gate_status_provenance(**packet)
     assert proof[packet["statuses"][0]["id"]]["publisher_run_id"] == 701
     assert proof[packet["statuses"][0]["id"]]["run_id"] == packet["runs"][0]["id"]

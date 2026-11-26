@@ -50,7 +50,7 @@ workflows:
         reason: "Maintains a fully custom Gate workflow; never overwrite (replaces the hard-coded custom_gate_repos list in maint-68)."
 
   - source: .github/workflows/pr-00-gate-fork-status.yml
-    description: "Trusted default-branch publisher for exact-head Gate / gate statuses on fork pull requests. Create-only during staged rollout so consumer policy can be audited before replacement."
+    description: "Trusted default-branch publisher for exact-head Gate / gate statuses on fork pull requests; confirmed same-repository runs skip before checkout. Create-only during staged rollout so consumer policy can be audited before replacement."
     sync_mode: create_only
     overwrite_repos:
       - stranske/Template

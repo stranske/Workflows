@@ -24,7 +24,14 @@ concurrency:
 jobs:
   publish:
     name: publish trusted fork Gate status
-    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    # Only skip a PR when GitHub identifies one same-repository head in both
+    # the upstream run and its associated PR. Incomplete events use the publisher.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      (!github.event.repository.id ||
+       github.event.workflow_run.head_repository.id != github.event.repository.id ||
+       github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id ||
+       github.event.workflow_run.pull_requests[1].number)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted publisher

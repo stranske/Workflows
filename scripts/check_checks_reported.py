@@ -41,8 +41,12 @@ LEGACY_HELPER_SHA256 = "ba653f7e90af12b4f8651b6fb8ecb629b2703a1ed161f96f447b31db
 
 FORK_PUBLISHER_PATH = ".github/workflows/pr-00-gate-fork-status.yml"
 FORK_HELPER_PATH = ".github/scripts/gate-fork-status-publication.js"
-# Only this audited immutable workflow/helper pair can establish v1 receipts.
-FORK_WORKFLOW_SHA256 = "9ea99adebfe79ca9054d5e19e2fdcfe0b66afb39fb243ae296021c935920b43c"
+# Both audited workflow revisions use the same immutable publication helper.
+FORK_WORKFLOW_SHA256 = "a561b8155f5b7f2f375b9b665eeb9a4d5065127d578980ce1bcc41b1fde14859"
+FORK_WORKFLOW_HASHES = (
+    FORK_WORKFLOW_SHA256,
+    "9ea99adebfe79ca9054d5e19e2fdcfe0b66afb39fb243ae296021c935920b43c",
+)
 FORK_HELPER_SHA256 = "32d42d358fcd342b7e896c120f9da021d6c18fdec5172aaa9d75382c93b75fd0"
 
 # GitHub's supported pull_request and pull_request_target activity types:
@@ -981,7 +985,7 @@ def fork_publisher_provenance(
         or suite.get("head_sha") != source_head
         or (suite.get("app") or {}).get("id") != 15368
         or (suite.get("app") or {}).get("slug") != "github-actions"
-        or packet.get("workflow_sha256") != FORK_WORKFLOW_SHA256
+        or packet.get("workflow_sha256") not in FORK_WORKFLOW_HASHES
         or packet.get("helper_sha256") != FORK_HELPER_SHA256
     ):
         return None
@@ -1112,7 +1116,7 @@ def collect_fork_publishers(
         # the producer bytes to the run instead of a moving default branch.
         workflow_hash = hashlib.sha256(evidence.content(repo, FORK_PUBLISHER_PATH, sha)).hexdigest()
         helper_hash = hashlib.sha256(evidence.content(repo, FORK_HELPER_PATH, sha)).hexdigest()
-        if workflow_hash != FORK_WORKFLOW_SHA256 or helper_hash != FORK_HELPER_SHA256:
+        if workflow_hash not in FORK_WORKFLOW_HASHES or helper_hash != FORK_HELPER_SHA256:
             continue
         jobs = evidence.items(
             f"repos/{repo}/actions/runs/{ident}/attempts/{attempt}/jobs?per_page=100", "jobs"
