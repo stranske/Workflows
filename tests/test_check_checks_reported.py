@@ -2908,6 +2908,23 @@ def test_collect_fork_receipt_keeps_publisher_separate_from_event_topology(event
     assert len(result["fork_status_publishers"]) == 1
 
 
+def test_skipped_fork_publisher_requires_no_job_log():
+    packet = fork_status_packet()
+    fork = packet["fork_publishers"][0]
+    job = {**fork["jobs"][0], "conclusion": "skipped", "steps": []}
+
+    def transport(endpoint):
+        if "/actions/workflows/pr-00-gate-fork-status.yml/runs?" in endpoint:
+            return [{"total_count": 1, "workflow_runs": [fork["run"]]}]
+        if "/attempts/3/jobs?" in endpoint:
+            return [{"total_count": 1, "jobs": [job]}]
+        pytest.fail(f"Skipped publisher cannot have a receipt: {endpoint}")
+
+    evidence = reporter.Evidence(transport)
+    evidence.content = lambda repo, path, ref: Path(__file__).parents[1].joinpath(path).read_bytes()
+    assert reporter.collect_fork_publishers(evidence, packet["repo"], packet["statuses"]) == []
+
+
 def test_fork_publisher_hashes_match_immutable_audited_source():
     root = Path(__file__).parents[1]
     assert (

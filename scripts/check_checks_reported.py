@@ -1122,7 +1122,7 @@ def collect_fork_publishers(
             f"repos/{repo}/actions/runs/{ident}/attempts/{attempt}/jobs?per_page=100", "jobs"
         )
         matches = [j for j in jobs if j.get("name") == "publish trusted fork Gate status"]
-        if len(matches) != 1:
+        if len(matches) != 1 or matches[0].get("conclusion") != "success":
             continue
         job = matches[0]
         packets.append(
