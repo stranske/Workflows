@@ -118,30 +118,22 @@ jobs:
               echo "issue_number=$DISPATCH_ISSUE_NUMBER"
               echo "should_run=$should_run"
             } >> "$GITHUB_OUTPUT"
-          elif [[ "$LABEL_NAME" == "agents:optimize" ]]; then
-            # Skip if auto-pilot label is present (auto-pilot runs optimizer inline)
-            # Use pipefail to ensure gh errors cause check to fail-closed
-            if gh issue view "$EVENT_ISSUE_NUMBER" --json labels \
-                --jq '.labels[].name' | grep -qx 'agents:auto-pilot'; then
-              echo "should_run=false" >> "$GITHUB_OUTPUT"
-              echo "Skipping: auto-pilot label present (runs inline)"
-            else
-              {
-                echo "phase=analyze"
-                echo "issue_number=$EVENT_ISSUE_NUMBER"
-                echo "should_run=true"
-              } >> "$GITHUB_OUTPUT"
+          elif [[ "$LABEL_NAME" == "agents:optimize" || "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
+            if ! labels=$(gh issue view "$EVENT_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+                --json labels --jq '.labels[].name'); then
+              echo "::error::Could not check optimizer ownership for issue #$EVENT_ISSUE_NUMBER"
+              exit 1
             fi
-          elif [[ "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
-            # Skip if auto-pilot label is present (auto-pilot manages this label for state)
-            # Use pipefail to ensure gh errors cause check to fail-closed
-            if gh issue view "$EVENT_ISSUE_NUMBER" --json labels \
-                --jq '.labels[].name' | grep -qx 'agents:auto-pilot'; then
+            if grep -Fxq 'agents:auto-pilot' <<< "$labels"; then
               echo "should_run=false" >> "$GITHUB_OUTPUT"
-              echo "Skipping: auto-pilot label present (manages apply inline)"
+              echo "Skipping: auto-pilot label present (owns this phase inline)"
             else
+              phase=analyze
+              if [[ "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
+                phase=apply
+              fi
               {
-                echo "phase=apply"
+                echo "phase=$phase"
                 echo "issue_number=$EVENT_ISSUE_NUMBER"
                 echo "should_run=true"
               } >> "$GITHUB_OUTPUT"
