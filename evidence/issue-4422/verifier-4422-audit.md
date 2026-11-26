@@ -1,5 +1,22 @@
 # Verifier 4422 audit
 
+Run the offline replay examples below from the Workflows checkout root with the
+repository-selected Python. `resolve-production-surfaces` also needs the pinned
+Git objects and ancestry in the local checkout, as supplied by the
+`Fetch pinned verifier revision history` step in [reusable Python CI](../../.github/workflows/reusable-10-ci-python.yml).
+The timestamps, interpreter notes, collection commands, and results below
+record the original audit. The `initial-evidence` command contacts GitHub.
+
+Recover the original files at the published revision of PR #4483.
+
+- [Audit](https://github.com/stranske/Workflows/blob/a060b6e08b94b5a938f915ad4caf0f1cf8f45d74/verifier-4422-audit.md)
+- [Replay script](https://github.com/stranske/Workflows/blob/a060b6e08b94b5a938f915ad4caf0f1cf8f45d74/verifier_4422_audit.py)
+- [Historical campaign inputs](https://github.com/stranske/Workflows/blob/a060b6e08b94b5a938f915ad4caf0f1cf8f45d74/verifier_4422_historical.json)
+- [Multi-file PR packet](https://github.com/stranske/Workflows/blob/a060b6e08b94b5a938f915ad4caf0f1cf8f45d74/verifier_4422_live_pr.json)
+- [Post-merge report packet](https://github.com/stranske/Workflows/blob/a060b6e08b94b5a938f915ad4caf0f1cf8f45d74/verifier_4422_live_report.json)
+
+## Original audit record
+
 Audit check time: 2026-11-06T18:26:25Z. Timezone of this stamp: UTC.
 Campaign check date: 2026-10-24. Clock time on that date: unknown. Timezone of the bare date: unknown.
 Stated issue, comment, and pull-request timestamps use a Z suffix, so those instants are UTC.
@@ -19,7 +36,7 @@ Recovery commands, run on 2026-11-06:
 Reprint command, no network:
 
 ```text
-python3 verifier_4422_audit.py campaign-definition
+python3 evidence/issue-4422/verifier_4422_audit.py campaign-definition
 ```
 
 `python3` in this checkout is the repository CI interpreter, Python 3.14
@@ -235,7 +252,7 @@ Issue #4036's timeline, from the timeline API, is included because the issue was
 
 ## Initial real-input check
 
-Command:
+Command recorded at the original revision:
 
 ```text
 python3 verifier_4422_audit.py initial-evidence
@@ -329,7 +346,7 @@ All five focused tests pass, including the CLI test that verifies exit code 2 wh
 Command, no network. It reads the local git tree at the saved run's workflow SHA:
 
 ```text
-python3 verifier_4422_audit.py resolve-production-surfaces
+python3 evidence/issue-4422/verifier_4422_audit.py resolve-production-surfaces
 ```
 
 The saved evidence inside that command was collected on 2026-11-06 with:
@@ -557,7 +574,7 @@ Source issue #4063 was reopened at 2026-10-18T02:27:19Z. At run completion, 2026
 Replay command, no network:
 
 ```text
-python3 verifier_4422_audit.py live-pr-evidence
+python3 evidence/issue-4422/verifier_4422_audit.py live-pr-evidence
 ```
 
 `python3` is the repository interpreter. `/opt/anaconda3/bin/python3` is not installed here.
@@ -808,7 +825,7 @@ Source issue #4387 was closed at 2026-11-03T23:05:17Z on the timeline. The issue
 Replay command, no network:
 
 ```text
-python3 verifier_4422_audit.py live-report-acceptance
+python3 evidence/issue-4422/verifier_4422_audit.py live-report-acceptance
 ```
 
 `python3` is the repository interpreter. `/opt/anaconda3/bin/python3` is not installed here.
@@ -911,13 +928,13 @@ enough to exercise the evaluator and keep unknowns visible.
 Help documents collection and replay:
 
 ```text
-python3 verifier_4422_audit.py --help
+python3 evidence/issue-4422/verifier_4422_audit.py --help
 ```
 
 Replay command, no network:
 
 ```text
-python3 verifier_4422_audit.py historical-campaign
+python3 evidence/issue-4422/verifier_4422_audit.py historical-campaign
 ```
 
 `python3` is the repository interpreter. `/opt/anaconda3/bin/python3` is not installed here.
@@ -1329,8 +1346,8 @@ and ensures that the workflow maintains proper history depth for verifier operat
 
 Command to verify the replay against published audit (no network):
 ```text
-python3 verifier_4422_audit.py live-report-acceptance
-python3 verifier_4422_audit.py historical-campaign
+python3 evidence/issue-4422/verifier_4422_audit.py live-report-acceptance
+python3 evidence/issue-4422/verifier_4422_audit.py historical-campaign
 ```
 
 Both commands complete successfully and reproduce the published live acceptance and historical

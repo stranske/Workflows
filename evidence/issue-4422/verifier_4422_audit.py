@@ -11,13 +11,21 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 import time
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from scripts.list_registered_consumer_repos import is_owner_excluded
+EVIDENCE_DIR = Path(__file__).resolve().parent
+REPO_ROOT = EVIDENCE_DIR.parents[1]
+# Direct execution places the evidence directory on sys.path. The shared owner
+# exclusion is part of the checkout at REPO_ROOT.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.list_registered_consumer_repos import is_owner_excluded  # noqa: E402
 
 UNKNOWN = "unknown"
 WORKFLOWS_REPO = "stranske/Workflows"
@@ -341,7 +349,6 @@ def _default_runner(argv: Sequence[str], timeout: float) -> subprocess.Completed
     )
 
 
-REPO_ROOT = Path(__file__).resolve().parent
 TEMPLATE_PREFIX = "templates/consumer-repo/"
 WORKFLOWS_LIB_PREFIX = ".workflows-lib/"
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -769,9 +776,9 @@ def resolve_production_surfaces(
     }
 
 
-LIVE_PR_EVIDENCE_PATH = REPO_ROOT / "verifier_4422_live_pr.json"
-LIVE_REPORT_EVIDENCE_PATH = REPO_ROOT / "verifier_4422_live_report.json"
-HISTORICAL_EVIDENCE_PATH = REPO_ROOT / "verifier_4422_historical.json"
+LIVE_PR_EVIDENCE_PATH = EVIDENCE_DIR / "verifier_4422_live_pr.json"
+LIVE_REPORT_EVIDENCE_PATH = EVIDENCE_DIR / "verifier_4422_live_report.json"
+HISTORICAL_EVIDENCE_PATH = EVIDENCE_DIR / "verifier_4422_historical.json"
 DEFAULT_RUN_LIST_CREATED = "2026-10-18T02:30:00Z..2026-10-18T02:40:00Z"
 CAMPAIGN_CHECK_DATE = "2026-10-24"
 # Check-date clock is unknown in the recovered definition. Evaluations that need an
@@ -1865,7 +1872,7 @@ def main(argv: list[str] | None = None) -> int:
             "for that file used GitHub search and GraphQL pull-request, comment, and "
             "issue-timeline reads on stranske/Workflows and stranske/Counter_Risk only; "
             "stranske/collab-admin was excluded before any query. Replay command: "
-            "`python3 verifier_4422_audit.py historical-campaign`."
+            "`python3 evidence/issue-4422/verifier_4422_audit.py historical-campaign`."
         ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)

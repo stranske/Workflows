@@ -3,17 +3,39 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
+import sys
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 import pytest
 
-import verifier_4422_audit as audit
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
+EVIDENCE_DIR = REPO_ROOT / "evidence/issue-4422"
+AUDIT_SCRIPT = EVIDENCE_DIR / "verifier_4422_audit.py"
+AUDIT_MARKDOWN = EVIDENCE_DIR / "verifier-4422-audit.md"
+AUDIT_CLI = f"python3 {AUDIT_SCRIPT.relative_to(REPO_ROOT).as_posix()}"
+
+_AUDIT_SPEC = spec_from_file_location("verifier_4422_audit", AUDIT_SCRIPT)
+assert _AUDIT_SPEC and _AUDIT_SPEC.loader
+audit = module_from_spec(_AUDIT_SPEC)
+_AUDIT_SPEC.loader.exec_module(audit)
 
 EXCLUDED_REPO = "stranske/collab-admin"
+
+
+def _run_audit_cli(command: str, *, cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess[str]:
+    # Exercise the standalone entry point without ambient Python import paths.
+    return subprocess.run(
+        [sys.executable, "-B", "-S", str(AUDIT_SCRIPT), command],
+        cwd=cwd,
+        env={**os.environ, "PYTHONPATH": ""},
+        check=False,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_timezone_and_check_date_keep_unspecified_clock_unknown() -> None:
@@ -178,21 +200,17 @@ def test_initial_evidence_handles_non_object_json() -> None:
 def test_initial_evidence_cli_returns_exit_code_2_on_failure(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    import verifier_4422_audit as audit_module
-
-    original_default_runner = audit_module._default_runner
+    original_default_runner = audit._default_runner
 
     def failing_runner(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
         raise FileNotFoundError("gh not found")
 
-    audit_module._default_runner = failing_runner
+    audit._default_runner = failing_runner
     try:
-        import sys
-
         old_argv = sys.argv
-        sys.argv = ["verifier_4422_audit.py", "initial-evidence"]
+        sys.argv = [str(AUDIT_SCRIPT), "initial-evidence"]
         try:
-            exit_code = audit_module.main()
+            exit_code = audit.main()
         finally:
             sys.argv = old_argv
         assert exit_code == 2
@@ -203,22 +221,17 @@ def test_initial_evidence_cli_returns_exit_code_2_on_failure(
         assert len(payload["errors"]) >= 1
         assert any("command not found" in err for err in payload["errors"])
     finally:
-        audit_module._default_runner = original_default_runner
+        audit._default_runner = original_default_runner
 
 
 def test_campaign_definition_command_prints_the_record_without_network() -> None:
-    completed = subprocess.run(
-        ["python3", "verifier_4422_audit.py", "campaign-definition"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    completed = _run_audit_cli("campaign-definition")
     assert completed.returncode == 0
     assert json.loads(completed.stdout) == audit.campaign_definition()
 
 
 def test_audit_markdown_records_the_definition_and_stop_rule() -> None:
-    text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
+    text = AUDIT_MARKDOWN.read_text(encoding="utf-8")
     blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
     assert json.loads(blocks[0]) == audit.campaign_definition()
     observed = json.loads(blocks[1])
@@ -392,21 +405,15 @@ def test_resolve_production_surfaces_identifies_the_selected_run_revision() -> N
     assert re.fullmatch(r"[0-9a-f]{40}", blobs["repository"])
 
 
-def test_resolve_command_matches_the_library_and_audit_record() -> None:
-    completed = subprocess.run(
-        ["python3", "verifier_4422_audit.py", "resolve-production-surfaces"],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
+def test_resolve_command_matches_the_library_and_audit_record(tmp_path: Path) -> None:
+    completed = _run_audit_cli("resolve-production-surfaces", cwd=tmp_path)
     assert completed.returncode == 0, completed.stderr
     payload = json.loads(completed.stdout)
     assert payload == audit.resolve_production_surfaces(REPO_ROOT)
-    text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
+    text = AUDIT_MARKDOWN.read_text(encoding="utf-8")
     blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
     assert json.loads(blocks[2]) == payload
-    assert "python3 verifier_4422_audit.py resolve-production-surfaces" in text
+    assert f"{AUDIT_CLI} resolve-production-surfaces" in text
 
 
 def test_owner_excluded_repository_is_rejected_before_live_evidence_loads() -> None:
@@ -449,7 +456,7 @@ def test_workflows_lib_sha_stays_distinct_from_another_jobs_checkout() -> None:
 
 
 def test_live_packet_disagreement_remains_unresolved() -> None:
-    evidence = json.loads((REPO_ROOT / "verifier_4422_live_pr.json").read_text(encoding="utf-8"))
+    evidence = json.loads((EVIDENCE_DIR / "verifier_4422_live_pr.json").read_text(encoding="utf-8"))
     evidence["log_excerpt"] = evidence["log_excerpt"].replace(
         "reusable-agents-verifier.yml@refs/heads/main "
         "(021ec67ef580c83a88402a1574e27ea34db14dde)",
@@ -508,31 +515,19 @@ def test_live_pr_record_keeps_the_collected_packet_and_its_gaps() -> None:
 
 
 def test_live_pr_command_matches_the_saved_replay_and_audit_record() -> None:
-    completed = subprocess.run(
-        ["python3", "verifier_4422_audit.py", "live-pr-evidence"],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
+    completed = _run_audit_cli("live-pr-evidence")
     assert completed.returncode == 0, completed.stderr
     payload = json.loads(completed.stdout)
     assert payload == audit.live_pr_record()
-    help_text = subprocess.run(
-        ["python3", "verifier_4422_audit.py", "--help"],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
+    help_text = _run_audit_cli("--help")
     assert help_text.returncode == 0
     assert "live-pr-evidence" in help_text.stdout
     assert "gh run download" in help_text.stdout
     assert "does not use the network" in help_text.stdout
-    text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
+    text = AUDIT_MARKDOWN.read_text(encoding="utf-8")
     blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
     assert json.loads(blocks[3]) == payload
-    assert "python3 verifier_4422_audit.py live-pr-evidence" in text
+    assert f"{AUDIT_CLI} live-pr-evidence" in text
 
 
 def test_owner_excluded_repository_is_rejected_before_live_report_loads() -> None:
@@ -600,23 +595,11 @@ def test_live_report_replay_identifies_the_complete_post_merge_report() -> None:
 
 
 def test_live_report_command_matches_the_replay_and_audit_record() -> None:
-    completed = subprocess.run(
-        ["python3", "verifier_4422_audit.py", "live-report-acceptance"],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
+    completed = _run_audit_cli("live-report-acceptance")
     assert completed.returncode == 0, completed.stderr
     payload = json.loads(completed.stdout)
     assert payload == audit.live_report_acceptance_packet()
-    help_text = subprocess.run(
-        ["python3", "verifier_4422_audit.py", "--help"],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
+    help_text = _run_audit_cli("--help")
     assert help_text.returncode == 0
     assert "live-report-acceptance" in help_text.stdout
     assert "gh run view 41736356184 --repo stranske/Workflows --log" in help_text.stdout
@@ -624,7 +607,7 @@ def test_live_report_command_matches_the_replay_and_audit_record() -> None:
     assert "without network access" in help_text.stdout.lower() or (
         "does not use the network" in help_text.stdout
     )
-    text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
+    text = AUDIT_MARKDOWN.read_text(encoding="utf-8")
     blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
     acceptance_blocks = [
         json.loads(block)
@@ -633,24 +616,18 @@ def test_live_report_command_matches_the_replay_and_audit_record() -> None:
     ]
     assert acceptance_blocks
     assert acceptance_blocks[-1] == payload["acceptance"]
-    assert "python3 verifier_4422_audit.py live-report-acceptance" in text
+    assert f"{AUDIT_CLI} live-report-acceptance" in text
 
 
 def test_help_documents_historical_collection_and_replay() -> None:
-    help_text = subprocess.run(
-        ["python3", "verifier_4422_audit.py", "--help"],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
+    help_text = _run_audit_cli("--help")
     assert help_text.returncode == 0
     stdout = help_text.stdout
     assert "historical-campaign" in stdout
     assert "verifier_4422_historical.json" in stdout
     assert "without network access" in stdout
     assert "stranske/collab-admin" in stdout
-    assert "python3 verifier_4422_audit.py historical-campaign" in stdout
+    assert f"{AUDIT_CLI} historical-campaign" in stdout
 
 
 def test_historical_campaign_replay_keeps_unknowns_and_excludes_owner_repo() -> None:
@@ -696,18 +673,12 @@ def test_historical_campaign_rejects_owner_excluded_repository_before_load() -> 
 
 
 def test_historical_campaign_command_matches_replay_and_audit_record() -> None:
-    completed = subprocess.run(
-        ["python3", "verifier_4422_audit.py", "historical-campaign"],
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    )
+    completed = _run_audit_cli("historical-campaign")
     assert completed.returncode == 0, completed.stderr
     payload = json.loads(completed.stdout)
     assert payload == audit.historical_campaign_report()
-    text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
-    assert "python3 verifier_4422_audit.py historical-campaign" in text
+    text = AUDIT_MARKDOWN.read_text(encoding="utf-8")
+    assert f"{AUDIT_CLI} historical-campaign" in text
     assert "## Historical campaign evaluation (2026-10-24 targets)" in text
     assert "indeterminate" in text
     blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
