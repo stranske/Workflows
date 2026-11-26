@@ -1,0 +1,152 @@
+version: 1
+issue: 5227
+base: main
+branch: codex/issue-5227
+tasks:
+- id: task-01
+  title: Fix the source of the `tests/test_gate_commit_status_fork_tolerance.py` assertion failures
+    reported by `pytest + coverage shard 2/6`.
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'Root cause: tests/workflows/test_gate_commit_status_fork_tolerance.py COMMENT_RUNNER_JS stub did not wire
+    the real .github/scripts/comment-dedupe.js with matching eventHead/liveHead/resolvedHead, so the authored-head
+    guard skipped summary writes and emitted the expected warning.'
+  - 'PR #5234 extends the Workflows workflow test to load comment-dedupe.js and assert summaryWrites and head-matching
+    warnings across fork, same-repo, deleted-fork, and superseded-head scenarios.'
+- id: task-02
+  title: Reproduce the failing assertions at lines 584, 590, 598, 604, and 609 of tests/test_gate_commit_status_fork_tolerance.py
+    locally in stranske/Workflows.
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'Pre-fix repro: same authored-head skip produced summaryWrites==0 and the gate summary warning on the
+    real comment-dedupe.js path; fixed fixtures in tests/workflows/test_gate_commit_status_fork_tolerance.py.'
+- id: task-04
+  title: 'Identify why the gate summary logic finds no matching authored PR head in the fork-tolerance scenarios
+    (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'comment-dedupe.js is correct; the exec-mirror fixture omitted pull_request.head.sha / live pulls.get head
+    alignment required by expectedHead and livePr.head.sha checks.'
+- id: task-05
+  title: 'Fix the gate summary head-matching logic or the test fixtures so summaryWrites is non-zero and the
+    expected warning is absent'
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'Fixture fix only: COMMENT_RUNNER_JS now requires eventHead, liveHead, resolvedHead, and summaryHead markers
+    so summaryWrites is 1 and the authored-head warning is absent on matching heads.'
+  - 'No change to .github/scripts/comment-dedupe.js production logic.'
+- id: task-07
+  title: Verify that the fix does not change behavior for non-fork PR scenarios in the same test file
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'test_comment_with_matching_authored_head_is_silent[repo-same_repo_written] and repo rate-limit / other-error
+    scenarios remain green; python -m pytest tests/workflows/test_gate_commit_status_fork_tolerance.py -> 56 passed.'
+- id: task-08
+  title: Add or extend a regression test reproducing the failure that passes after the fix, using `pytest` or
+    `node --test` as appropriate to the source.
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'Added comment-dedupe integration cases in tests/workflows/test_gate_commit_status_fork_tolerance.py for
+    deleted_fork_head, resolved_pr_head, missing_head, superseded_head, and short-SHA head bindings.'
+- id: task-09
+  title: '`pytest + coverage shard 2/6` passes on regenerated sync PR stranske/Orchestrator#1497, verified with
+    `gh run view <run-id>`, and the repository''s test command passes locally.'
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'Post-merge / external verification; agent cannot regenerate the consumer sync PR. As of 2026-11-26 stranske/Orchestrator#1497
+    run 45784110938 job 139786451906 (pytest + coverage shard 2/6) conclusion=success.'
+- id: task-10
+  title: Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break
+    makes it pass.
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'Deliberate break (local, reverted): forced expectedHead to 0000…40 in comment-dedupe.js -> 16 failed, 40 passed;
+    reverted -> 56 passed.'
+- id: task-11
+  title: The next sync-core round classifies stranske/Orchestrator#1497 without this finding.
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'External post-merge sync-core classification; not observable by a coding agent.'
+- id: task-12
+  title: Fix the failure named in the title (`pytest + coverage shard 2/6`) at its source; the failing check's
+    log is linked under Evidence and the sync PR is stranske/Orchestrator#1497.
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'Workflows source tests now mirror consumer head-binding expectations; Orchestrator#1497 shard job 139786451906
+    is green on run 45784110938.'
+- id: task-13
+  title: Add or extend a test that reproduces the failure and passes after the fix (`pytest` or `node --test`,
+    whichever the source uses).
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'See tests/workflows/test_gate_commit_status_fork_tolerance.py COMMENT_RUNNER_JS block and test_comment_requires_current_authored_head
+    parametrizations.'
+- id: task-14
+  title: 'Acceptance criterion: `pytest + coverage shard 2/6` passes on regenerated sync PR stranske/Orchestrator#1497,
+    verified with `gh run view <run-id>` (This depends on maint-68-sync-consumer-repos.yml running and regenerating
+    the consumer PR. The agent cannot modify .github/workflows/*.yml, cannot retry CI pipelines, and cannot act on
+    the Orchestrator repo. The check can only be confirmed after merge and a sync run. | Treat this as a post-merge
+    human or automation verification step. Limit the agent''s scope to a fix in stranske/Workflows plus a local `pytest`
+    run of the affected test file. If the root cause turns out to be in a workflow YAML file, flag it for a human, because
+    that file is protected.)'
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'Deferred: consumer regeneration and gh run confirmation are post-merge only; current #1497 run 45784110938 job
+    139786451906 already passes.'
+- id: task-15
+  title: 'Acceptance criterion: the next sync-core round classifies stranske/Orchestrator#1497 without this finding.
+    (This is an external, asynchronous outcome that the agent can neither trigger nor observe. | Move this to a ''Post-merge
+    verification (human/automation)'' section and keep it out of the agent''s completion criteria.)'
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'Deferred: sync-core classification is external post-merge verification.'
+- id: task-16
+  title: "Deliberate-break \u2192 revert acceptance criterion (An agent can do this locally, but it is a verification\
+    \ procedure and not a deliverable. It cannot be checked from the final diff. | Ask the agent to record in the PR\
+    \ description which change was reverted and which test failed, or replace the criterion with a regression test that\
+    \ asserts the specific behavior.)"
+  status: done
+  started_at: '2026-11-26T07:07:34Z'
+  finished_at: '2026-11-26T10:42:00Z'
+  commit: 15c96686
+  notes:
+  - 'Recorded under task-10: break expectedHead in comment-dedupe.js (reverted before push).'
