@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.8](https://github.com/stranske/Workflows/compare/v1.52.7...v1.52.8) (2026-11-26)
+
+
+### Bug Fixes
+
+* preserve repair classification markers in pytest JUnit ([#5204](https://github.com/stranske/Workflows/issues/5204)) ([bfd78db](https://github.com/stranske/Workflows/commit/bfd78dbd4d584fdcba4f01fcee8d6366ba3869cc))
+
 ## [1.52.7](https://github.com/stranske/Workflows/compare/v1.52.6...v1.52.7) (2026-11-26)
 
 
