@@ -108,6 +108,7 @@ def test_build_summary_comment_includes_required_sections(tmp_path: Path, monkey
         coverage_section="Extra coverage notes.",
         coverage_delta=coverage_delta,
         required_groups_env=required_groups_env,
+        triage_block=["### Failure triage", "- Unit Tests failed."],
     )
 
     assert "## Automated Status Summary" in summary
@@ -119,7 +120,10 @@ def test_build_summary_comment_includes_required_sections(tmp_path: Path, monkey
     assert "Coverage Overview" in summary
     assert "Coverage (jobs)" in summary
     assert "Coverage delta:" in summary
-    assert "Extra coverage notes." in summary
+    assert summary.endswith(
+        "Extra coverage notes.\n\n### Failure triage\n- Unit Tests failed.\n\n"
+        "_Snapshot at publication. See the linked run and required checks for final results._"
+    )
 
 
 def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
