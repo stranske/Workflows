@@ -415,6 +415,10 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         fork_read_only_resolved_head: await runCase({
           ...READ_ONLY_FORK, eventHead: null, resolvedHead: HEAD_SHA,
         }),
+        fork_read_only_resolved_head_legacy_summary: await runCase({
+          ...READ_ONLY_FORK, eventHead: null, resolvedHead: NEXT_HEAD_SHA,
+          liveHead: NEXT_HEAD_SHA, summaryHead: null,
+        }),
         fork_read_only_resolved_stale_event: await runCase({
           ...READ_ONLY_FORK, eventHead: 'd'.repeat(40), resolvedHead: HEAD_SHA,
         }),
@@ -522,6 +526,7 @@ def test_comment_fork_read_only_403_does_not_fail_the_gate(
         "fork_read_only_legacy_summary",
         "fork_read_only_new_head",
         "fork_read_only_resolved_head",
+        "fork_read_only_resolved_head_legacy_summary",
         "fork_read_only_resolved_stale_event",
         "fork_read_only_positive_quota",
     ],
