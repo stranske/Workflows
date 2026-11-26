@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.16](https://github.com/stranske/Workflows/compare/v1.52.15...v1.52.16) (2026-11-26)
+
+
+### Bug Fixes
+
+* **sync:** wake a held fleet campaign after review clears ([#5270](https://github.com/stranske/Workflows/issues/5270)) ([eda9c15](https://github.com/stranske/Workflows/commit/eda9c15ef028899eba06fa707adac2ea4a86d897))
+
 ## [1.52.15](https://github.com/stranske/Workflows/compare/v1.52.14...v1.52.15) (2026-11-26)
 
 
