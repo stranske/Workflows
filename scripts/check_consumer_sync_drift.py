@@ -8,6 +8,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -482,6 +483,80 @@ def build_top_repo_gaps(
     return sorted(gaps, key=lambda item: (-int(item["total"]), str(item["repo"])))[:limit]
 
 
+def read_sync_marker(body: str, marker: str) -> dict[str, object]:
+    """Read one producer-owned JSON comment using its canonical line format."""
+    prefix = f"<!-- {marker} "
+    lines = [line for line in body.splitlines() if line.startswith(prefix)]
+    if len(lines) != 1 or not lines[0].endswith(" -->"):
+        return {}
+    try:
+        value = json.loads(lines[0][len(prefix) : -4])
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def observed_sync_plan_id(
+    item: dict[str, object], *, repo: str, branch: str, head_sha: object, head_repo: object
+) -> str | None:
+    """Bind existing producer metadata to the API's same-repository PR head."""
+    base = item.get("base")
+    base_repo = base.get("repo") if isinstance(base, dict) else None
+    if (
+        branch not in {SYNC_CANDIDATE_BRANCH, SYNC_DELIVERY_BRANCH}
+        or head_repo != repo
+        or not isinstance(base_repo, dict)
+        or base_repo.get("full_name") != repo
+        or not isinstance(head_sha, str)
+        or not re.fullmatch(r"[0-9a-f]{40}", head_sha)
+    ):
+        return None
+    labels = item.get("labels")
+    label_names = (
+        {str(label.get("name", "")).lower() for label in labels if isinstance(label, dict)}
+        if isinstance(labels, list)
+        else set()
+    )
+    if not {"sync", "automated"} <= label_names or label_names.isdisjoint(
+        {
+            "workflow:source-sync",
+            "workflow_source_sync",
+            "workflow:source-maintenance",
+            "workflow_source_maintenance",
+        }
+    ):
+        return None
+    body = item.get("body")
+    if not isinstance(body, str):
+        return None
+
+    metadata = read_sync_marker(body, "workflows-consumer-sync:v1")
+    delivery = read_sync_marker(body, "sync-pr-delivery-record:v1")
+    plan_id = metadata.get("plan_id")
+    source_commit = metadata.get("source_commit")
+    if (
+        metadata.get("schema") == "workflows-consumer-sync-pr/v1"
+        and metadata.get("source_repository") == "stranske/Workflows"
+        and metadata.get("consumer_repo") == repo
+        and metadata.get("sync_branch") == branch
+        and isinstance(source_commit, str)
+        and re.fullmatch(r"[0-9a-f]{40}", source_commit)
+        and metadata.get("source_sha") == source_commit
+        and isinstance(plan_id, str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", plan_id)
+        and delivery.get("schema") == "sync-pr-delivery-record/v1"
+        and delivery.get("repository") == repo
+        and delivery.get("plan_id") == plan_id
+        and delivery.get("source_commit") == source_commit
+        and delivery.get("head_observed_sha") == head_sha
+        and parse_github_timestamp(delivery.get("head_observed_at")) is not None
+        and delivery.get("delivery_state") in ("staging", "reviewing", "sealed")
+        and not delivery.get("terminal_disposition")
+    ):
+        return plan_id
+    return None
+
+
 def fetch_open_sync_prs(
     session: requests.Session, repo: str
 ) -> tuple[list[dict[str, object]], str | None]:
@@ -502,6 +577,13 @@ def fetch_open_sync_prs(
         if not branch.startswith(SYNC_BRANCH_PREFIX):
             continue
         head_repo = head.get("repo") if isinstance(head.get("repo"), dict) else {}
+        plan_id = observed_sync_plan_id(
+            item,
+            repo=repo,
+            branch=branch,
+            head_sha=head.get("sha"),
+            head_repo=head_repo.get("full_name"),
+        )
         prs.append(
             {
                 "repo": repo,
@@ -513,6 +595,7 @@ def fetch_open_sync_prs(
                 "head_repo": head_repo.get("full_name", ""),
                 "created_at": item.get("created_at", ""),
                 "updated_at": item.get("updated_at", ""),
+                **({"plan_id": plan_id} if plan_id else {}),
             }
         )
     prs.sort(
@@ -549,6 +632,7 @@ def build_remediation_states(
     open_sync_prs: list[dict[str, object]],
     sync_pr_lookup_errors: list[str],
     expected_branch: str,
+    current_plan_id: str,
     candidate_repos: set[str] | None = None,
     global_errors: list[str] | None = None,
     now: datetime | None = None,
@@ -602,7 +686,10 @@ def build_remediation_states(
         current = [
             pr
             for pr in prs_by_repo[repo]
-            if pr.get("branch") == repo_expected_branch and pr.get("head_repo") == repo
+            if pr.get("branch") == repo_expected_branch
+            and pr.get("head_repo") == repo
+            and bool(current_plan_id)
+            and pr.get("plan_id") == current_plan_id
         ]
         fresh = []
         for pr in current:
@@ -703,6 +790,7 @@ def build_report(
         open_sync_prs=open_sync_prs,
         sync_pr_lookup_errors=sync_pr_lookup_errors,
         expected_branch=expected_branch,
+        current_plan_id=current_plan_id,
         candidate_repos=candidate_repos,
         global_errors=global_errors,
         now=now,

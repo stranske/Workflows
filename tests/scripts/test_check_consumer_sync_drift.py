@@ -1228,6 +1228,7 @@ def test_build_report_marks_current_sync_pr_as_covered() -> None:
                 "url": "https://github.com/owner/repo/pull/12",
                 "branch": "sync/workflows-delivery",
                 "head_repo": "owner/repo",
+                "plan_id": "sha256:" + "a" * 64,
                 "updated_at": "2026-04-26T01:00:00Z",
             }
         ],
@@ -1248,6 +1249,7 @@ def test_build_report_accepts_the_stable_candidate_branch_only_for_canaries() ->
         "url": "https://github.com/owner/canary/pull/13",
         "branch": "sync/workflows-candidate",
         "head_repo": "owner/canary",
+        "plan_id": "sha256:" + "a" * 64,
         "updated_at": "2026-04-26T01:00:00Z",
     }
     report = check_consumer_sync_drift.build_report(
@@ -1271,6 +1273,98 @@ def test_build_report_accepts_the_stable_candidate_branch_only_for_canaries() ->
     assert states["owner/regular"]["state"] == "untracked_drift"
     assert states["owner/regular"]["expected_branch"] == "sync/workflows-delivery"
     assert "-f phase=preview" in report["follow_up"]["targeted_repos_command"]
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "current",
+        "maintenance-source-label",
+        "staged-canary",
+        "older-plan",
+        "wrong-head",
+        "visible-text-only",
+        "missing-delivery-record",
+        "duplicate-delivery-record",
+        "conflicting-plans",
+        "foreign-source",
+        "fork",
+        "unlabelled",
+        "terminal-record",
+    ],
+)
+def test_sync_coverage_requires_a_current_plan_bound_to_the_api_head(case: str) -> None:
+    repo = "stranske/Template"
+    plan = "sha256:" + "a" * 64
+    head = "e" * 40
+    source = "1" * 40
+    is_canary = case == "staged-canary"
+    branch = "sync/workflows-candidate" if is_canary else "sync/workflows-delivery"
+    meta = {
+        "schema": "workflows-consumer-sync-pr/v1",
+        "consumer_repo": repo,
+        "source_repository": "stranske/Workflows" if case != "foreign-source" else "owner/other",
+        "source_sha": source,
+        "source_commit": source,
+        "plan_id": plan,
+        "sync_branch": branch,
+    }
+    record = {
+        "schema": "sync-pr-delivery-record/v1",
+        "repository": repo,
+        "head_observed_sha": head if case != "wrong-head" else "0" * 40,
+        "head_observed_at": "2026-11-26T06:42:22Z",
+        "source_commit": source,
+        "plan_id": plan if case != "conflicting-plans" else "sha256:" + "c" * 64,
+        "delivery_state": "staging" if is_canary else "sealed",
+        "terminal_disposition": "superseded" if case == "terminal-record" else "",
+    }
+    source_label = (
+        "workflow:source-maintenance"
+        if case == "maintenance-source-label"
+        else "workflow:source-sync"
+    )
+    label_names = ["sync", "automated", source_label]
+    metadata = f"<!-- workflows-consumer-sync:v1 {json.dumps(meta)} -->"
+    delivery = f"<!-- sync-pr-delivery-record:v1 {json.dumps(record)} -->"
+    visual = f"**Consumer-sync plan ID:** `{plan}`"
+    body = {
+        "visible-text-only": visual,
+        "missing-delivery-record": f"{visual}\n{metadata}",
+        "duplicate-delivery-record": f"{metadata}\n{delivery}\n{delivery}",
+    }.get(case, f"{visual}\n{metadata}\n{delivery}")
+    item = {
+        "number": 1122,
+        "body": body,
+        "base": {"repo": {"full_name": repo}},
+        "head": {
+            "ref": branch,
+            "sha": head,
+            "repo": {"full_name": repo if case != "fork" else "fork/Template"},
+        },
+        "labels": [{"name": name} for name in label_names if case != "unlabelled"],
+        "updated_at": "2026-11-26T06:50:31Z",
+    }
+    session = _Session([_Response(payload=[item])])
+    prs, error = check_consumer_sync_drift.fetch_open_sync_prs(session, repo)
+    assert error is None
+    report = check_consumer_sync_drift.build_report(
+        repos=[repo],
+        drift={f"{repo}: WORKFLOW_USER_GUIDE.md"},
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        open_sync_prs=prs,
+        current_plan_id=plan if case != "older-plan" else "sha256:" + "b" * 64,
+        candidate_repos={repo} if is_canary else set(),
+        now=datetime(2026, 11, 26, 9, 41, 55, tzinfo=UTC),
+    )
+    expected = (
+        "covered"
+        if case in {"current", "staged-canary", "maintenance-source-label"}
+        else "untracked_drift"
+    )
+    assert report["sync_remediation"]["repo_states"][repo]["state"] == expected
 
 
 def test_build_report_blocks_unattributed_errors_and_empty_repo_sets() -> None:
@@ -1312,6 +1406,7 @@ def test_build_report_rejects_stale_or_untrusted_coverage() -> None:
         "number": 12,
         "branch": "sync/workflows-delivery",
         "head_repo": "owner/repo",
+        "plan_id": "sha256:" + "a" * 64,
     }
     report = check_consumer_sync_drift.build_report(
         repos=["owner/repo"],
@@ -1364,6 +1459,7 @@ def test_build_report_sync_pr_coverage_lease_boundary(
         "number": 12,
         "branch": "sync/workflows-delivery",
         "head_repo": "owner/repo",
+        "plan_id": "sha256:" + "a" * 64,
         "updated_at": "2026-04-25T00:00:00Z",
     }
     # Pin the public 36-hour lease independently of the implementation constant.
@@ -2733,6 +2829,7 @@ def test_build_remediation_states_ignores_prs_for_unknown_repos() -> None:
         ],
         sync_pr_lookup_errors=[],
         expected_branch="sync/workflows-delivery",
+        current_plan_id="sha256:" + "a" * 64,
         now=datetime(2026, 4, 26, 2, 0, tzinfo=UTC),
     )
 
