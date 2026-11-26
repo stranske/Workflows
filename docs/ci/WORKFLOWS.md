@@ -6,7 +6,7 @@ This is the authoritative inventory of active Workflows entry points. When addin
 
 Maint 66’s **Workflows Not Run This Period** section matches **workflow paths** (`.github/workflows/<file>.yml`), not expanded `run-name` or quoted `name:` headers. Callable-only definitions with no independent `on:` trigger are skipped, same as the `workflow_inventory_audit` helper (`scripts/workflow_inventory_audit.py`). The [November 2026 audit](../archive/audits/WORKFLOW_AUDIT_2026-11-19.md) classified the former ~100 false-positive rows; the only confirmed retirement from that review is Maint 47 disable-legacy-workflows ([#4771](https://github.com/stranske/Workflows/pull/4771)) (see [archive ledger](../archive/ARCHIVE_WORKFLOWS.md#november-2026-retirement-issue-4770--pr-4771)).
 
-## Archived workflows {#archived-workflows}
+## Archived workflows
 
 Recent retirements documented in the [archive ledger](../archive/ARCHIVE_WORKFLOWS.md):
 
@@ -281,7 +281,9 @@ recovery contract in `docs/ops/CONSUMER_REPO_MAINTENANCE.md`.
 
 The agent workflows coordinate Codex and chat orchestration across topics:
 
-Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workflow. The default consumer installation uses the consumer-template `agents-80-pr-event-hub.yml` PR event hub and `agents-81-gate-followups.yml` workflows (plus `agents-verifier.yml`, `pr-00-gate.yml`, `AGENTS.md`, and `CLAUDE.md`).
+Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workflow. The default consumer installation uses the consumer-template [`agents-80-pr-event-hub.yml`](../../templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml) PR event hub and [`agents-81-gate-followups.yml`](../../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml) workflows (plus `agents-verifier.yml`, `pr-00-gate.yml`, `AGENTS.md`, and `CLAUDE.md`).
+
+To find hosted workflows that read PR context, run `python scripts/workflow_pr_context_audit.py --only-pr-context` from the repository root.
 
 * [`agents-73-codex-belt-conveyor-dispatch.yml`](../../.github/workflows/agents-73-codex-belt-conveyor-dispatch.yml) is the source-only manual belt promotion entry point: `workflow_dispatch` only, default `dry_run` preview, paid-budget preflight, live eligibility selection, bounded merges, and a call into [`agents-73-codex-belt-conveyor.yml`](../../.github/workflows/agents-73-codex-belt-conveyor.yml). No schedule and no automatic writer. The retired Agents 70 and Reusable 16 stack is documented as qualified history in [`docs/AGENTS_POLICY.md`](../AGENTS_POLICY.md).
 * [`agents-model-profile-trial.yml`](../../.github/workflows/agents-model-profile-trial.yml) is the manual single-arm dispatch shim for the frozen Astra/Sol/Terra/Luna plumbing canary (`profile_id` choices include `codex-6-astra-high` at lines 26–30). The shim calls only the exact reusable-workflow commit recorded in `.github/agents/registry.yml` (for example `runner_ref: …reusable-model-profile-trial.yml@b06c6d16…` at line 24); three-arm ordering and capacity reservation remain Orchestrator responsibilities.

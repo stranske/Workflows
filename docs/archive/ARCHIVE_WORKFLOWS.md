@@ -16,7 +16,7 @@ Compare a path against the default branch and the workflow’s run history befor
 
 Maint 47 previously advertised a disable sweep. Its [manual workflow](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/.github/workflows/maint-47-disable-legacy-workflows.yml) invoked a [helper](https://github.com/stranske/Workflows/blob/6e8e0b35ba6ff0afc8caf47cd016ca1f4f576a39/tools/disable_legacy_workflows.py) with stubbed list and update methods and no command-line entry point. GitHub reported zero runs before retirement.
 
-### November 2026 retirement (Issue #4770 / PR #4771) {#november-2026-retirement-issue-4770--pr-4771}
+### November 2026 retirement (Issue #4770 / PR #4771)
 
 | Removed workflow | Reason | Replacement |
 |------------------|--------|-------------|
