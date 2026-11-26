@@ -76,6 +76,7 @@ def test_hosted_body_fingerprint_skips_only_verified_release_prs(
             "repo": {"full_name": "example/repo" if same_repo else "fork/repo"},
         },
     }
+    denied_response = io.BytesIO()
 
     def api(request, *, timeout):
         assert request.get_method() == "GET"
@@ -86,7 +87,7 @@ def test_hosted_body_fingerprint_skips_only_verified_release_prs(
         else:
             assert request.selector.endswith(f"/commits/{head}/pulls")
             if associated_pr is None:
-                raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", {}, None)
+                raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", {}, denied_response)
             payload = [{"number": associated_pr}]
         return io.BytesIO(json.dumps(payload).encode())
 
@@ -101,6 +102,8 @@ def test_hosted_body_fingerprint_skips_only_verified_release_prs(
         assert "reason=release-please-pr" in step["run"]
     else:
         assert json.loads(output)["head_sha"] == head
+    if event == "workflow_run" and associated_pr is None:
+        assert denied_response.closed
 
 
 def test_keepalive_detection_dispatches_orchestrator() -> None:

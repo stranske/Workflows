@@ -574,6 +574,7 @@ jobs:
                       return json.loads(response.read().decode("utf-8"))
               except urllib.error.HTTPError as exc:
                   if default is not None and exc.code in (403, 404):
+                      exc.close()
                       return default
                   raise
 
