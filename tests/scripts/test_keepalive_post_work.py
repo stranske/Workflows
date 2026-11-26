@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-FIXTURES_DIR = Path(__file__).resolve().parents[3] / "tests/workflows/fixtures/keepalive_post_work"
+FIXTURES_DIR = Path(__file__).resolve().parents[2] / "tests/workflows/fixtures/keepalive_post_work"
 HARNESS = FIXTURES_DIR / "harness.js"
 STATE_COMMENT_PREFIX = "<!-- keepalive-state:v1"
 
