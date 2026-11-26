@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.14](https://github.com/stranske/Workflows/compare/v1.52.13...v1.52.14) (2026-11-26)
+
+
+### Bug Fixes
+
+* **health85:** stop publishing evidence for a closed delivery issue ([#5256](https://github.com/stranske/Workflows/issues/5256)) ([e5d706d](https://github.com/stranske/Workflows/commit/e5d706d5ae900abeb4def305125c06713a718dbc))
+
 ## [1.52.13](https://github.com/stranske/Workflows/compare/v1.52.12...v1.52.13) (2026-11-26)
 
 
