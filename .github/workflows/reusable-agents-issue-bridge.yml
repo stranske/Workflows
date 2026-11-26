@@ -1343,7 +1343,12 @@ jobs:
             );
 
       - name: Populate PR body context section
-        if: ${{ steps.ctx.outputs.has_issue == 'true' && steps.mode.outputs.mode != 'invite' && steps.pr.outputs.number != '' }}
+        # The shared updater does not resolve a PR from an Issues event.
+        if: >-
+          ${{ github.event_name != 'issues' &&
+              steps.ctx.outputs.has_issue == 'true' &&
+              steps.mode.outputs.mode != 'invite' &&
+              steps.pr.outputs.number != '' }}
         uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
