@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.12](https://github.com/stranske/Workflows/compare/v1.52.11...v1.52.12) (2026-11-26)
+
+
+### Bug Fixes
+
+* bind consumer drift coverage to the current sync plan ([#5245](https://github.com/stranske/Workflows/issues/5245)) ([2cdcb6b](https://github.com/stranske/Workflows/commit/2cdcb6b3e7829eeb2f92acea3016007b6ef24a44))
+
 ## [1.52.11](https://github.com/stranske/Workflows/compare/v1.52.10...v1.52.11) (2026-11-26)
 
 
