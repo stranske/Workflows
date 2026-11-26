@@ -1,0 +1,146 @@
+version: 1
+issue: 5227
+base: main
+branch: codex/issue-5227
+tasks:
+  - id: task-01
+    title: Fix the source of the `tests/test_gate_commit_status_fork_tolerance.py`
+      assertion failures reported by `pytest + coverage shard 2/6`.
+    status: doing
+    started_at: '2026-11-26T07:07:34Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Reproduce the failing assertions at lines 584, 590, 598, 604 (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: '609 of tests/test_gate_commit_status_fork_tolerance.py locally in stranske/Workflows
+      (verify: tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Identify why the gate summary logic finds no matching authored PR head
+      in the fork-tolerance scenarios (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Fix the gate summary head-matching logic or the test fixtures so summaryWrites
+      is non-zero (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'the expected warning is absent (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Verify that the fix does not change behavior for non-fork PR scenarios
+      in the same test file
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add or extend a regression test reproducing the failure that passes after
+      the fix, using `pytest` or `node --test` as appropriate to the source.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: '`pytest + coverage shard 2/6` passes on regenerated sync PR stranske/Orchestrator#1497,
+      verified with `gh run view <run-id>`, and the repository''s test command passes
+      locally.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      that deliberate break makes it pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: The next sync-core round classifies stranske/Orchestrator#1497 without
+      this finding.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Fix the failure named in the title (`pytest + coverage shard 2/6`) at its
+      source; the failing check's log is linked under Evidence and the sync PR is
+      stranske/Orchestrator#1497.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add or extend a test that reproduces the failure and passes after the fix
+      (`pytest` or `node --test`, whichever the source uses).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Acceptance criterion: `pytest + coverage shard 2/6` passes on regenerated
+      sync PR stranske/Orchestrator#1497, verified with `gh run view <run-id>` (This
+      depends on maint-68-sync-consumer-repos.yml running and regenerating the consumer
+      PR. The agent cannot modify .github/workflows/*.yml, cannot retry CI pipelines,
+      and cannot act on the Orchestrator repo. The check can only be confirmed after
+      merge and a sync run. | Treat this as a post-merge human or automation verification
+      step. Limit the agent''s scope to a fix in stranske/Workflows plus a local `pytest`
+      run of the affected test file. If the root cause turns out to be in a workflow
+      YAML file, flag it for a human, because that file is protected.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Acceptance criterion: the next sync-core round classifies stranske/Orchestrator#1497
+      without this finding. (This is an external, asynchronous outcome that the agent
+      can neither trigger nor observe. | Move this to a ''Post-merge verification
+      (human/automation)'' section and keep it out of the agent''s completion criteria.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: "Deliberate-break \u2192 revert acceptance criterion (An agent can do this\
+      \ locally, but it is a verification procedure and not a deliverable. It cannot\
+      \ be checked from the final diff. | Ask the agent to record in the PR description\
+      \ which change was reverted and which test failed, or replace the criterion\
+      \ with a regression test that asserts the specific behavior.)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
