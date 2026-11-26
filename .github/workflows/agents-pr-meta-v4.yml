@@ -589,22 +589,26 @@ jobs:
               return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
           pr = api(f"/repos/{repo}/pulls/{pr_number}", default={})
+          head = pr.get("head") or {}
+          head_repo = (head.get("repo") or {}).get("full_name") or ""
           expected_head = os.environ.get("EXPECTED_PR_HEAD")
           node = shutil.which("node") if expected_head else None
           if (
               node
               and pr.get("number") == int(pr_number)
               and pr.get("state") == "open"
-              and (pr.get("head") or {}).get("sha") == expected_head
+              and head.get("sha") == expected_head
+              and head_repo.casefold() == repo.casefold()
           ):
-              # Reuse the updater's release exclusion without passing API credentials to Node.
+              # Only the repository-owned release branch can skip history here.
+              # The updater still checks labels, title and body on the normal path.
               release_check = subprocess.run(
                   [node, "-e", """
                     const { isReleasePleasePr } = require('./.github/scripts/agents_pr_meta_update_body.js');
-                    const pr = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
-                    process.exitCode = isReleasePleasePr(pr) ? 0 : 1;
+                    const ref = require('node:fs').readFileSync(0, 'utf8');
+                    process.exitCode = isReleasePleasePr({ head: { ref } }) ? 0 : 1;
                   """],
-                  input=json.dumps(pr),
+                  input=head.get("ref") or "",
                   text=True,
                   check=False,
                   stdout=subprocess.DEVNULL,
@@ -613,7 +617,7 @@ jobs:
               if release_check.returncode == 0:
                   # Match the updater's commit-to-PR fallback when Gate lacks a flat head_sha.
                   association_verified = (
-                      os.environ["GITHUB_EVENT_NAME"] == "pull_request"
+                      os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
                       or os.environ.get("WORKFLOW_RUN_PR_HEAD") == expected_head
                   )
                   if not association_verified:

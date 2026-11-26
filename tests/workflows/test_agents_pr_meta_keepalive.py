@@ -35,18 +35,19 @@ def _run_scenario(name: str) -> dict:
 
 
 @pytest.mark.parametrize(
-    ("event", "branch", "head_matches", "associated_pr", "expected_skip"),
+    ("event", "branch", "head_matches", "same_repo", "associated_pr", "expected_skip"),
     [
-        ("pull_request", "release-please--branches--main", True, None, True),
-        ("workflow_run", "release-please--branches--main", True, 23, True),
-        ("workflow_run", "release-please--branches--main", True, 24, False),
-        ("workflow_run", "release-please--branches--main", True, None, False),
-        ("pull_request", "release-please--branches--main", False, None, False),
-        ("pull_request", "codex/issue-21", True, None, False),
+        ("pull_request", "release-please--branches--main", True, True, None, True),
+        ("workflow_run", "release-please--branches--main", True, True, 23, True),
+        ("workflow_run", "release-please--branches--main", True, True, 24, False),
+        ("workflow_run", "release-please--branches--main", True, True, None, False),
+        ("pull_request", "release-please--branches--main", False, True, None, False),
+        ("pull_request", "release-please--branches--main", True, False, None, False),
+        ("pull_request", "codex/issue-21", True, True, None, False),
     ],
 )
 def test_hosted_body_fingerprint_skips_only_verified_release_prs(
-    event, branch, head_matches, associated_pr, expected_skip, monkeypatch, capsys
+    event, branch, head_matches, same_repo, associated_pr, expected_skip, monkeypatch, capsys
 ):
     _require_node()
     repo = Path(__file__).resolve().parents[2]
@@ -65,7 +66,16 @@ def test_hosted_body_fingerprint_skips_only_verified_release_prs(
     monkeypatch.setenv("GITHUB_REPOSITORY", "example/repo")
     monkeypatch.setenv("PR_NUMBER", "23")
     monkeypatch.delenv("WORKFLOW_RUN_PR_HEAD", raising=False)
-    pr = {"number": 23, "state": "open", "head": {"ref": branch, "sha": head}}
+    pr = {
+        "number": 23,
+        "state": "open",
+        "body": "Work on release-please automation.",
+        "head": {
+            "ref": branch,
+            "sha": head,
+            "repo": {"full_name": "example/repo" if same_repo else "fork/repo"},
+        },
+    }
 
     def api(request, *, timeout):
         assert request.get_method() == "GET"
