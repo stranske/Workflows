@@ -402,15 +402,18 @@ async function upsertAnchoredComment({
 
   if (isGateSummary) {
     const eventPr = context.payload?.pull_request;
-    const expectedHead = eventPr?.head?.sha;
-    if (!expectedHead || eventPr.number !== pr ||
-        (context.eventName === 'workflow_dispatch' && context.sha !== expectedHead)) {
+    const dispatchedGate = context.eventName === 'workflow_dispatch';
+    const boundDispatch = dispatchedGate && context.payload?.inputs?.pr_number === String(pr);
+    const expectedHead = eventPr?.head?.sha || (boundDispatch ? context.sha : '');
+    if (!expectedHead || (eventPr && eventPr.number !== pr) ||
+        (dispatchedGate && (!boundDispatch || context.sha !== expectedHead))) {
       warn(core, 'Gate summary has no matching authored PR head; skipping comment update.');
       return;
     }
     try {
       const { data: livePr } = await github.rest.pulls.get({ owner, repo, pull_number: pr });
-      if (livePr?.head?.sha !== expectedHead) {
+      if (livePr?.head?.sha !== expectedHead ||
+          (dispatchedGate && livePr.head.repo?.full_name !== `${owner}/${repo}`)) {
         info(core, 'Gate summary belongs to a superseded PR head; skipping comment update.');
         return;
       }

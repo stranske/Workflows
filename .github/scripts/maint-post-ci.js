@@ -41,8 +41,12 @@ async function discoverWorkflowRuns({ github: rawGithub, context, core }) {
     : null;
   const recoveringGate = context.eventName === 'workflow_run';
   const dispatchedGate = context.eventName === 'workflow_dispatch';
-  const inlineHead = (context.eventName === 'pull_request' || dispatchedGate)
-    ? context.payload.pull_request?.head?.sha : '';
+  const dispatchInput = context.payload.inputs?.pr_number;
+  const dispatchPr = Number(dispatchInput);
+  const boundDispatch = dispatchedGate && Number.isSafeInteger(dispatchPr) &&
+    dispatchPr > 0 && String(dispatchPr) === dispatchInput;
+  const inlineHead = (context.eventName === 'pull_request' || boundDispatch)
+    ? context.payload.pull_request?.head?.sha || (boundDispatch ? context.sha : '') : '';
   const headSha = recoveringGate
     ? await resolveRecoveryHead(github, context.repo, workflowRun, prFromPayload, core)
     : (inlineHead || context.sha || '').trim();

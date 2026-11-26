@@ -907,9 +907,14 @@ test('PR-bound Gate dispatch reports its own attempt instead of the older PR run
   assert.deepEqual(exactQueries, [42257890176]);
   assert.equal(JSON.parse(current.outputs.runs)[0].jobs[0].conclusion, 'success');
 
+  const installed = createCore();
+  const oldCaller = { ...context, payload: { inputs: context.payload.inputs } };
+  await discoverWorkflowRuns({ github, context: oldCaller, core: installed });
+  assert.deepEqual(installed.outputs, current.outputs);
+
   const unrelated = createCore();
   await discoverWorkflowRuns({ github, context: { ...context, sha: 'unrelated' }, core: unrelated });
   assert.equal(unrelated.outputs.gate_run_id, '');
   assert.deepEqual(JSON.parse(unrelated.outputs.runs)[0].jobs, []);
-  assert.deepEqual(exactQueries, [42257890176]);
+  assert.deepEqual(exactQueries, [42257890176, 42257890176]);
 });
