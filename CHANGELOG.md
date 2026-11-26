@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.11](https://github.com/stranske/Workflows/compare/v1.52.10...v1.52.11) (2026-11-26)
+
+
+### Bug Fixes
+
+* **optimizer:** preserve valid Apply provider text blocks ([#5226](https://github.com/stranske/Workflows/issues/5226)) ([1d52b32](https://github.com/stranske/Workflows/commit/1d52b323182f458edf4228c1b14719164b8a3e52))
+
 ## [1.52.10](https://github.com/stranske/Workflows/compare/v1.52.9...v1.52.10) (2026-11-26)
 
 
