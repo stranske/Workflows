@@ -6,7 +6,7 @@ This is the authoritative inventory of active Workflows entry points. When addin
 
 Maint 66’s **Workflows Not Run This Period** section matches **workflow paths** (`.github/workflows/<file>.yml`), not expanded `run-name` or quoted `name:` headers. Callable-only definitions with no independent `on:` trigger are skipped, same as the `workflow_inventory_audit` helper (`scripts/workflow_inventory_audit.py`). The [November 2026 audit](../archive/audits/WORKFLOW_AUDIT_2026-11-19.md) classified the former ~100 false-positive rows; the only confirmed retirement from that review is Maint 47 disable-legacy-workflows ([#4771](https://github.com/stranske/Workflows/pull/4771)) (see [archive ledger](../archive/ARCHIVE_WORKFLOWS.md#november-2026-retirement-issue-4770--pr-4771)).
 
-## Archived workflows {#archived-workflows}
+## Archived workflows
 
 Recent retirements documented in the [archive ledger](../archive/ARCHIVE_WORKFLOWS.md):
 
