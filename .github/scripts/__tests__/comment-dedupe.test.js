@@ -211,3 +211,100 @@ test('upsertAnchoredComment skips gate summary when agent label is present', asy
 
   assert.deepEqual(actions, []);
 });
+
+test('inline Gate rechecks current authored head before updating or creating a comment', async () => {
+  const oldHead = '2121584e2f908df2eac47ec033488cc8a218e705';
+  const newHead = 'd9cf7f4f5de926960dad94d599c9bcff02bf1295';
+  const existing = { id: 7179478207, body: '<!-- gate-summary: pr=5202 head=65b7a91f15ca -->' };
+  for (const [head, liveHead, knownComment, outcome] of [
+    [oldHead, newHead, existing, []],
+    [oldHead, newHead, null, []],
+    [newHead, newHead, existing, ['update']],
+    [newHead, newHead, null, ['create']],
+    [newHead, null, existing, []],
+  ]) {
+    const changes = [];
+    const order = [];
+    const listComments = () => {};
+    const github = {
+      rest: {
+        issues: {
+          listLabelsOnIssue: () => {},
+          listComments,
+          updateComment: async () => { order.push('edit'); changes.push('update'); },
+          createComment: async () => { order.push('edit'); changes.push('create'); },
+        },
+        pulls: {
+          get: async args => {
+            order.push('head');
+            assert.deepEqual(args, { owner: 'stranske', repo: 'Workflows', pull_number: 5202 });
+            if (!liveHead) throw new Error('PR unavailable');
+            return { data: { head: { sha: liveHead } } };
+          },
+        },
+      },
+      paginate: async method => {
+        if (method !== listComments) return [];
+        order.push('comments');
+        return knownComment ? [knownComment] : [];
+      },
+    };
+
+    await upsertAnchoredComment({
+      github,
+      context: {
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        eventName: 'pull_request',
+        payload: { pull_request: { number: 5202, head: { sha: head } } },
+      },
+      prNumber: 5202,
+      body: `<!-- gate-summary: pr=5202 head=${head.slice(0, 12)} -->\nsummary`,
+      anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
+      fallbackMarker: '<!-- gate-summary:',
+    });
+    assert.deepEqual(changes, outcome);
+    assert.deepEqual(order, outcome.length ? ['comments', 'head', 'edit'] : ['comments', 'head']);
+  }
+});
+
+test('existing consumer Gate dispatch verifies the live head without a hydrated event', async () => {
+  const head = '3e6c6b39a22f3f33c1352edfd4fb27e442639680';
+  for (const [input, liveHead, headRepo, updates] of [
+    ['4470', head, 'stranske/Workflows', [1]],
+    ['4470', 'newer', 'stranske/Workflows', []],
+    ['4470', head, 'fork/Workflows', []],
+    ['04470', head, 'stranske/Workflows', []],
+    ['4471', head, 'stranske/Workflows', []],
+  ]) {
+    const edits = [];
+    const body = `<!-- gate-summary: pr=4470 head=${head.slice(0, 12)} -->\nsummary`;
+    const github = {
+      rest: {
+        issues: {
+          listComments() {},
+          updateComment: async ({ comment_id }) => edits.push(comment_id),
+        },
+        pulls: {
+          get: async ({ pull_number }) => {
+            assert.equal(pull_number, 4470);
+            return { data: { head: { sha: liveHead, repo: { full_name: headRepo } } } };
+          },
+        },
+      },
+      paginate: async () => [{ id: 1, body }],
+    };
+    await upsertAnchoredComment({
+      github,
+      context: {
+        eventName: 'workflow_dispatch',
+        repo: { owner: 'stranske', repo: 'Workflows' },
+        sha: head,
+        payload: { inputs: { pr_number: input } },
+      },
+      body,
+      anchorPattern: /<!--\s*gate-summary:([^>]*)-->/i,
+      fallbackMarker: '<!-- gate-summary:',
+    });
+    assert.deepEqual(edits, updates);
+  }
+});

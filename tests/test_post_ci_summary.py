@@ -1206,3 +1206,25 @@ def test_required_segments_deduplicates_case_insensitive_job_names() -> None:
     assert post_ci_summary._collect_required_segments(
         runs, [{"label": "Build", "patterns": ["build"]}]
     ) == ["Build: ⏳ queued"]
+
+
+def test_cancelled_pytest_receipts_do_not_report_test_failures(tmp_path: Path) -> None:
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    # Workflows #5202's two downloaded runtime summaries each reported cancelled.
+    for name in ("3.13", "3.14"):
+        runtime = downloads / name
+        runtime.mkdir()
+        (runtime / "summary.json").write_text(
+            '{"checks":{"tests":{"outcome":"cancelled","tool":"pytest"}}}',
+            encoding="utf-8",
+        )
+    assert post_ci_summary._collect_triage_block(tmp_path) == []
+
+    (downloads / "3.14" / "summary.json").write_text(
+        '{"checks":{"tests":{"outcome":"failure","tool":"pytest"}}}',
+        encoding="utf-8",
+    )
+    assert "  root_cause: Pytest reported failing tests." in post_ci_summary._collect_triage_block(
+        tmp_path
+    )

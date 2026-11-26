@@ -749,6 +749,7 @@ jobs:
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
       pull-requests: write
       statuses: write
@@ -886,6 +887,8 @@ jobs:
         with:
           script: |
             const { discoverWorkflowRuns } = require('./.github/scripts/maint-post-ci.js');
+            const resolvedPr = JSON.parse(process.env.GATE_PR_JSON || 'null');
+            if (resolvedPr) context.payload.pull_request = resolvedPr;
             await discoverWorkflowRuns({ github, context, core });
 
       - name: Download Gate artifacts
@@ -1365,6 +1368,8 @@ jobs:
             // step could report anything, so tolerating it there alone would not have
             // turned a green fork PR green. The verdict still has to reach a human, so
             // the comment body falls back to the job summary.
+            const resolvedPr = JSON.parse(process.env.GATE_PR_JSON || 'null');
+            if (resolvedPr) context.payload.pull_request = resolvedPr;
             const pullRequest = context.payload.pull_request;
             const headRepo = pullRequest?.head?.repo?.full_name;
             const baseRepo = pullRequest?.base?.repo?.full_name;

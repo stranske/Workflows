@@ -468,8 +468,10 @@ def _collect_check_failure_lines(records: Sequence[Mapping[str, object]]) -> lis
             lines.append("mypy type check failed")
 
         tests = checks.get("tests") if isinstance(checks, Mapping) else None
-        if isinstance(tests, Mapping) and _outcome_is_failure(tests.get("outcome")):
-            lines.append("= FAILURES =")
+        if isinstance(tests, Mapping):
+            outcome = str(tests.get("outcome") or "").strip().lower()
+            if outcome != "cancelled" and _outcome_is_failure(outcome):
+                lines.append("= FAILURES =")
 
         coverage_min = checks.get("coverage_minimum") if isinstance(checks, Mapping) else None
         if isinstance(coverage_min, Mapping) and _outcome_is_failure(coverage_min.get("outcome")):
@@ -921,7 +923,9 @@ def build_summary_comment(
     if triage_block:
         body_parts.extend(triage_block)
         body_parts.append("")
-    body_parts.append("_Updated automatically; will refresh on subsequent CI/Docker completions._")
+    body_parts.append(
+        "_Snapshot at publication. See the linked run and required checks for final results._"
+    )
 
     return "\n".join(part for part in body_parts if part is not None)
 

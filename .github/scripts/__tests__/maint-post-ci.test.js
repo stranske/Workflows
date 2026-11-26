@@ -830,3 +830,91 @@ test('trackedGateContext keeps the prototype getters github-script puts repo on'
   assert.equal(tracked.sha, 'abc');
   assert.deepEqual(context.payload.workflow_run, { id: 1 }); // the caller's context is not mutated
 });
+
+test('inline Gate uses its own attempt and labels the authored PR head', async t => {
+  const runAttempt = process.env.GITHUB_RUN_ATTEMPT;
+  process.env.GITHUB_RUN_ATTEMPT = '2';
+  t.after(() => {
+    if (runAttempt === undefined) delete process.env.GITHUB_RUN_ATTEMPT;
+    else process.env.GITHUB_RUN_ATTEMPT = runAttempt;
+  });
+  const core = createCore();
+  const head = 'd9cf7f4f5de926960dad94d599c9bcff02bf1295';
+  const context = {
+    eventName: 'pull_request',
+    repo: { owner: 'stranske', repo: 'Workflows' },
+    runId: 45734021349,
+    sha: '65b7a91f15ca9e27f035115af57c0acb9002fd7d',
+    payload: { pull_request: { number: 5202, head: { sha: head } } },
+  };
+  const getAttempt = [];
+  const queries = [];
+  const listJobsForWorkflowRunAttempt = () => {};
+  const github = {
+    rest: { actions: {
+      getWorkflowRunAttempt: async args => {
+        getAttempt.push(args);
+        return { data: { id: context.runId, run_attempt: 2, head_sha: head, status: 'in_progress' } };
+      },
+      listJobsForWorkflowRunAttempt,
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+    } },
+    paginate: async (method, params) => {
+      queries.push({ method, ...params });
+      return [{ name: 'python ci / python 3.13', conclusion: 'success', status: 'completed' }];
+    },
+  };
+
+  await discoverWorkflowRuns({ github, context, core });
+  assert.equal(core.outputs.head_sha, head);
+  assert.equal(core.outputs.gate_run_id, '45734021349');
+  assert.deepEqual(getAttempt, [{ owner: 'stranske', repo: 'Workflows', run_id: 45734021349, attempt_number: 2 }]);
+  assert.deepEqual(queries, [{
+    method: listJobsForWorkflowRunAttempt, owner: 'stranske', repo: 'Workflows',
+    run_id: 45734021349, attempt_number: 2, per_page: 100,
+  }]);
+  assert.equal(JSON.parse(core.outputs.runs)[0].jobs[0].conclusion, 'success');
+});
+
+test('PR-bound Gate dispatch reports its own attempt instead of the older PR run', async () => {
+  const head = '3e6c6b39a22f3f33c1352edfd4fb27e442639680';
+  const attempt = Number(process.env.GITHUB_RUN_ATTEMPT || 1);
+  const context = {
+    eventName: 'workflow_dispatch',
+    repo: { owner: 'stranske', repo: 'Workflows' },
+    runId: 42257890176,
+    sha: head,
+    payload: { inputs: { pr_number: '4470' }, pull_request: { number: 4470, head: { sha: head } } },
+  };
+  const exactQueries = [];
+  const github = {
+    rest: { actions: {
+      getWorkflowRunAttempt: async ({ run_id, attempt_number }) => {
+        exactQueries.push(run_id);
+        return { data: { id: run_id, run_attempt: attempt_number, head_sha: head } };
+      },
+      listJobsForWorkflowRunAttempt() {},
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [{ id: 100, head_sha: head }] } }),
+      listJobsForWorkflowRun() {},
+    } },
+    paginate: async (_fn, { run_id }) => [{ name: 'pytest', conclusion: run_id === 100 ? 'skipped' : 'success' }],
+  };
+
+  const current = createCore();
+  await discoverWorkflowRuns({ github, context, core: current });
+  assert.equal(current.outputs.head_sha, head);
+  assert.equal(current.outputs.gate_run_id, '42257890176');
+  assert.deepEqual(exactQueries, [42257890176]);
+  assert.equal(JSON.parse(current.outputs.runs)[0].jobs[0].conclusion, 'success');
+
+  const installed = createCore();
+  const oldCaller = { ...context, payload: { inputs: context.payload.inputs } };
+  await discoverWorkflowRuns({ github, context: oldCaller, core: installed });
+  assert.deepEqual(installed.outputs, current.outputs);
+
+  const unrelated = createCore();
+  await discoverWorkflowRuns({ github, context: { ...context, sha: 'unrelated' }, core: unrelated });
+  assert.equal(unrelated.outputs.gate_run_id, '');
+  assert.deepEqual(JSON.parse(unrelated.outputs.runs)[0].jobs, []);
+  assert.deepEqual(exactQueries, [42257890176, 42257890176]);
+});
