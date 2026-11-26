@@ -16,23 +16,54 @@ This directory contains workflow templates that consumer repositories can copy a
 | [ci-basic.yml](ci-basic.yml) | Basic Python CI: lint, type check, test | Simple |
 | [ci-full.yml](ci-full.yml) | Full CI: smoke test, lint, coverage, PR gate | Medium |
 | [ci-node-basic.yml](ci-node-basic.yml) | Shared CI for Node.js and TypeScript projects using npm and Jest by default | Simple |
-| [dependency-refresh.yml](dependency-refresh.yml) | Scheduled `requirements.lock` refresh | Simple |
 | [cosmetic-repair.yml](cosmetic-repair.yml) | Auto-fix formatting/cosmetic issues | Medium |
 
 ### Standalone maintenance copies
 
-Copy either or both workflows from a Workflows checkout. Run the commands from
-your project root and set `workflows` to the checkout path.
+Copy the cosmetic repair workflow from a Workflows checkout. Run the commands
+from your project root and set `workflows` to the checkout path.
 
 ```bash
 workflows=/path/to/Workflows
 mkdir -p .github/workflows
 cp "$workflows/templates/cosmetic-repair.yml" .github/workflows/
-cp "$workflows/templates/dependency-refresh.yml" .github/workflows/
 ```
 
-Your repository owns the copied workflows. Customize schedules and inputs there,
-and review upstream changes when you want to update your copy.
+Your repository owns the copy. Customize paths and inputs there, and review
+upstream changes when you want to update it.
+
+### Dependency lock preview
+
+Registered consumers use the [fleet Renovate preset](../renovate-presets/fleet.json)
+for routine dependency proposals and weekly `requirements.lock` maintenance.
+Workflows-Integration-Tests also regenerates its own lock through
+[Maint 69](../.github/workflows/maint-69-sync-integration-repo.yml) when synchronizing
+integration sources and tool pins.
+
+For a local preview, run the command recorded in your project's lockfile in a
+disposable checkout. Keep its input files, Python target, extras, and output
+options. Add `--upgrade`, then review `git diff -- requirements.lock`. The actual
+integration project uses this command and selects its `test` and `dev` extras.
+
+```bash
+uv pip compile --python-version 3.13 --upgrade pyproject.toml \
+  --extra test --extra dev --universal --output-file requirements.lock
+git diff -- requirements.lock
+```
+
+When the preview matches the intended update, regenerate the lock on your
+project branch and open it through your normal dependency PR process.
+
+For an existing or custom repository-owned workflow, the
+[archived standalone recipe](https://github.com/stranske/Workflows/blob/3c2524c625d0bd46c3208abc2f6ec44050363674/templates/dependency-refresh.yml)
+preserves the original manual dry run and twice-monthly schedule. Its SHA-256
+is `dd1d6835a27a3cad0867003a0926165ee4e530ed97fc43b999fdbc238e5a546a`.
+Verify it from a Workflows checkout.
+
+```bash
+git show 3c2524c625d0bd46c3208abc2f6ec44050363674:templates/dependency-refresh.yml |
+  shasum -a 256
+```
 
 ### Python CI starter for the GitHub Actions gallery
 
