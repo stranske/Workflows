@@ -298,6 +298,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     const src = nodeFs.readFileSync(process.argv[2], 'utf8');
     const commentDedupe = require(process.argv[3]);
     const HEAD_SHA = 'a'.repeat(40);
+    const SUMMARY_BODY = 'GATE SUMMARY BODY\\n<!-- gate-summary: pr=1 -->';
 
     function makeError(status, message, response = null) {
       const e = new Error(message);
@@ -307,7 +308,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
     }
 
     async function runCase({
-      headRepo, baseRepo, error, headSha = HEAD_SHA, liveHead = HEAD_SHA, resolvedHead,
+      headRepo, baseRepo, error, eventHead = HEAD_SHA, liveHead = HEAD_SHA, resolvedHead,
     }) {
       const warnings = [];
       const summaryRaw = [];
@@ -338,14 +339,18 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           },
         },
       };
-      const eventPr = {
+      const pullRequest = {
         number: 1,
-        head: { sha: headSha, repo: { full_name: headRepo } },
+        head: { sha: eventHead, repo: { full_name: headRepo } },
         base: { repo: { full_name: baseRepo } },
       };
+      // The reported consumer fixture only provided the PR number.
+      const eventPr = eventHead === null ? { number: pullRequest.number } : pullRequest;
       const env = {};
       if (resolvedHead) {
-        env.GATE_PR_JSON = JSON.stringify({ ...eventPr, head: { ...eventPr.head, sha: resolvedHead } });
+        env.GATE_PR_JSON = JSON.stringify({
+          ...pullRequest, head: { ...pullRequest.head, sha: resolvedHead },
+        });
       }
       const sandbox = {
         process: { env },
@@ -355,7 +360,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
           if (id === 'fs') {
             return {
               existsSync: () => true,
-              readFileSync: () => 'GATE SUMMARY BODY',
+              readFileSync: () => SUMMARY_BODY,
             };
           }
           if (id === './.github/scripts/comment-dedupe.js') return commentDedupe;
@@ -400,7 +405,10 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
       const out = {
         fork_read_only: await runCase(READ_ONLY_FORK),
         fork_read_only_resolved_head: await runCase({
-          ...READ_ONLY_FORK, headSha: null, resolvedHead: HEAD_SHA,
+          ...READ_ONLY_FORK, eventHead: null, resolvedHead: HEAD_SHA,
+        }),
+        fork_read_only_resolved_stale_event: await runCase({
+          ...READ_ONLY_FORK, eventHead: 'd'.repeat(40), resolvedHead: HEAD_SHA,
         }),
         same_repo_read_only: await runCase({
           ...SAME, error: makeError(403, 'Resource not accessible by integration'),
@@ -442,7 +450,7 @@ COMMENT_RUNNER_JS = textwrap.dedent("""
         fork_server_error: await runCase({ ...FORK, error: makeError(500, 'boom') }),
         fork_written: await runCase(FORK),
         same_repo_written: await runCase(SAME),
-        missing_head: await runCase({ ...READ_ONLY_FORK, headSha: null }),
+        missing_head: await runCase({ ...READ_ONLY_FORK, eventHead: null }),
         stale_head: await runCase({ ...FORK, liveHead: 'c'.repeat(40) }),
       };
       process.stdout.write(JSON.stringify(out));
@@ -494,15 +502,20 @@ def test_comment_fork_read_only_403_does_not_fail_the_gate(
 
 @pytest.mark.parametrize(
     "name",
-    ["fork_read_only", "fork_read_only_resolved_head", "fork_read_only_positive_quota"],
+    [
+        "fork_read_only",
+        "fork_read_only_resolved_head",
+        "fork_read_only_resolved_stale_event",
+        "fork_read_only_positive_quota",
+    ],
 )
 def test_comment_fork_read_only_403_falls_back_to_the_job_summary(
     comment_outcomes: dict[str, Any], name: str
 ) -> None:
     case = comment_outcomes[name]
     assert case["threw"] is None, case
-    assert case["headReads"] == [1], case
     assert case["summaryWrites"] == 1, case
+    assert case["headReads"] == [1], case
     assert case["commentAttempts"] == 1, case
     assert len(case["warnings"]) == 1, case
     assert "read-only" in case["warnings"][0], case
@@ -560,19 +573,21 @@ def test_comment_happy_path_is_silent(comment_outcomes: dict[str, Any], name: st
 
 
 @pytest.mark.parametrize(
-    ("name", "warnings"),
+    ("name", "head_reads", "warnings"),
     [
         (
             "missing_head",
+            [],
             ["Gate summary has no matching authored PR head; skipping comment update."],
         ),
-        ("stale_head", []),
+        ("stale_head", [1], []),
     ],
 )
 def test_comment_requires_current_authored_head(
-    comment_outcomes: dict[str, Any], name: str, warnings: list[str]
+    comment_outcomes: dict[str, Any], name: str, head_reads: list[int], warnings: list[str]
 ) -> None:
     case = comment_outcomes[name]
+    assert case["headReads"] == head_reads, case
     assert case["commentAttempts"] == 0, case
     assert case["threw"] is None, case
     assert case["summaryRaw"] == [], case
