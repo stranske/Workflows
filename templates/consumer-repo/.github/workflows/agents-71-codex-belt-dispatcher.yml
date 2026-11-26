@@ -198,6 +198,17 @@ jobs:
           token: ${{ env.GH_DISPATCH_TOKEN }}
           fetch-depth: 1
 
+      # The ref resolver uses these dependencies before the retry-helper checkout.
+      - name: Setup API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          # named inputs, not the whole secrets context (see #3185)
+          github_token: ${{ env.GH_DISPATCH_TOKEN || github.token }}
+          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
+          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          install_dir: ${{ runner.temp }}/belt-api-client
+
       - name: Resolve Workflows ref
         id: workflows_ref
         uses: ./.github/actions/resolve-default-branch
@@ -218,16 +229,6 @@ jobs:
             .github/scripts/github-rate-limited-wrapper.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
-
-      - name: Setup API client
-        uses: ./.github/actions/setup-api-client
-        with:
-          # named inputs, not the whole secrets context (see #3185)
-          github_token: ${{ env.GH_DISPATCH_TOKEN || github.token }}
-          actions_bot_pat: ${{ secrets.ACTIONS_BOT_PAT }}
-          workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
-          workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
-          install_dir: ${{ runner.temp }}/belt-api-client
 
       - name: Stage API helpers outside checkout clean path
         shell: bash
