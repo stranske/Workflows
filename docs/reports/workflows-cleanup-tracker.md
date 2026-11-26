@@ -148,12 +148,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked |
 | 1B · Root files | 26/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
-| 3 · Scripts, tools and packages | 364/752 | 34/43 | — |
+| 3 · Scripts, tools and packages | 365/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 889/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,016/5,554** | **296/487** | **161/198** |
+| **Total** | **3,017/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,805 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,806 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
@@ -162,8 +162,8 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 | [Keep in current role](workflow-decisions.md#keep) | 114 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 10 |
 | [Other verified decisions](workflow-decisions.md#verified) | 37 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 19 |
-| [In review](workflow-decisions.md#review) | 4 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 20 |
+| [In review](workflow-decisions.md#review) | 3 |
 | [Proposed changes](workflow-decisions.md#proposed) | 14 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
