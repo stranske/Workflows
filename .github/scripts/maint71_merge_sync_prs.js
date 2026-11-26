@@ -1,7 +1,8 @@
 'use strict';
 
 const { validateIndependentFindingFromNative, collectFindingReviewState,
-  validateNativeConversationDisposition, collectOriginatingCompletions } = require('./maint71_finding_verification');
+  validateNativeConversationDisposition, collectOriginatingCompletions,
+  collectBoundInlineStockCompletion } = require('./maint71_finding_verification');
 
 const DEFAULT_REVIEW_POLICY = Object.freeze({
   minimum_responses: 1,
@@ -2278,7 +2279,7 @@ async function runReviewReassessment({
                 id path isResolved isOutdated
                 comments(first: 100) {
                   pageInfo { hasNextPage }
-                  nodes { fullDatabaseId author { login } body createdAt url commit { oid } originalCommit { oid } }
+                  nodes { fullDatabaseId author { login } body createdAt updatedAt url commit { oid } originalCommit { oid } }
                 }
               }
             }
@@ -2420,9 +2421,10 @@ async function runReviewReassessment({
     }
     if (dispositionOnly) {
       const priorMarker = reviewReassessmentMarker({ ...request, request_stage: undefined });
-      const prior = current.thread.comments.nodes.find((item) =>
+      const priorRequests = current.thread.comments.nodes.filter((item) =>
         trustedWriters.has(item?.author?.login)
         && String(item?.body || '').includes(priorMarker));
+      const [prior] = priorRequests;
       if (current.threads.some((item) => item.comments?.pageInfo?.hasNextPage !== false
         || !Array.isArray(item.comments?.nodes))) {
         throw new Error('Review-thread inventory is incomplete');
@@ -2434,6 +2436,33 @@ async function runReviewReassessment({
           String(item?.body || '').startsWith(prefix));
       let completed = current.threads.flatMap((item) => item.comments.nodes).some((item) =>
         isCompletion(item) && item?.commit?.oid === request.head_sha);
+      const stockMarker = profile.inline_targeted_stock_completion?.marker;
+      if (!completed && priorRequests.length === 1 && stockMarker) {
+        const [original, ...replies] = current.thread.comments.nodes;
+        const stockReplies = replies.filter((item) =>
+          reviewerProfileForLogin(item?.author?.login, profiles) === request.originating_reviewer
+          && Date.parse(item.createdAt || '') > Date.parse(prior.createdAt || '')
+          && String(item.body || '').startsWith(stockMarker));
+        if (stockReplies.length === 1) {
+          const [reply] = stockReplies;
+          completed = Boolean(await collectBoundInlineStockCompletion({
+            original, request: prior, reply, profile, threadId: current.thread.id,
+            owner, repo, number: request.pr, head: request.head_sha, headRef: current.pr.head.ref,
+            body: current.pr.body, read: withRetry,
+          }));
+          if (completed) {
+            const fresh = await readBoundState();
+            const before = current.thread.comments.nodes;
+            const after = fresh.thread.comments.nodes;
+            if (fresh.pr.body !== current.pr.body || before.length !== after.length
+              || before.some((item, index) => item.fullDatabaseId !== after[index].fullDatabaseId
+                || item.body !== after[index].body || item.updatedAt !== after[index].updatedAt)) {
+              throw new Error('Marked originating review binding changed before disposition request');
+            }
+            current = fresh;
+          }
+        }
+      }
       if (prior && !completed) {
         const comments = await withRetry((client) => client.paginate(client.rest.issues.listComments,
           { owner, repo, issue_number: request.pr, per_page: 100 }));
@@ -2450,7 +2479,7 @@ async function runReviewReassessment({
           if (commit.sha === request.head_sha) { completed = true; break; }
         }
       }
-      if (!prior || !completed) {
+      if (priorRequests.length !== 1 || !completed) {
         throw new Error('Disposition task requires a completed originating review on this binding');
       }
     }
