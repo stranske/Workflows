@@ -53,8 +53,6 @@ jobs:
             templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml
             templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml
             .github/workflows/autofix-versions.env
-            templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
-            .github/sync-manifest.yml
             .github/actions/setup-api-client
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
