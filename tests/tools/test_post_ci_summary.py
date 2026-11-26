@@ -122,6 +122,22 @@ def test_build_summary_comment_includes_required_sections(tmp_path: Path, monkey
     assert "Extra coverage notes." in summary
 
 
+def test_build_summary_comment_handles_missing_runs_and_defaults() -> None:
+    summary = post_ci_summary.build_summary_comment(
+        runs=[],
+        head_sha=None,
+        coverage_stats=None,
+        coverage_section=None,
+        coverage_delta=None,
+        required_groups_env=None,
+    )
+
+    assert "| _(no jobs reported)_ | ⏳ pending | — |" in summary
+    assert summary.splitlines()[-1] == (
+        "_Snapshot at publication. See the linked run and required checks for final results._"
+    )
+
+
 def test_dedupe_runs_prefers_present_and_priority() -> None:
     runs = [
         {"key": "gate", "present": False, "status": "failure"},
