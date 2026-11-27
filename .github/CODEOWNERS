@@ -1,6 +1,7 @@
 # Automation guardrails: changes to workflow and script assets require maintainer review.
 .github/workflows/** @stranske
 .github/scripts/** @stranske
+/scripts/api-call-guard.js @stranske
 # Documentation review is helpful but not blocking.
 docs/** @stranske
 

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * API Call Guard - CI check for unprotected GitHub API calls
+ * API Call Guard - local audit for unprotected GitHub API calls
  * 
- * This script scans .github/scripts/*.js files to ensure all GitHub API calls
- * are wrapped with the token-aware retry pattern for rate limit resilience.
+ * This script scans JavaScript helpers under .github/scripts for potentially
+ * unprotected GitHub API calls.
  * 
  * Usage:
- *   node .github/scripts/__checks__/api-call-guard.js
+ *   node scripts/api-call-guard.js
  * 
  * Exit codes:
- *   0 - All API calls are properly wrapped
+ *   0 - No potentially unprotected calls found
  *   1 - Unprotected API calls found (see report)
  */
 
@@ -201,7 +201,7 @@ function generateReport(results) {
 }
 
 // Main
-const scriptsDir = path.join(__dirname, '..');
+const scriptsDir = path.join(__dirname, '..', '.github', 'scripts');
 const results = scanDirectory(scriptsDir);
 const issueCount = generateReport(results);
 

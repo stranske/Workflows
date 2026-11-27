@@ -80,23 +80,23 @@ Before submitting changes, run the validation scripts:
 # Comprehensive check (30-120 seconds)
 ./scripts/check_branch.sh
 
-# Template sync validation (if you modified .github/scripts/)
+# Template sync validation (if you modified a consumer-managed script)
 python scripts/validate_template_sync.py
 ```
 
 ### ⚠️ CRITICAL: Template Sync Guard
 
-**If you modify any file in `.github/scripts/`, you MUST also update the template:**
+**If you modify a script managed by the [sync manifest](../.github/sync-manifest.yml), follow its template sync rules.** Use these commands for mirrored scripts.
 
 ```bash
-# After editing .github/scripts/*.js, run:
+# After editing a mirrored script, run:
 ./scripts/sync_templates.sh
 
 # Verify sync:
 python scripts/validate_template_sync.py
 ```
 
-**Why?** Consumer repos get workflow updates via `templates/consumer-repo/`. If you only update `.github/scripts/` but not the template, your changes won't sync to consumer repos and no sync PRs will be created.
+The manifest defines which files consumers receive and which require a template copy.
 
 The CI will fail if templates are out of sync with source files.
 
@@ -151,7 +151,7 @@ Choose a common real-world use case and place it next to the workflow guide or s
 2. Include tests in `__tests__/` or `tests/workflows/`
 3. Make executable if has shebang: `chmod +x script.sh`
 4. **Wrap all GitHub API calls** - See [API_CALL_PATTERN.md](../.github/scripts/API_CALL_PATTERN.md)
-5. Run the API guard: `node .github/scripts/__checks__/api-call-guard.js`
+5. Run the local JavaScript API audit with `node scripts/api-call-guard.js`.
 
 ## Pull Request Process
 
@@ -169,7 +169,7 @@ Choose a common real-world use case and place it next to the workflow guide or s
 - [ ] Pre-commit hooks pass
 - [ ] Validation scripts pass
 - [ ] No old repo references
-- [ ] GitHub API calls use token-aware retry (run `node .github/scripts/__checks__/api-call-guard.js`)
+- [ ] GitHub API calls use token-aware retry (run `node scripts/api-call-guard.js`)
 
 ## Questions?
 
