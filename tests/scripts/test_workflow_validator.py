@@ -173,9 +173,8 @@ class TestCheckHardcodedSecrets:
 
     def test_detect_github_pat(self) -> None:
         """Test detection of hardcoded GitHub PAT."""
-        workflow = {
-            "jobs": {"build": {"env": {"TOKEN": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}}}
-        }
+        synthetic_pat = "ghp_" + ("A" * 36)
+        workflow = {"jobs": {"build": {"env": {"TOKEN": synthetic_pat}}}}
 
         issues = check_hardcoded_secrets(workflow)
         assert len(issues) >= 1
