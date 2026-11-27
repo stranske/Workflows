@@ -412,6 +412,13 @@ acceptance PASS; artifact expiry, extraction limits and retrieval failures keep
 their existing honest statuses and required/optional evidence policy. An ordinary
 current-revision citation with a mismatched head is not promoted to a baseline.
 
+Gate job log rows in a PR conversation comment with matching GitHub publisher,
+PR identity, and generated summary markers are incidental CI navigation.
+Comment capture retains the full text, including any authored proof outside the
+job table. Explicit source citations and selected comments keep their normal
+capture rules. Artifact discovery still checks the exact PR head or merge and
+excludes incidental runs on other revisions.
+
 Every evaluation/comparison report prints **files reviewed N of M** and incomplete
 results carry `files_not_reviewed`. `UNVERIFIABLE_INPUT` means supplied input could
 not support a complete review. A real finding remains **CONCERNS** or **FAIL** and
