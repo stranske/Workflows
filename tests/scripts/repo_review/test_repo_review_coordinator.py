@@ -2529,18 +2529,10 @@ def test_run_archives_prior_cycle_and_summarizes_skip_gate(
         "validate_fleet_provenance",
         lambda **_kwargs: {"ok": True, "checked_at": "test", "repos": []},
     )
-    monkeypatch.setitem(
-        sys.modules,
-        "scripts.repo_review_queue_builder",
-        SimpleNamespace(build_queue=lambda *_a, **_k: {"issues": [{"title": "one"}]}),
-    )
-    monkeypatch.setitem(
-        sys.modules,
-        "scripts.repo_review_scorecard",
-        SimpleNamespace(load_scorecard_scan=lambda _path: {"ok": True}),
-    )
+    calls = []
 
     def fake_run_subprocess(cmd, *, cwd, log_path, name, timeout):
+        calls.append((name, cmd))
         if name == "docs-drift-scan":
             _write_docs_drift_output(cmd, scanned=0)
         if name in {"backlog-scan", "notify"}:
@@ -2567,6 +2559,12 @@ def test_run_archives_prior_cycle_and_summarizes_skip_gate(
     )
     assert coordinator.run(args) == 0
     captured = capsys.readouterr()
+    assert "queue-builder preview" not in captured.out
+    assert [name for name, _ in calls].count("final-evaluator") == 1
+    notify_cmd = next(cmd for name, cmd in calls if name == "notify")
+    assert notify_cmd[notify_cmd.index("--queue") + 1] == str(
+        output_dir / "approved-issue-queue.json"
+    )
     assert "auto-archive:" in captured.out
     assert "SKIP gate fired" in captured.out
     assert "backlog-scan FAILED" in captured.err

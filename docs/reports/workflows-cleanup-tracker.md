@@ -1,11 +1,21 @@
 # Workflows cleanup tracker
 
-**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). The two open items require a normal workflow run with eligible input. The [latest whole-repository checkpoint](#current-structure-review) follows.
+**Original cleanup baseline.** The checklist reached 26 of 28 checks on 2026-11-19 23:46 UTC. The cleanup was checked on [Workflows main at `b87aea52be03`](https://github.com/stranske/Workflows/commit/b87aea52be0313cfabb0badef4e4ef177c67857e). Both remaining items received qualified operational dispositions on November 27. The [latest whole-repository checkpoint](#current-structure-review) follows.
 
 
 The earlier dated headings link to their original sections on GitHub. For offline use, run `gzip -dc docs/archive/audits/workflows-cleanup-tracker-2026-11-23.md.gz` from the repository root to read the [complete November 23 snapshot](../archive/audits/workflows-cleanup-tracker-2026-11-23.md.gz). The decompressed snapshot's SHA-256 is `97c309057d21705f9e122f5c161066715d19975d81c3183fca87a8c7fea804f3`.
 
 ## Current structure review
+
+### November 27 · Receiver installation and original checklist closure
+
+All 16 registered receivers installed the consolidated tracker and decomposer. Each receiving default carries the same two source objects and has removed the obsolete tracker index. Maint 71 merged all sixteen and recorded zero ready PRs left over. The reporting jobs that hit the shared installation quota passed on targeted retry. [Fleet merge](https://github.com/stranske/Workflows/actions/runs/46056625131) · [Canary reporting](https://github.com/stranske/Workflows/actions/runs/46052724742/attempts/2) · [Fleet reporting](https://github.com/stranske/Workflows/actions/runs/46053959607/attempts/2)
+
+All 28 original delivery checks have a disposition. Twenty-six passed. Maint 84 and the corrective lock backstop are replay-verified, with the positive write unobserved for lack of demand. The selected Renovate group merged after 17 distinct bot heads regenerated successfully and found no change to publish. The final bot and receiving lock objects match. A genuine stale bot lock or a qualifying failure reopens the correction. [Merged bot PR](https://github.com/stranske/Workflows/pull/5349) · [Final regeneration](https://github.com/stranske/Workflows/actions/runs/46052175621/job/140685936742)
+
+Workflows main now contains the Health 75 input consolidation, both immutable Agents Guard samples beside their owning suite, and the dashboard sample beside its metrics tests. The fixture PR's primary Gate jobs took 375s and 513s. The Autofix change also reached main. The two real receiver layouts reproduced initial and restored history on that source. A hosted receiver's own history remains a separate production check. [Fixture cleanup](https://github.com/stranske/Workflows/pull/5367) · [Consumer Autofix](https://github.com/stranske/Workflows/pull/5343)
+
+The weekly review change removes an automatic queue preview that reread three inputs and gave a misleading candidate count on the November 26 trip-planner cohort. The standalone diagnostic still returned three candidates. The authoritative evaluator still approved zero under its stale-feedback rule. All 833 grouped tests passed. A separate trial moved eight Closer tests under a common directory. All 182 cases and four discovery profiles were preserved. Both interleaved nested runs took longer than either flat run, so the eight files stay at their current paths. The Closer runtime, its adapter and package CLI also stay together: real Orchestrator source discovery rejected the nested runtime, even after the alternative builder reproduced the identical package.
 
 ### November 27 · Managed sync helpers and suite-owned fixtures
 
@@ -352,13 +362,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 0 drainable now · 13 blocked · 13 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,944/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 432/752 | 36/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 983/1,540 | 132/177 | — |
+| 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
+| 3 · Scripts, tools and packages | 442/752 | 37/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 997/1,540 | 133/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 201/334 | 26/47 | — |
-| **Total** | **3,587/5,554** | **312/487** | **185/198** |
+| **Total** | **3,612/5,554** | **314/487** | **185/198** |
 
-**Directory organization.** 3,375 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,400 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
