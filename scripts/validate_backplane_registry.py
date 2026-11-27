@@ -453,6 +453,311 @@ def render_status_markdown(registry: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+# --- Freshness tracker (health-78 scheduled/dispatch publisher) -------------
+#
+# The tracker turns the warning-only freshness report into one marker-
+# deduplicated issue. The publisher finds the issue by this body marker, never by
+# title search, so a retitled or hand-edited tracker cannot spawn a duplicate.
+TRACKER_MARKER = "<!-- backplane-freshness-tracker:v1 -->"
+TRACKER_TITLE = "Backplane registry freshness: stale findings need action"
+TRACKER_RUNS_START = "<!-- backplane-freshness-tracker:runs -->"
+TRACKER_RUNS_END = "<!-- /backplane-freshness-tracker:runs -->"
+TRACKER_RUN_HISTORY_LIMIT = 10
+TRACKER_DECISIONS = ("create", "update", "reopen", "close", "refuse")
+
+DEFERRAL_FINDING_SUFFIX = ".issue_deferred.expires_at"
+REFERENCE_FINDING_SUFFIX = ".reference_run_evidence.generated_at"
+_PARTICIPANT_PATH_RE = re.compile(r"^participants\[(\d+)\]")
+_RUN_URL_LINE_RE = re.compile(r"^- (https://\S+)")
+_REQUIRED_COUNT_KEYS = ("finding_count", "blocking_count", "stale_count")
+
+try:
+    from scripts.list_registered_consumer_repos import is_owner_excluded
+except ModuleNotFoundError:  # pragma: no cover - script executed from scripts/
+    from list_registered_consumer_repos import is_owner_excluded  # type: ignore[no-redef]
+
+
+def _is_count(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def tracker_report_problem(report: Any) -> str | None:
+    """Return why ``report`` cannot drive the tracker, or None when it is complete.
+
+    A complete report carries every count, a findings list whose per-severity
+    tallies match those counts, and a participants list. Anything else (missing
+    file, truncated JSON, a hand-trimmed dict) is refused rather than read as
+    "zero findings", so an unreadable report can never close the tracker.
+    """
+
+    if report is None:
+        return "registry-status report is missing or unreadable"
+    if not isinstance(report, dict):
+        return "registry-status report is not a JSON object"
+    for key in _REQUIRED_COUNT_KEYS:
+        if key not in report:
+            return f"registry-status report is missing {key}"
+        if not _is_count(report[key]):
+            return f"registry-status report {key} is not a non-negative integer"
+    findings = report.get("findings")
+    if not isinstance(findings, list):
+        return "registry-status report is missing findings[]"
+    if not isinstance(report.get("participants"), list):
+        return "registry-status report is missing participants[]"
+    for index, finding in enumerate(findings):
+        if not isinstance(finding, dict) or not all(
+            isinstance(finding.get(key), str) for key in ("path", "message", "severity")
+        ):
+            return f"registry-status report findings[{index}] is malformed"
+    stale = sum(1 for f in findings if f["severity"] == STALE_SEVERITY)
+    blocking = len(findings) - stale
+    if len(findings) != report["finding_count"]:
+        return "registry-status report finding_count does not match findings[]"
+    if stale != report["stale_count"]:
+        return "registry-status report stale_count does not match findings[]"
+    if blocking != report["blocking_count"]:
+        return "registry-status report blocking_count does not match findings[]"
+    return None
+
+
+def load_tracker_report(path: Path) -> dict[str, Any] | None:
+    """Read a registry-status report; None when the file is missing or not JSON."""
+
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def _finding_repo(report: dict[str, Any], path: str) -> str | None:
+    match = _PARTICIPANT_PATH_RE.match(path)
+    if match is None:
+        return None
+    index = int(match.group(1))
+    participants = report.get("participants") or []
+    if index >= len(participants) or not isinstance(participants[index], dict):
+        return None
+    repo = participants[index].get("repo")
+    return repo if isinstance(repo, str) else None
+
+
+def tracker_counts(report: dict[str, Any]) -> dict[str, Any]:
+    """Classify a complete report's stale findings after owner repo exclusions.
+
+    ``drainable_count`` is the number of stale findings with a named drain path:
+    an administrative deferral decision or a fresh validated reference run.
+    ``unclassified`` stale findings have no known drain and are reported as such.
+    """
+
+    deferrals: list[dict[str, Any]] = []
+    references: list[dict[str, Any]] = []
+    unclassified: list[dict[str, Any]] = []
+    excluded = 0
+    blocking = 0
+    for finding in report["findings"]:
+        repo = _finding_repo(report, finding["path"])
+        if repo is not None and is_owner_excluded(repo):
+            excluded += 1
+            continue
+        if finding["severity"] != STALE_SEVERITY:
+            blocking += 1
+            continue
+        row = {**finding, "repo": repo}
+        if finding["path"].endswith(DEFERRAL_FINDING_SUFFIX):
+            deferrals.append(row)
+        elif finding["path"].endswith(REFERENCE_FINDING_SUFFIX):
+            references.append(row)
+        else:
+            unclassified.append(row)
+    stale_count = len(deferrals) + len(references) + len(unclassified)
+    return {
+        "blocking_count": blocking,
+        "stale_count": stale_count,
+        "drainable_count": len(deferrals) + len(references),
+        "owner_excluded_count": excluded,
+        "deferrals": deferrals,
+        "references": references,
+        "unclassified": unclassified,
+    }
+
+
+def tracker_decision(report: Any, existing_issue: dict[str, Any] | None) -> str:
+    """Decide what the publisher does with the marker tracker issue.
+
+    ``existing_issue`` is the issue found by :data:`TRACKER_MARKER` (``None``
+    when there is none), with ``state`` ``"open"`` or ``"closed"``. Returns one
+    of :data:`TRACKER_DECISIONS`. ``close`` is only returned for a complete,
+    non-blocking report with zero stale findings; the publisher treats ``close``
+    with no open tracker as "already drained, nothing to do".
+    """
+
+    if tracker_report_problem(report) is not None:
+        return "refuse"
+    counts = tracker_counts(report)
+    if counts["blocking_count"] > 0:
+        return "refuse"
+    if counts["stale_count"] == 0:
+        return "close"
+    if existing_issue is None:
+        return "create"
+    state = str(existing_issue.get("state", "")).lower()
+    if state == "closed":
+        return "reopen"
+    return "update"
+
+
+def tracker_runs_from_body(body: str | None) -> list[str]:
+    """Return the run URLs recorded in an existing tracker body, oldest first."""
+
+    if not body or TRACKER_RUNS_START not in body or TRACKER_RUNS_END not in body:
+        return []
+    section = body.split(TRACKER_RUNS_START, 1)[1].split(TRACKER_RUNS_END, 1)[0]
+    runs = []
+    for line in section.splitlines():
+        match = _RUN_URL_LINE_RE.match(line.strip())
+        if match:
+            runs.append(match.group(1))
+    return runs
+
+
+def _finding_lines(rows: list[dict[str, Any]]) -> list[str]:
+    return [f"- `{row['repo'] or 'unknown'}` — `{row['path']}`: {row['message']}" for row in rows]
+
+
+def render_tracker(
+    report: dict[str, Any],
+    run_url: str,
+    head_sha: str,
+    prior_runs: list[str] | None = None,
+) -> str:
+    """Render the tracker body; every count is derived from ``report``."""
+
+    counts = tracker_counts(report)
+    runs = [url for url in (prior_runs or []) if url != run_url] + [run_url]
+    runs = runs[-TRACKER_RUN_HISTORY_LIMIT:]
+    stale = counts["stale_count"]
+    drainable = counts["drainable_count"]
+    lines = [
+        TRACKER_MARKER,
+        "## Backplane registry freshness tracker",
+        "",
+        "Opened by Health 78 (`.github/workflows/health-78-backplane-contract.yml`) from the",
+        "uploaded `registry-status.json` report. Freshness findings stay warning-only in CI;",
+        "this issue is where they get acted on. Lifecycle: "
+        "`docs/contracts/research-backplane-contract.md`.",
+        "",
+        f"- `blocking_count`: {counts['blocking_count']}",
+        f"- `stale_count`: {stale}",
+        f"- `drainable_count`: {drainable}",
+        f"- Owner-excluded findings omitted: {counts['owner_excluded_count']}",
+        f"- Report generated at: `{report.get('generated_at', 'unknown')}`",
+        f"- Head SHA: `{head_sha}`",
+        f"- Run: {run_url}",
+        "",
+    ]
+    if stale == 0:
+        lines += [
+            "### Status: fully drained",
+            "",
+            "`stale_count` is 0 in a complete, structurally valid report. "
+            "The tracker closes on this run and reopens on the next stale finding.",
+            "",
+        ]
+    else:
+        lines += [f"**{stale} stale finding(s), {drainable} with a named drain action.**", ""]
+    lines += [
+        f"### Administrative deferral actions ({len(counts['deferrals'])})",
+        "",
+        "Expired `issue_deferred.expires_at`: renew the deferral with a reason, link a real",
+        "implementation issue, or change the participant status in",
+        "`config/backplane_participants.json`.",
+        "",
+    ]
+    lines += _finding_lines(counts["deferrals"]) or ["- none"]
+    lines += [
+        "",
+        f"### Stale reference evidence ({len(counts['references'])})",
+        "",
+        "Stale `reference_run_evidence.generated_at`: needs a fresh validated reference run",
+        "recorded with its new evidence. Do not edit the timestamp without a new run.",
+        "",
+    ]
+    lines += _finding_lines(counts["references"]) or ["- none"]
+    if counts["unclassified"]:
+        lines += [
+            "",
+            f"### Unclassified stale findings ({len(counts['unclassified'])}, no known drain)",
+            "",
+        ]
+        lines += _finding_lines(counts["unclassified"])
+    lines += ["", "### Runs", "", TRACKER_RUNS_START]
+    lines += [f"- {url}" for url in runs]
+    lines += [TRACKER_RUNS_END, ""]
+    return "\n".join(lines)
+
+
+def tracker_plan(
+    report: Any,
+    existing_issue: dict[str, Any] | None,
+    run_url: str,
+    head_sha: str,
+) -> dict[str, Any]:
+    """Decision plus everything the publisher needs to apply it."""
+
+    decision = tracker_decision(report, existing_issue)
+    plan: dict[str, Any] = {
+        "decision": decision,
+        "marker": TRACKER_MARKER,
+        "title": TRACKER_TITLE,
+    }
+    if decision == "refuse":
+        problem = tracker_report_problem(report)
+        # "report": the report itself is unusable (a publisher defect, fail loudly);
+        # "blocking": structural findings already fail the validation step.
+        plan["refuse_kind"] = "report" if problem else "blocking"
+        plan["reason"] = problem or (
+            f"blocking_count={tracker_counts(report)['blocking_count']}: structural "
+            "findings must be fixed first; the tracker only reports freshness"
+        )
+        return plan
+    counts = tracker_counts(report)
+    prior = tracker_runs_from_body((existing_issue or {}).get("body"))
+    plan.update(
+        {
+            "blocking_count": counts["blocking_count"],
+            "stale_count": counts["stale_count"],
+            "drainable_count": counts["drainable_count"],
+            "body": render_tracker(report, run_url, head_sha, prior),
+        }
+    )
+    if decision == "close":
+        plan["comment"] = (
+            f"Fully drained: `stale_count=0`, `blocking_count=0` in {run_url} "
+            f"(head `{head_sha}`). Closing; the next stale finding reopens this tracker."
+        )
+    return plan
+
+
+def _tracker_main(args: argparse.Namespace) -> int:
+    existing: dict[str, Any] | None = None
+    if args.tracker_existing_state != "none":
+        existing = {"state": args.tracker_existing_state, "body": ""}
+        if args.tracker_existing_body is not None:
+            try:
+                existing["body"] = args.tracker_existing_body.read_text(encoding="utf-8")
+            except OSError:
+                existing["body"] = ""
+    plan = tracker_plan(
+        load_tracker_report(args.tracker_report),
+        existing,
+        args.run_url or "unknown",
+        args.head_sha or "unknown",
+    )
+    print(json.dumps(plan, indent=2, sort_keys=True))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -488,7 +793,31 @@ def main(argv: list[str] | None = None) -> int:
         metavar="PATH",
         help="Fail when PATH differs from the rendered markdown status report.",
     )
+    tracker = parser.add_argument_group("freshness tracker")
+    tracker.add_argument(
+        "--tracker-report",
+        type=Path,
+        metavar="PATH",
+        help="Print the tracker plan (decision, title, body) for a registry-status report.",
+    )
+    tracker.add_argument(
+        "--tracker-existing-state",
+        choices=("none", "open", "closed"),
+        default="none",
+        help="State of the issue found by the tracker marker.",
+    )
+    tracker.add_argument(
+        "--tracker-existing-body",
+        type=Path,
+        metavar="PATH",
+        help="File holding the existing tracker body (carries the run history).",
+    )
+    tracker.add_argument("--run-url", help="Provenance: URL of the publishing run.")
+    tracker.add_argument("--head-sha", help="Provenance: commit SHA the run validated.")
     args = parser.parse_args(argv)
+
+    if args.tracker_report is not None:
+        return _tracker_main(args)
 
     registry = _load_json(args.registry)
 

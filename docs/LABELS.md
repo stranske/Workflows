@@ -105,6 +105,9 @@ A permanently-open tracker: an issue designed never to close (dashboards, health
 reports, sync-failure trackers). Excluded from open-issue backlog counts, so a
 standing tracker cannot masquerade as unfinished work. Durability is inferred from
 recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
+Trackers that close when their backlog drains (for example the Health 78
+backplane freshness tracker, `docs/contracts/research-backplane-contract.md`)
+must not carry this label.
 
 ## Autofix Labels
 

@@ -54,6 +54,8 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  # publish-freshness-tracker maintains one marker-deduplicated issue.
+  issues: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -122,6 +124,119 @@ jobs:
           fi
           python scripts/validate_backplane_registry.py --json ${enforce_flag} \
             | tee artifacts/backplane-contract/registry-status.json
+
+      - name: Publish freshness tracker
+        id: publish-freshness-tracker
+        # Turns the warning-only freshness report into one marker-deduplicated
+        # tracker issue (docs/contracts/research-backplane-contract.md). Scheduled
+        # and manual runs on main only; never PRs or pushes. always() keeps it
+        # running when enforce_freshness=true makes validation exit nonzero.
+        if: >-
+          always() &&
+          github.event_name != 'pull_request' &&
+          github.event_name != 'push' &&
+          github.ref_name == 'main'
+        uses: actions/github-script@v9
+        env:
+          REPORT_PATH: artifacts/backplane-contract/registry-status.json
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEAD_SHA: ${{ github.sha }}
+        with:
+          script: |
+            const fs = require('fs');
+            const os = require('os');
+            const path = require('path');
+            const { execFileSync } = require('child_process');
+            const { withRetry, paginateWithRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { owner, repo } = context.repo;
+            const marker = '<!-- backplane-freshness-tracker:v1 -->';
+
+            // Find the tracker by body marker, never by title. Search is eventually
+            // consistent, so the label listing backs it up for back-to-back runs.
+            const candidates = new Map();
+            const search = await withRetry(() => github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue in:body "backplane-freshness-tracker:v1"`,
+              per_page: 50,
+            }));
+            for (const item of search.data.items || []) candidates.set(item.number, item);
+            const labelled = await paginateWithRetry(github, github.rest.issues.listForRepo, {
+              owner, repo, state: 'all', labels: 'automated', per_page: 100,
+            });
+            for (const item of labelled) {
+              if (!item.pull_request) candidates.set(item.number, item);
+            }
+            const matches = [...candidates.values()]
+              .filter((item) => (item.body || '').includes(marker))
+              .sort((a, b) => a.number - b.number);
+            // Prefer the oldest open tracker; otherwise the oldest closed one.
+            const existing = matches.find((item) => item.state === 'open') || matches[0] || null;
+            if (matches.length > 1) {
+              core.warning(`Found ${matches.length} marker trackers; using #${existing.number}.`);
+            }
+
+            const args = [
+              'scripts/validate_backplane_registry.py',
+              '--tracker-report', process.env.REPORT_PATH,
+              '--run-url', process.env.RUN_URL,
+              '--head-sha', process.env.HEAD_SHA,
+              '--tracker-existing-state', existing ? existing.state : 'none',
+            ];
+            if (existing) {
+              const bodyPath = path.join(os.tmpdir(), 'backplane-tracker-body.md');
+              fs.writeFileSync(bodyPath, existing.body || '');
+              args.push('--tracker-existing-body', bodyPath);
+            }
+            const plan = JSON.parse(execFileSync('python', args, { encoding: 'utf8' }));
+            core.setOutput('decision', plan.decision);
+            core.info(
+              `decision=${plan.decision} blocking_count=${plan.blocking_count ?? 'n/a'} ` +
+              `stale_count=${plan.stale_count ?? 'n/a'} drainable_count=${plan.drainable_count ?? 'n/a'}`
+            );
+
+            if (plan.decision === 'refuse') {
+              // Never read an unusable report as "drained". A missing or malformed
+              // report is a publisher defect, so fail loudly; blocking findings
+              // already failed the validation step.
+              if (plan.refuse_kind === 'report') {
+                core.setFailed(`Freshness tracker refused: ${plan.reason}`);
+              } else {
+                core.warning(`Freshness tracker refused: ${plan.reason}`);
+              }
+              return;
+            }
+            const labels = ['automated'];
+            if (plan.decision === 'create') {
+              const created = await withRetry(() => github.rest.issues.create({
+                owner, repo, title: plan.title, body: plan.body, labels,
+              }));
+              core.notice(`Opened backplane freshness tracker #${created.data.number}`);
+              return;
+            }
+            if (plan.decision === 'close') {
+              if (!existing || existing.state !== 'open') {
+                core.notice('Backplane freshness fully drained (stale_count=0); no open tracker.');
+                return;
+              }
+              await withRetry(() => github.rest.issues.update({
+                owner, repo, issue_number: existing.number, body: plan.body,
+              }));
+              await withRetry(() => github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number, body: plan.comment,
+              }));
+              await withRetry(() => github.rest.issues.update({
+                owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed',
+              }));
+              core.notice(`Closed backplane freshness tracker #${existing.number}: fully drained`);
+              return;
+            }
+            // update | reopen
+            const update = { owner, repo, issue_number: existing.number, body: plan.body };
+            if (plan.decision === 'reopen') update.state = 'open';
+            await withRetry(() => github.rest.issues.update(update));
+            await withRetry(() => github.rest.issues.addLabels({
+              owner, repo, issue_number: existing.number, labels,
+            }));
+            core.notice(`${plan.decision === 'reopen' ? 'Reopened' : 'Updated'} backplane freshness tracker #${existing.number}`);
 
       - name: Registry status markdown freshness
         run: |
