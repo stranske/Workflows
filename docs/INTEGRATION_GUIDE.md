@@ -127,22 +127,32 @@ the managed refresh route, local command, and archived workflow.
 For files selected by the [consumer sync manifest](../.github/sync-manifest.yml),
 registered first-party consumers use managed delivery. Maint 68
 coalesces copied-file changes into stable candidate/delivery PRs, and Maint 71
-alone merges them after bounded reviewer settlement, an exact-head seal, a
-fresh Gate, a valid GitHub-generated commit signature, and zero active review
-threads. Maint 68 fails before publishing any generated head whose API-created
-tree or signature does not match the staged delivery. A reviewer capacity outage
-cannot require responses from every configured bot or keep the PR open indefinitely.
-Maint 71 requires one substantive response when available; it never waits for
-all configured reviewers. A successful status
-whose own description says the review was skipped or not performed is recorded
-as unavailable, not as reviewer quorum. Generated-branch Gate completions wake
-Maint 71 immediately; the durable campaign queue supplies the timed fallback for
-review windows and pending checks. Complete exact-plan candidate evidence starts
-promotion automatically while the stable candidate PRs remain open. Promotion
-prepares the non-canary stable PRs; Maint 71 merges candidate and delivery heads
-only after one fleet-wide exact-head authorization. Active review findings remain
-held until resolved or covered by an authenticated exact-head Workflows
-source-fix proof.
+is the sole merger of those sync PRs. Maint 68 fails before publishing any
+generated head whose API-created tree or signature does not match the staged
+delivery.
+
+The review path is selected by `generated_delivery_review` in
+[`config/consumer_sync_review_policy.json`](../config/consumer_sync_review_policy.json).
+The active value is `integration-only`: Maint 71 proceeds to consumer CI and Gate
+checks without requesting another general review or waiting through a synthetic
+review interval, and records `integration_checks_required` instead of a reviewer
+PASS. It merges only after an exact-head seal, required CI and a fresh Gate, a valid
+GitHub-generated commit signature, and an explicit owner disposition for every active
+review finding, with the merge bound to the exact head, source, and plan.
+Generated-branch Gate completions wake Maint 71 immediately; the durable campaign
+queue supplies the timed fallback for pending checks. Complete exact-plan candidate
+evidence starts promotion automatically while the stable candidate PRs remain open.
+Promotion prepares the non-canary stable PRs; Maint 71 merges candidate and delivery
+heads only after one fleet-wide exact-head authorization. Active review findings
+remain held until resolved, dispositioned by the owner, or covered by an
+authenticated exact-head Workflows source-fix proof.
+
+The legacy reviewer-settlement path applies only when `generated_delivery_review`
+is absent. In that mode Maint 71 additionally waits for bounded reviewer settlement:
+it requires one substantive response when available and never waits for all
+configured reviewers, so a reviewer capacity outage cannot keep the PR open
+indefinitely. A successful status whose own description says the review was
+skipped or not performed is recorded as unavailable, not as reviewer quorum.
 
 ### Method 3: Hybrid Approach
 
