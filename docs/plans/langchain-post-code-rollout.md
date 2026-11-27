@@ -1,5 +1,8 @@
 # LangChain Post-Code Production Capabilities - Evaluation & Rollout Plan
 
+> Historical rollout record. For the current task-splitting operator route, use the
+> [Workflow Guide](../WORKFLOW_GUIDE.md) entry for Issue Optimizer.
+
 > **Date:** January 9, 2026  
 > **Status:** Phase 3 Deployed to All Consumer Repos + Conflict Resolution Active  
 > **Last Validation:** 2026-01-09 (Full sync verified, conflict resolution working)  

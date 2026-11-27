@@ -254,7 +254,6 @@ EXPECTED_NAMES = {
     "agents-auto-pilot.yml": "Agents Auto-Pilot",
     "agents-bot-comment-handler.yml": "Agents Bot Comment Handler",
     "agents-capability-check.yml": "Capability Check",
-    "agents-decompose.yml": "Task Decomposition",
     "agents-dedup.yml": "Duplicate Detection",
     "agents-guard.yml": "Health 45 Agents Guard",
     "agents-guard-fork-status.yml": "Agents Guard Fork Status Publisher",

@@ -148,7 +148,6 @@ Issue: "Add user authentication"
 | `agents:apply-suggestions` | Issue | Apply optimization suggestions |
 | `agents:auto-pilot` | Issue | Full end-to-end automation |
 | `agents:capability-check` | Issue | Check if agent can complete |
-| `agents:decompose` | Issue | Suggest subtasks in a comment |
 | `agents:dedup` | Issue | Check for duplicates |
 | `agents:auto-label` | Issue | Apply appropriate labels |
 | `agents:paused` | PR | Pause keepalive/agent work |
@@ -184,7 +183,6 @@ Issue: "Add user authentication"
 | Label added: `agents:optimize` | Issue optimizer |
 | Label added: `agents:apply-suggestions` | Issue optimizer |
 | Label added: `agent:codex` | Issue intake, Capability check |
-| Label added: `agents:decompose` | Task decomposer |
 | Label added: `agents:capability-check` | Capability checker |
 | Label added: `agents:auto-pilot` | Auto-pilot orchestrator |
 
@@ -289,15 +287,6 @@ Before assigning an agent, validates:
 **Use When:** Uncertain if an issue is suitable for automation
 
 **Result:** Comment with ✅ proceed or ⚠️ concerns
-
----
-
-#### `agents:decompose` - Break Down Large Issues
-**Posts suggested subtasks on the original issue**
-
-Apply the label when an issue involves too much work for one PR. Review the Task Decomposition comment, then copy the suggestions into the issue's Tasks section or create and link child issues manually.
-
-**Result:** A comment when the workflow generates subtasks. After successful processing, the workflow attempts to remove the trigger label, including when it has no suggestions.
 
 ---
 
@@ -621,9 +610,9 @@ Add all three labels before or after merge
 **For large features:**
 ```
 1. Create a tracking issue with the full scope
-2. Add the `agents:decompose` label
-3. Review the suggested subtasks in the Task Decomposition comment
-4. Copy the suggestions into Tasks or create and link child issues manually
+2. Add `agents:optimize` or run Issue Optimizer with phase `analyze`
+3. Review the Task splitting section of the optimizer comment
+4. Apply approved suggestions with `agents:apply-suggestions`, edit Tasks directly, or create and link child issues manually
 5. Add `agent:codex` to individual child issues when they are ready
 ```
 

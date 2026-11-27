@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from jsonschema import Draft202012Validator
 from scripts.sync_manifest_compiler import (
     PLAN_SCHEMA,
@@ -185,7 +186,6 @@ def test_langchain_workflows_and_canonical_requirements_share_delivery_plan() ->
     for name in (
         "agents-auto-label.yml",
         "agents-capability-check.yml",
-        "agents-decompose.yml",
         "agents-dedup.yml",
         "backplane-conformance.yml",
     ):
@@ -204,6 +204,29 @@ def test_langchain_workflows_and_canonical_requirements_share_delivery_plan() ->
     assert requirements.source_tree == "root"
     assert requirements.template_sync == "exact"
     assert requirements.delivery == "copy"
+
+
+def test_retired_decompose_workflow_is_removed_without_losing_issue_shaping() -> None:
+    root = Path(__file__).parents[2]
+    planned = compile_manifest(root / ".github" / "sync-manifest.yml", repo_root=root).to_plan()
+    entries = {item["target"]: item for item in planned["entries"]}
+    removals = {item["target"] for item in planned["removals"]}
+    retired = ".github/workflows/agents-decompose.yml"
+
+    assert retired not in entries
+    assert retired in removals
+    assert not (root / retired).exists()
+    assert not (root / "templates/consumer-repo" / retired).exists()
+    assert ".github/workflows/agents-issue-optimizer.yml" in entries
+    for shared_path in (
+        "scripts/langchain/issue_optimizer.py",
+        "scripts/langchain/task_decomposer.py",
+        "scripts/langchain/prompts/decompose_task.md",
+        "tools/requirements-llm.txt",
+    ):
+        assert entries[shared_path]["resolved_source"] == shared_path
+        assert entries[shared_path]["delivery"] == "copy"
+        assert shared_path not in removals
 
 
 @pytest.mark.parametrize(
@@ -637,13 +660,16 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ],
     }
     Draft202012Validator(schema).validate(legacy_plan)
-    # Correction-interface helpers plus tools/subscription_llm.py extend the prior managed entries.
-    # Preserve ci-python-versions.env (#4045) and verifier_plan_fingerprint.js.
-    # scripts/langchain/response_content.py (#4434) adds one copy entry.
-    # Autofix PR-head observation and completion validation add one copy entry.
-    # The shared auto-pilot summary environment is shipped with its CLI callers.
-    # Retire the disabled effect SDK and four runtime-only receiver helper copies.
-    assert len(plan["entries"]) == 276
+    declared = yaml.safe_load((root / ".github" / "sync-manifest.yml").read_text(encoding="utf-8"))
+    copy_entries = [
+        item
+        for section, entries in declared.items()
+        if isinstance(entries, list) and section not in {"removals", "excluded", "runtime_fetched"}
+        for item in entries
+    ]
+    assert sorted(entry["target"] for entry in plan["entries"]) == sorted(
+        entry.get("target", entry["source"]).rstrip("/") for entry in copy_entries
+    )
     assert {
         "scripts/autopilot_summary_environment.py",
         ".github/scripts/autofix_metrics.js",
@@ -684,7 +710,7 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ("src/manager_mosaic/schemas/evidence-object-v1.schema.json", ("stranske/Manager-Mosaic",)),
     }
     removals = {entry["target"] for entry in plan["removals"]}
-    assert len(removals) == 24
+    assert removals == {entry["target"] for entry in declared["removals"]}
     assert {
         ".github/scripts/sync_tracker_state/index.js",
         ".github/scripts/verifier_correction_runtime.js",
