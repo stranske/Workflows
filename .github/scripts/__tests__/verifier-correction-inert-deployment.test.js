@@ -5,7 +5,7 @@ const fs=require('fs'),path=require('path'),{createHash}=require('crypto');
 const {gunzipSync}=require('node:zlib');
 const root=path.resolve(__dirname,'../../..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
-const lineage=JSON.parse(read('docs/evidence/verifier-correction-inert-split/deployment-lineage.json'));
+const lineage=JSON.parse(read('docs/evidence/verifier-correction-deployment-lineage.json'));
 const surfaces=['.github/workflows/agents-verify-to-new-pr.yml','templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml'];
 
 // Both predecessor surfaces had these exact job bytes at 7c5ac26448ed6149ba984584ed1db821ce049371.
