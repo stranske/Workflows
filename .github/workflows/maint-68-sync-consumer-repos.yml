@@ -1231,8 +1231,6 @@ jobs:
           # PAT from preventing an existing stable delivery PR from being found.
           github-token: ${{ steps.workflows_app_token.outputs.token }}
           script: |
-            // The delivery's pinned source can predate the move from index.js
-            // to sync_tracker_state.js. CommonJS resolves both layouts.
             const { isConsumerOpenPr } = require('./workflows/.github/scripts/sync_tracker_state');
             const branchName = process.env.SYNC_BRANCH;
             const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

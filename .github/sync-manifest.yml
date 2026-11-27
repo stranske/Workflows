@@ -1381,6 +1381,8 @@ runtime_fetched:
 
 excluded:
 
+  - path: .github/scripts/sync_tracker_state
+    reason: "The full plan removes the former managed index.js leaf. The old directory stays outside sync ownership so receiver-owned siblings are preserved."
   - path: .gitignore
     reason: "Repo-specific ignore patterns; the managed Workflows status-file block is propagated by scripts/sync_status_file_ignores.py instead of generic sync targets"
   - path: README.md
