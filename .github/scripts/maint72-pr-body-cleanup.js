@@ -5,6 +5,14 @@ const BRANCH = 'maintenance/maint72-pr-body';
 const BASE = 'main';
 const TITLE = 'chore: clean up tracked PR body';
 const MARKER = '<!-- workflows-maint72-pr-body/v1 -->';
+const SOURCE_MARKER = '<!-- workflow-source:automation_run -->';
+const SOURCE_LABEL = 'workflow:source-automation';
+
+function cleanupPullBody(baseSha) {
+  return `${MARKER}\n${SOURCE_MARKER}\n\nThis PR applies the Maint 72 cleanup plan from \`${baseSha}\`. ` +
+    'It removes tracked PR-body content and adds the ignore rule when missing. ' +
+    'Review the exact diff and required checks before merging.';
+}
 
 function treeEntries(entries) {
   return JSON.stringify(entries.map(({ path, mode, type, sha }) => [path, mode, type, sha]).sort());
@@ -92,20 +100,43 @@ async function openCleanupPullRequest({ github, core, owner, repo, baseSha, prBo
       throw mismatched();
     }
   };
-  const verifyPull = (pull, sha) => {
+  const verifyOwnedPull = (pull, sha) => {
     if (pull?.state !== 'open' || pull.draft !== false ||
         pull.base.ref !== BASE || pull.head.repo?.full_name !== `${owner}/${repo}` ||
         pull.head.ref !== BRANCH || pull.head.sha !== sha || !pull.body?.includes(MARKER)) {
       throw new Error('cleanup PR is closed or differs from this plan; reconcile it in normal review');
     }
-    return pull.html_url;
+    return pull;
+  };
+  const hasSourceLabel = (pull) => (pull.labels || []).some((label) =>
+    String(label?.name || label).toLowerCase() === SOURCE_LABEL,
+  );
+  const repairProvenance = async (pull, sha) => {
+    verifyOwnedPull(pull, sha);
+    if (!pull.body.includes(SOURCE_MARKER)) {
+      const body = pull.body.replace(MARKER, `${MARKER}\n${SOURCE_MARKER}`);
+      await writeOnce((client) => client.rest.pulls.update({
+        ...target, pull_number: pull.number, body,
+      }));
+    }
+    if (!hasSourceLabel(pull)) {
+      await writeOnce((client) => client.rest.issues.addLabels({
+        ...target, issue_number: pull.number, labels: [SOURCE_LABEL],
+      }));
+    }
+    const refreshed = await getPull(sha);
+    verifyOwnedPull(refreshed, sha);
+    if (!refreshed.body.includes(SOURCE_MARKER) || !hasSourceLabel(refreshed)) {
+      throw new Error('cleanup PR provenance did not persist; reconcile it in normal review');
+    }
+    return refreshed.html_url;
   };
 
   let head = await getHead();
   const priorPull = await getPull(head);
   if (priorPull) {
     await verifyHead(head);
-    return verifyPull(priorPull, head);
+    return repairProvenance(priorPull, head);
   }
   await assertBase();
   if (head) {
@@ -136,14 +167,12 @@ async function openCleanupPullRequest({ github, core, owner, repo, baseSha, prBo
   await assertBase();
   if (await getHead() !== head) throw mismatched();
   const existing = await getPull(head);
-  if (existing) return verifyPull(existing, head);
+  if (existing) return repairProvenance(existing, head);
   let pull;
   try {
     ({ data: pull } = await writeOnce((client) => client.rest.pulls.create({
       ...target, title: TITLE, head: BRANCH, base: BASE, draft: false,
-      body: `${MARKER}\n\nThis PR applies the Maint 72 cleanup plan from \`${baseSha}\`. ` +
-        'It removes tracked PR-body content and adds the ignore rule when missing. ' +
-        'Review the exact diff and required checks before merging.',
+      body: cleanupPullBody(baseSha),
     })));
   } catch (error) {
     // Reconcile an ambiguous create response by the bound head, never by making another PR.
@@ -151,7 +180,7 @@ async function openCleanupPullRequest({ github, core, owner, repo, baseSha, prBo
     if (!pull) throw error;
   }
   if (await getHead() !== head) throw mismatched();
-  return verifyPull(pull, head);
+  return repairProvenance(pull, head);
 }
 
-module.exports = { openCleanupPullRequest };
+module.exports = { openCleanupPullRequest, cleanupPullBody };
