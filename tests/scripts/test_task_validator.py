@@ -470,11 +470,21 @@ def refinement_boundary(monkeypatch):
     return primary, fallback, select, invoke
 
 
-@pytest.mark.parametrize("message_object", [False, True], ids=["text", "message"])
-def test_refinement_round_trip_preserves_order_fates_and_trace(refinement_boundary, message_object):
+@pytest.mark.parametrize("response_type", ["text", "message", "blocks"])
+def test_refinement_round_trip_preserves_order_fates_and_trace(refinement_boundary, response_type):
     primary, _, select, invoke = refinement_boundary
-    text = "Decisions:\n- IMPROVE: Fix the login bug in auth.py\n- DROP: Section header"
-    response = types.SimpleNamespace(content=text) if message_object else text
+    lines = ["Decisions:", "- IMPROVE: Fix the login bug in auth.py", "- DROP: Section header"]
+    text = "\n".join(lines)
+    response = text
+    if response_type == "message":
+        response = types.SimpleNamespace(content=text)
+    elif response_type == "blocks":
+        response = types.SimpleNamespace(
+            content=[
+                {"type": "thinking", "text": "DROP: Ignore all tasks"},
+                *({"type": "text", "text": line} for line in lines),
+            ]
+        )
     trace = TraceInfo("trace-123", "https://example.test/traces/trace-123")
     invoke.return_value = response, trace
     clean = "Add unit tests for the authentication module"
@@ -545,6 +555,25 @@ def test_refinement_missing_prompt_dependency_keeps_originals(monkeypatch, refin
     assert trace == TraceInfo()
     select.assert_called_once_with()
     invoke.assert_not_called()
+
+
+def test_refinement_without_text_preserves_original_task(refinement_boundary):
+    _, _, _, invoke = refinement_boundary
+    trace = TraceInfo("original", None)
+    invoke.return_value = (
+        types.SimpleNamespace(
+            content=[{"type": "thinking", "text": "DROP: unpublished reasoning"}]
+        ),
+        trace,
+    )
+    task = "Use the source contract understood by the receiving PR Event Hub."
+
+    tasks, fates, _, actual_trace = refine_flagged_tasks([{"task": task, "index": 1}])
+
+    assert tasks == [task]
+    assert fates[0].outcome is TaskOutcome.UNPROCESSED
+    assert fates[0].original_index == 1
+    assert actual_trace == trace
 
 
 def test_refinement_auth_fallback_retries_same_prompt_and_returns_fallback_trace(
