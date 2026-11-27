@@ -305,9 +305,11 @@ jobs:
           workflows_app_id: ${{ secrets.workflows_app_id }}
           workflows_app_private_key: ${{ secrets.workflows_app_private_key }}
       - name: Echo received inputs
+        env:
+          NORMALIZED_INPUTS_JSON: ${{ toJson(needs.normalize_inputs.outputs) }}
         run: |
           echo "Inputs JSON:"
-          printf '%s\n' "${{ toJson(needs.normalize_inputs.outputs) }}"
+          printf '%s\n' "$NORMALIZED_INPUTS_JSON"
           echo "Selected ref: ${GITHUB_REF}"
 
       - name: Prepare topic source
