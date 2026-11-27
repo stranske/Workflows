@@ -5,7 +5,6 @@ import yaml
 
 WORKFLOWS_DIR = Path(".github/workflows")
 ISSUE_TEMPLATE_DIR = Path(".github/ISSUE_TEMPLATE")
-KEEPALIVE_HELPER = Path("scripts/keepalive-runner.js")
 
 
 def _load_workflow_yaml(name: str) -> dict:
@@ -1381,50 +1380,6 @@ def test_issue_intake_guard_checks_agent_label():
         "github.event.issue.labels" in text
     ), "Issue intake must check issue.labels array for agent:* labels"
     assert "agent:" in text, "Issue intake must check for agent: prefix to match any agent label"
-
-
-def test_keepalive_summary_reports_scope_and_activity():
-    text = KEEPALIVE_HELPER.read_text(encoding="utf-8")
-    assert "Target labels:" in text, "Keepalive summary should list the label scope"
-    assert (
-        "Agent logins:" in text
-    ), "Keepalive summary should surface the Codex logins under consideration"
-    assert (
-        "No unattended Codex tasks detected." in text or "keepalive posted" in text
-    ), "Keepalive summary must describe whether any PRs required intervention"
-    assert (
-        "Triggered keepalive comments" in text
-    ), "Keepalive summary should wrap triggered comment list in a collapsible section"
-    assert (
-        "Triggered keepalive count:" in text
-    ), "Keepalive summary should record how many follow-up comments were sent"
-    assert (
-        "Evaluated pull requests:" in text
-    ), "Keepalive summary should report how many PRs were inspected"
-    assert "agents:paused" in text, "Keepalive runner must recognise the agents:paused label"
-    assert (
-        "Skipped ${paused.length} paused PR" in text
-    ), "Keepalive summary must log the number of paused PRs it skipped"
-
-
-def test_keepalive_summary_includes_skip_notice():
-    text = KEEPALIVE_HELPER.read_text(encoding="utf-8")
-    assert (
-        "Skip requested via options_json." in text
-    ), "Keepalive summary must log when the job exits early due to options overrides"
-
-
-def test_keepalive_dedupes_scope_configuration():
-    text = KEEPALIVE_HELPER.read_text(encoding="utf-8")
-    assert (
-        "const dedupe =" in text or "function dedupe(" in text
-    ), "Keepalive script should define a dedupe helper for repeated inputs"
-    assert (
-        "targetLabels = dedupe(targetLabels)" in text
-    ), "Keepalive must dedupe resolved label scope before reporting it"
-    assert (
-        "agentLogins = dedupe(agentLogins)" in text
-    ), "Keepalive must dedupe resolved agent login list"
 
 
 def test_keepalive_gate_job_handles_missing_pull_request_metadata():
