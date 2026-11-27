@@ -7,6 +7,13 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27, 14:01 UTC review
+
+Workflows main retired the standalone Reusable 16 keepalive runner, 27 other obsolete files and its fixture directory. The installed current keepalive function reproduced the exact task fingerprint and all nine tasks on PR #5337. The source change removed 4,566 lines and added six. The two primary Gate jobs took 439 and 363 seconds. The earlier grouped-suite change also received a successful default-branch Selftest on its release successor. [Runner retirement](https://github.com/stranske/Workflows/pull/5340) · [Gate](https://github.com/stranske/Workflows/actions/runs/46004382224) · [Grouped-suite default verification](https://github.com/stranske/Workflows/actions/runs/46005690135)
+
+The [operator cleanup](https://github.com/stranske/Workflows/pull/5341) now incorporates the independently reviewed [API audit relocation](https://github.com/stranske/Workflows/pull/5333). Calling the moved audit from the repository root and from docs produced the same finding; the deliberate omission raised one finding to two. Both original operator batches remain byte-identical at their source paths. Default delivery is tracked separately.
+
+
 ### November 27, 12:58 UTC review
 
 Health 78's publisher repair merged. On six actual stale findings with six available remediation actions and no structural failures, GitHub Actions created [#5339](https://github.com/stranske/Workflows/issues/5339). A second run updated the same issue. The original weekly design [#5324](https://github.com/stranske/Workflows/issues/5324) stayed closed with its restored body and four labels. Health 78 retains both its structural gate and its working publisher. [Create](https://github.com/stranske/Workflows/actions/runs/46003218633) · [Repeat](https://github.com/stranske/Workflows/actions/runs/46003473279) · [Repair](https://github.com/stranske/Workflows/pull/5338)
@@ -290,12 +297,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 181/198 completed · 1 drainable now · 16 blocked · 17 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,567/2,901 | 111/220 | — |
-| 3 · Scripts, tools and packages | 399/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 907/1,540 | 127/177 | — |
+| 3 · Scripts, tools and packages | 405/752 | 34/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 929/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 199/334 | 26/47 | — |
-| **Total** | **3,099/5,554** | **298/487** | **181/198** |
+| **Total** | **3,127/5,554** | **299/487** | **181/198** |
 
-**Directory organization.** 2,887 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,915 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
