@@ -635,6 +635,36 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   repository ruleset. See [Agents Workflow Protection Policy](../AGENTS_POLICY.md)
   for the change allowlist and override procedure.
 
+#### Sync-core first-opportunity pilot
+
+Enroll one receiving repository after its default branch has the managed
+`agents-auto-pilot.yml` gate and the shared producer and opener have been
+verified together. Create the `sync:opener-first` issue label and set the
+repository Actions variable `SYNC_CORE_OPENER_FIRST_ISSUER_ID` to the numeric
+GitHub account ID of the controller's authenticated producer. Enable that
+repository in sync-core's `opener_first_repos` configuration with the same ID.
+The producer checks the receiver workflow, label, variable, and its authenticated
+identity before filing a new pilot issue.
+
+The producer's issue keeps `agents:auto-pilot`, `sync`, and `automated`. Its
+`sync:opener-first` label and versioned body receipt identify the reservation.
+The initial Auto-Pilot event yields only when the GitHub issue author, event
+sender, receipt, and scoped labels match. The shared opener reads the producer
+ledger before using the reservation. Existing human pauses, assignments, live
+claims, and linked PRs take precedence.
+
+If the opener reaches a confirmed no-start disposition, it checks current
+ownership and removes only `sync:opener-first` using the configured issuer.
+The native label-removal event resumes Auto-Pilot, which re-reads issue state
+and existing work before dispatch. If the opener's start outcome is uncertain,
+recover that operation from live claims, the issue timeline, and linked PRs
+before authorizing any fallback. For an authorized manual recovery, confirm the
+same no-start evidence under the shared controller's ownership, then have the
+configured issuer remove the pilot label. Keep the legacy label and any owner
+pause in place. An ordinary maintainer's removal does not start Auto-Pilot.
+Disable new enrollments in sync-core first if withdrawing the pilot, then
+resolve existing reservations before removing the receiver's issuer variable.
+
 ### Error checking, linting, and testing topology
 - **Reusable Python CI** – `reusable-10-ci-python.yml` fans out ruff, mypy, and
   pytest across the interpreter matrix. It reads `python_version` (currently `"3.13"`)
