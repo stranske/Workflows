@@ -1075,6 +1075,69 @@ def test_cli_checks_addressability_in_working_directory(
         )
 
 
+def test_issue_5296_report_keeps_findings_and_points_to_installed_guide(tmp_path: Path) -> None:
+    # The invalid body below is the source shape printed by the first #5296
+    # format-guard report. Preserve its findings while changing only navigation.
+    body = (
+        "## Why\nCurrent evidence\n\n## Scope\nBounded scope\n\n"
+        "## Tasks\n- [ ] Use the source contract understood by the receiving PR Event Hub.\n\n"
+        "## Acceptance Criteria\n- [ ] The repair behaves as expected.\n\n"
+        "`pr_body.md`\n"
+    )
+    expected_problems = [
+        "`Tasks` item must name a concrete file, symbol, path, config key, job, or command: "
+        "`Use the source contract understood by the receiving PR Event Hub.`.",
+        "`Acceptance Criteria` names no test, runnable command or observable verification gate "
+        "— Definition of Ready / Quality Bar §2 requires one.",
+    ]
+
+    source = tmp_path / "source"
+    (source / "templates/consumer-repo/docs").mkdir(parents=True)
+    (source / "templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md").write_text("guide\n")
+    source_report = _validator().validate(body, repo_root=source)
+
+    consumer = tmp_path / "consumer"
+    (consumer / "docs").mkdir(parents=True)
+    (consumer / "docs/AGENT_ISSUE_FORMAT.md").write_text("guide\n")
+    consumer_report = _validator().validate(body, repo_root=consumer)
+
+    assert source_report.problems == consumer_report.problems == expected_problems
+    assert source_report.advisories == consumer_report.advisories == [
+        "1 cited path(s) do not exist yet: `pr_body.md` — expected when a task creates them; "
+        "check for typos otherwise."
+    ]
+    assert "`templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md`" in source_report.as_markdown()
+    assert "`docs/AGENT_ISSUE_FORMAT.md`" in consumer_report.as_markdown()
+
+
+def test_valid_report_uses_the_installed_source_or_consumer_guide(tmp_path: Path) -> None:
+    body = (
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `.github/scripts/issue_format.py`.\n\n"
+        + "## Acceptance Criteria\n- [ ] `pytest tests/scripts/test_issue_format.py` passes.\n"
+    )
+    source = tmp_path / "source"
+    (source / "templates/consumer-repo/docs").mkdir(parents=True)
+    (source / "templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md").write_text("guide\n")
+    consumer = tmp_path / "consumer"
+    (consumer / "docs").mkdir(parents=True)
+    (consumer / "docs/AGENT_ISSUE_FORMAT.md").write_text("guide\n")
+    for checkout in (source, consumer):
+        (checkout / ".github/scripts").mkdir(parents=True)
+        (checkout / ".github/scripts/issue_format.py").write_text("validator\n")
+        (checkout / "tests/scripts").mkdir(parents=True)
+        (checkout / "tests/scripts/test_issue_format.py").write_text("tests\n")
+
+    source_report = _validator().validate(body, repo_root=source)
+    consumer_report = _validator().validate(body, repo_root=consumer)
+
+    assert source_report.ok and consumer_report.ok
+    assert source_report.as_markdown() == (
+        "Issue body conforms to `templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md`."
+    )
+    assert consumer_report.as_markdown() == "Issue body conforms to `docs/AGENT_ISSUE_FORMAT.md`."
+
+
 # --- rewrite_until_valid: the shared validate-and-rewrite loop -----------------
 
 _VALID_REWRITE = (

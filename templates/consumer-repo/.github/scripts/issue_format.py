@@ -255,6 +255,18 @@ _PATHISH_EXT = (
 # Below this many citations the sample is too small to conclude "wrong repo" —
 # a single path in a prose aside must not fail an otherwise sound issue.
 _MIN_CITATIONS_TO_JUDGE = 3
+_CONSUMER_GUIDE = Path("docs/AGENT_ISSUE_FORMAT.md")
+_SOURCE_TEMPLATE_GUIDE = Path("templates/consumer-repo") / _CONSUMER_GUIDE
+
+
+def _guide_path(repo_root: Path | None) -> str:
+    """Return the guide path that an author can open in this checkout."""
+    if repo_root is not None:
+        if (repo_root / _CONSUMER_GUIDE).is_file():
+            return str(_CONSUMER_GUIDE)
+        if (repo_root / _SOURCE_TEMPLATE_GUIDE).is_file():
+            return str(_SOURCE_TEMPLATE_GUIDE)
+    return str(_CONSUMER_GUIDE)
 
 
 def _normalise_cited_path(raw: str) -> str | None:
@@ -489,15 +501,16 @@ class Report:
     missing_recommended: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     advisories: list[str] = field(default_factory=list)
+    guide_path: str = str(_CONSUMER_GUIDE)
 
     def as_markdown(self) -> str:
         if self.ok and not self.missing_recommended and not self.advisories:
-            return "Issue body conforms to `docs/AGENT_ISSUE_FORMAT.md`."
+            return f"Issue body conforms to `{self.guide_path}`."
         if self.ok:
             out = ["Issue body is agent-processable with advisories.", ""]
         else:
             out = [
-                "This issue is **not yet agent-processable**. See `docs/AGENT_ISSUE_FORMAT.md`.",
+                f"This issue is **not yet agent-processable**. See `{self.guide_path}`.",
                 "",
             ]
         if self.missing_required:
@@ -527,7 +540,7 @@ def validate(body: str, repo_root: Path | None = None) -> Report:
     actually exist there — see the Addressability block above. It is optional so
     the validator stays a pure body check for callers that have no checkout.
     """
-    report = Report()
+    report = Report(guide_path=_guide_path(repo_root))
     body = _strip_original_issue_blocks(body or "")
     for name, aliases in REQUIRED.items():
         if _find(body, aliases) is None:
@@ -623,7 +636,7 @@ def validate(body: str, repo_root: Path | None = None) -> Report:
 # to the model, so a rewrite that failed once failed the same way on every retry.
 REWRITE_INSTRUCTIONS = """\
 Rewrite the GitHub issue body below so it satisfies the fleet's AGENT_ISSUE_FORMAT
-contract (docs/AGENT_ISSUE_FORMAT.md). The validator report after these rules lists
+contract ({report.guide_path}). The validator report after these rules lists
 exactly what the current body fails; fix every item it names.
 
 Rules:
