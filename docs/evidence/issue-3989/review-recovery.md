@@ -27,9 +27,10 @@ GITHUB_OUTPUT='' NODE_OPTIONS='--require=/tmp/keepalive-test-runtime.cjs --exper
 ```
 
 The full keepalive run uses the same temporary regular-file stdin workaround
-described in `issue-3989-completion-classification.md`. No assertions or production
-code are replaced by that shim. The ordinary isolated Node command still needs
-CI verification. `git diff --check` and source/template byte comparison passed.
+described in the [completion classification verification](completion-classification.md).
+No assertions or production code are replaced by that shim. The ordinary isolated
+Node command still needs CI verification. `git diff --check` and source/template byte
+comparison passed.
 
 The native writer reported GitHub API access failure. Its payload was subsequently
 published at the committed predecessor above; current delivery is recorded below.

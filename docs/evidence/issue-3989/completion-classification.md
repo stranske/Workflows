@@ -86,7 +86,7 @@ GITHUB_OUTPUT='' python -m pytest tests/scripts/test_agent_switch_cadence.py -m 
 # 13 passed
 
 python scripts/agent_switch_cadence.py \
-  --input tests/scripts/fixtures/agent_switch_cadence/same_evaluate_rate_limit_switch.json
+  --input tests/scripts/fixtures/agent_switch_cadence_same_evaluate_rate_limit_switch.json
 ```
 
 CLI output (abridged): median additional rounds **0.0**, same-evaluate **yes**,
@@ -97,9 +97,10 @@ and label timeline:
 - `2026-10-17T08:05:01Z` labeled `agent:rate-limited`
 - `2026-10-17T08:05:01Z` labeled `agents:tried-codex`
 
-Durable artifacts: `docs/evidence/issue-3989/same-evaluate-rate-limit-switch-replay.md`
-and `.json`. Live fleet snapshots after the next provider quota event use the
-same `--input` JSON shape (`completions`, `label_events`, `open_prs`).
+The published replay is available as [Markdown](same-evaluate-rate-limit-switch-replay.md)
+and [JSON](same-evaluate-rate-limit-switch-replay.json). Live fleet snapshots
+after the next provider quota event use the same `--input` JSON shape
+(`completions`, `label_events`, `open_prs`).
 
 The 48-hour fleet cleanup acceptance (`agent:rate-limited` absent on every open
 PR whose latest round progressed) remains a timed post-merge check; the harness
