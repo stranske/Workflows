@@ -1181,6 +1181,7 @@ docs:
           silently remove those rules. Consumer conventions are referenced FROM that file instead.
 
   - source: docs/contracts/agent-runner-output.md
+    source_tree: root
     target: docs/contracts/agent-runner-output.md
     description: "Agent runner output contract specification - required for implementing new agent runners"
 
@@ -1199,10 +1200,12 @@ docs:
     description: "Canonical entity-ID conventions for run-contract/v1 identity_refs / evidence entity_ref - participants emit against these"
 
   - source: docs/contracts/capability-bundle-v1.md
+    source_tree: root
     target: docs/contracts/capability-bundle-v1.md
     description: "Capability-bundle/v1 prompt-fragment and gate metadata contract for Workflows Keepalive"
 
   - source: docs/contracts/schemas/capability-bundle-v1.schema.json
+    source_tree: root
     target: docs/contracts/schemas/capability-bundle-v1.schema.json
     description: "JSON Schema (draft 2020-12) for capability-bundle/v1 keepalive prompt fragments and gate metadata"
 
