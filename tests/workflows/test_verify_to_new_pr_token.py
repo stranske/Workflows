@@ -1,4 +1,4 @@
-"""Guard token routing for verifier follow-up issues and dispatches."""
+"""Guard token routing for verifier follow-up issues."""
 
 import os
 import subprocess
@@ -30,10 +30,11 @@ def test_app_token_is_scoped_and_template_matches_source():
     assert {key: value for key, value in mint["with"].items() if key.startswith("permission-")} == {
         "permission-contents": "read",
         "permission-issues": "write",
-        "permission-actions": "write",
+        "permission-actions": "read",
     }
     assert job["env"]["HAS_WORKFLOWS_APP_CREDS"].startswith("${{")
-    assert "createWorkflowDispatch" in steps["dispatch-autopilot"]["with"]["script"]
+    assert "dispatch-autopilot" not in steps
+    assert "createWorkflowDispatch" not in ROOT.read_text(encoding="utf-8")
     setup = next(step for step in job["steps"] if step["name"] == "Setup API client")
     assert "workflows_app_private_key" not in setup["with"]
     assert "workflows_app_id" not in setup["with"]
@@ -51,7 +52,7 @@ def test_app_token_is_scoped_and_template_matches_source():
         (("", "owner", "service", "workflow", "failure"), "owner-pat", True),
     ],
 )
-def test_token_selection_preserves_dispatch_fallback(tmp_path, tokens, expected_source, warn):
+def test_token_selection_preserves_issue_writer_fallback(tmp_path, tokens, expected_source, warn):
     workflow = yaml.safe_load(ROOT.read_text(encoding="utf-8"))
     select = next(
         step
@@ -101,7 +102,7 @@ def test_followup_dedup_recognizes_python_generated_scope_lines():
         text = path.read_text(encoding="utf-8")
         create_step = text.split("      - name: Create follow-up issue\n", 1)[1]
         script = create_step.split("          script: |\n", 1)[1].split(
-            "\n      - name: Dispatch auto-pilot continuation\n", 1
+            "\n      - name: Comment on original PR\n", 1
         )[0]
         missing = [marker for marker in PYTHON_SCOPE_DEDUP_MARKERS if marker not in script]
         assert not missing, f"{path}: missing Python-scope dedup markers: {missing}"
