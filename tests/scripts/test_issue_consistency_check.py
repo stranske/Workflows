@@ -720,7 +720,7 @@ def test_main_skips_unreliable_fallback_and_ambiguous_inference(monkeypatch, cap
 def test_main_skips_cleanup_report_without_title_issue(monkeypatch, capsys, tmp_path: Path) -> None:
     tracker = tmp_path / "workflows-cleanup-tracker.md"
     tracker.write_text(
-        "**November 27, 09:01 UTC review.** created #3383 and worker PR #3385.\n"
+        "**November 27, 09:01 UTC issue review.** created #3383 and worker PR #3385.\n"
         "**November 27, Chicago.** opened [weekly design W-1 as #5315](https://example.test/5315).\n",
         encoding="utf-8",
     )
