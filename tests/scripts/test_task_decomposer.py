@@ -342,22 +342,6 @@ def test_load_prompt_missing_file(monkeypatch, tmp_path) -> None:
     assert prompt == task_decomposer.TASK_DECOMPOSITION_PROMPT
 
 
-def test_load_prompt_missing_file_falls_back(monkeypatch, tmp_path) -> None:
-    """_load_prompt returns default prompt when file is absent."""
-    missing_path = tmp_path / "absent.md"
-    monkeypatch.setattr(task_decomposer, "PROMPT_PATH", missing_path)
-    assert not missing_path.exists()
-    prompt = task_decomposer._load_prompt()
-    assert prompt == task_decomposer.TASK_DECOMPOSITION_PROMPT
-
-
-def test_load_prompt_default_template(monkeypatch, tmp_path) -> None:
-    """_load_prompt uses default template when prompt file is absent."""
-    missing_path = tmp_path / "nope.md"
-    monkeypatch.setattr(task_decomposer, "PROMPT_PATH", missing_path)
-    assert task_decomposer._load_prompt() == task_decomposer.TASK_DECOMPOSITION_PROMPT
-
-
 def _install_fake_langchain_openai(monkeypatch):
     fake_module = types.ModuleType("langchain_openai")
 
