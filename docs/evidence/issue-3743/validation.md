@@ -106,3 +106,7 @@ creation was rejected because it requires approval while this run's approval
 policy is `never`. The verified changes can be committed in an isolated writable
 checkout and delivered as a Git bundle; remote publication and PR/issue checklist
 updates remain unavailable in this run.
+
+## Historical archive validation runs
+
+The [initial filesystem validation](https://github.com/stranske/Workflows/blob/67dee42616781423c5197ddf640d4070286cbfa4/docs/evidence/issue-3743/archive-boundary/README.md) and [follow-up execution report](https://github.com/stranske/Workflows/blob/67dee42616781423c5197ddf640d4070286cbfa4/docs/evidence/issue-3743/archive-boundary/proof-execution/README.md) preserve the original directory layout, transcripts, manifests and results together in Git.
