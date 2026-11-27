@@ -334,6 +334,7 @@ async function validateIndependentFindingFromNative(args) {
   const prior = args.thread.comments.nodes;
   const observed = thread?.comments?.nodes;
   if (latest.headRefOid !== head || latest.headRefName !== args.headRef || latest.body !== args.body
+    || (args.proof.receiver_fix && latest.baseRefName !== args.proof.receiver_fix.base_ref)
     || thread?.isOutdated !== true || thread.isResolved !== false || observed?.length !== prior.length
     || !observed.every((item, index) => item.fullDatabaseId === prior[index].fullDatabaseId
       && item.url === prior[index].url && item.body === prior[index].body

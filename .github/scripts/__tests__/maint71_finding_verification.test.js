@@ -342,6 +342,19 @@ function bindReceiverFix(f) {
   return receiverFix;
 }
 
+test('the refreshed generated PR must still target the independently assessed receiver base', async () => {
+  const f = inlineStockFixture();
+  const fix = bindReceiverFix(f);
+  f.pull.base = { ref: fix.base_ref };
+  f.latest.baseRefName = fix.base_ref;
+  assert.equal((await validateIndependentFindingFromNative(f.finish())).ok, true);
+  for (const base of ['release', undefined]) {
+    f.latest.baseRefName = base;
+    assert.equal((await validateIndependentFindingFromNative(f.finish())).reason,
+      'originating_completion_evidence_changed');
+  }
+});
+
 test('receiver repair is expressly typed and binds the separate campaign and every native fix field', () => {
   const f = fixture(); bindReceiverFix(f);
   const shape = () => validateReviewResolutionProof(f.args.proof, { owner: 'stranske', repo: 'Ready',
