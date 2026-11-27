@@ -263,8 +263,7 @@ def test_committed_evaluate_actions_fixture_replays_visible_label_timeline(tmp_p
     fixture = (
         Path(__file__).resolve().parent
         / "fixtures"
-        / "agent_switch_cadence"
-        / "same_evaluate_rate_limit_switch.json"
+        / "agent_switch_cadence_same_evaluate_rate_limit_switch.json"
     )
     assert fixture.is_file()
     md_out = tmp_path / "out.md"
