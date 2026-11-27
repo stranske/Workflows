@@ -20,7 +20,9 @@ Used at both ends:
     `python .github/scripts/issue_format.py <body-file>` and refuse to file junk
     (non-zero exit means unfit).
 
-Rules mirror docs/AGENT_ISSUE_FORMAT.md rather than inventing a parallel
+Rules mirror the fleet format guide (`docs/AGENT_ISSUE_FORMAT.md` in consumer
+repos; `templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md` in Workflows) rather
+than inventing a parallel
 standard: Tasks and Acceptance Criteria are REQUIRED; Why / Scope /
 Implementation Notes / Non-Goals are reported as recommended; and at least one
 acceptance criterion must name a real test, runnable command, or observable
@@ -259,14 +261,21 @@ _CONSUMER_GUIDE = Path("docs/AGENT_ISSUE_FORMAT.md")
 _SOURCE_TEMPLATE_GUIDE = Path("templates/consumer-repo") / _CONSUMER_GUIDE
 
 
+def _is_source_repository(repo_root: Path | None) -> bool:
+    """Return True when ``repo_root`` is a Workflows source checkout rather than a consumer."""
+    if repo_root is None:
+        return False
+    return (
+        not (repo_root / _CONSUMER_GUIDE).is_file()
+        and (repo_root / _SOURCE_TEMPLATE_GUIDE).is_file()
+    )
+
+
 def _guide_path(repo_root: Path | None) -> str:
     """Return the guide path that an author can open in this checkout."""
-    if repo_root is not None:
-        if (repo_root / _CONSUMER_GUIDE).is_file():
-            return str(_CONSUMER_GUIDE)
-        if (repo_root / _SOURCE_TEMPLATE_GUIDE).is_file():
-            return str(_SOURCE_TEMPLATE_GUIDE)
-    return str(_CONSUMER_GUIDE)
+    if _is_source_repository(repo_root):
+        return _SOURCE_TEMPLATE_GUIDE.as_posix()
+    return _CONSUMER_GUIDE.as_posix()
 
 
 def _normalise_cited_path(raw: str) -> str | None:
@@ -501,7 +510,7 @@ class Report:
     missing_recommended: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     advisories: list[str] = field(default_factory=list)
-    guide_path: str = str(_CONSUMER_GUIDE)
+    guide_path: str = _CONSUMER_GUIDE.as_posix()
 
     def as_markdown(self) -> str:
         if self.ok and not self.missing_recommended and not self.advisories:
