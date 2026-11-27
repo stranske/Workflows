@@ -7,6 +7,8 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**Two source changes verified on main.** The direct-push Maint 70 workflow retired. The installed local operator produced the exact historical one-file Black/Ruff patch and left the current receiver clean. Both discovery profiles retained 63 cases, with eight following the script to its owning suite. The two primary Gate jobs took 395s and 586s against the 600s checkpoint. Six loose #4082 round receipts now share an indexed archive. Installed recovery matched every original, reproduced the trigger change and the unknown round-seven counts, and rejected a one-byte mutation. [Formatter retirement](https://github.com/stranske/Workflows/pull/5310) · [Archive](https://github.com/stranske/Workflows/pull/5311)
+
 **November 27 UTC.** Maint 45 stays available to apply a narrowly authorized test repair from an original JUnit report. Its native clean and runtime-refusal paths both suppressed PR publication. In 68 digest-verified reports across 23 ordinary runs, none of the 56 failure occurrences qualified. Black/Ruff formatting does not provide this guarded test-repair function. Reopen the positive-publication check on the first eligible original report. [Clean run](https://github.com/stranske/Workflows/actions/runs/45742682797) · [Native refusal](https://github.com/stranske/Workflows/actions/runs/45621655864)
 
 The public checkout fix reached Workflows main. The installed source, template and operator guide passed their credential checks. The same runtime completed a two-repository smoke and restart in 21 seconds. The Maint 90 producer also reached main. Its first operator run saw one sync PR, zero held findings and zero eligible assessments. A native verification or owner escalation remains open. [Public checkout](https://github.com/stranske/Workflows/pull/5309) · [Paired run](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45933975962/job/140292800828) · [Maint 90 discovery](https://github.com/stranske/Workflows/actions/runs/45943409901)
@@ -221,24 +223,24 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 174/198 completed · 1 drainable now · 23 blocked · 24 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 175/198 completed · 1 drainable now · 22 blocked · 23 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,560/2,901 | 110/220 | — |
+| 2 · Evidence and archives | 1,566/2,901 | 110/220 | — |
 | 3 · Scripts, tools and packages | 372/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 910/1,540 | 128/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 911/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,067/5,554** | **298/487** | **174/198** |
+| **Total** | **3,074/5,554** | **298/487** | **175/198** |
 
-**Directory organization.** 2,855 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,862 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
 | [Keep in current role](workflow-decisions.md#keep) | 121 |
-| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 10 |
+| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 11 |
 | [Other verified decisions](workflow-decisions.md#verified) | 43 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 10 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 9 |
 | [In review](workflow-decisions.md#review) | 1 |
 | [Proposed changes](workflow-decisions.md#proposed) | 13 |
 
