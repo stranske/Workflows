@@ -207,7 +207,7 @@ def test_should_scan_header_file_excludes_known_dirs() -> None:
     assert check_issue_consistency.should_scan_header_file(Path("src/app.py")) is True
     assert (
         check_issue_consistency.should_scan_header_file(
-            Path(".github/workflows/agents-auto-pilot.yml")
+            Path(".github/workflows/agents-81-gate-followups.yml")
         )
         is False
     )

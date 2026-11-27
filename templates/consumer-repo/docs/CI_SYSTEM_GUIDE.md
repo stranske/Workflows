@@ -57,12 +57,11 @@ provides:
 
 ### Agent Automation System
 
-The Workflows repo provides the shared implementations behind these consumer entry points:
+The Workflows repo provides the shared implementations behind these consumer entry points. The [shared opener and closer](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) own eligible issue claims and guarded PR promotion.
 
 | Component | Purpose |
 |-----------|---------|
 | **Agents Issue Intake** (`agents-issue-intake.yml`) | Thin caller that forwards syntactically valid assignment labels to the shared issue bridge |
-| **Agents 71 Dispatcher + Agents 72 Worker wrapper** (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker-dispatch.yml`) | Auto-pilot issue queue and bounded worker dispatch |
 | **Agents 80 PR Event Hub** (`agents-80-pr-event-hub.yml`) | Consolidates PR, comment, and Gate events for PR metadata and follow-ups |
 | **Agents 81 Gate Followups** (`agents-81-gate-followups.yml`) | Owns consumer keepalive evaluation, supported runner dispatch, and guarded post-Gate delivery |
 | **Verifier** (`agents-verifier.yml`) | Runs explicit post-merge evaluation and comparison lanes |

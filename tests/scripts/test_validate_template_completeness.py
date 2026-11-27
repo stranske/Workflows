@@ -45,9 +45,9 @@ def test_get_manifest_workflows_extracts_consumer_workflow_targets(tmp_path: Pat
                     {"source": ".github/workflows/agents-80-pr-event-hub.yml"},
                     {
                         "source": (
-                            "templates/consumer-repo/.github/workflows/" "agents-auto-pilot.yml"
+                            "templates/consumer-repo/.github/workflows/" "agents-81-gate-followups.yml"
                         ),
-                        "target": ".github/workflows/agents-auto-pilot.yml",
+                        "target": ".github/workflows/agents-81-gate-followups.yml",
                     },
                     {"source": "templates/consumer-repo/AGENTS.md"},
                     {"source": ".github/scripts/error_classifier.js"},
@@ -61,7 +61,7 @@ def test_get_manifest_workflows_extracts_consumer_workflow_targets(tmp_path: Pat
 
     assert validator.get_manifest_workflows(manifest_path) == {
         "agents-80-pr-event-hub.yml",
-        "agents-auto-pilot.yml",
+        "agents-81-gate-followups.yml",
         "ci.yml",
     }
     assert validator.get_manifest_workflows(tmp_path / "missing.yml") == set()
@@ -88,7 +88,6 @@ def test_get_manifest_workflows_extracts_consumer_workflow_targets(tmp_path: Pat
         ("agents-debug-issue-event.yml", False),
         ("agents-weekly-metrics.yml", False),
         ("agents-moderate-connector.yml", False),
-        ("agents-73-codex-belt-conveyor-dispatch.yml", False),
         ("agents-pr-meta-v4.yml", False),
         ("agents-autofix-loop.yml", False),
         ("agents-63-issue-intake.yml", False),

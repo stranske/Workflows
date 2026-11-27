@@ -1,4 +1,6 @@
 # Workflow Review Checklist
+
+The Agents 71–73 entries record the retired belt. [Shared lane procedures](../ops/LOCAL_LANES.md#lanes-overview) describe current operations.
 This checklist will track optimization, consolidation, or archival work for every workflow under `.github/workflows`. Mark each workflow as you finish reviewing it and capture notes on required changes.
 
 | Review | Workflow | Notes |

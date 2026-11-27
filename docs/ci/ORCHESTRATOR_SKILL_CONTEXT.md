@@ -76,7 +76,7 @@ reference packs remain optional.
 These inputs are forwarded by:
 
 - `agents-keepalive-loop.yml` (closer lane / PR keepalive Codex runs)
-- `agents-71-codex-belt-dispatcher.yml` and `agents-72-codex-belt-worker.yml` (opener lane API surface; repo config on the automation branch remains primary)
+- [Shared opener](../ops/LOCAL_LANES.md#lanes-overview) and its managed inputs. Repository configuration on the automation branch remains primary.
 
 Repos with no Orchestrator config and no overrides are unchanged.
 

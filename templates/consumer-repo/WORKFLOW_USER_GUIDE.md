@@ -101,354 +101,13 @@ Issue: "Add user authentication"
 
 ---
 
-### 4. End-to-End Automation (Auto-Pilot)
+### 4. End-to-end automation
 
-**Use Case:** You want complete hands-off automation from issue to merged PR
-
-**Steps:**
-1. Create a well-structured issue with clear tasks
-2. Add label: `agents:auto-pilot`
-3. (Optional) Add `runner:codex`, `runner:claude`, etc. to pick the agent you want auto-pilot to use (skip this to use the registry default).
-4. Monitor progress comments
-
-**What Happens:**
-1. ✅ Issue is formatted automatically
-2. ✅ Issue is analyzed and optimized
-3. ✅ Suggestions are applied
-4. ✅ Agent creates PR
-5. ✅ Keepalive monitors and continues work
-6. ✅ PR is auto-merged when ready (if conditions met)
-7. ✅ Verification runs post-merge
-
-**Safety Limits:**
-- Maximum 10 workflow cycles
-- 4-hour timeout
-- Pause anytime with `agents:auto-pilot-pause`
-- Stops on errors with `agents:auto-pilot-failed`
-- Routes repeated failures to bounded automation retry and scheduled recovery
-- Uses `needs-human` only for independently confirmed external authority
-
-**Time:** 20 minutes to 2 hours depending on complexity
-
-**Best For:** Well-scoped tasks like adding a new endpoint, refactoring a module, or adding tests
-
----
-
-## Label Reference
-
-### User-Applied Labels (Triggers)
-
-| Label | Where | What It Does |
-|-------|-------|--------------|
-| `autofix` | PR | Auto-fixes formatting/lint errors |
-| `autofix:clean` | PR | Aggressive autofix with cosmetic repairs |
-| `agent:codex` | Issue | Creates PR from issue |
-| `agents:format` | Issue | Direct one-step formatting |
-| `agents:optimize` | Issue | Analyze and suggest improvements |
-| `agents:apply-suggestions` | Issue | Apply optimization suggestions |
-| `agents:auto-pilot` | Issue | Full end-to-end automation |
-| `agents:capability-check` | Issue | Check if agent can complete |
-| `agents:decompose` | Issue | Suggest subtasks in a comment |
-| `agents:dedup` | Issue | Check for duplicates |
-| `agents:auto-label` | Issue | Apply appropriate labels |
-| `agents:paused` | PR | Pause keepalive/agent work |
-| `verify:checkbox` | PR (merged) | Verify checkboxes complete |
-| `verify:evaluate` | PR (merged) | AI code review |
-| `verify:compare` | PR (merged) | Multi-model comparison |
-| `verify:create-issue` | PR (merged) | Create follow-up issue |
-
-### Auto-Applied Labels (Status)
-
-| Label | Meaning |
-|-------|---------|
-| `agents:formatted` | Issue has been formatted |
-| `agents:keepalive` | Keepalive is monitoring this PR |
-| `agent:needs-attention` | Human intervention required |
-| `agents:auto-pilot-pause` | Auto-pilot paused |
-| `agents:auto-pilot-failed` | Auto-pilot stopped due to errors |
-| `agents:allow-change` | Permission signal for `agents-guard`; bypasses guard-level CODEOWNER approval only for dependency-only `uses:` reference updates from Dependabot/Renovate or repository owner/member/collaborator PRs. Workflows applies it to dependency-bot PRs through the label job in `maint-auto-lock-deps.yml`; arbitrary workflow logic edits still require review. |
-| `needs-human` | Escalated to human |
-| `follow-up` | Created as follow-up to another issue/PR |
-| `duplicate` | Potential duplicate detected |
-
----
-
-## Workflow Triggers Summary
-
-### Issue Events
-
-| Event | Workflows That Trigger |
-|-------|----------------------|
-| Issue opened | Auto-label, Duplicate detection, Issue intake |
-| Label added: `agents:format` | Issue optimizer |
-| Label added: `agents:optimize` | Issue optimizer |
-| Label added: `agents:apply-suggestions` | Issue optimizer |
-| Label added: `agent:codex` | Issue intake, Capability check |
-| Label added: `agents:decompose` | Task decomposer |
-| Label added: `agents:capability-check` | Capability checker |
-| Label added: `agents:auto-pilot` | Auto-pilot orchestrator |
-
-### PR Events
-
-| Event | Workflows That Trigger |
-|-------|----------------------|
-| PR opened | Gate (CI), Agents 80 PR Event Hub, Agents Guard |
-| Label added: `autofix` | Autofix loop |
-| Label added: `agents:keepalive` | Enables keepalive loop (runs on Gate workflow_run) |
-| Label removed: `agents:paused` | Keepalive resumes |
-| PR merged | Verifier (if verify labels present) |
-| Label added: `verify:*` (after merge) | Verifier workflows |
-
-### Continuous Monitoring
-
-| Workflow | Runs |
-|----------|------|
-| Keepalive loop | Gate workflow_run for eligible PRs (and manual dispatch) |
-| Auto-pilot | On label changes for active issues |
-| Bot comment handler | On every issue/PR comment |
-
----
-
-## Complete Feature Reference
-
-### Issue Formatting & Optimization
-
-#### `agents:format` - Direct Format
-**Quick, one-step formatting**
-
-Immediately formats your issue to the standard template with sections:
-- **Why**: Context and motivation
-- **Scope**: What's included
-- **Non-Goals**: What's excluded
-- **Tasks**: Checklist of work items
-- **Acceptance Criteria**: How to verify completion
-- **Implementation Notes**: Technical guidance
-
-**Use When:** Issue is already well-written but needs structure
-
-**Result:** Label removed, `agents:formatted` added automatically
-
----
-
-#### `agents:optimize` - Analyze & Suggest
-**Two-step formatting with human review**
-
-AI analyzes your issue and posts suggestions:
-- Tasks that are too broad (should be split)
-- Tasks the agent cannot complete (with reasons)
-- Subjective acceptance criteria (with objective alternatives)
-- Missing sections or formatting issues
-
-**Use When:** Issue needs significant restructuring or you want expert feedback
-
-**Next Step:** Review suggestions, then add `agents:apply-suggestions` to apply
-
----
-
-#### `agents:apply-suggestions` - Apply Formatting
-**Applies optimization suggestions**
-
-Extracts suggestions from the analysis comment and:
-- Reformats the issue body
-- Moves blocked tasks to "Deferred Tasks" section
-- Adds proper template structure
-- Marks as `agents:formatted`
-
-**Prerequisites:** Must have optimization suggestions comment from `agents:optimize`
-
----
-
-### Agent Assignment & PR Creation
-
-#### `agent:codex` - Create PR from Issue
-**Assigns Codex agent to create a PR**
-
-1. Creates branch `codex/issue-<number>`
-2. Opens a ready-for-review PR linked to the issue
-3. Agent begins implementing tasks
-4. Keeps working through keepalive system
-5. Keeps dependency and progress state in labels, checks, and the PR body
-
-**Prerequisites:**
-- Issue must be formatted (`agents:formatted` label)
-- Valid agent assignee configured
-
-**Monitoring:** Check PR for progress comments and commits
-
----
-
-#### `agents:capability-check` - Pre-flight Check
-**Checks if an agent can complete the issue**
-
-Before assigning an agent, validates:
-- All tasks are achievable by AI
-- No external dependencies required
-- Clear acceptance criteria exist
-- No blocked/deferred tasks
-
-**Use When:** Uncertain if an issue is suitable for automation
-
-**Result:** Comment with ✅ proceed or ⚠️ concerns
-
----
-
-#### `agents:decompose` - Break Down Large Issues
-**Posts suggested subtasks on the original issue**
-
-Apply the label when an issue involves too much work for one PR. Review the Task Decomposition comment, then copy the suggestions into the issue's Tasks section or create and link child issues manually.
-
-**Result:** A comment when the workflow generates subtasks. After successful processing, the workflow attempts to remove the trigger label, including when it has no suggestions.
-
----
-
-### Duplicate Detection & Auto-Labeling
-
-#### `agents:dedup` - Check for Duplicates
-**Finds potential duplicate issues**
-
-Searches for similar issues by:
-- Title similarity
-- Body content overlap
-- Keyword matching
-
-**Result:** If duplicate found, adds `duplicate` label and comment with link
-
-**Threshold:** 92% similarity required to flag
-
----
-
-#### `agents:auto-label` - Automatic Issue Labeling
-**Applies appropriate labels based on content**
-
-Analyzes issue text and applies:
-- `bug` for error reports, crashes, incorrect behavior
-- `enhancement` for feature requests, improvements
-- `documentation` for docs updates
-
-**Use When:** You want consistent labeling across issues
-
-**Note:** Only applies the best-matching label (not multiple)
-
----
-
-### PR Automation & Monitoring
-
-#### `agents:keepalive` - Continue Agent Work
-**Keeps agent working until PR is complete**
-
-Monitors PR and:
-- Dispatches agent for next task when ready
-- Handles merge conflicts automatically
-- Updates progress comments
-- Pauses on CI failures
-- Escalates to human if stuck
-
-**Auto-added:** When agent creates PR
-
-**Control:** Add `agents:paused` to pause
-
----
-
-#### `autofix` - Automatic Code Fixes
-**Fixes formatting and lint errors**
-
-Runs repository's configured tools:
-- Code formatters (black, prettier, etc.)
-- Import organizers
-- Linters with auto-fix
-- Type annotation fixes
-
-**Variants:**
-- `autofix:clean` - More aggressive, includes cosmetic repairs
-- `autofix:clean-only` - Only cosmetic changes
-- `autofix:bot-comments` - Removes bot comment artifacts
-
-**Use When:** CI is failing on style/format issues
-
----
-
-#### `autofix:patch` - Emergency Fixes
-**Applies fixes when push permissions unavailable**
-
-If autofix can't push directly:
-1. Creates a patch file
-2. Uploads as artifact
-3. Comments on PR with instructions
-
-**Manual Step Required:** Download and apply patch
-
----
-
-### Verification & Quality Assurance
-
-#### `verify:checkbox` - Check Acceptance Criteria
-**Verifies checkboxes are complete**
-
-After PR merge, validates:
-- All task checkboxes are checked
-- Acceptance criteria boxes checked
-- No incomplete items
-
-**Result:** Comment on PR, optional follow-up issue
-
----
-
-#### `verify:evaluate` - AI Code Review
-**LLM evaluation of merged changes**
-
-Runs AI review of the PR:
-- Rates correctness, completeness, quality, testing
-- Identifies concerns
-- Scores each dimension (1-10)
-- Suggests improvements
-
-**Result:** Detailed evaluation comment
-
----
-
-#### `verify:compare` - Multi-Model Comparison
-**Compare across different AI models**
-
-Runs verification with multiple models:
-- Side-by-side comparison
-- Consensus concerns
-- Model-specific feedback
-
-**Use When:** Want robust validation of complex changes
-
----
-
-#### `verify:create-issue` - Create Follow-up from Verification
-**Turns verification feedback into new issue**
-
-Extracts concerns from verification comment:
-- Low scores (<7/10)
-- Specific concerns noted
-- Creates structured follow-up issue
-- Links back to original PR
-- Auto-adds `agents:optimize` for formatting
-
-**Use When:** Verification found issues that need work
-
----
+Use the [shared opener and closer](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) for eligible issues and guarded promotion. Follow the issue-linked PR for keepalive and post-merge verification.
 
 ### Advanced Automation
 
-#### `agents:auto-pilot` - Full End-to-End
-**Complete automation from issue to merge**
-
-Orchestrates entire pipeline:
-1. Format → 2. Optimize → 3. Apply → 4. Agent → 5. Keepalive → 6. Merge → 7. Verify
-
-**Safety:**
-- Max 10 cycles
-- 4-hour timeout
-- Pause: `agents:auto-pilot-pause`
-- Failure: `agents:auto-pilot-failed`
-
-**Agent Selection:** Add `runner:codex`, `runner:claude`, etc. next to `agents:auto-pilot` when you want to pick the agent explicitly. Skip the `runner:` label to use the registry default.
-
-**Best For:** Well-defined, medium complexity tasks
+The [shared opener and closer](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) own issue admission and guarded promotion.
 
 ---
 
@@ -465,7 +124,7 @@ hour, it applies `agents:auto-pilot-pause` to stop the recursion.
 3. Confirm that the issue is no longer being redispatched and that its body is
    valid before resuming automation.
 4. Remove `agents:auto-pilot-pause` to allow the issue through the normal format
-   and auto-pilot gates again.
+   and shared opener gates again.
 
 Do not remove the pause label before correcting the cause; doing so can restart
 the same recursion and exhaust the bounded retry cap again.
@@ -530,21 +189,9 @@ a fresh budget.
 
 ---
 
-### Issue: Auto-Pilot Stopped Early
+### Issue has a legacy Auto-Pilot failure marker
 
-**Symptoms:** `agents:auto-pilot-failed` label added
-
-**Possible Causes:**
-1. Exceeded 10 cycle limit - issue too complex
-2. Hit 4-hour timeout - issue taking too long
-3. Repeated failures - agent stuck on same task
-4. CI repeatedly failing - infrastructure issue
-
-**Next Steps:**
-1. Review progress comments on issue
-2. Check last PR attempt for errors
-3. Simplify issue scope if too complex
-4. Remove failed label and retry with `agents:paused` for manual control
+Check the issue timeline and linked PR for an existing owner, then read the [shared opener](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) disposition.
 
 ---
 
@@ -569,7 +216,7 @@ a fresh budget.
 
 **Pattern 3: Full Automation**
 ```
-1. Add `agents:auto-pilot` (handles everything)
+1. Submit an eligible issue through the shared opener lane
 ```
 
 ---
@@ -656,7 +303,7 @@ Add all three labels before or after merge
 
 ---
 
-### When to Use Auto-Pilot
+### Choosing work for the shared opener
 
 ✅ **Good candidates:**
 - Adding new API endpoint
@@ -1329,10 +976,6 @@ The sync manifest (`config/sync-manifest.json`) controls what gets synced:
 ```json
 {
   "files": [
-    {
-      "source": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
-      "dest": ".github/workflows/agents-auto-pilot.yml"
-    },
     {
       "source": "templates/consumer-repo/WORKFLOW_USER_GUIDE.md",
       "dest": "docs/WORKFLOW_USER_GUIDE.md"

@@ -33,9 +33,9 @@ Automation agents touching **any** keepalive code path must consult the followin
    - Recommendations and elements to preserve
 5. **[`../guides/ADD_NEW_AGENT.md`](../guides/ADD_NEW_AGENT.md)** — Checklist for onboarding new agents (registry entries, runner workflows, docs/tests) so every automation surface treats Codex, Claude, and future agents consistently.
 
-## Auto-Pilot Integration
+## Historical Auto-Pilot Integration
 
-The keepalive loop is one stage within the larger **auto-pilot pipeline** (`agents-auto-pilot.yml`). Understanding their relationship is essential:
+The [shared opener and closer](../ops/LOCAL_LANES.md#lanes-overview) own current admission and promotion. This section records the retired Auto-Pilot integration. The keepalive worker and its authority ledger remain active.
 
 ```
 Auto-pilot pipeline:

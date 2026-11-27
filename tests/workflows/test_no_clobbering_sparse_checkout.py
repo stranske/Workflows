@@ -20,20 +20,8 @@ WORKFLOW_DIRS = (
     ROOT / "templates" / "consumer-repo" / ".github" / "workflows",
 )
 
-# (workflow, job) -> why the replacement is intended. Each entry was verified, and the test below fails when one stops matching.
-INTENTIONAL = {
-    (
-        ".github/workflows/agents-71-codex-belt-dispatcher.yml",
-        "dispatch",
-    ): (
-        "the consumer checkout supplies ./.github/actions/resolve-default-branch, which runs BEFORE the Workflows helper sparse "
-        "checkout replaces the tree; every later step reads only paths inside that sparse set (checked 2026-10-16)"
-    ),
-    (
-        "templates/consumer-repo/.github/workflows/agents-71-codex-belt-dispatcher.yml",
-        "dispatch",
-    ): "the same job in the consumer template, with the same reasoning (checked 2026-10-16)",
-}
+# (workflow, job) -> reason for an intentional replacement.
+INTENTIONAL: dict[tuple[str, str], str] = {}
 
 
 def _checkouts(job: dict) -> list[dict]:

@@ -763,9 +763,7 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 3. Fails closed if an external merge lane cannot read PR labels.
 
 **Consumers:** `.github/scripts/runtime_ac_merge_guard.js`,
-`.github/workflows/agents-73-codex-belt-conveyor.yml`,
-`templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml`. Agents 73 is callable-only;
-Agents 81 is the active consumer guarded merge route.
+`templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml`.
 
 ---
 
@@ -824,21 +822,16 @@ Agents 81 is the active consumer guarded merge route.
 
 **Applies to:** Issues
 
-**Trigger:** Belt dispatcher or worker claim
+**Trigger:** An existing legacy belt claim
 
 **Effect:**
-1. Records that an issue has active belt work in progress.
+1. Identifies a claim written by the retired belt workflow.
 2. In the standard consumer flow, is cleared by Agents 81 after it successfully merges the linked PR.
-3. Is cleared by Agents 73 when that callable-only recovery path merges the linked completed PR.
-4. Is reclaimed by the Health 40 sweep after 24 hours when the issue has no linked open or
+3. Is reclaimed by the Health 40 sweep after 24 hours when the issue has no linked open or
    merged PR; the sweep writes a timestamp-bearing reclaim-intent comment before removing the
    label, so an interrupted mutation cannot create an unaudited release.
 
-**Consumers:** `.github/workflows/agents-71-codex-belt-dispatcher.yml`,
-`.github/workflows/agents-72-codex-belt-worker.yml`,
-`.github/workflows/health-40-sweep.yml`, and the callable-only
-`.github/workflows/agents-73-codex-belt-conveyor.yml` recovery component. The claim and reclaim
-paths share the timeout in `.github/scripts/belt_claim_reclaim.js`.
+**Consumers:** `.github/workflows/health-40-sweep.yml` reads the shared claim-reclaim window from `.github/scripts/belt_claim_reclaim.js`.
 
 ---
 
@@ -854,7 +847,6 @@ paths share the timeout in `.github/scripts/belt_claim_reclaim.js`.
 2. Helps merge and verifier tooling distinguish agent-origin PRs from manual PRs.
 
 **Consumers:** `.github/scripts/merge_manager.js`,
-`.github/workflows/agents-72-codex-belt-worker.yml`,
 `.github/workflows/agents-verify-to-new-pr.yml`,
 `.github/workflows/agents-verify-to-issue-v2.yml`,
 `.github/workflows/reusable-agents-verifier.yml`.

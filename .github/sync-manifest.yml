@@ -90,20 +90,8 @@ workflows:
   - source: .github/workflows/agents-keepalive-loop-reporter.yml
     description: "Keepalive reporter - posts PR completion or an attributed run diagnostic when target resolution fails"
 
-  - source: .github/workflows/agents-71-codex-belt-dispatcher.yml
-    description: "Codex belt dispatcher - selects issues and creates agent branches for work"
-
   - source: .github/agents/belt-labels.json
     description: "Canonical belt queue labels shared by dispatcher, worker, auto-pilot, and cleanup tooling"
-
-  - source: .github/workflows/agents-72-codex-belt-worker.yml
-    description: "Codex belt worker - executes agent on issues with full prompt and context"
-
-  - source: .github/workflows/agents-72-codex-belt-worker-dispatch.yml
-    description: "Codex belt worker dispatch wrapper - allows workflow_dispatch for the worker"
-
-  - source: .github/workflows/agents-73-codex-belt-conveyor.yml
-    description: "Codex belt conveyor - orchestrates belt worker execution and handles completion"
 
   - source: .github/workflows/agents-autofix-dispatcher.yml
     description: "Autofix dispatch bridge - acknowledges legacy Gate repository_dispatch events; agents-81-gate-followups handles repair work"
@@ -152,15 +140,6 @@ workflows:
 
   - source: .github/workflows/agents-pr-health.yml
     description: "PR health scanner - periodic conflict resolution and failing check re-dispatch"
-
-  - source: .github/workflows/agents-auto-pilot.yml
-    source_tree: template
-    target: .github/workflows/agents-auto-pilot.yml
-    description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify); PR/head-bound dispatch or confirmed-run handoff; requires verifier entry point, transition helper + retry wrapper"
-    requires:
-      - .github/workflows/agents-verifier.yml
-      - .github/scripts/auto_pilot_transitions.js
-      - .github/scripts/github-api-with-retry.js
 
   - source: .github/workflows/agents-weekly-metrics.yml
     description: "Weekly metrics - aggregates auto-pilot, keepalive, autofix and verifier metrics into summary reports"
@@ -240,6 +219,22 @@ removals:
     description: "Remove retired belt worker alias wrapper from template consumers (callers rewired to agents-72-codex-belt-worker.yml)"
   - target: .github/workflows/agents-belt-conveyor.yml
     description: "Remove retired belt conveyor alias wrapper from template consumers (callers rewired to agents-73-codex-belt-conveyor.yml)"
+  - target: .github/workflows/agents-71-codex-belt-dispatcher.yml
+    description: "Remove legacy queue admission after the shared opener takes ownership"
+  - target: .github/workflows/agents-72-codex-belt-worker-dispatch.yml
+    description: "Remove legacy worker dispatch after the shared opener takes ownership"
+  - target: .github/workflows/agents-72-codex-belt-worker.yml
+    description: "Remove legacy worker after the shared opener takes ownership"
+  - target: .github/workflows/agents-73-codex-belt-conveyor.yml
+    description: "Remove legacy conveyor after the shared closer takes ownership"
+  - target: .github/workflows/agents-auto-pilot.yml
+    description: "Remove legacy issue automation after shared opener and closer take ownership"
+  - target: scripts/autopilot_summary_environment.py
+    description: "Remove the retired Auto-Pilot environment helper"
+  - target: scripts/autopilot_step_timer.py
+    description: "Remove the retired Auto-Pilot step timer"
+  - target: scripts/autopilot_metrics_collector.py
+    description: "Remove the retired Auto-Pilot metrics writer"
   - target: .github/scripts/rate-limit-aware-client.js
     description: "Remove retired rate-limit-aware client from template consumers (superseded by github-rate-limited-wrapper.js)"
   - target: .github/scripts/verifier_correction_artifact_sdk/package.json
@@ -377,20 +372,6 @@ scripts:
 
   - source: scripts/check_test_dependencies.sh
     description: "Checks test dependencies match - required by reusable CI workflow"
-
-  # Python scripts for auto-pilot metrics
-  - source: scripts/autopilot_summary_environment.py
-    description: "Shares GitHub environment details for auto-pilot metric summaries"
-
-  - source: scripts/autopilot_step_timer.py
-    description: "Emits step timing timestamps for auto-pilot workflows - required by agents-auto-pilot.yml"
-    requires:
-      - scripts/autopilot_summary_environment.py
-
-  - source: scripts/autopilot_metrics_collector.py
-    description: "Collects and appends structured auto-pilot metrics to NDJSON log - required by agents-auto-pilot.yml"
-    requires:
-      - scripts/autopilot_summary_environment.py
 
   # Python scripts for ChatGPT topic sync
   - source: .github/scripts/decode_raw_input.py
@@ -568,7 +549,7 @@ scripts:
     description: "Auto-pilot transition contract and next-step helper"
 
   - source: .github/scripts/github-api-with-retry.js
-    description: "GitHub API retry wrapper with exponential backoff and pagination support - required by agents-auto-pilot.yml"
+    description: "Shared GitHub API retry wrapper with exponential backoff and pagination support"
 
   - source: .github/scripts/sync_tracker_state.js
     description: "Shared durable tracker and open PR state helpers for consumer sync workflows"
@@ -1375,12 +1356,8 @@ runtime_fetched:
     # copy-sync is safe.
   - source: .github/scripts/autopilot_format_retry_budget.js
     delivery: runtime
-    description: "Auto-pilot format-pause wakeup retry budget. Runtime-fetched only."
-    # Runtime-fetch evidence: the `format-pause-wakeup` job in
-    # templates/consumer-repo/.github/workflows/agents-auto-pilot.yml (and the
-    # root copy) sparse-checks out this single file from stranske/Workflows
-    # into `workflows-lib/` and requires it from there, so the retry bound is
-    # the same in every consumer and never skews with a copied file.
+    description: "Compatibility runtime helper for the installed legacy consumer Auto-Pilot format wakeup. Keep readable until consumer delivery removes that workflow."
+
 
 excluded:
 

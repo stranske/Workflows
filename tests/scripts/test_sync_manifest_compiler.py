@@ -6,8 +6,10 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from jsonschema import Draft202012Validator
 from scripts.sync_manifest_compiler import (
+    COPY_SYNCED_SECTIONS,
     PLAN_SCHEMA,
     ManifestCompileError,
     compile_manifest,
@@ -129,11 +131,11 @@ def test_workflow_source_never_falls_back_to_root(tmp_path: Path) -> None:
         for entry in workflows
         if entry.source_tree == "template"
     )
-    auto_pilot = next(
-        entry for entry in workflows if entry.target == ".github/workflows/agents-auto-pilot.yml"
+    followups = next(
+        entry for entry in workflows if entry.target == ".github/workflows/agents-81-gate-followups.yml"
     )
-    assert auto_pilot.source == ".github/workflows/agents-auto-pilot.yml"
-    assert auto_pilot.source_tree == "template"
+    assert followups.source == ".github/workflows/agents-81-gate-followups.yml"
+    assert followups.source_tree == "template"
 
     source = ".github/workflows/reusable-pr-context.yml"
     write_source(tmp_path, source, template=False, content="root-only twin\n")
@@ -641,11 +643,12 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
     # Preserve ci-python-versions.env (#4045) and verifier_plan_fingerprint.js.
     # scripts/langchain/response_content.py (#4434) adds one copy entry.
     # Autofix PR-head observation and completion validation add one copy entry.
-    # The shared auto-pilot summary environment is shipped with its CLI callers.
     # Retire the disabled effect SDK and four runtime-only receiver helper copies.
-    assert len(plan["entries"]) == 276
+    declared = yaml.safe_load((root / ".github/sync-manifest.yml").read_text(encoding="utf-8"))
+    assert len(plan["entries"]) == sum(
+        len(declared.get(section, [])) for section in COPY_SYNCED_SECTIONS
+    )
     assert {
-        "scripts/autopilot_summary_environment.py",
         ".github/scripts/autofix_metrics.js",
         "tools/subscription_llm.py",
         ".github/scripts/rate_limit_receipt.js",
@@ -684,7 +687,7 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ("src/manager_mosaic/schemas/evidence-object-v1.schema.json", ("stranske/Manager-Mosaic",)),
     }
     removals = {entry["target"] for entry in plan["removals"]}
-    assert len(removals) == 24
+    assert removals == {entry["target"] for entry in declared["removals"]}
     assert {
         ".github/scripts/sync_tracker_state/index.js",
         ".github/scripts/verifier_correction_runtime.js",

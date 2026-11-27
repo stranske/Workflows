@@ -156,7 +156,9 @@ def test_run_discovery_targets_workflows_with_runs() -> None:
     source = WORKFLOW.read_text(encoding="utf-8")
     discovery_line = next(line for line in source.splitlines() if "for WORKFLOW_PATH in" in line)
 
-    assert "agents-auto-pilot.yml" in discovery_line
+    assert "AUTOPILOT_WORKFLOW=222302722" in source
+    assert "AUTOPILOT_WORKFLOW=agents-auto-pilot.yml" in source
+    assert '"$AUTOPILOT_WORKFLOW"' in discovery_line
     assert "agents-verifier.yml" in discovery_line
     assert "reusable-agents-verifier.yml" not in discovery_line
 

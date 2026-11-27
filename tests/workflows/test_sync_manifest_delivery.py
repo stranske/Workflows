@@ -83,34 +83,6 @@ def _sources_in_sections(manifest: dict, sections: tuple[str, ...]) -> set[str]:
     return sources
 
 
-def test_auto_pilot_sync_uses_consumer_specific_source() -> None:
-    manifest = _load_manifest()
-    entries = manifest.get("workflows") or []
-    auto_pilot = [
-        entry
-        for entry in entries
-        if entry.get("target", entry.get("source")) == ".github/workflows/agents-auto-pilot.yml"
-    ]
-
-    assert auto_pilot == [
-        {
-            "source": ".github/workflows/agents-auto-pilot.yml",
-            "source_tree": "template",
-            "target": ".github/workflows/agents-auto-pilot.yml",
-            "description": (
-                "Auto-pilot - end-to-end automation orchestrator "
-                "(format → optimize → agent → verify); PR/head-bound dispatch or confirmed-run "
-                "handoff; requires verifier entry point, transition helper + retry wrapper"
-            ),
-            "requires": [
-                ".github/workflows/agents-verifier.yml",
-                ".github/scripts/auto_pilot_transitions.js",
-                ".github/scripts/github-api-with-retry.js",
-            ],
-        }
-    ]
-
-
 def _runtime_sources(manifest: dict) -> set[str]:
     sources: set[str] = set()
     for value in manifest.values():
@@ -254,10 +226,8 @@ def test_verify_to_new_pr_copy_sync_delivers_python_scope_dedup() -> None:
 def test_copy_dependent_langchain_scripts_stay_copy_synced() -> None:
     """Regression guard against an over-aggressive future drop.
 
-    agents-auto-pilot.yml runs issue_formatter.py / issue_optimizer.py from the
-    consumer's own working tree (it does NOT runtime-fetch scripts/langchain), and
-    issue_optimizer.py imports scripts.langchain.structured_output. These three
-    must remain copy-synced or auto-pilot breaks in consumers.
+    The consumer issue optimizer uses the local issue formatter and optimizer.
+    It imports scripts.langchain.structured_output from the same tree.
     """
     manifest = _load_manifest()
     copy_sources = _sources_in_sections(manifest, COPY_SYNCED_SECTIONS)
@@ -267,7 +237,7 @@ def test_copy_dependent_langchain_scripts_stay_copy_synced() -> None:
         "scripts/langchain/structured_output.py",
     ):
         assert required in copy_sources, (
-            f"{required} is a copy-path dependency of agents-auto-pilot.yml and "
+            f"{required} is a consumer issue optimizer dependency and "
             "must stay in a copy-synced section"
         )
 

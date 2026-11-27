@@ -202,20 +202,10 @@ def test_reclaimable_count_is_reported_alongside_blocking_count() -> None:
     assert "in-progress=7 reclaimable=3" in summary
 
 
-def test_claim_and_reclaim_workflows_consume_the_shared_timeout() -> None:
-    dispatcher = (ROOT / ".github/workflows/agents-71-codex-belt-dispatcher.yml").read_text()
+def test_health_sweep_consumes_the_shared_reclaim_contract() -> None:
     sweep = (ROOT / ".github/workflows/health-40-sweep.yml").read_text()
-    dispatcher_workflow = yaml.safe_load(dispatcher)
     workflow = yaml.safe_load(sweep)
 
-    transition = next(
-        step
-        for step in dispatcher_workflow["jobs"]["dispatch"]["steps"]
-        if step.get("name") == "Transition issue to in-progress"
-    )
-    transition_script = transition["with"]["script"]
-    assert "belt_claim_reclaim.js" in transition_script
-    assert "CLAIM_STALE_MS" in transition_script
     assert "belt_claim_reclaim.js" in sweep
     assert "createTokenAwareRetry" in sweep
     assert "withRetry: retry.withRetry" in sweep

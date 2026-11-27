@@ -71,11 +71,11 @@ mergeable.
 
 ---
 
-## The belt (Agents 71–73)
+## The retired belt (Agents 71–73)
 
-The belt automates the *queue → branch → PR → merge* conveyor for labeled Codex
-issues, as three workflows that hand off in sequence. See the executive summary
-at the top of [`WORKFLOW_GUIDE.md`](WORKFLOW_GUIDE.md).
+The [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) now own this work.
+The belt automated the *queue → branch → PR → merge* conveyor for labeled Codex
+issues, as three workflows that hand off in sequence. The [original workflow definitions](https://github.com/stranske/Workflows/tree/900ad6a8dbfd2006ad6ff1c380b28313ceaa48ae/.github/workflows) record its operation.
 
 ### Dispatcher
 `agents-71-codex-belt-dispatcher.yml`. Cron + manual entry point that **selects**
