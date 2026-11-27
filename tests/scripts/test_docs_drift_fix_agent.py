@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts import docs_drift_fix_agent as fix_agent  # noqa: E402
-from scripts.repo_review_issue_quality import issue_body_is_agent_ready  # noqa: E402
+from scripts.repo_review_publication.issue_quality import issue_body_is_agent_ready  # noqa: E402
 
 
 def _write(path: Path, content: str = "") -> None:

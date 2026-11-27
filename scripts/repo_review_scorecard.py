@@ -42,12 +42,12 @@ PRIORITY_ORDER = {"high": 0, "normal": 1, "low": 2}
 SCORECARD_GATING_KEYS = frozenset({"decision", "approved_findings", "dropped_findings"})
 
 try:
-    from scripts.repo_review_issue_quality import (
+    from scripts.repo_review_publication.issue_quality import (
         ISSUE_BODY_REQUIRED_SECTIONS,
         issue_body_quality_errors,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
-    from repo_review_issue_quality import (  # type: ignore[no-redef]
+    from repo_review_publication.issue_quality import (  # type: ignore[no-redef]
         ISSUE_BODY_REQUIRED_SECTIONS,
         issue_body_quality_errors,
     )

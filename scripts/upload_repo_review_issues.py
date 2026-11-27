@@ -24,12 +24,12 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from scripts.repo_review_issue_quality import (
+    from scripts.repo_review_publication.issue_quality import (
         issue_body_quality_errors,
         review_evidence_trace_errors,
     )
 except ModuleNotFoundError:  # pragma: no cover - supports direct script execution.
-    from repo_review_issue_quality import (  # type: ignore[no-redef]
+    from repo_review_publication.issue_quality import (  # type: ignore[no-redef]
         issue_body_quality_errors,
         review_evidence_trace_errors,
     )
