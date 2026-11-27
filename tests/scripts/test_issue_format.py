@@ -1075,6 +1075,222 @@ def test_cli_checks_addressability_in_working_directory(
         )
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_GUIDE_PATH = "templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md"
+CONSUMER_GUIDE_PATH = "docs/AGENT_ISSUE_FORMAT.md"
+
+# Exact original body filed on stranske/Workflows#5296 before any optimizer edits.
+WORKFLOWS_5296_ORIGINAL_BODY = (
+    "## Why\n\n"
+    "Maint 72 opened a reviewed cleanup PR in Portable Alpha to remove a tracked 23 KB "
+    "`pr_body.md`. The receiving PR Event Hub asked for a source because the publisher omitted "
+    "the automation provenance. The PR was produced by a real workflow run. Its classification "
+    "was corrected manually, and the receiving hub then recognized it. "
+    "[Original Maint 72 apply](https://github.com/stranske/Workflows/actions/runs/45858389910/job/140042758756) "
+    "· [Receiving PR](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540) "
+    "· [Receiving event after correction](https://github.com/stranske/Portable-Alpha-Extension-Model/actions/runs/45920864372)\n\n"
+    "## Scope\n\n"
+    "Fix the Workflows Maint 72 publisher so its protected-repository cleanup PR identifies the "
+    "automation as its source. Keep the operator's target selection, existing checks, file "
+    "selection, and review route intact.\n\n"
+    "## Tasks\n\n"
+    "- [ ] Use the source contract understood by the receiving PR Event Hub.\n"
+    "- [ ] Exercise the generated metadata with the receiving parser and compare the scoped "
+    "changed paths with the original Portable plan.\n\n"
+    "## Acceptance criteria\n\n"
+    "- [ ] The receiver recognizes an actual Maint 72 cleanup PR as automation-owned without a "
+    "manual PR body or label correction.\n"
+    "- [ ] The protected route proposes only the requested cleanup. Repeating it preserves the "
+    "identity of an existing owned PR, and unrelated PRs remain untouched.\n"
+)
+
+WORKFLOWS_5296_EXPECTED_PROBLEMS = [
+    "`Tasks` item must name a concrete file, symbol, path, config key, job, or command: "
+    "`Use the source contract understood by the receiving PR Event Hub.`.",
+    "`Acceptance Criteria` names no test, runnable command or observable verification gate "
+    "— Definition of Ready / Quality Bar §2 requires one.",
+]
+
+WORKFLOWS_5296_EXPECTED_ADVISORIES = [
+    "1 cited path(s) do not exist yet: `pr_body.md` — expected when a task creates them; "
+    "check for typos otherwise."
+]
+
+
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_invalid_report_points_to_source_guide_in_source_repository(
+    validator_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    validator = _validator(validator_path)
+    invalid_body = "## Tasks\n- [ ] Fix bugs\n\n## Acceptance Criteria\n- [ ] It works\n"
+
+    # Real Workflows source checkout.
+    assert validator._is_source_repository(REPO_ROOT) is True
+    assert validator._guide_path(REPO_ROOT) == SOURCE_GUIDE_PATH
+    source_report = validator.validate(invalid_body, repo_root=REPO_ROOT)
+    assert not source_report.ok
+    assert source_report.guide_path == SOURCE_GUIDE_PATH
+    assert (REPO_ROOT / source_report.guide_path).is_file()
+    assert source_report.as_markdown().startswith(
+        f"This issue is **not yet agent-processable**. See `{SOURCE_GUIDE_PATH}`."
+    )
+
+    # CLI execution from the Workflows source checkout.
+    monkeypatch.chdir(REPO_ROOT)
+    monkeypatch.setattr(sys, "stdin", StringIO(invalid_body))
+    assert validator.main([]) == 1
+    assert capsys.readouterr().out.startswith(
+        f"This issue is **not yet agent-processable**. See `{SOURCE_GUIDE_PATH}`."
+    )
+
+    # Isolated temporary source-repository layout.
+    temp_source = tmp_path / "source"
+    (temp_source / "templates/consumer-repo/docs").mkdir(parents=True)
+    (temp_source / SOURCE_GUIDE_PATH).write_text("guide\n", encoding="utf-8")
+    assert validator._is_source_repository(temp_source) is True
+    temp_report = validator.validate(invalid_body, repo_root=temp_source)
+    assert not temp_report.ok
+    assert temp_report.guide_path == SOURCE_GUIDE_PATH
+    assert temp_report.as_markdown().startswith(
+        f"This issue is **not yet agent-processable**. See `{SOURCE_GUIDE_PATH}`."
+    )
+
+
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_invalid_report_points_to_consumer_guide_in_consumer_installation(
+    validator_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    validator = _validator(validator_path)
+    invalid_body = "## Tasks\n- [ ] Fix bugs\n\n## Acceptance Criteria\n- [ ] It works\n"
+
+    consumer = tmp_path / "consumer"
+    (consumer / "docs").mkdir(parents=True)
+    (consumer / CONSUMER_GUIDE_PATH).write_text("guide\n", encoding="utf-8")
+
+    assert validator._is_source_repository(consumer) is False
+    assert validator._guide_path(consumer) == CONSUMER_GUIDE_PATH
+    consumer_report = validator.validate(invalid_body, repo_root=consumer)
+    assert not consumer_report.ok
+    assert consumer_report.guide_path == CONSUMER_GUIDE_PATH
+    assert (consumer / consumer_report.guide_path).is_file()
+    assert consumer_report.as_markdown().startswith(
+        f"This issue is **not yet agent-processable**. See `{CONSUMER_GUIDE_PATH}`."
+    )
+
+    # CLI execution from a consumer repository checkout.
+    monkeypatch.chdir(consumer)
+    monkeypatch.setattr(sys, "stdin", StringIO(invalid_body))
+    assert validator.main([]) == 1
+    assert capsys.readouterr().out.startswith(
+        f"This issue is **not yet agent-processable**. See `{CONSUMER_GUIDE_PATH}`."
+    )
+
+    # Consumer guide wins if both paths exist, and pure-body calls default to consumer guide.
+    (consumer / "templates/consumer-repo/docs").mkdir(parents=True)
+    (consumer / SOURCE_GUIDE_PATH).write_text("template guide\n", encoding="utf-8")
+    assert validator._is_source_repository(consumer) is False
+    assert validator._guide_path(consumer) == CONSUMER_GUIDE_PATH
+    assert validator._is_source_repository(None) is False
+    assert validator._guide_path(None) == CONSUMER_GUIDE_PATH
+
+
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_issue_5296_report_keeps_findings_and_points_to_installed_guide(
+    validator_path: Path, tmp_path: Path
+) -> None:
+    validator = _validator(validator_path)
+
+    source_report = validator.validate(WORKFLOWS_5296_ORIGINAL_BODY, repo_root=REPO_ROOT)
+
+    consumer = tmp_path / "consumer"
+    (consumer / "docs").mkdir(parents=True)
+    (consumer / CONSUMER_GUIDE_PATH).write_text("guide\n", encoding="utf-8")
+    consumer_report = validator.validate(WORKFLOWS_5296_ORIGINAL_BODY, repo_root=consumer)
+
+    assert not source_report.ok
+    assert not consumer_report.ok
+    assert source_report.problems == consumer_report.problems == WORKFLOWS_5296_EXPECTED_PROBLEMS
+    assert (
+        source_report.advisories == consumer_report.advisories == WORKFLOWS_5296_EXPECTED_ADVISORIES
+    )
+    assert (
+        source_report.missing_recommended
+        == consumer_report.missing_recommended
+        == ["Implementation Notes", "Non-Goals"]
+    )
+    assert f"`{SOURCE_GUIDE_PATH}`" in source_report.as_markdown()
+    assert f"`{CONSUMER_GUIDE_PATH}`" in consumer_report.as_markdown()
+    assert (
+        source_report.as_markdown().replace(SOURCE_GUIDE_PATH, CONSUMER_GUIDE_PATH)
+        == consumer_report.as_markdown()
+    )
+    for report in (source_report, consumer_report):
+        instructions = validator.rewrite_prompt(WORKFLOWS_5296_ORIGINAL_BODY, report).split(
+            "<validator_report>", 1
+        )[0]
+        assert f"contract ({report.guide_path})" in instructions
+
+
+@pytest.mark.parametrize(
+    "validator_path",
+    [
+        Path(".github/scripts/issue_format.py"),
+        Path("templates/consumer-repo/.github/scripts/issue_format.py"),
+    ],
+)
+def test_valid_report_uses_the_installed_source_or_consumer_guide(
+    validator_path: Path, tmp_path: Path
+) -> None:
+    validator = _validator(validator_path)
+    body = (
+        VALID_CONTEXT
+        + "## Tasks\n- [ ] Update `.github/scripts/issue_format.py`.\n\n"
+        + "## Acceptance Criteria\n- [ ] `pytest tests/scripts/test_issue_format.py` passes.\n"
+    )
+    source = tmp_path / "source"
+    (source / "templates/consumer-repo/docs").mkdir(parents=True)
+    (source / SOURCE_GUIDE_PATH).write_text("guide\n", encoding="utf-8")
+    consumer = tmp_path / "consumer"
+    (consumer / "docs").mkdir(parents=True)
+    (consumer / CONSUMER_GUIDE_PATH).write_text("guide\n", encoding="utf-8")
+    for checkout in (source, consumer):
+        (checkout / ".github/scripts").mkdir(parents=True)
+        (checkout / ".github/scripts/issue_format.py").write_text("validator\n", encoding="utf-8")
+        (checkout / "tests/scripts").mkdir(parents=True)
+        (checkout / "tests/scripts/test_issue_format.py").write_text("tests\n", encoding="utf-8")
+
+    source_report = validator.validate(body, repo_root=source)
+    consumer_report = validator.validate(body, repo_root=consumer)
+
+    assert source_report.ok and consumer_report.ok
+    assert source_report.as_markdown() == f"Issue body conforms to `{SOURCE_GUIDE_PATH}`."
+    assert consumer_report.as_markdown() == f"Issue body conforms to `{CONSUMER_GUIDE_PATH}`."
+
+
 # --- rewrite_until_valid: the shared validate-and-rewrite loop -----------------
 
 _VALID_REWRITE = (
