@@ -132,6 +132,49 @@ out-of-range deferral expiry timestamps remain blocking structural errors in eve
 mode. The generated status snapshot records registry data without clock-dependent
 validation findings.
 
+### Freshness tracker
+
+Warning-only freshness findings are acted on through one tracker issue in
+`stranske/Workflows`, published by the `publish-freshness-tracker` step of
+Health 78 (`.github/workflows/health-78-backplane-contract.yml`). Only scheduled
+and `workflow_dispatch` runs on `main` publish; pull requests and pushes never do,
+so staleness still cannot fail PR CI or the required `summary` check. The step
+runs under `always()`, so an `enforce_freshness=true` dispatch that fails
+validation still refreshes the tracker.
+
+- **Marker.** The issue body starts with `<!-- backplane-freshness-tracker:v1 -->`.
+  The publisher finds the tracker by this marker (search plus the `automated`
+  label listing), never by title, so a retitled tracker cannot be duplicated.
+- **Input.** The body is rendered by `render_tracker()` in
+  `scripts/validate_backplane_registry.py` from the same `registry-status.json`
+  report uploaded in the `backplane-contract-integrity` artifact. Every count
+  comes from that report; owner-excluded repositories are dropped before
+  rendering and counting.
+- **Provenance.** Each body cites the publishing run URL and head SHA, and keeps
+  a history of the last ten publishing run URLs.
+- **Counts.** `blocking_count` and `stale_count` are the report's counts.
+  `drainable_count` is the number of stale findings with a named drain action:
+  expired `issue_deferred.expires_at` entries (administrative: renew the deferral
+  with a reason, link a real issue, or change status) plus stale
+  `reference_run_evidence.generated_at` entries (need a fresh validated reference
+  run). Stale findings of any other shape are listed as unclassified with no
+  known drain, so `stale_count > drainable_count` signals a tracker gap.
+- **Lifecycle.** `tracker_decision()` returns `create` (stale findings, no
+  tracker), `update` (open tracker), `reopen` (closed tracker, stale findings
+  again), `close` (complete report with `stale_count == 0`: the tracker gets a
+  "fully drained" comment and closes as completed), or `refuse`. A missing,
+  truncated, or internally inconsistent report is refused and fails the step; a
+  report with `blocking_count > 0` is refused with a warning because the
+  validation step already failed. A refused report never closes the tracker.
+- **Label.** The tracker carries `automated` and deliberately **not**
+  `tracker:durable`: it closes on drain, so while it is open it is real,
+  countable work rather than a standing dashboard.
+
+The tracker does not renew, extend, or delete deferrals, and does not change
+participant status or reference evidence; those remain owner edits to
+`config/backplane_participants.json`. `docs/reports/backplane_registry_status.md`
+stays clock-free.
+
 Excluded repos carry a `reason` so a future reviewer cannot mistake "absent" for
 "forgotten" (the empty-signal anti-pattern). The four charter exclusions are
 trip-planner, Travel-Plan-Permission, learning-management-system (as a producer),

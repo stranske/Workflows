@@ -737,3 +737,211 @@ def test_status_report_rejects_conflicting_modes_without_writing(tmp_path: Path)
         vbr.main(["--write-status", str(report), "--check-status", str(report)])
     assert exc.value.code == 2
     assert report.read_text(encoding="utf-8") == "stale report\n"
+
+
+# --- Freshness tracker -------------------------------------------------------
+
+WORKFLOW = ROOT / ".github" / "workflows" / "health-78-backplane-contract.yml"
+RUN_1 = "https://github.com/stranske/Workflows/actions/runs/1"
+RUN_2 = "https://github.com/stranske/Workflows/actions/runs/2"
+
+
+def _stale_report(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> dict:
+    registry_path = _write_stale_registry(tmp_path)
+    vbr.main(["--json", str(registry_path)])
+    return json.loads(capsys.readouterr().out)
+
+
+def _report(findings: list[dict], participants: list[dict] | None = None) -> dict:
+    stale = sum(1 for f in findings if f["severity"] == vbr.STALE_SEVERITY)
+    return {
+        "generated_at": "2026-11-26T00:00:00+00:00",
+        "finding_count": len(findings),
+        "blocking_count": len(findings) - stale,
+        "stale_count": stale,
+        "findings": findings,
+        "participants": participants if participants is not None else [{"repo": "stranske/A"}],
+    }
+
+
+def _baseline_report() -> dict:
+    # 2026-11-26 baseline as a fixture: five expired deferrals, one stale reference run.
+    participants = [{"repo": f"stranske/P{i}"} for i in range(6)]
+    findings = [
+        {
+            "path": "participants[0].reference_run_evidence.generated_at",
+            "message": "reference run is stale",
+            "severity": "stale",
+        }
+    ] + [
+        {
+            "path": f"participants[{i}].issue_deferred.expires_at",
+            "message": "deferred issue expired",
+            "severity": "stale",
+        }
+        for i in range(1, 6)
+    ]
+    return _report(findings, participants)
+
+
+def test_tracker_create_when_no_existing_issue(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    report = _stale_report(tmp_path, capsys)
+
+    assert vbr.tracker_decision(report, None) == "create"
+    body = vbr.render_tracker(report, RUN_1, "abc123")
+    assert body.startswith(vbr.TRACKER_MARKER)
+    assert f"`stale_count`: {report['stale_count']}" in body
+    assert "`blocking_count`: 0" in body
+    assert "abc123" in body and RUN_1 in body
+
+
+def test_tracker_render_splits_deferral_and_reference_findings() -> None:
+    report = _baseline_report()
+
+    body = vbr.render_tracker(report, RUN_1, "abc123")
+
+    assert "`stale_count`: 6" in body
+    assert "`drainable_count`: 6" in body
+    assert "### Administrative deferral actions (5)" in body
+    assert "### Stale reference evidence (1)" in body
+    assert "fully drained" not in body
+
+
+def test_tracker_repeated_update_keeps_one_marker_and_cites_both_runs() -> None:
+    report = _baseline_report()
+    first = vbr.tracker_plan(report, None, RUN_1, "sha1")
+    assert first["decision"] == "create"
+
+    existing = {"state": "open", "body": first["body"]}
+    second = vbr.tracker_plan(report, existing, RUN_2, "sha2")
+    assert second["decision"] == "update"
+    assert second["body"].count(vbr.TRACKER_MARKER) == 1
+    assert RUN_1 in second["body"] and RUN_2 in second["body"]
+    assert vbr.tracker_runs_from_body(second["body"]) == [RUN_1, RUN_2]
+
+    # Re-publishing the same run does not duplicate it.
+    third = vbr.tracker_plan(report, {"state": "open", "body": second["body"]}, RUN_2, "sha2")
+    assert vbr.tracker_runs_from_body(third["body"]) == [RUN_1, RUN_2]
+
+
+def test_tracker_reopens_closed_tracker_on_new_stale_findings() -> None:
+    assert vbr.tracker_decision(_baseline_report(), {"state": "closed"}) == "reopen"
+
+
+def test_tracker_closes_fully_drained_only_when_stale_count_is_zero() -> None:
+    drained = _report([])
+    assert drained["stale_count"] == 0
+
+    plan = vbr.tracker_plan(drained, {"state": "open", "body": ""}, RUN_1, "sha1")
+    assert plan["decision"] == "close"
+    assert "fully drained" in plan["body"]
+    assert "Fully drained" in plan["comment"]
+    assert "`stale_count`: 0" in plan["body"]
+
+    # Any stale finding keeps the tracker open.
+    assert vbr.tracker_decision(_baseline_report(), {"state": "open"}) == "update"
+
+
+def test_tracker_refuses_missing_truncated_and_malformed_reports(tmp_path: Path) -> None:
+    assert vbr.tracker_decision(None, {"state": "open"}) == "refuse"
+
+    full = json.dumps(_report([]))
+    truncated = tmp_path / "truncated.json"
+    truncated.write_text(full[: len(full) // 2], encoding="utf-8")
+    assert vbr.load_tracker_report(truncated) is None
+    assert vbr.tracker_decision(vbr.load_tracker_report(truncated), {"state": "open"}) == "refuse"
+    assert vbr.load_tracker_report(tmp_path / "missing.json") is None
+
+    partial = _report([])
+    del partial["stale_count"]
+    assert vbr.tracker_decision(partial, {"state": "open"}) == "refuse"
+
+    inconsistent = _baseline_report()
+    inconsistent["stale_count"] = 0
+    assert vbr.tracker_decision(inconsistent, {"state": "open"}) == "refuse"
+
+    trimmed = _baseline_report()
+    trimmed["findings"] = trimmed["findings"][:2]
+    assert vbr.tracker_decision(trimmed, None) == "refuse"
+
+    for bad in ([], "x", {"findings": "nope"}):
+        assert vbr.tracker_decision(bad, None) == "refuse"
+
+
+def test_tracker_refuses_structurally_invalid_report() -> None:
+    report = _report(
+        [
+            {
+                "path": "participants[0].reference_run_evidence.reference_run_sha256",
+                "message": "must be sha256",
+                "severity": "error",
+            }
+        ]
+    )
+    assert report["blocking_count"] == 1
+
+    plan = vbr.tracker_plan(report, {"state": "open"}, RUN_1, "sha1")
+    assert plan["decision"] == "refuse"
+    assert plan["refuse_kind"] == "blocking"
+    assert "body" not in plan
+
+
+def test_tracker_applies_owner_exclusions_before_counting() -> None:
+    report = _report(
+        [
+            {
+                "path": "participants[0].issue_deferred.expires_at",
+                "message": "deferred issue expired",
+                "severity": "stale",
+            }
+        ],
+        participants=[{"repo": "stranske/collab-admin"}],
+    )
+
+    assert vbr.tracker_decision(report, {"state": "open"}) == "close"
+    body = vbr.render_tracker(report, RUN_1, "sha1")
+    assert "`stale_count`: 0" in body
+    assert "Owner-excluded findings omitted: 1" in body
+
+
+def test_tracker_cli_prints_plan(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    report_path = tmp_path / "registry-status.json"
+    report_path.write_text(json.dumps(_baseline_report()), encoding="utf-8")
+
+    assert (
+        vbr.main(["--tracker-report", str(report_path), "--run-url", RUN_1, "--head-sha", "s1"])
+        == 0
+    )
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["decision"] == "create"
+    assert plan["stale_count"] == 6
+
+    assert vbr.main(["--tracker-report", str(tmp_path / "absent.json")]) == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["decision"] == "refuse"
+    assert plan["refuse_kind"] == "report"
+
+
+def test_tracker_step_excludes_pull_requests_and_comment_step_unchanged() -> None:
+    yaml = pytest.importorskip("yaml")
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["contract-integrity"]["steps"]
+    names = [step["name"] for step in steps]
+    tracker = next(step for step in steps if step.get("id") == "publish-freshness-tracker")
+
+    condition = " ".join(tracker["if"].split())
+    assert "always()" in condition
+    assert "github.event_name != 'pull_request'" in condition
+    assert "github.ref_name == 'main'" in condition
+    assert (
+        names.index(tracker["name"])
+        == names.index("Registry lifecycle and evidence validation") + 1
+    )
+    assert "github-api-with-retry.js" in tracker["with"]["script"]
+    assert vbr.TRACKER_MARKER in tracker["with"]["script"]
+    assert workflow["permissions"]["issues"] == "write"
+
+    comment = next(step for step in steps if step["name"] == "Comment on PR")
+    assert comment["if"] == "failure() && github.event_name == 'pull_request'"
