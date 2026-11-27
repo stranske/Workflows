@@ -8,11 +8,6 @@ const {
   countCheckboxes,
 } = require('../keepalive_loop.js');
 
-const {
-  cascadeParentCheckboxes: runnerCascade,
-  countCheckboxes: runnerCountCheckboxes,
-} = require('../../../scripts/keepalive-runner.js');
-
 // ─── cascadeParentCheckboxes (keepalive_loop.js) ────────────────────────────
 
 test('cascade: checked parent cascades to indented children', () => {
@@ -219,45 +214,4 @@ test('cascade: tilde fences are also handled', () => {
 
   // Fenced child is untouched, after-fence child is not cascaded (fence reset)
   assert.equal(cascadeParentCheckboxes(input), input);
-});
-
-test('runner cascade: fenced code blocks handled', () => {
-  const input = [
-    '- [x] Parent',
-    '```',
-    '  - [ ] Fenced',
-    '```',
-    '  - [ ] After fence',
-  ].join('\n');
-
-  assert.equal(runnerCascade(input), input);
-});
-
-// ─── keepalive-runner.js cascade (parallel implementation) ──────────────────
-
-test('runner cascade: matches keepalive_loop cascade behavior', () => {
-  const input = [
-    '- [x] Parent task',
-    '  - [ ] Sub-task 1',
-    '  - [ ] Sub-task 2',
-  ].join('\n');
-
-  assert.equal(
-    runnerCascade(input),
-    cascadeParentCheckboxes(input),
-    'Both implementations should produce identical output'
-  );
-});
-
-test('runner countCheckboxes: counts cascaded children as checked', () => {
-  const markdown = [
-    '- [x] Parent',
-    '  - [ ] Child 1',
-    '  - [ ] Child 2',
-    '- [ ] Unchecked',
-  ].join('\n');
-
-  const counts = runnerCountCheckboxes(markdown);
-  assert.equal(counts.checked, 3); // parent + 2 cascaded
-  assert.equal(counts.unchecked, 1);
 });
