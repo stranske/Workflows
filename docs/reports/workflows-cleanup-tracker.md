@@ -7,6 +7,17 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27, 11:01 UTC review
+
+Workflows main retired four managed correction helpers and preserved their canonical source APIs. Health 68 compared all sixteen receivers after the merge. Each still has the four obsolete copies and two earlier SDK files. The report recorded 96 obsolete positions, 64 other differences, zero missing files and zero comparison errors. The next normal Maint 68 plan and Maint 71 promotion must remove the copies from receiving defaults. The source Gate ran its primary Python jobs in 334 and 430 seconds against the 600-second checkpoint. [Source retirement](https://github.com/stranske/Workflows/pull/5329) · [Health 68 run and artifact](https://github.com/stranske/Workflows/actions/runs/45987696308) · [Pinned receiver and source comparison](https://github.com/stranske/Workflows/pull/5331#issuecomment-7216709890)
+
+The hosted filing of weekly design W-2 now has a five-file implementation PR. GitHub Actions filed and reserved the issue with the Mac paused. After the Mac resumed, the two local experiment workers completed and Orchestrator promoted their work. The PR links to the filed issue and its Gate passed. The five sync-handoff and scheduled-opener criteria are separate. [Weekly design](https://github.com/stranske/Workflows/issues/5324) · [Implementation PR](https://github.com/stranske/Workflows/pull/5332) · [PR Gate](https://github.com/stranske/Workflows/actions/runs/45985001531)
+
+Keep the delegation-policy suite under the directory that both Gate and Selftest discover. With its closed-issue forwarding command removed and its mutation test repointed, the same 46 named cases passed. Other open changes relocate the operator API audit from its single-file directory and separate Python health-report cases from the deployed PR-health workflow cases. The operator audit detected a real GraphQL call the hosted Python check omits. The revised health test ownership preserved the real 50% report and the failure at a 51% threshold. [Alias retirement](https://github.com/stranske/Workflows/pull/5334) · [Operator audit move](https://github.com/stranske/Workflows/pull/5333) · [Test ownership](https://github.com/stranske/Workflows/pull/5335)
+
+Maint 72 already published the requested scoped deletion. The receiver’s default advanced independently and still contains the original 23,072-byte file. Its maintainer owns the protected merge. The ordinary scheduled diagnostic remains a second acceptance check. [Receiving PR](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540)
+
+
 ### November 27, 10:02 UTC review
 
 GitHub Actions filed Claude’s approved Health 78 design while the Codex, Claude and launchd Mac seats were paused. The hosted opener reserved the issue. The Mac resumed and replayed all seven hosted feedback calls. The shared opener ledger now records an experiment that needs a local workflow-file edit. The local experiment launched Claude and Cursor at 09:43 UTC. Both completed at 09:46 UTC. The issue has zero linked implementation PRs. [Filed issue](https://github.com/stranske/Workflows/issues/5324) · [Hosted intake](https://github.com/stranske/Workflows/actions/runs/45971818050) · [Opener reservation](https://github.com/stranske/Workflows/issues/5324#issuecomment-7214451600)
@@ -259,12 +270,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 181/198 completed · 1 drainable now · 16 blocked · 17 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,566/2,901 | 110/220 | — |
-| 3 · Scripts, tools and packages | 398/752 | 34/43 | — |
+| 3 · Scripts, tools and packages | 399/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 915/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,104/5,554** | **298/487** | **181/198** |
+| **Total** | **3,105/5,554** | **298/487** | **181/198** |
 
-**Directory organization.** 2,892 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,893 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
