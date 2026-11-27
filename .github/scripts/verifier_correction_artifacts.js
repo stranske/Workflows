@@ -26,12 +26,6 @@ function artifactName(kind,run,attempt,suffix='') {
   need(typeof suffix==='string' && (!suffix || /^[a-f0-9]{64}-r[1-9]\d{0,5}$/.test(suffix)),'Invalid correction artifact suffix');
   return `verifier-correction-${kind}-${run}-${attempt}${suffix?`-${suffix}`:''}`;
 }
-async function runtimeArtifactClient(root) {
-  // root is the trusted runner-temp SDK install, never a request field.
-  const {pathToFileURL}=require('url');
-  const module=await import(pathToFileURL(path.join(root,'node_modules/@actions/artifact/lib/artifact.js')).href);
-  return new module.DefaultArtifactClient();
-}
 async function createArtifactTransport({github,repository,current,artifactClient=null,outputDirectory,clock=()=>new Date()}) {
   need(typeof repository==='string' && /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(repository),'Invalid transport repository');
   need(positive(current?.run_id) && positive(current?.run_attempt),'Current trusted execution unavailable');
@@ -246,7 +240,7 @@ async function createArtifactLedger({transport,request,since,admittedProof}) {
   };
   return {read,append,scan,continuationSelector,activeStage};
 }
-module.exports={SPECS,artifactName,runtimeArtifactClient,createArtifactTransport,correctionHistory,createArtifactLedger};
+module.exports={SPECS,artifactName,createArtifactTransport,correctionHistory,createArtifactLedger};
 
 async function guardLegacyCorrection({transport,pr,since}) {
  const {digest}=require('./verification_event');

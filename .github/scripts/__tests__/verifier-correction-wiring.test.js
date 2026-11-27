@@ -9,7 +9,6 @@ const {seedForRequest,effectKey}=require('../verifier_correction_effects');
 const {recordStarted}=require('../verifier_correction_autopilot');
 const ROOT=path.resolve(__dirname,'../../..');
 const read=name=>fs.readFileSync(path.join(ROOT,name),'utf8');
-const followupSurfaces=['.github/workflows/agents-verify-to-new-pr.yml','templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml'];
 const autopilot=()=>read('templates/consumer-repo/.github/workflows/agents-auto-pilot.yml');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const sha=value=>createHash('sha256').update(value).digest('hex');
@@ -78,56 +77,6 @@ function originalCollector() {
 }
 
 
-// Pure unpublished interfaces remain exercised offline.
-const sdkDirectory='.github/scripts/verifier_correction_artifact_sdk';
-test('correction SDK package and full portable registry lock bind exact artifact version and immutable integrity',()=>{
- const pkg=JSON.parse(read(`${sdkDirectory}/package.json`)),lock=JSON.parse(read(`${sdkDirectory}/package-lock.json`));
- assert.equal(pkg.private,true);assert.deepEqual(pkg.dependencies,{'@actions/artifact':'6.3.1'});assert.equal(pkg.engines.node,'>=24');
- assert.equal(lock.lockfileVersion,3);assert.deepEqual(lock.packages[''].dependencies,pkg.dependencies);
- assert.equal(lock.packages['node_modules/@actions/artifact'].version,'6.3.1');
- const packages=Object.entries(lock.packages).filter(([name])=>name);
- assert.ok(packages.length>10,'full transitive lock retained');
- for(const [name,row] of packages) {
-  assert.ok(name.startsWith('node_modules/'));assert.match(row.resolved,/^https:\/\/registry\.npmjs\.org\/[^\s]+\.tgz$/);
-  assert.match(row.integrity,/^sha512-[A-Za-z0-9+/]+={0,2}$/);assert.equal(Buffer.from(row.integrity.slice(7),'base64').length,64);
-  assert.equal(row.link,undefined);assert.doesNotMatch(JSON.stringify(row),/file:\/|localhost|127\.0\.0\.1|Users\/|\/tmp\//);
- }
-});
-test('correction SDK installs in the staged package directory without overriding npm prefix', (t) => {
- const {spawnSync}=require('node:child_process');
- const {tmpdir}=require('node:os');
- const scratch=fs.mkdtempSync(path.join(tmpdir(),'verifier correction sdk-'));
- t.after(()=>fs.rmSync(scratch,{recursive:true,force:true}));
- const bin=path.join(scratch,'bin');
- fs.mkdirSync(bin);
- fs.writeFileSync(path.join(bin,'npm'),`#!/bin/bash
-set -eu
-test "$PWD" = "$RUNNER_TEMP/correction-sdk" || {
-  printf '%s\n' 'npm did not run inside the staged SDK package' >&2
-  exit 41
-}
-test "$*" = 'ci --ignore-scripts --no-audit --no-fund'
-test -f package.json
-test -f package-lock.json
-`,{mode:0o755});
-
- for (const [index,surface] of followupSurfaces.entries()) {
-  const body=step(read(surface),'Install existing Actions artifact SDK').body;
-  const marker='        run: |\n';
-  const start=body.indexOf(marker);
-  assert.ok(start>=0,surface);
-  const command=body.slice(start+marker.length).split('\n').map(line=>line.slice(10)).join('\n');
-  const runnerTemp=path.join(scratch,`runner ${index}`);
-  const result=spawnSync('bash',['-e','-o','pipefail','-c',command],{
-   cwd:ROOT,env:{...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,RUNNER_TEMP:runnerTemp},encoding:'utf8',
-  });
-  assert.ifError(result.error);
-  assert.equal(result.status,0,`${surface}: ${result.stderr}`);
-  for (const filename of ['package.json','package-lock.json']) {
-   assert.equal(fs.readFileSync(path.join(runnerTemp,'correction-sdk',filename),'utf8'),read(`${sdkDirectory}/${filename}`));
-  }
- }
-});
 for(const codingBudgetVariable of [undefined,'100000'])test(`real semantic host admission ${codingBudgetVariable?'with trusted policy budget admits':'without trusted policy budget remains held'}`,async()=>{
  const f=originalCollector(),before=JSON.stringify(f.request),proofCalls=[];
  const context=await f.collectSubmission({github:f.github,repository:'stranske/example',actor:'authorized-actor',current:{run_id:900,run_attempt:1},

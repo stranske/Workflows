@@ -14,13 +14,10 @@ const predecessorJob=gunzipSync(fs.readFileSync(path.join(root,
 const successorSha256='625e3dc9f5eac0334439b4838a12e173f3962662ff6408cc581a0df903745b31';
 
 for(const surface of surfaces) {
- test(`${surface}: typed effect job is unconditionally source-disabled independent of admitted outputs`,()=>{
-  const source=read(surface),header=source.split('\n  apply-correction:\n')[1].split('    steps:\n')[0];
-  const condition=header.split('    if: >-\n')[1].split('    runs-on:')[0].trim();
-  assert.match(condition,/^false\s*&&/);
-  const poisoned=new Proxy({}, {get(){throw Error('disabled condition read caller-controlled activation');}});
-  assert.equal(new Function('github','needs',`return (${condition});`)(poisoned,poisoned),false);
-  assert.doesNotMatch(condition,/vars\.|secrets\.|inputs\./);
+ test(`${surface}: authored workflow has only the ordinary and read-only collection jobs`,()=>{
+  const source=read(surface);
+  const jobNames=[...source.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):/gm)].map(match=>match[1]);
+  assert.deepEqual(jobNames,['create-new-pr','collect-correction']);
  });
  test(`${surface}: ordinary merged-PR label lane preserves exact pre-interface job bytes`,()=>{
   assert.equal(createHash('sha256').update(predecessorJob).digest('hex'),lineage.legacy_job_sha256[surface]);
@@ -33,7 +30,7 @@ for(const surface of surfaces) {
   assert.equal(source,read(surfaces[1-surfaces.indexOf(surface)]));
  });
  test(`${surface}: collection retains read-only permissions and cannot receive an effect activation callback`,()=>{
-  const job=read(surface).split('\n  collect-correction:\n')[1].split('\n  apply-correction:\n')[0];
+  const job=read(surface).split('\n  collect-correction:\n')[1];
   const header=job.split('    steps:\n')[0];
   assert.doesNotMatch(header,/: write/);
   assert.match(header,/contents: read/);assert.match(header,/actions: read/);
