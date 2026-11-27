@@ -78,8 +78,8 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `maint-80-langsmith-metrics-dashboard.yml` | Reviewed; no changes needed—the dashboard already aggregates autopilot artifacts + refreshes docs weekly. |
 | [x] | `maint-auto-update-pypi-versions.yml` | Removed the App-token mint; workflow now relies on the default token for repo operations. |
 | [x] | `maint-coverage-guard.yml` | Removed rate-limit + guard job App-token mints; shared API client handles retries. |
-| [x] | `maint-auto-label-dep-prs.yml` | Reviewed – already minimal (gh CLI adds label via default token for dependency-bot PRs). |
-| [x] | `maint-auto-lock-deps.yml` | Reviewed – regenerates requirements.lock via uv when dependency bots touch lock inputs. |
+| [x] | `maint-auto-label-dep-prs.yml` | [#5283](https://github.com/stranske/Workflows/pull/5283) retired the standalone workflow. The trusted opening job in [Maint Auto-lock](../../.github/workflows/maint-auto-lock-deps.yml) applies `agents:allow-change` to Dependabot and Renovate PRs. |
+| [x] | `maint-auto-lock-deps.yml` | Keeps the trusted opening job and the separate lock backstop, which regenerates from the recorded command when a same-repository dependency bot changes a lock input. See [workflow decisions](../reports/workflow-decisions.md) for production evidence. |
 | [x] | `maint-dependabot-weekly-sweep.yml` | Retired; dependency-bot queueing now flows through Renovate plus the Sync/Dependency campaign surfaces. |
 | [x] | `maint-sync-action-versions.yml` | Reviewed – already syncing template action pins via automated PRs. |
 | [x] | `maint-sync-env-from-pyproject.yml` | Dropped the app-token mint; env sync now commits with the default token. |
