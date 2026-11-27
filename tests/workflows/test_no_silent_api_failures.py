@@ -170,12 +170,20 @@ const pulls = {
     }
     writes.push(['pull', base, head]);
     activePull = {
-      state: 'open', draft, body, base: {ref: base},
+      number: 1, state: 'open', draft, body, base: {ref: base},
       head: {ref: head, repo: {full_name: input.repo}, sha: liveHead},
-      html_url: 'https://example.invalid/cleanup/1',
+      html_url: 'https://example.invalid/cleanup/1', labels: [],
     };
     if (scenario === 'lost-pull-receipt') throwHttp(502);
     return {data: activePull};
+  },
+};
+const issues = {
+  async addLabels({issue_number, labels}) {
+    if (issue_number !== 1 || !activePull) throw new Error('unexpected cleanup PR label');
+    writes.push(['labels', ...labels]);
+    activePull.labels.push(...labels.map(name => ({name})));
+    return {data: activePull.labels};
   },
 };
 if (scenario === 'foreign-ref') {
@@ -187,7 +195,7 @@ const core = {
   error(message) { messages.push(message); },
   setFailed(message) { failures.push(message); },
 };
-const github = {rest: {repos, git, pulls}, paginate: async (read, params) => (await read(params)).data};
+const github = {rest: {repos, git, pulls, issues}, paginate: async (read, params) => (await read(params)).data};
 const requireStep = (path) => path === 'fs' ? {existsSync: () => false} : require(path);
 const execute = () => new AsyncFunction('github', 'core', 'require', 'console', 'process', input.script)(
   github, core, requireStep, {log(message) { messages.push(message); }},
@@ -347,6 +355,7 @@ def test_maint72_protected_apply_opens_one_exact_ready_pull(
     operations = [kind for kind, *_ in result["writes"]]
     assert operations.count("ref") == expected_refs
     assert operations.count("pull") == expected_pulls
+    assert operations.count("labels") == expected_pulls
     assert not set(operations) & {"delete", "update", "create"}
     assert len(result["failures"]) == failed_attempts
     if expected_pulls:
@@ -362,7 +371,7 @@ def test_maint72_protected_apply_updates_both_files_in_one_commit() -> None:
     assert [path["path"] for path in result["changes"]] == ["pr_body.md", ".gitignore"]
     assert result["changes"][1]["content"].startswith("*.pyc\n")
     assert result["changes"][1]["content"].endswith("\npr_body.md\n")
-    assert [kind for kind, *_ in result["writes"]] == ["tree", "commit", "ref", "pull"]
+    assert [kind for kind, *_ in result["writes"]] == ["tree", "commit", "ref", "pull", "labels"]
 
 
 def test_maint72_failed_direct_apply_does_not_claim_repair() -> None:
