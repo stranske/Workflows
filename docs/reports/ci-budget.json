@@ -273,8 +273,14 @@
     "daily_observations": {},
     "distance": 0.006666666666666599,
     "drainable_in": 7,
+    "filed_under_24h": true,
+    "filing_latency_hours": 0.12666666666666668,
     "first_over_target_at": "2026-11-27T11:38:25+00:00",
-    "issue_numbers": [],
+    "issue_filed_at": "2026-11-27T11:46:01Z",
+    "issue_numbers": [
+      703
+    ],
+    "issue_updated_on": "2026-11-27",
     "longest_job": {
       "minutes": 12.9,
       "name": "Python CI / python 3.14",
