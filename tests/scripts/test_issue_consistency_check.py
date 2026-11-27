@@ -714,7 +714,7 @@ def test_main_skips_unreliable_fallback_and_ambiguous_inference(monkeypatch, cap
     )
     monkeypatch.setattr(check_issue_consistency, "collect_changed_files", lambda *_: ([], False))
     assert check_issue_consistency.main() == 1
-    assert "Unable to determine issue number" in capsys.readouterr().err
+    assert "Error: Unable to determine issue number from PR title." in capsys.readouterr().err
 
 
 def test_main_skips_cleanup_report_without_title_issue(monkeypatch, capsys, tmp_path: Path) -> None:
