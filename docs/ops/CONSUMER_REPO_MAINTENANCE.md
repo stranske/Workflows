@@ -2434,12 +2434,16 @@ A FAIL, a broken negative control, unverifiable fix provenance or a rejected
 proof becomes one `maint71-finding-assessment-attempt:v1` hand-off comment for
 that finding and head; a new head gets a new assessment. A published
 verification is re-dispatched while Maint 71 is busy and handed off after two
-completed Maint 71 runs that carried its proof and left the thread open; each
-dispatch leaves a `maint90-maint71-dispatch:v1` receipt naming its run, and a
-run spends that budget only if it executed a Maint 71 step that processes the
-proof (a cancelled, unrelated or unreadable run never does).
-After four receipts whose runs cannot be confirmed, the finding is handed off
-as `maint71_runs_unconfirmed`. The Codex connector rotates
+Maint 71 runs evaluated its proof and left the thread open. Each dispatch
+leaves a `maint90-maint71-dispatch:v1` receipt naming its run. Maint 71 writes
+a `maint71-proof-receipt:v1` comment on the same durable issue for each Maint 90
+proof it evaluated on the PR (`resolved`, or `rejected` with its own reason),
+from the resolution step when that ran and otherwise from the merge step. Only
+runs with such a receipt spend the budget, so a run that never reached the PR
+(refresh failure, review window, cancelled, unrelated) is not an attempt, and
+the hand-off quotes Maint 71's rejection reasons. After four dispatch receipts
+without enough proof receipts, the finding is handed off as
+`maint71_runs_unconfirmed`. The Codex connector rotates
 the cheer after its stock summary, so the known cheers are listed in
 `inline_targeted_stock_completion.summary_variants`. A receipt-shaped reply with
 an unlisted cheer still counts as an answer, and Maint 90 reports it as

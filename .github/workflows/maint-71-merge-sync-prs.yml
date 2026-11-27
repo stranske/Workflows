@@ -391,6 +391,7 @@ jobs:
           CLEANUP_BRANCHES_INPUT: "false"
           EVIDENCE_ONLY_INPUT: "false"
           RESOLUTION_ONLY_INPUT: "true"
+          EMIT_PROOF_RECEIPTS_INPUT: "true"
           CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
           CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
           TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
@@ -558,6 +559,8 @@ jobs:
           TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
           TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
           REVIEW_RESOLUTION_JSON: ${{ inputs.review_resolution_json || '' }}
+          # Receipts come from the resolution step when it ran; otherwise from here.
+          EMIT_PROOF_RECEIPTS_INPUT: ${{ steps.candidate_review_resolution.outcome != 'success' }}
           EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
           MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin
           SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-merge-report.json
