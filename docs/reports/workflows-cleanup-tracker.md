@@ -9,13 +9,21 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ### November 27, consumer promotion and archive delivery
 
-Health 69 is retired. Two template PRs and the corresponding pushes exercised its former triggers after removal. GitHub recorded zero legacy runs, its registration is deleted, and the installed consumer scheduler no longer invokes the importer. The replacement sync checker verified 14 ordinary merged receiving PRs against their default trees. It had previously treated intentionally removed files as unreadable and left all 14 pending. [Source removal](https://github.com/stranske/Workflows/pull/5086) · [Receiving example](https://github.com/stranske/Doc-Lineage/pull/202)
+Health 69 is retired. GitHub recorded zero legacy runs after two real template PRs and pushes exercised its former triggers. Its registration was deleted and the installed consumer scheduler no longer invokes its importer. The replacement sync checker verified 14 previously pending merged receiving PRs against their default trees. It had mistaken intentionally removed files for failed reads. [Source removal](https://github.com/stranske/Workflows/pull/5086) · [Receiving example](https://github.com/stranske/Doc-Lineage/pull/202)
 
-The ordinary canary produced three reviewed receiving PRs. The cross-repository notification returned HTTP 403 on all three. The central queue recovered the persisted handoff, verified the checks and started fleet promotion. All 16 receiving PRs now propose removing the two obsolete SDK paths and four vendored helpers. Accept delivery per receiving default and exact campaign receipt. The verifier's issue, backlink and worker PR require a genuine corrective verdict. [Canary](https://github.com/stranske/Workflows/actions/runs/46019527702) · [Queue recovery](https://github.com/stranske/Workflows/actions/runs/46021230534) · [Fleet promotion](https://github.com/stranske/Workflows/actions/runs/46021514751)
+Renovate opened [#5349](https://github.com/stranske/Workflows/pull/5349) after [the group-specific policy repair](https://github.com/stranske/Workflows/pull/5347). The consolidated label job applied agents:allow-change in 24 seconds. The separate lock job resolved 114 packages, verified the submitted lock and correctly skipped publication. The labeler consolidation and the retained lock backstop both meet Stage 1A acceptance. Three dependency compatibility assertions subsequently failed on both Python versions; the proposed upgrades remain subject to their normal Gate. The original 28 delivery checks remain separate. Twenty-six passed, Maint 84 has a qualified no-demand disposition, and the positive corrective lock write requires a genuinely stale bot lock. [Label job](https://github.com/stranske/Workflows/actions/runs/46024030316/job/140590663889) · [Lock job](https://github.com/stranske/Workflows/actions/runs/46024030430/job/140590659938)
 
-Two archive changes removed 65 loose captures, 63 net paths and 706,455 tracked bytes from main. The 31 old runtime diagnostics recover from Git. The other 34 outputs share one indexed offline archive for a current reader. Five current replay and operator inputs remain together. Seven additional completed validation groups have a single Git-history guide in review. [Runtime diagnostics](https://github.com/stranske/Workflows/pull/5345) · [Offline recovery](https://github.com/stranske/Workflows/pull/5344) · [Seven historical groups](https://github.com/stranske/Workflows/pull/5346)
+Three archive changes removed 182 loose historical files from Workflows main, for 179 net paths and 2,466,101 tracked bytes. Of these, 148 recover in Git history through their indexed original runs and 34 share one checked-in offline package. Five current operator or test files from runtime 4548 remain together. Two further issue 3743 validation runs have a reviewed proposal to move all 59 records to their existing Git tree. [Runtime diagnostics](https://github.com/stranske/Workflows/pull/5345) · [Offline package](https://github.com/stranske/Workflows/pull/5344) · [Seven historical groups](https://github.com/stranske/Workflows/pull/5346) · [Issue 3743](https://github.com/stranske/Workflows/pull/5350)
 
-The original delivery checklist remains separate. Twenty-six checks passed, Maint 84 has a qualified no-demand disposition, and the positive dependency-bot lock correction is open. Renovate refreshed the existing dependency group and three lockfiles but its PR-creation setting suppressed the opening after rebase. The scoped configuration change preserves the weekly schedule and normal review. Health 83's metrics command remains in scripts/ and reproduced the published report on its original production input. [Renovate repair](https://github.com/stranske/Workflows/pull/5347) · [Health 83](https://github.com/stranske/Workflows/actions/runs/45948692632)
+The ordinary promotion merged all 16 reviewed receiving PRs. An independent read of their default branches found all 32 obsolete SDK files and 64 redundant helpers removed, all 112 retained companion files present, and the expected verifier workflow installed in every repository. The central queue recovered the three denied best-effort canary notifications and the shared GitHub API rate-limit interruption. The [trip-planner comparison](https://github.com/stranske/trip-planner/actions/runs/46033680761) on the installed [artifact-reader repair](https://github.com/stranske/Workflows/pull/5351) authenticated all five original source files. Both providers returned PASS on the same receiving PR that previously could not be evaluated. [Canary](https://github.com/stranske/Workflows/actions/runs/46019527702) · [Final promotion and native report](https://github.com/stranske/Workflows/actions/runs/46028206470)
+
+The regular hosted seat now includes the shared opener. Earlier scheduled passes correctly skipped apply while the Mac was active. The [ordinary scheduled run](https://github.com/stranske/Orchestrator/actions/runs/46031816842) acquired the shared lease during the Mac pause, and the local pause was released. All three lanes finished. The opener actually started Workflows #5352, the local controller respected the hosted lease, and 30/30 hosted feedback records reached the Mac. The dependency Gate produced that issue. No sync remediation was filed, so five qualifying sync-originated starts remain. Auto-Pilot, Decompose and the belt continue serving existing work. Portable Alpha's protected main has removed its 23,072-byte pr_body.md and retained the original ignore rule. A new normal preview reported the corrected receiver and made zero writes. The independent weekly diagnosis remains outstanding. [Hosted enrollment](https://github.com/stranske/Orchestrator/pull/1509) · [Receiver route](https://github.com/stranske/Workflows/pull/5348) · [Portable Alpha](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540) · [Post-merge preview](https://github.com/stranske/Workflows/actions/runs/46028294563/job/140605331171)
+
+The receiving verification follow-up has a qualified keep. Sixteen installations matched the source, the historical receiving job created an issue and posted its backlink, and the latest two-provider comparison returned PASS on all five original inputs. No authenticated outstanding correction surfaced in the 46-hour review. Reopen the positive path when a current receiving finding needs a worker. The design-kit folder stays together after testing its ordered stylesheet imports, guide links and button callback. [Receiving comparison](https://github.com/stranske/trip-planner/pull/2068#issuecomment-7223317580)
+
+The runtime-4550 archive proposal moves 127 historical captures to their two original Git revisions. Nine of nine representative files recovered independently. Baseline, candidate and restoration all preserved 245 named cases. Removing one active inventory failed its real CLI and named test. The proposed net reduction is 3,335,525 bytes. [Archive proposal](https://github.com/stranske/Workflows/pull/5357)
+
+Protected main a52cfa08865c7ed9656fa61a605067664dcd34b8 contains the reviewed API guard at scripts/api-call-guard.js. Its former single-child folder, two static matrix files and the old run-count guide are absent. The four operator-guide and CLI objects from #5333 match exactly. The installed source completed four original file decisions and one folder decision. [Installed operator changes](https://github.com/stranske/Workflows/pull/5341) · [Original operator controls](https://github.com/stranske/Workflows/pull/5333)
 
 ### November 27, 14:01 UTC review
 
@@ -304,24 +312,24 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 182/198 completed · 3 drainable now · 13 blocked · 16 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 0 drainable now · 13 blocked · 13 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,637/2,901 | 112/220 | — |
-| 3 · Scripts, tools and packages | 406/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 929/1,540 | 128/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 199/334 | 26/47 | — |
-| **Total** | **3,198/5,554** | **300/487** | **182/198** |
+| 2 · Evidence and archives | 1,754/2,901 | 115/220 | — |
+| 3 · Scripts, tools and packages | 408/752 | 35/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 938/1,540 | 130/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 201/334 | 26/47 | — |
+| **Total** | **3,328/5,554** | **306/487** | **185/198** |
 
-**Directory organization.** 2,986 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,116 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 127 |
-| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 12 |
-| [Other verified decisions](workflow-decisions.md#verified) | 43 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 4 |
+| [Keep in current role](workflow-decisions.md#keep) | 128 |
+| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 13 |
+| [Other verified decisions](workflow-decisions.md#verified) | 44 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 1 |
 | [In review](workflow-decisions.md#review) | 0 |
 | [Proposed changes](workflow-decisions.md#proposed) | 12 |
 

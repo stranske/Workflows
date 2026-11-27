@@ -50,7 +50,7 @@ incidents.
 [Checks](checks.txt) pass template sync, completeness, focused Ruff/Black,
 helper byte identity, and whitespace validation. Repository Black passes all
 **664 files** in [black-all.txt](black-all.txt), using the previously retained
-[serial dispatcher](../../archive-boundary/proof-execution/black-serial-dispatch.txt)
+[serial dispatcher](https://github.com/stranske/Workflows/blob/67dee42616781423c5197ddf640d4070286cbfa4/docs/evidence/issue-3743/archive-boundary/proof-execution/black-serial-dispatch.txt)
 with the required check options and unchanged Black formatting. The native
 parallel launch fails because the sandbox denies worker sockets; its full
 failure is retained in [black-native.txt](black-native.txt).
@@ -67,8 +67,8 @@ to browse each file separately.
 ## Reconciliation and handoff
 
 Recent commit `ed99df79` strengthens execution witnesses for the eight archive
-cases and retains their semantic mutation and restored-GREEN evidence under
-`archive-boundary/proof-execution/`. Prior merged classification chunk
+cases and retains their semantic mutation and restored-GREEN evidence in the
+[original proof-execution report](https://github.com/stranske/Workflows/blob/67dee42616781423c5197ddf640d4070286cbfa4/docs/evidence/issue-3743/archive-boundary/proof-execution/README.md). Prior merged classification chunk
 `8f7c9ed0` and adjacent `automation/` evidence already satisfy the four
 unchecked implementation tasks and the collection, exit-code, and template
 validation acceptance criteria in the supplied appendix. This follow-up
