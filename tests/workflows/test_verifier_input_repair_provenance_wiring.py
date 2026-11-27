@@ -19,6 +19,7 @@ def load(path):
 
 def test_provenance_runs_in_its_own_provider_free_job_and_suppresses_the_verifier_job():
     jobs = load(WORKFLOW)["jobs"]
+    assert jobs["verifier"]["name"] == "Run post-merge verifier"
     assert jobs["verifier"]["if"] == "inputs.verification_provenance == ''"
     job = jobs["input-repair-provenance"]
     assert job["if"] == "inputs.verification_provenance != ''"
@@ -30,6 +31,10 @@ def test_provenance_runs_in_its_own_provider_free_job_and_suppresses_the_verifie
         "OPENAI",
         "CLAUDE",
         "CODEX",
+        "LANGSMITH",
+        "models: ",
+        '"models":',  # A mapping key at any depth in the serialized job.
+        "verifier-corpus-decision",
         "verifier-event-state",
         "createComment",
     ):
