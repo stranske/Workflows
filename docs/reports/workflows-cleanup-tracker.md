@@ -7,6 +7,18 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**Stage 1B is complete.** All 27 original root files have final placements. Trip-planner’s required Ubuntu job installs checksum-pinned actionlint 1.7.10, rejects an invalid copy of its smoke workflow and accepts the checked-in workflow. The ordinary main run took 122 seconds. Workflows subsequently removed the 5,759,160-byte root executable and its exemption from the root allowlist. The root check found zero stray files among 16 tracked files. The removal Gate passed in 580 seconds, with the two primary Python jobs at 334 and 495 seconds. [Receiving Ubuntu job](https://github.com/stranske/trip-planner/actions/runs/45912825084/job/140224974778) · [Source retirement](https://github.com/stranske/Workflows/pull/5292) · [Removal Gate](https://github.com/stranske/Workflows/actions/runs/45913120809)
+
+**How Stage 1A can finish.** All 198 original workflows have a design decision. Of the 37 open acceptance checks, 23 have a keep decision, 13 a retirement decision and one a consolidation decision. The dates below are the recorded next checks. A checkpoint can close a low-demand keep with its stated qualification. The hosted migration still requires actual handoffs.
+
+| Next check | Rows | Action |
+|---|---:|---|
+| November 29 | 1 | The receiving maintainer can disposition Maint 72’s scoped removal of `pr_body.md`. Verify the receiving default and the next weekly diagnostic. [Portable Alpha PR](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540) |
+| November 30 | 1 | Read Health 44’s scheduled parent, its child and the published fingerprint. Also inspect the first of the two remaining weekly opportunities for the original delivery checks. |
+| December 1 | 1 | Verify the full seven-day window after retiring Health 69’s producer, including downstream ingest and the recorded sync condition. |
+| December 2 | 12 | For the optimizer and verifier pairs, trace a real authorized Apply or a genuine finding through its receiving result and duplicate controls. Use the other eight rows’ recorded inputs or expiry dispositions. |
+| December 7 | 22 | Twelve legacy definitions share the hosted handoff. The lane operator needs five distinct eligible shared-opener starts, one claim across concurrent seats, an offline-local start, restart with no duplicate, Mac feedback, and a guarded close with receiving sync. Finish the four-pass observation over at least two hours before retirement. The other ten rows have their own input or low-demand dispositions. [Hosted migration](#hosted-orchestration-migration) |
+
 **November 26, 22:10 UTC.** All 16 source-sync PRs merged. The receiving default branches have all 128 Agents 70 cutover files, all 16 corrected verifier SDK workflows and all 16 expected model catalogs. Zero source-sync PRs remained open. Seventy surplus files remain in 14 receivers. The promoted source predates the directory-pruning change. Verify the next ordinary promotion that includes it. The seven-day agent-PR and Keepalive comparison is due December 2. [Fleet result and receiving branches](https://github.com/stranske/Workflows/actions/runs/45901009621) · [Directory pruning change](https://github.com/stranske/Workflows/pull/5252)
 
 The final five architectural decisions keep Reusable 20 for receiving PR metadata, Maint 69 for publishing to Integration-Tests, the Muse launcher for its supported runtime refs, the connector moderator for its comment policy, and the managed fork publisher for the required Gate status on fork heads. All 198 original definitions now have a direction. Production acceptance is complete for 161. The other 37 have recorded completion conditions, including the shared hosted handoff for 12 legacy definitions. [Grouped decisions and individual receipts](workflow-decisions.md)
@@ -166,14 +178,14 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 37 pending checks have a recorded structural decision |
-| 1B · Root files | 26/27 | — | — |
+| 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
 | 3 · Scripts, tools and packages | 366/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 908/1,540 | 128/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 909/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,037/5,554** | **296/487** | **161/198** |
+| **Total** | **3,039/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,826 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,827 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
