@@ -2,7 +2,8 @@
 
 const { validateIndependentFindingFromNative, collectFindingReviewState,
   validateNativeConversationDisposition, collectOriginatingCompletions,
-  collectBoundInlineStockCompletion } = require('./maint71_finding_verification');
+  collectBoundInlineStockCompletion, receiverFixIdentity, isReceiverFindingPull,
+  readReceiverFix, receiverFixPrecedesHead } = require('./maint71_finding_verification');
 
 const DEFAULT_REVIEW_POLICY = Object.freeze({
   minimum_responses: 1,
@@ -2653,7 +2654,7 @@ function parseReviewResolutionProofs(raw = '') {
 // A proof-bound resolution is safe for either a current or outdated thread.
 // GitHub rulesets can still require an outdated conversation to be resolved,
 // and the proof validation below binds this mutation to the exact PR head and
-// a merged Workflows source fix. Ordinary merge eligibility remains stricter:
+// authenticated repair evidence. Ordinary merge eligibility remains stricter:
 // it still enforces the shared causal-disposition contract and repository policy.
 function isResolvableProofThread(thread) {
   return Boolean(
@@ -2868,15 +2869,27 @@ function validateReviewResolutionProof(proof = {}, {
   if (Number(proof.pr) !== Number(prNumber)) errors.push('pr_mismatch');
   if (String(proof.head_sha || '') !== String(headSha || '')) errors.push('head_mismatch');
   if (!String(proof.thread_id || '').startsWith('PRRT_')) errors.push('invalid_thread_id');
-  if (!/^[0-9a-f]{40,64}$/i.test(String(proof.source_fix_sha || ''))) {
-    errors.push('invalid_source_fix_sha');
-  }
-  if (!/^https:\/\/github\.com\/stranske\/Workflows\/(?:pull\/[1-9]\d*|commit\/[0-9a-f]{40,64})$/i.test(
-    String(proof.evidence_url || ''),
-  )) errors.push('invalid_evidence_url');
-  if (!String(proof.originating_reviewer || '').trim()) errors.push('missing_originating_reviewer');
   const independent = proof.acceptance_mode === 'independent-verification';
   const nativeConversation = proof.acceptance_mode === 'native-conversation-disposition';
+  if (Object.hasOwn(proof, 'receiver_fix')) {
+    const fix = proof.receiver_fix;
+    if (!independent || Object.hasOwn(proof, 'source_fix_sha') || !receiverFixIdentity(fix)
+      || fix.repository !== `${owner}/${repo}` || !Number.isSafeInteger(proof.pr)
+      || fix.repository.toLowerCase() === 'stranske/workflows'
+      || fix.pr === proof.pr || !/^[a-f0-9]{40}$/.test(proof.head_sha || '')) {
+      errors.push('invalid_receiver_fix');
+    } else if (proof.evidence_url !== `https://github.com/${owner}/${repo}/pull/${fix.pr}`) {
+      errors.push('invalid_evidence_url');
+    }
+  } else {
+    if (!/^[0-9a-f]{40,64}$/i.test(String(proof.source_fix_sha || ''))) {
+      errors.push('invalid_source_fix_sha');
+    }
+    if (!/^https:\/\/github\.com\/stranske\/Workflows\/(?:pull\/[1-9]\d*|commit\/[0-9a-f]{40,64})$/i.test(
+      String(proof.evidence_url || ''),
+    )) errors.push('invalid_evidence_url');
+  }
+  if (!String(proof.originating_reviewer || '').trim()) errors.push('missing_originating_reviewer');
   if (proof.acceptance_mode && !independent && !nativeConversation) errors.push('unsupported_acceptance_mode');
   if (independent ? !/^https:\/\/github\.com\/stranske\/Workflows\/issues\/[1-9]\d*#issuecomment-[1-9]\d*$/.test(
     String(proof.reviewer_acceptance_url || ''),
@@ -4025,72 +4038,81 @@ async function run({ github, context, core }) {
         errors.push(`${proof.thread_id}:delivery_source_commit_missing`);
         continue;
       }
+      const receiverFix = proof.receiver_fix;
+      if (receiverFix && (!isReceiverFindingPull(pr, proof)
+        || deliveryRecord.repository !== proof.repository)) {
+        errors.push(`${proof.thread_id}:receiver_delivery_binding_mismatch`);
+        continue;
+      }
       try {
-        const evidenceUrl = String(proof.evidence_url || '');
-        const commitEvidence = evidenceUrl.match(
-          /^https:\/\/github\.com\/stranske\/Workflows\/commit\/([0-9a-f]{40,64})$/i,
-        );
-        const pullEvidence = evidenceUrl.match(
-          /^https:\/\/github\.com\/stranske\/Workflows\/pull\/([1-9]\d*)$/,
-        );
-        if (commitEvidence) {
-          if (commitEvidence[1].toLowerCase() !== String(proof.source_fix_sha).toLowerCase()) {
-            errors.push(`${proof.thread_id}:evidence_commit_mismatch`);
-            continue;
-          }
-          await withRetry((client) => client.rest.repos.getCommit({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: proof.source_fix_sha,
-          }));
-        } else if (pullEvidence) {
-          const pullNumber = Number(pullEvidence[1]);
-          const { data: sourcePull } = await withRetry((client) => client.rest.pulls.get({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: pullNumber,
-          }));
-          if (!sourcePull?.merged_at) {
-            errors.push(`${proof.thread_id}:evidence_pr_not_merged`);
-            continue;
-          }
-          const sourceCommits = await withRetry((client) => client.paginate(
-            client.rest.pulls.listCommits,
-            {
+        if (!receiverFix) {
+          const evidenceUrl = String(proof.evidence_url || '');
+          const commitEvidence = evidenceUrl.match(
+            /^https:\/\/github\.com\/stranske\/Workflows\/commit\/([0-9a-f]{40,64})$/i,
+          );
+          const pullEvidence = evidenceUrl.match(
+            /^https:\/\/github\.com\/stranske\/Workflows\/pull\/([1-9]\d*)$/,
+          );
+          if (commitEvidence) {
+            if (commitEvidence[1].toLowerCase() !== String(proof.source_fix_sha).toLowerCase()) {
+              errors.push(`${proof.thread_id}:evidence_commit_mismatch`);
+              continue;
+            }
+            await withRetry((client) => client.rest.repos.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: proof.source_fix_sha,
+            }));
+          } else if (pullEvidence) {
+            const pullNumber = Number(pullEvidence[1]);
+            const { data: sourcePull } = await withRetry((client) => client.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: pullNumber,
-              per_page: 100,
-            },
-          ));
-          const evidenceShas = new Set([
-            sourcePull.merge_commit_sha,
-            ...(sourceCommits || []).map((commit) => commit.sha),
-          ].map((sha) => String(sha || '').toLowerCase()).filter(Boolean));
-          if (!evidenceShas.has(String(proof.source_fix_sha).toLowerCase())) {
-            errors.push(`${proof.thread_id}:source_fix_not_in_evidence_pr`);
+            }));
+            if (!sourcePull?.merged_at) {
+              errors.push(`${proof.thread_id}:evidence_pr_not_merged`);
+              continue;
+            }
+            const sourceCommits = await withRetry((client) => client.paginate(
+              client.rest.pulls.listCommits,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullNumber,
+                per_page: 100,
+              },
+            ));
+            const evidenceShas = new Set([
+              sourcePull.merge_commit_sha,
+              ...(sourceCommits || []).map((commit) => commit.sha),
+            ].map((sha) => String(sha || '').toLowerCase()).filter(Boolean));
+            if (!evidenceShas.has(String(proof.source_fix_sha).toLowerCase())) {
+              errors.push(`${proof.thread_id}:source_fix_not_in_evidence_pr`);
+              continue;
+            }
+          } else {
+            errors.push(`${proof.thread_id}:invalid_evidence_url`);
             continue;
           }
-        } else {
-          errors.push(`${proof.thread_id}:invalid_evidence_url`);
-          continue;
-        }
-        const { data: comparison } = await withRetry((client) =>
-          client.rest.repos.compareCommitsWithBasehead({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            basehead: `${proof.source_fix_sha}...${sourceCommit}`,
-          }),
-        );
-        if (!['ahead', 'identical'].includes(String(comparison?.status || ''))) {
-          errors.push(`${proof.thread_id}:source_fix_not_in_delivery_source`);
-          continue;
+          const { data: comparison } = await withRetry((client) =>
+            client.rest.repos.compareCommitsWithBasehead({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              basehead: `${proof.source_fix_sha}...${sourceCommit}`,
+            }),
+          );
+          if (!['ahead', 'identical'].includes(String(comparison?.status || ''))) {
+            errors.push(`${proof.thread_id}:source_fix_not_in_delivery_source`);
+            continue;
+          }
         }
         const fresh = await collectFindingReviewState({
           owner, repo, number: pr.number, read: withReviewReadRetry,
         });
         const threads = fresh?.reviewThreads;
-        if (fresh?.headRefOid !== pr.head.sha || fresh?.headRefName !== pr.head.ref) {
+        if (fresh?.headRefOid !== pr.head.sha || fresh?.headRefName !== pr.head.ref
+          || (receiverFix && fresh.baseRefName !== receiverFix.base_ref)) {
           errors.push(`${proof.thread_id}:head_changed`);
           continue;
         }
@@ -4126,6 +4148,22 @@ async function run({ github, context, core }) {
             errors.push(`${proof.thread_id}:${verification.reason}`);
             continue;
           }
+          const receiverRead = { owner, repo, proof, read: withRetry };
+          let receiverFixSnapshot;
+          if (receiverFix) {
+            const { data: campaignSource } = await withRetry((client) => client.rest.repos.getCommit({
+              ...context.repo, ref: sourceCommit,
+            }));
+            if (campaignSource?.sha !== sourceCommit) {
+              errors.push(`${proof.thread_id}:delivery_source_commit_mismatch`);
+              continue;
+            }
+            receiverFixSnapshot = await readReceiverFix(receiverRead);
+            if (!receiverFixSnapshot || !await receiverFixPrecedesHead(receiverRead)) {
+              errors.push(`${proof.thread_id}:receiver_fix_provenance_unverified`);
+              continue;
+            }
+          }
           // Re-read immediately after external evidence; never resolve a changed head.
           const { data: currentPr } = await withRetry((client) => client.rest.pulls.get({
             owner, repo, pull_number: pr.number,
@@ -4133,6 +4171,7 @@ async function run({ github, context, core }) {
           const currentRecord = parseDeliveryRecord(currentPr.body || '');
           if (currentPr.state !== 'open' || currentPr.head?.sha !== pr.head.sha
             || currentPr.head?.ref !== pr.head.ref
+            || (receiverFix && !isReceiverFindingPull(currentPr, proof))
             || !independentVerificationDeliveryUnchanged({
               previous: deliveryRecord, current: currentRecord,
               head: pr.head.sha, branch: pr.head.ref, now: Date.now(),
@@ -4161,6 +4200,8 @@ async function run({ github, context, core }) {
           }) : validateNativeConversationDisposition({ proof, record: latestRecord, thread: latestThread, threads: latest?.reviewThreads, comment: latestComment, policy: reviewPolicy, reviewerProfiles, topLevelComments: latestCompletions });
           if (latest?.headRefOid !== pr.head.sha || !finalVerification.ok
             || latest?.headRefName !== pr.head.ref
+            || (receiverFix && (latest.baseRefName !== receiverFix.base_ref
+              || latestComment.body !== comment.body || latestComment.updated_at !== comment.updated_at))
             || !independentVerificationDeliveryUnchanged({
               previous: currentRecord, current: latestRecord,
               head: pr.head.sha, branch: latest.headRefName, now: Date.now(),
@@ -4168,16 +4209,23 @@ async function run({ github, context, core }) {
             errors.push(`${proof.thread_id}:verification_changed_before_resolution`);
             continue;
           }
+          if (receiverFix && receiverFixSnapshot !== await readReceiverFix(receiverRead)) {
+            errors.push(`${proof.thread_id}:receiver_fix_changed_before_resolution`);
+            continue;
+          }
         }
         if (!accepted) {
           errors.push(`${proof.thread_id}:same_head_reviewer_acceptance_missing`);
           continue;
         }
+        const evidence = receiverFix
+          ? `${proof.evidence_url} merged into ${receiverFix.base_ref} at ${receiverFix.merge_sha} (delivery source ${sourceCommit})`
+          : proof.evidence_url;
         if (dryRun && !resolutionOnly) {
           wouldResolve.push(proof.thread_id);
           console.log(
             `Would resolve proof-bound review thread ${proof.thread_id} using ` +
-              `${proof.evidence_url}`,
+              evidence,
           );
           continue;
         }
@@ -4191,7 +4239,7 @@ async function run({ github, context, core }) {
         ));
         resolved.push(proof.thread_id);
         console.log(
-          `Resolved proof-bound review thread ${proof.thread_id} using ${proof.evidence_url}`,
+          `Resolved proof-bound review thread ${proof.thread_id} using ${evidence}`,
         );
       } catch (error) {
         errors.push(`${proof.thread_id}:${error.message || error}`);

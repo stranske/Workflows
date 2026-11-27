@@ -2367,6 +2367,16 @@ a substantive rationale, the existing targeted request URL and originating
 completion URL, and nonempty `validation` entries containing command,
 `exit_code=0` and `negative_control=failed-before-fix`.
 
+For a finding fixed by an already merged receiver PR, provide `receiver_fix`
+in both the resolution proof and its independent result. It contains the
+receiver's `repository`, numeric `pr`, target `base_ref`, and full `merge_sha`.
+Use the canonical receiver PR URL for `evidence_url` and omit `source_fix_sha`
+from both records. The result still binds the original Workflows delivery
+source, plan and generation. Maint 71 reads the fix in the selected receiver
+and requires the same repository on both PR sides, the same target branch as
+the generated PR, and the merged commit in the exact generated head's ancestry.
+It rechecks the receiver PR and assessment immediately before resolution.
+
 An authenticated Codex stock receipt in the original outdated thread can prove
 targeted review completion for this independent assessment. Maint 71 checks the
 configured bot account ID, the original finding and sole bound owner request,
