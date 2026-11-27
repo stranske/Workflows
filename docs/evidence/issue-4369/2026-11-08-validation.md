@@ -1493,12 +1493,13 @@ What landed:
   historical-finding regressions and the retained fixtures they read.
 
 Targeted passing logs (class: checks against test fixtures, not production use):
-[`python-targeted.log`](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-targeted.log) (196 passed), [`python-truncation-named.log`](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-truncation-named.log),
-[`python-async-named.log`](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-async-named.log), [`python-context-coverage.log`](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-context-coverage.log) (55 passed),
-[`coding-stdin-targeted.log`](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stdin-targeted.log), [`historical-finding-gates.log`](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/historical-finding-gates.log),
-[`subject-refusal-maint71-delivery-receipts.log`](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/subject-refusal-maint71-delivery-receipts.log),
-[`subject-refusal-maint71_merge_sync_prs.log`](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/subject-refusal-maint71_merge_sync_prs.log), `scope-binding-tests.log`,
+`python-targeted.log` (196 passed), `python-truncation-named.log`,
+`python-async-named.log`, `python-context-coverage.log` (55 passed),
+`coding-stdin-targeted.log`, `historical-finding-gates.log`,
+`subject-refusal-maint71-delivery-receipts.log`,
+`subject-refusal-maint71_merge_sync_prs.log`, `scope-binding-tests.log`,
 `payload-path-binding-tests.log`, `supported-binding-tests.log`.
+See [capture recovery](#recover-historical-runtime-and-seat-captures).
 
 Causal candidate receipts (class: read-only observation of production runs).
 Maint 68 `42485644055` dispatched Maint 71 `42485792262`, which opened consumer
@@ -1513,7 +1514,7 @@ Finite nonrecurrence observations (class: read-only observation): all 49
 issue-4369 comments were retained. No scoped recurrence was seen after
 2026-11-05T04:45:07Z, through the explicit boundaries 2026-11-08T13:38:40Z
 (`supported-live-observation.json`) and 2026-11-08 18:01:01 UTC
-([`coding-stdin-live-observation.json`](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stdin-live-observation.json)). Discussion 4434491702 remains historical
+(`coding-stdin-live-observation.json`). Discussion 4434491702 remains historical
 and excluded.
 
 Focused re-run on the reduced branch (local, 2026-11-08): six Node test files
@@ -3871,20 +3872,16 @@ Use the printed directory as the working directory for the recorded round 4
 
 ## Recover historical runtime and seat captures
 
-The captures below are retained at their original publication revisions. The table
-groups the captures by the process that produced them and gives each original
-filename and SHA-256. Some snapshots describe incomplete candidate runs and
-preliminary checks. Their original status and scope are preserved in the linked bytes.
+Each group lists its exact filenames, starting with a representative.
 
-From a Workflows checkout, use the commit for the chosen group and the filename
-from its link. Fetch the commit first if it is missing from a shallow checkout.
-Compare the printed SHA-256 with the table before using the recovered file.
+Recover a capture using its filename and publication commit.
+
 
 ```sh
 (
   set -eu
   revision=0a06f1976db1dd7eb12853f493a3371ee4736bcf
-  receipt=artifact-stall-after.log
+  receipt=node-targeted.json
   git fetch --no-tags --depth=1 origin "$revision"
   out=$(mktemp -d "${TMPDIR:-/tmp}/workflows-runtime-receipt.XXXXXX")
   git show "$revision:docs/evidence/issue-4369/runtime-4550/$receipt" > "$out/$receipt"
@@ -3892,192 +3889,182 @@ Compare the printed SHA-256 with the table before using the recovered file.
 )
 ```
 
-### Focused runtime test captures
+### Original publication #4551
 
-Publication revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf`.
+[Browse Git tree](https://github.com/stranske/Workflows/tree/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550)
 
-| Original capture | SHA-256 |
-| --- | --- |
-| [node-targeted.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/node-targeted.json) | `dbdf0121b4010788db0c0a0fa8dc03ed382b4df5524686c27b642e6abdb16a74` |
-| [node-targeted.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/node-targeted.log) | `95c1feb33afab1603b3132d7e0c043ba9352adaf26c067d297c1882e41bea69e` |
-| [python-async-named.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-async-named.json) | `d2e6cac4152500d916893fd7aee65c02bc417600480de47891e62c4243ae28a0` |
-| [python-async-named.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-async-named.log) | `55959fc1472819f6afa14ec7e2cd60f6887676356b23f7aa50cb38bbbd9285ee` |
-| [python-context-coverage.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-context-coverage.json) | `217efe207c4e4f61efb21c35e29af16fc85e8a5dbf541a5f37077dc2103056b6` |
-| [python-context-coverage.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-context-coverage.log) | `ddf0296c5f9aa4b9567cf6d10256db34a0186ba4ba32af154093232f8f4da6dd` |
-| [python-targeted.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-targeted.json) | `f77ff366f7590d98c87f7ddcf9a3a97359555db9b46d255e11461b0974945a2c` |
-| [python-targeted.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-targeted.log) | `7068e86e645b1cf0d80753d7a78c46181262d934578e10db3119b5b8b2d7fcea` |
-| [python-truncation-named.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-truncation-named.json) | `fa1f54ee1e6601981aed64af38b97e230757f4dc10239cd9a16f6052e4dbc310` |
-| [python-truncation-named.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/python-truncation-named.log) | `8a8087ec1a9d7ac3a3e24f4d4f2cf4dc5d8454a9ee0514098651a820529b6109` |
+#### Focused runtime test captures (10)
 
-### Maint 71 lifecycle, missing-canary, and finding investigations
+```text
+node-targeted.json
+node-targeted.log
+python-async-named.json
+python-async-named.log
+python-context-coverage.json
+python-context-coverage.log
+python-targeted.json
+python-targeted.log
+python-truncation-named.json
+python-truncation-named.log
+```
 
-Publication revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf`.
+#### Maint 71 lifecycle, missing-canary, and finding investigations (8)
 
-| Original capture | SHA-256 |
-| --- | --- |
-| [delivery-lifecycle-binding-red.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/delivery-lifecycle-binding-red.log) | `4f625d93e0cbff1744675456e6437d49a077b39b6bc66fc2ee78e9343defd599` |
-| [delivery-lifecycle-validation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/delivery-lifecycle-validation.json) | `c54c0308f792cb6dbde5a3048b5aa7d34692a9960e245f03a3faf0aa42625fd9` |
-| [historical-finding-gates.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/historical-finding-gates.json) | `fa257d52a067be6ace177d68ed27edeb31b9274c1913a554e1c4bfccd7c99602` |
-| [historical-finding-gates.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/historical-finding-gates.log) | `4a43c343bec4ec3df479b3a60690a405aafb2e96f214eaf9ebcefdc42ba99b1b` |
-| [historical-finding-live-observation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/historical-finding-live-observation.json) | `0a0ab4d6847a99c203fa5332c529acffd5c6b1fc65f8198d4b7144be744afff7` |
-| [missing-canary-live-observation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/missing-canary-live-observation.json) | `ba6d28a3a74b2bda1d3a2ed5a364c83583379abe97f9829b9153e8b02ffcb0b0` |
-| [missing-canary-production-replay.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/missing-canary-production-replay.json) | `e937f84b3da1170f44e14481e7f9954b90df8f0a7a3e483b0721de14982fbee8` |
-| [missing-canary-production-replay.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/missing-canary-production-replay.log) | `8704aa2931242485865b2a64517e6fc91094a33a0a17543c1501db2010042334` |
+```text
+missing-canary-live-observation.json
+delivery-lifecycle-binding-red.log
+delivery-lifecycle-validation.json
+historical-finding-gates.json
+historical-finding-gates.log
+historical-finding-live-observation.json
+missing-canary-production-replay.json
+missing-canary-production-replay.log
+```
 
-### Native candidate and Maint 71 subject refusal investigations
+#### Native candidate and Maint 71 subject refusal investigations (15)
 
-Publication revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf`.
+```text
+native-scope-live-observation.json
+native-scope-replay.json
+native-scope-replay.log
+native-tuple-live-observation.json
+native-tuple-tests-1.log
+native-tuple-tests-2.log
+native-tuple-tests-3.log
+native-tuple-tests.json
+subject-refusal-maint71-delivery-receipts.log
+subject-refusal-maint71_merge_sync_prs.log
+subject-refusal-observation.json
+subject-refusal-python-diagnostic.log
+subject-refusal-red.log
+subject-refusal-scoped-canary-refresh.log
+subject-refusal-validation.json
+```
 
-| Original capture | SHA-256 |
-| --- | --- |
-| [native-scope-live-observation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/native-scope-live-observation.json) | `130e6c1969539621c887e2001d5295a5cf8cc67826af1fb20cc8464d7439cf31` |
-| [native-scope-replay.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/native-scope-replay.json) | `114ff1fbc9e96541777932812206b708ce55dc26b4b55032586dafe6ffdd55f5` |
-| [native-scope-replay.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/native-scope-replay.log) | `140886f7526e2dfb1b1506a26336508d1a0acc29c4e6b34981f4bc8d9719b4f1` |
-| [native-tuple-live-observation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/native-tuple-live-observation.json) | `1638d4e1873daec293edab370ab3bcbf716e5caeb08a2bc80e4ea625355b5570` |
-| [native-tuple-tests-1.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/native-tuple-tests-1.log) | `bad4538860aa756e89ac190c3cc6c73d4a479c07fe42c1dd5d6480b1b141629c` |
-| [native-tuple-tests-2.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/native-tuple-tests-2.log) | `0f66957e85cb34f9b40452dda4388a6e54f56cc5f49b930fa4f7d856586efcb9` |
-| [native-tuple-tests-3.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/native-tuple-tests-3.log) | `19c3bea25fd2a74cde6d86a9aaa24a00cb7dec415e85206c4fca086c382a7b27` |
-| [native-tuple-tests.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/native-tuple-tests.json) | `3f26674c74faa04bcaa5593b971cd8cfa4e371dabd88e8d763116a66d315830c` |
-| [subject-refusal-maint71-delivery-receipts.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/subject-refusal-maint71-delivery-receipts.log) | `8e51c52f473eb2d5f606ac6d9c9df78509a7385d264cf524a92c64b68bf5df05` |
-| [subject-refusal-maint71_merge_sync_prs.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/subject-refusal-maint71_merge_sync_prs.log) | `95df9629129f25a9c7f0bb7f4cae9817944f690eb45342a1e0e155a48e2a83d6` |
-| [subject-refusal-observation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/subject-refusal-observation.json) | `6bd4384111b70f26db551924db50717ed9ff312873effa1d51d6de368cef2442` |
-| [subject-refusal-python-diagnostic.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/subject-refusal-python-diagnostic.log) | `809614c7ef4e541bc801a7394ce45b0774938d4844bb9b54ad80bfd85734212a` |
-| [subject-refusal-red.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/subject-refusal-red.log) | `4aa551927d49736ff0f06158f48e873f4662a6df9ae8a18e6b327aa59b0a7256` |
-| [subject-refusal-scoped-canary-refresh.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/subject-refusal-scoped-canary-refresh.log) | `cc010b204ebb938495e447bcd5e29028d1bca9b29edf7c3b65e9a9e2cf6c608c` |
-| [subject-refusal-validation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/subject-refusal-validation.json) | `689d00d12fdc3112a1d104d2daedd6cf32fb69c4c6c90210ff44270d3c7855f5` |
+#### Runtime reconciliation and issue metadata (5)
 
-### Runtime reconciliation and issue metadata
+```text
+issue-4369-comments.json
+consumer-payload.txt
+downstream-binding-red.log
+schedule-inventory.json
+workflow-dispatch-inventory.json
+```
 
-Publication revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf`.
+#### Verifier artifact and coding transport investigations (20)
 
-| Original capture | SHA-256 |
-| --- | --- |
-| [consumer-payload.txt](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/consumer-payload.txt) | `9895fc8c33d62f5d8c5597f5f2a6c34bf64cb9ad45ff5939cd1deeb12c41c5e0` |
-| [downstream-binding-red.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/downstream-binding-red.log) | `9329b41847c34685e3bd47fbef96f097e1e0aa28f1cfc31dfac216dbf633c637` |
-| [issue-4369-comments.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/issue-4369-comments.json) | `df23e4b60aa6581798c91dfeb4ce6ecfefc8c1bf7ccb06718e9b9d6949ca6f08` |
-| [schedule-inventory.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/schedule-inventory.json) | `9074d29d3a8d027488599714c4e23153bcd08fe1871a582e2f9579c07230cec2` |
-| [workflow-dispatch-inventory.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/workflow-dispatch-inventory.json) | `407b159693219ea336bb1fac5d7897364f41b2951d59ab4fc58bd1459d66b61f` |
+```text
+coding-stdin-live-observation.json
+artifact-stall-after.log
+artifact-stall-before.log
+artifact-stall-direct.log
+artifact-stall-followup.json
+artifact-stall-python-diagnostic.log
+artifact-stall-validation.json
+coding-stall-after.log
+coding-stall-before.log
+coding-stall-followup.json
+coding-stall-regression-after.log
+coding-stall-regression-before.log
+coding-stall-regression.json
+coding-stall-validation.json
+coding-stdin-direct.log
+coding-stdin-red.json
+coding-stdin-red.log
+coding-stdin-targeted.json
+coding-stdin-targeted.log
+coding-stdin-validation.json
+```
 
-### Verifier artifact and coding transport investigations
+### Original publication #4558
 
-Publication revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf`.
+[Browse Git tree](https://github.com/stranske/Workflows/tree/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550)
 
-| Original capture | SHA-256 |
-| --- | --- |
-| [artifact-stall-after.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/artifact-stall-after.log) | `9e4d4b6b462305866f8afc53ccb5acd2c771b8f1415a3907eab34b630961f188` |
-| [artifact-stall-before.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/artifact-stall-before.log) | `d06b69809ad861cd6600669a79832241c3e2fd99c5a2021c93ac5166f47807f5` |
-| [artifact-stall-direct.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/artifact-stall-direct.log) | `4feb909f8e2209393a06bf2530ab4898b7a2726df2c499eda37dcf124820ace5` |
-| [artifact-stall-followup.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/artifact-stall-followup.json) | `682b6ade9de858a403a32646d477ef013cf63c5df59b91ebc121473cafcf0948` |
-| [artifact-stall-python-diagnostic.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/artifact-stall-python-diagnostic.log) | `368af20132b95de604fe1ad390e90ee115bf3eec968b263ee5a29ecfdb78bb15` |
-| [artifact-stall-validation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/artifact-stall-validation.json) | `c2a627fffeb434f73b52ae56e7fcb8784ee3dbef7896befc976c12d15ff67ed9` |
-| [coding-stall-after.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stall-after.log) | `56f179df1f576f1c979ccbd31e680218e2b4dacad5d5dec81c7575a21e97919d` |
-| [coding-stall-before.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stall-before.log) | `41479e0f836d671aed48113c526130513ef89e8076aea3527b7b97a419e78e20` |
-| [coding-stall-followup.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stall-followup.json) | `bb19c943de6c7dac09d083d2fe58e1cb537e641530bd828041a97ce8500773d1` |
-| [coding-stall-regression-after.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stall-regression-after.log) | `c5b2956960fe4b06e41d9ffe62a04f4f1b7e3e1606762386d4c4074f46a072bd` |
-| [coding-stall-regression-before.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stall-regression-before.log) | `d5bd8e3ecaea8f06a0f13a6eca620f35fe9d9053857c8d08cb260c008bacf093` |
-| [coding-stall-regression.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stall-regression.json) | `482e0bdf602cc8fc3fd967d62fdabedf7d1e3bae876abfb433213045a29b5f29` |
-| [coding-stall-validation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stall-validation.json) | `dbd1d5b9cc72dbd06d10ae0f1ead37f8f876ee8c983910ac0746f251f298c2b6` |
-| [coding-stdin-direct.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stdin-direct.log) | `1ebe4e941028917cfdbfda76079c957f5e2c7f51846894eddef2c10df90e6cf3` |
-| [coding-stdin-live-observation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stdin-live-observation.json) | `b227ac80749ff191d7d23cd1533882247df3cca93428679b90c74917e32a8b65` |
-| [coding-stdin-red.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stdin-red.json) | `30a1a03fd31feedf1e31f6dbd66f05739fa91b6f95dc7ad5f78828ea9d0d0782` |
-| [coding-stdin-red.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stdin-red.log) | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
-| [coding-stdin-targeted.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stdin-targeted.json) | `1f08518d972a709ec56c0a5a51d5b059f063a682d8b80eb6faae95663c3bee14` |
-| [coding-stdin-targeted.log](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stdin-targeted.log) | `061da3fc16a85208cb26ad8dc57e0107a501f97c4e22936924ddf92977892e6e` |
-| [coding-stdin-validation.json](https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550/coding-stdin-validation.json) | `1a63989158054d0c59efbea10b066d646397d5df05948557ef825d5d80d53ce8` |
+#### Hosted seat run, gate, review, and verifier readbacks (39)
 
-### Hosted seat run, gate, review, and verifier readbacks
+```text
+4558-seat-round12-verification.json
+4558-seat-round10-cited-run.json
+4558-seat-round10-consumer-threads.json
+4558-seat-round10-current-jobs.json
+4558-seat-round10-current-run.json
+4558-seat-round10-gate-excerpt.log
+4558-seat-round10-post-rebase.json
+4558-seat-round10-pr.json
+4558-seat-round10-verification.json
+4558-seat-round11-42557039655-run.json
+4558-seat-round11-42558056987-run.json
+4558-seat-round11-artifact-summary.json
+4558-seat-round11-gate-excerpt.log
+4558-seat-round11-verification.json
+4558-seat-round12-42558056987-run.json
+4558-seat-round12-42559738777-run.json
+4558-seat-round12-gate-excerpt.log
+4558-seat-round12-verifier-readback.json
+4558-seat-round4-acceptance-run.json
+4558-seat-round4-bytes.json
+4558-seat-round4-merged-pr.json
+4558-seat-round4-readback.json
+4558-seat-round5-readback.json
+4558-seat-round6-readback.json
+4558-seat-round7-readback.json
+4558-seat-round8-cited-run.json
+4558-seat-round8-consumer-threads.json
+4558-seat-round8-current-jobs.json
+4558-seat-round8-current-run.json
+4558-seat-round8-pr.json
+4558-seat-round8-verification.json
+4558-seat-round9-cancellation-excerpt.log
+4558-seat-round9-cited-run.json
+4558-seat-round9-consumer-threads.json
+4558-seat-round9-current-run.json
+4558-seat-round9-focused.log
+4558-seat-round9-gate-excerpt.log
+4558-seat-round9-pr.json
+4558-seat-round9-verification.json
+```
 
-Publication revision `d17b088aa5c97e6b024101c39252480c622e8395`.
+#### Maint 68 and Maint 71 issue 4558 review and replay outputs (16)
 
-| Original capture | SHA-256 |
-| --- | --- |
-| [4558-seat-round10-cited-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-cited-run.json) | `f07dc3d34242748ab79f7214aac2e9345cf058d911dae00adbbcb095aff24958` |
-| [4558-seat-round10-consumer-threads.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-consumer-threads.json) | `6c72335dee5c73423c6de7f2c2b260fcef96bb164a679d3ac29d8bfa07506d99` |
-| [4558-seat-round10-current-jobs.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-current-jobs.json) | `40e97cb082702a266da0cf1ad8b45c1568cd38c4fbb814f47e58bce12f3c3065` |
-| [4558-seat-round10-current-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-current-run.json) | `eecf5d82d1a5b2fe95802e5b13b2a16f795a9939541a1508f0ddfba405d4e5ea` |
-| [4558-seat-round10-gate-excerpt.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-gate-excerpt.log) | `83db30c4356882e0fd7517fae3c6fa001cc037d2b3f6094dfc6148d564de7516` |
-| [4558-seat-round10-post-rebase.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-post-rebase.json) | `d36325089bd27061f8cb6c4d335b8c420c85f7e7933c9a6f85520b404c981458` |
-| [4558-seat-round10-pr.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-pr.json) | `87b7f2694a0f7a035d05b4a1d700ececa49db0a0c8afac8becfd88608f018efe` |
-| [4558-seat-round10-verification.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-verification.json) | `5b6fceecb24bd524e14817eca136ed97a1d2c10a73e858fd6b7530e230906c63` |
-| [4558-seat-round11-42557039655-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42557039655-run.json) | `817580d69b27394d25b37e63660af0d49050d2005c574a3a3fe2f9b1849bf215` |
-| [4558-seat-round11-42558056987-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42558056987-run.json) | `1825b28e91192d8c47d7bf562369d0e53e70d0ce99eb92c12a97d686f6859355` |
-| [4558-seat-round11-artifact-summary.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-artifact-summary.json) | `5aaf8f56a59260c1121c99cd0a9178dde44aa9ed1afd0ecde1ca3cd2533a45d4` |
-| [4558-seat-round11-gate-excerpt.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-gate-excerpt.log) | `ad85f5e6ffeb1a86e70d577d235bee2f6d27f32f72338483b1cd96c2d8c2454b` |
-| [4558-seat-round11-verification.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-verification.json) | `04c0c07fbf9c1443b4c1d40400a1fa6f97385e9ebbecf2f36ed36a74daead8cf` |
-| [4558-seat-round12-42558056987-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-42558056987-run.json) | `ad8b8579e4fcacd7a23a1c1d394084a509f3983469b5b62e8120a39e42f4afde` |
-| [4558-seat-round12-42559738777-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-42559738777-run.json) | `1a3008150d96ac51c6de07e838830bd1792b3075dd62915ad7a2bd9357b0a36e` |
-| [4558-seat-round12-gate-excerpt.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-gate-excerpt.log) | `426a0647e8ef3443818b03558c4fa00604b1aae77aa077c18f0d7600b0893321` |
-| [4558-seat-round12-verification.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-verification.json) | `4c07f96e79648be5c4f0a5d0aef70e4b4fae3b97dfd6c751af19c388da69d821` |
-| [4558-seat-round12-verifier-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-verifier-readback.json) | `c2b2e29bfa2f4cef1bf0c5945f8ccc049d9d798d007be8df66bf8e8a5c0a729d` |
-| [4558-seat-round4-acceptance-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-acceptance-run.json) | `9c3b9287590b49cf266444b42fb5a2ba4f1d3fe983f0466f6a7a470bd43ae412` |
-| [4558-seat-round4-bytes.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-bytes.json) | `70f602ddac9fbf4371e121c9e1504b8885bdf58b896f2eaea9b753b984b1be5a` |
-| [4558-seat-round4-merged-pr.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-merged-pr.json) | `5bbc4661ceb9cb77eb908811801a2f2b2deb4025ca909f765afadcac4e9705d9` |
-| [4558-seat-round4-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-readback.json) | `dd739345764a7e0ea492f4ef12fa785eaa0a961c69f582a3d753321208169953` |
-| [4558-seat-round5-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round5-readback.json) | `812ff56c046ff85624f5e54d16fd0ff7076cc8385b1d45bf668b8d790a7a852f` |
-| [4558-seat-round6-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round6-readback.json) | `c857d886dfd812c66a0c4cf3fb66bff8528e4e2632acc43b05e7b7ff72bff2f0` |
-| [4558-seat-round7-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round7-readback.json) | `9469bacfb82d11aab61c4e26f9a7b99b3e61ed83a8c1e3366552a68d26c81037` |
-| [4558-seat-round8-cited-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-cited-run.json) | `8cfaa3042cda2e77e0737c6f3987f94ea848bb2870923378686ce192c2015f7a` |
-| [4558-seat-round8-consumer-threads.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-consumer-threads.json) | `2e67298ba8e04b49388723a54298a18e0b7df3f38b1047e62610c9144bce71db` |
-| [4558-seat-round8-current-jobs.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-current-jobs.json) | `afc9a8351a9cb3f4c8437b0c9342a81362cc7858c9fd1d92c9f163012a36c92f` |
-| [4558-seat-round8-current-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-current-run.json) | `b36a72431d656aaee3e51016f4cec7d568c9222de86fda25760664a98ff96955` |
-| [4558-seat-round8-pr.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-pr.json) | `4950db5396677775526f2539eeb92c91ea06b958a2af2522bf8cbe95f347915d` |
-| [4558-seat-round8-verification.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-verification.json) | `36aa18a53181a12798d253821454c9b553ade133cec50dcde5c843c584c0843c` |
-| [4558-seat-round9-cancellation-excerpt.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-cancellation-excerpt.log) | `05eb1da314d98d43b9cf8556b9faec171f7388744bd1878bfc0d872497984b84` |
-| [4558-seat-round9-cited-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-cited-run.json) | `e8a99636859099fed058a530bd558d0c57636912317b0a2c3f219058bd6f0a8b` |
-| [4558-seat-round9-consumer-threads.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-consumer-threads.json) | `46b4224eb47a2b3c43adedd034b2a5281e44760d0b1be5b6c369099dd573c99f` |
-| [4558-seat-round9-current-run.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-current-run.json) | `287230fc7daf442be48a1799c3bdceacf22d11467fb0087106bf2482b240b35b` |
-| [4558-seat-round9-focused.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-focused.log) | `57ef1cd72e31d6a561da4d7007dd5aeb98daa985da8e2a71ebbd7a40f8666a96` |
-| [4558-seat-round9-gate-excerpt.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-gate-excerpt.log) | `87a508edbb720027f655406ed11faa3b4b7d8c5f8378e608a7b8466bbcbd0142` |
-| [4558-seat-round9-pr.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-pr.json) | `5cc22144ce707cb9b2e17b40c378f27be2346c55febb266fc87086dc48e6f27f` |
-| [4558-seat-round9-verification.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-verification.json) | `4997b20f642e0f763285daa4eac6f9f94abf70d1edb60fa8b275d318a82e1da2` |
+```text
+4558-round2-readback.json
+4558-round3-readback.json
+4558-round4-ancestry.json
+4558-round4-readback.json
+4558-round8-readback.json
+4558-round8-tests.json
+4558-round9-lifecycle.log
+4558-round9-merger-replay.json
+4558-round9-merger-replay.log
+4558-round9-observer-direct.log
+4558-round9-observer-test-runner.log
+4558-round9-producer-replay.json
+4558-round9-producer-replay.log
+4558-round9-readback.json
+4558-round9-tests.json
+4558-source-issue.json
+```
 
-### Maint 68 and Maint 71 issue 4558 review and replay outputs
+#### Maint 68 and Maint 71 seat observation outputs (8)
 
-Publication revision `d17b088aa5c97e6b024101c39252480c622e8395`.
+```text
+4558-seat-round10-merger-observation.json
+4558-seat-round10-observation.json
+4558-seat-round10-producer-observation.json
+4558-seat-round8-merger-observation.json
+4558-seat-round8-producer-observation.json
+4558-seat-round9-merger-observation.json
+4558-seat-round9-observation.json
+4558-seat-round9-producer-observation.json
+```
 
-| Original capture | SHA-256 |
-| --- | --- |
-| [4558-round2-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round2-readback.json) | `6062c8c37b11eec6617c7d21dfc4e4b03e15a72cb4104d153c01635811cd0611` |
-| [4558-round3-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round3-readback.json) | `896ae0cfd9dadfdd73f096b08837781c0022e7626d0ecfdb9bd08379a9d643bf` |
-| [4558-round4-ancestry.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round4-ancestry.json) | `1cee395869cb17b9e244c0d650088e8df2a8a5c71bf4696685d13fde2a75b191` |
-| [4558-round4-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round4-readback.json) | `7df71db287cf6cfe73bb3b15c0bd5cda1bec65feca50a8f430c9280a4f61fed7` |
-| [4558-round8-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round8-readback.json) | `61ab17c48712449abc0ef7aa0f279e06267738fa19ba5531fb33760406d03a0f` |
-| [4558-round8-tests.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round8-tests.json) | `1129188ddcd209447881127764bd4dbe901355fda3228200e133ce5bdc6399de` |
-| [4558-round9-lifecycle.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-lifecycle.log) | `5330e8a0c6d26db7eb81722d7dd024f397d134f3660a176bc05b765cc22abdb1` |
-| [4558-round9-merger-replay.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-merger-replay.json) | `2d38a396c6fe4a06f03d31ca888469f6ea135f005c9196cc36611bcb863921fa` |
-| [4558-round9-merger-replay.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-merger-replay.log) | `2d38a396c6fe4a06f03d31ca888469f6ea135f005c9196cc36611bcb863921fa` |
-| [4558-round9-observer-direct.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-observer-direct.log) | `0dc4a8099a50092be89648bc474063aa9f28d56e3624f97cb9ce85d331c0e908` |
-| [4558-round9-observer-test-runner.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-observer-test-runner.log) | `443ea41676377837937c4ff6f432fd1ace3f4924f3aed1fad1d9b8433ab5c511` |
-| [4558-round9-producer-replay.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-producer-replay.json) | `8ef3d4d56bbba81f411df2884b08dec81786fb8e39c472db0e7628d5682378b3` |
-| [4558-round9-producer-replay.log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-producer-replay.log) | `8ef3d4d56bbba81f411df2884b08dec81786fb8e39c472db0e7628d5682378b3` |
-| [4558-round9-readback.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-readback.json) | `9c87460a469ae6eb4f11e8b210da3a3fb360c335bc1532bb69cd4f216fa2dfd4` |
-| [4558-round9-tests.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-tests.json) | `39675b2bdbcfdae3c711300fd6423f2a1fa6c6ed959964f51db8bc664a54a952` |
-| [4558-source-issue.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-source-issue.json) | `4d469012631f558351157378807e039041602f63fb2f96771e6ee0da2f1777fd` |
+#### Maint 71 seat merge and canary artifact captures (6)
 
-### Maint 68 and Maint 71 seat observation outputs
-
-Publication revision `d17b088aa5c97e6b024101c39252480c622e8395`.
-
-| Original capture | SHA-256 |
-| --- | --- |
-| [4558-seat-round10-merger-observation.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-merger-observation.json) | `24280fbe8de4e32f73aaf94e123ce08e56cb22ecafd2e5f12ccbc8f9ae35fa33` |
-| [4558-seat-round10-observation.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-observation.json) | `0abbec23934f91373a80698557c111eb429471cacb9f52cf9558016a4afc8230` |
-| [4558-seat-round10-producer-observation.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-producer-observation.json) | `59ac445c9a74b7ca1c0290329f01f0dfe5d49837d58ce1b0a8db554e90b19ebf` |
-| [4558-seat-round8-merger-observation.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-merger-observation.json) | `e98853775046a1a8e5b6a3da8cec12f493b6a6a6ff610010b88fd2a0cab52ad6` |
-| [4558-seat-round8-producer-observation.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-producer-observation.json) | `079d0c84d3cb531c5c0501e2f0894125399c23e9338055e3ce8c03eb6e5f1601` |
-| [4558-seat-round9-merger-observation.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-merger-observation.json) | `08df8705e1218768b869266733322bc5e88a2ccd62e07e86aeb8bb043f10e521` |
-| [4558-seat-round9-observation.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-observation.json) | `e692e5dadcc76b5eab594125bfdfeb82de8f00a9a5c14680dbd98c86acee1551` |
-| [4558-seat-round9-producer-observation.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-producer-observation.json) | `a9ed7d165b8cca09ee03a3b248cc9921601cb752835cbc2bf8cb65ed995f19a2` |
-
-### Maint 71 seat merge and canary artifact captures
-
-Publication revision `d17b088aa5c97e6b024101c39252480c622e8395`.
-
-| Original capture | SHA-256 |
-| --- | --- |
-| [4558-seat-round10-42555977107-sync-canary-evidence.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-42555977107-sync-canary-evidence.json) | `01cbfb776c08c242b67adf301394930442f1e02ddd7d70a68442b006e235b8c2` |
-| [4558-seat-round10-42555977107-sync-pr-merge-report.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-42555977107-sync-pr-merge-report.json) | `2d7b6e1b10b2893401d433b682d97693faf04e163c379dcba0e6b6a82f72b8c8` |
-| [4558-seat-round10-42556352733-sync-canary-evidence.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-42556352733-sync-canary-evidence.json) | `01cbfb776c08c242b67adf301394930442f1e02ddd7d70a68442b006e235b8c2` |
-| [4558-seat-round10-42556352733-sync-pr-merge-report.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-42556352733-sync-pr-merge-report.json) | `0ee0123cb8649726de9c435962681ffe371b906503d4720618eae8ac6490eb2d` |
-| [4558-seat-round11-42557538415-sync-pr-merge-report.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42557538415-sync-pr-merge-report.json) | `de0d0ee73ac635a4e1fa4411cde848cd0fff2b88bdefa1648c2107f9acde9e1c` |
-| [4558-seat-round11-42558127073-sync-pr-merge-report.json](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42558127073-sync-pr-merge-report.json) | `f0cd6226849f6f0275a26db84dcb12e70acaf034360c3f958e5a6f5cd5120913` |
+```text
+4558-seat-round11-42557538415-sync-pr-merge-report.json
+4558-seat-round10-42555977107-sync-canary-evidence.json
+4558-seat-round10-42555977107-sync-pr-merge-report.json
+4558-seat-round10-42556352733-sync-canary-evidence.json
+4558-seat-round10-42556352733-sync-pr-merge-report.json
+4558-seat-round11-42558127073-sync-pr-merge-report.json
+```
