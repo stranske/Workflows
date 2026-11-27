@@ -105,6 +105,292 @@ Issue: "Add user authentication"
 
 Use the [shared opener and closer](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) for eligible issues and guarded promotion. Follow the issue-linked PR for keepalive and post-merge verification.
 
+---
+
+## Label Reference
+
+### User-Applied Labels (Triggers)
+
+| Label | Where | What It Does |
+|-------|-------|--------------|
+| `autofix` | PR | Auto-fixes formatting/lint errors |
+| `autofix:clean` | PR | Aggressive autofix with cosmetic repairs |
+| `agent:codex` | Issue | Creates PR from issue |
+| `agents:format` | Issue | Direct one-step formatting |
+| `agents:optimize` | Issue | Analyze and suggest improvements |
+| `agents:apply-suggestions` | Issue | Apply optimization suggestions |
+| `agents:capability-check` | Issue | Check if agent can complete |
+| `agents:dedup` | Issue | Check for duplicates |
+| `agents:auto-label` | Issue | Apply appropriate labels |
+| `agents:paused` | PR | Pause keepalive/agent work |
+| `verify:checkbox` | PR (merged) | Verify checkboxes complete |
+| `verify:evaluate` | PR (merged) | AI code review |
+| `verify:compare` | PR (merged) | Multi-model comparison |
+| `verify:create-issue` | PR (merged) | Create follow-up issue |
+
+### Auto-Applied Labels (Status)
+
+| Label | Meaning |
+|-------|---------|
+| `agents:formatted` | Issue has been formatted |
+| `agents:keepalive` | Keepalive is monitoring this PR |
+| `agent:needs-attention` | Human intervention required |
+| `agents:auto-pilot-pause` | Auto-pilot paused |
+| `agents:auto-pilot-failed` | Auto-pilot stopped due to errors |
+| `agents:allow-change` | Permission signal for `agents-guard`; bypasses guard-level CODEOWNER approval only for dependency-only `uses:` reference updates from Dependabot/Renovate or repository owner/member/collaborator PRs. Workflows applies it to dependency-bot PRs through the label job in `maint-auto-lock-deps.yml`; arbitrary workflow logic edits still require review. |
+| `needs-human` | Escalated to human |
+| `follow-up` | Created as follow-up to another issue/PR |
+| `duplicate` | Potential duplicate detected |
+
+---
+
+## Workflow Triggers Summary
+
+### Issue Events
+
+| Event | Workflows That Trigger |
+|-------|----------------------|
+| Issue opened | Auto-label, Duplicate detection, Issue intake |
+| Label added: `agents:format` | Issue optimizer |
+| Label added: `agents:optimize` | Issue optimizer |
+| Label added: `agents:apply-suggestions` | Issue optimizer |
+| Label added: `agent:codex` | Issue intake, Capability check |
+| Label added: `agents:capability-check` | Capability checker |
+
+### PR Events
+
+| Event | Workflows That Trigger |
+|-------|----------------------|
+| PR opened | Gate (CI), Agents 80 PR Event Hub, Agents Guard |
+| Label added: `autofix` | Autofix loop |
+| Label added: `agents:keepalive` | Enables keepalive loop (runs on Gate workflow_run) |
+| Label removed: `agents:paused` | Keepalive resumes |
+| PR merged | Verifier (if verify labels present) |
+| Label added: `verify:*` (after merge) | Verifier workflows |
+
+### Continuous Monitoring
+
+| Workflow | Runs |
+|----------|------|
+| Keepalive loop | Gate workflow_run for eligible PRs (and manual dispatch) |
+| Bot comment handler | On every issue/PR comment |
+
+---
+
+## Complete Feature Reference
+
+### Issue Formatting & Optimization
+
+#### `agents:format` - Direct Format
+**Quick, one-step formatting**
+
+Immediately formats your issue to the standard template with sections:
+- **Why**: Context and motivation
+- **Scope**: What's included
+- **Non-Goals**: What's excluded
+- **Tasks**: Checklist of work items
+- **Acceptance Criteria**: How to verify completion
+- **Implementation Notes**: Technical guidance
+
+**Use When:** Issue is already well-written but needs structure
+
+**Result:** Label removed, `agents:formatted` added automatically
+
+---
+
+#### `agents:optimize` - Analyze & Suggest
+**Two-step formatting with human review**
+
+AI analyzes your issue and posts suggestions:
+- Tasks that are too broad (should be split)
+- Tasks the agent cannot complete (with reasons)
+- Subjective acceptance criteria (with objective alternatives)
+- Missing sections or formatting issues
+
+**Use When:** Issue needs significant restructuring or you want expert feedback
+
+**Next Step:** Review suggestions, then add `agents:apply-suggestions` to apply
+
+---
+
+#### `agents:apply-suggestions` - Apply Formatting
+**Applies optimization suggestions**
+
+Extracts suggestions from the analysis comment and:
+- Reformats the issue body
+- Moves blocked tasks to "Deferred Tasks" section
+- Adds proper template structure
+- Marks as `agents:formatted`
+
+**Prerequisites:** Must have optimization suggestions comment from `agents:optimize`
+
+---
+
+### Agent Assignment & PR Creation
+
+#### `agent:codex` - Create PR from Issue
+**Assigns Codex agent to create a PR**
+
+1. Creates branch `codex/issue-<number>`
+2. Opens a ready-for-review PR linked to the issue
+3. Agent begins implementing tasks
+4. Keeps working through keepalive system
+5. Keeps dependency and progress state in labels, checks, and the PR body
+
+**Prerequisites:**
+- Issue must be formatted (`agents:formatted` label)
+- Valid agent assignee configured
+
+**Monitoring:** Check PR for progress comments and commits
+
+---
+
+#### `agents:capability-check` - Pre-flight Check
+**Checks if an agent can complete the issue**
+
+Before assigning an agent, validates:
+- All tasks are achievable by AI
+- No external dependencies required
+- Clear acceptance criteria exist
+- No blocked/deferred tasks
+
+**Use When:** Uncertain if an issue is suitable for automation
+
+**Result:** Comment with ✅ proceed or ⚠️ concerns
+
+---
+
+### Duplicate Detection & Auto-Labeling
+
+#### `agents:dedup` - Check for Duplicates
+**Finds potential duplicate issues**
+
+Searches for similar issues by:
+- Title similarity
+- Body content overlap
+- Keyword matching
+
+**Result:** If duplicate found, adds `duplicate` label and comment with link
+
+**Threshold:** 92% similarity required to flag
+
+---
+
+#### `agents:auto-label` - Automatic Issue Labeling
+**Applies appropriate labels based on content**
+
+Analyzes issue text and applies:
+- `bug` for error reports, crashes, incorrect behavior
+- `enhancement` for feature requests, improvements
+- `documentation` for docs updates
+
+**Use When:** You want consistent labeling across issues
+
+**Note:** Only applies the best-matching label (not multiple)
+
+---
+
+### PR Automation & Monitoring
+
+#### `agents:keepalive` - Continue Agent Work
+**Keeps agent working until PR is complete**
+
+Monitors PR and:
+- Dispatches agent for next task when ready
+- Handles merge conflicts automatically
+- Updates progress comments
+- Pauses on CI failures
+- Escalates to human if stuck
+
+**Auto-added:** When agent creates PR
+
+**Control:** Add `agents:paused` to pause
+
+---
+
+#### `autofix` - Automatic Code Fixes
+**Fixes formatting and lint errors**
+
+Runs repository's configured tools:
+- Code formatters (black, prettier, etc.)
+- Import organizers
+- Linters with auto-fix
+- Type annotation fixes
+
+**Variants:**
+- `autofix:clean` - More aggressive, includes cosmetic repairs
+- `autofix:clean-only` - Only cosmetic changes
+- `autofix:bot-comments` - Removes bot comment artifacts
+
+**Use When:** CI is failing on style/format issues
+
+---
+
+#### `autofix:patch` - Emergency Fixes
+**Applies fixes when push permissions unavailable**
+
+If autofix can't push directly:
+1. Creates a patch file
+2. Uploads as artifact
+3. Comments on PR with instructions
+
+**Manual Step Required:** Download and apply patch
+
+---
+
+### Verification & Quality Assurance
+
+#### `verify:checkbox` - Check Acceptance Criteria
+**Verifies checkboxes are complete**
+
+After PR merge, validates:
+- All task checkboxes are checked
+- Acceptance criteria boxes checked
+- No incomplete items
+
+**Result:** Comment on PR, optional follow-up issue
+
+---
+
+#### `verify:evaluate` - AI Code Review
+**LLM evaluation of merged changes**
+
+Runs AI review of the PR:
+- Rates correctness, completeness, quality, testing
+- Identifies concerns
+- Scores each dimension (1-10)
+- Suggests improvements
+
+**Result:** Detailed evaluation comment
+
+---
+
+#### `verify:compare` - Multi-Model Comparison
+**Compare across different AI models**
+
+Runs verification with multiple models:
+- Side-by-side comparison
+- Consensus concerns
+- Model-specific feedback
+
+**Use When:** Want robust validation of complex changes
+
+---
+
+#### `verify:create-issue` - Create Follow-up from Verification
+**Turns verification feedback into new issue**
+
+Extracts concerns from verification comment:
+- Low scores (<7/10)
+- Specific concerns noted
+- Creates structured follow-up issue
+- Links back to original PR
+- Auto-adds `agents:optimize` for formatting
+
+**Use When:** Verification found issues that need work
+
+---
+
 ### Advanced Automation
 
 The [shared opener and closer](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) own issue admission and guarded promotion.
@@ -268,9 +554,9 @@ Add all three labels before or after merge
 **For large features:**
 ```
 1. Create a tracking issue with the full scope
-2. Add the `agents:decompose` label
-3. Review the suggested subtasks in the Task Decomposition comment
-4. Copy the suggestions into Tasks or create and link child issues manually
+2. Add `agents:optimize` or run Issue Optimizer with phase `analyze`
+3. Review the Task splitting section of the optimizer comment
+4. Apply approved suggestions with `agents:apply-suggestions`, edit Tasks directly, or create and link child issues manually
 5. Add `agent:codex` to individual child issues when they are ready
 ```
 

@@ -59,7 +59,9 @@ def test_belt_rotation_uses_real_credential_availability(tmp_path):
     import json
     import subprocess
 
-    archived = ROOT / "tests/fixtures/verifier_correction/retired-belt-and-auto-pilot-contracts.json"
+    archived = (
+        ROOT / "tests/fixtures/verifier_correction/retired-belt-and-auto-pilot-contracts.json"
+    )
     rotation = json.loads(archived.read_text())["autopilot_stall_rotation"]
     assert rotation["has_cursor_api_key"] == "${{ secrets.CURSOR_API_KEY != '' }}"
     function = rotation["function"]
