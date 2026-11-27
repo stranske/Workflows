@@ -5862,6 +5862,83 @@ test('optional bot filter cannot hide a selected PR proof changed after GET', as
   });
 });
 
+test('PR 5317 Gate status is navigational and exact-head Gate evidence is still collected', async t => {
+  const {pr, comment, stale, fresh, artifact} = require('./fixtures/verifier-gate-status-5317.json');
+  const collect = ({
+    comments = [comment], reviews = [], prBody = '', requiredCommentsById = {}, artifacts = [artifact],
+  } = {}) => fetchVerifierEvidence({
+    github: buildGithubStub({
+      comments, reviews, requiredCommentsById,
+      workflowRunsById: {[stale.id]: stale, [fresh.id]: fresh},
+      runsForRepo: {[fresh.head_sha]: [fresh]},
+      artifactsByRun: {[fresh.id]: artifacts},
+      artifactDownloads: {[artifact.id]: Buffer.from('Gate artifact fixture')},
+    }),
+    core: buildCore(), owner: 'stranske', repo: 'Workflows', pullNumber: pr.number,
+    pullRequestBody: prBody, associatedCommitShas: [pr.head.sha, pr.merge_commit_sha],
+    extractArtifactText: () => ({text: 'exact-head Gate artifact', truncated: false}),
+  });
+  const freshEvidence = 'Validation: ' + fresh.html_url;
+  const staleEvidence = 'Validation: ' + stale.html_url;
+  const references = result => result.diagnostics.references;
+
+  await t.test('real historical status stays visible without blocking the exact artifact', async () => {
+    const result = await collect();
+    assert.equal(result.comments.records[0].body, comment.body);
+    assert.deepEqual(references(result).explicit_run_ids, []);
+    assert.deepEqual(references(result).excluded_incidental_runs, [
+      {run_id: stale.id, head_sha: stale.head_sha, reason: 'different_revision'},
+    ]);
+    assert.deepEqual(result.referencedRunIds, [fresh.id]);
+    assert.equal(result.artifacts.status, 'present');
+    assert.equal(result.artifacts.complete, true);
+    assert.equal(result.artifacts.records[0].head_sha, fresh.head_sha);
+    assert.equal(result.diagnostics.counters.provenance_failures, 0);
+  });
+
+  await t.test('fresh authored proof stays explicit and absent artifacts stay absent', async () => {
+    const present = await collect({prBody: freshEvidence});
+    assert.deepEqual(references(present).explicit_run_ids, [fresh.id]);
+    assert.equal(present.artifacts.records[0].head_sha, fresh.head_sha);
+    const absent = await collect({prBody: freshEvidence, artifacts: []});
+    assert.deepEqual(references(absent).explicit_run_ids, [fresh.id]);
+    assert.deepEqual(absent.artifacts.records, []);
+    assert.equal(absent.artifacts.status, 'absent');
+    assert.equal(absent.artifacts.complete, true);
+  });
+
+  await t.test('human, spoofed, mismatched identity, reviews and appended explicit proof fail closed', async () => {
+    for (const options of [
+      {comments: [{...comment, user: {id: 7, login: 'reporter', type: 'User'}}]},
+      {comments: [{...comment, performed_via_github_app: {...comment.performed_via_github_app, id: 7}}]},
+      {comments: [{...comment, html_url: comment.html_url.replace('/pull/5317', '/pull/5318')}]},
+      {comments: [{...comment, body: comment.body.replace('pr=5317', 'pr=5318')}]},
+      {comments: [{...comment, body: comment.body.replace('Gate / ledger validation', 'Evidence')}]},
+      {comments: [], reviews: [comment]},
+      {comments: [{...comment, body: comment.body + '\n\n' + staleEvidence}]},
+      {prBody: staleEvidence},
+    ]) {
+      const result = await collect(options);
+      assert.deepEqual(references(result).explicit_run_ids, [stale.id]);
+      assert.equal(result.artifacts.complete, false);
+      assert.equal(result.diagnostics.counters.provenance_failures, 1);
+      assert.ok(result.artifacts.records.every(record => record.runId !== stale.id));
+    }
+  });
+
+  await t.test('an explicitly selected comment retains the complete body and its stale citation fails closed', async () => {
+    const material = JSON.stringify([{kind: 'comment', url: comment.html_url}]);
+    await withEnv('VERIFICATION_MATERIAL', material, async () => {
+      const result = await collect({requiredCommentsById: {[comment.id]: comment}});
+      assert.ok(result.comments.records[0].required_material);
+      assert.equal(result.comments.records[0].body, comment.body);
+      assert.deepEqual(references(result).explicit_run_ids, [stale.id]);
+      assert.equal(result.diagnostics.counters.provenance_failures, 1);
+      assert.equal(result.artifacts.complete, false);
+    });
+  });
+});
+
 test('launch basis reaches actual collector manifest and exact-event duplicate correlation', async () => {
   const builder = options => buildVerifierContext({...options, context:{...options.context,runId:800}});
   await withEnv('GITHUB_RUN_ATTEMPT','1',async()=>withEnv('VERIFICATION_REQUEST_BASIS','e'.repeat(64),async()=>{

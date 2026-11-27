@@ -1,0 +1,59 @@
+{
+  "pr": {
+    "number": 5317,
+    "html_url": "https://github.com/stranske/Workflows/pull/5317",
+    "head": {
+      "sha": "23a7003cf72d19bd76b02d85ac982ca3043278c8"
+    },
+    "merge_commit_sha": "58b8cc887b0fca944edc7c5bba3a8d2648e1f961"
+  },
+  "comment": {
+    "body": "<!-- gate-summary: pr=5317 head=b955f1dcc499 -->\n## Automated Status Summary\n**Head SHA:** b955f1dcc499182c554fe48d6a5ef11097fcb74a\n**Latest Runs:** ⏳ in progress — [Gate (#45952843304)](https://github.com/stranske/Workflows/actions/runs/45952843304)\n**Required contexts:** summary\n**Required:** core tests (3.13): ⏳ pending, core tests (3.14): ⏳ pending, docker smoke: ⏭️ skipped, resolve Gate PR context: ✅ success\n\n| Workflow / Job | Result | Logs |\n|----------------|--------|------|\n| Gate / summary | ⏳ in progress | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352944784) |\n| Gate / detect changed files | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352480481) |\n| Gate / docs guard | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352613218) |\n| Gate / generated delivery seal | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352480486) |\n| Gate / github scripts tests | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352613291) |\n| Gate / issue consistency | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352566817) |\n| Gate / ledger validation | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352613163) |\n| Gate / privilege environment gate | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352566928) |\n| Gate / resolve Gate PR context | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352438621) |\n| Gate / stranske-pdf-extract package tests | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352613265) |\n| Gate / test-quality | ✅ success | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352613177) |\n| Gate / acceptance-criteria label | ⏭️ skipped | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352851418) |\n| Gate / app-baseline-kit package tests | ⏭️ skipped | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352615618) |\n| Gate / docker smoke | ⏭️ skipped | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352615200) |\n| Gate / python ci | ⏭️ skipped | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352615124) |\n| Gate / python ci grammar | ⏭️ skipped | [logs](https://github.com/stranske/Workflows/actions/runs/45952843304/job/140352615382) |\n\n_Snapshot at publication. See the linked run and required checks for final results._\n\n\n---\n### Keepalive checklist\n\n#### Scope\n_No scope information available_\n\n#### Tasks\n- [ ] _No tasks defined_\n\n#### Acceptance criteria\n- [ ] _No acceptance criteria defined_",
+    "html_url": "https://github.com/stranske/Workflows/pull/5317#issuecomment-7211698424",
+    "id": 7211698424,
+    "performed_via_github_app": {
+      "id": 2645242,
+      "slug": "stranske-keepalive"
+    },
+    "user": {
+      "id": 254563091,
+      "login": "stranske-keepalive[bot]",
+      "type": "Bot"
+    },
+    "created_at": "2026-11-27T06:37:35Z",
+    "updated_at": "2026-11-27T06:37:35Z",
+    "issue_url": "https://api.github.com/repos/stranske/Workflows/issues/5317"
+  },
+  "stale": {
+    "conclusion": "success",
+    "head_sha": "b955f1dcc499182c554fe48d6a5ef11097fcb74a",
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/45952843304",
+    "id": 45952843304,
+    "path": ".github/workflows/pr-00-gate.yml",
+    "repository": {
+      "full_name": "stranske/Workflows"
+    },
+    "run_attempt": 1,
+    "status": "completed"
+  },
+  "fresh": {
+    "conclusion": "success",
+    "head_sha": "23a7003cf72d19bd76b02d85ac982ca3043278c8",
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/45955589275",
+    "id": 45955589275,
+    "path": ".github/workflows/pr-00-gate.yml",
+    "repository": {
+      "full_name": "stranske/Workflows"
+    },
+    "run_attempt": 1,
+    "status": "completed"
+  },
+  "artifact": {
+    "archive_download_url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/15178781548/zip",
+    "digest": "sha256:bd98628ba1ea94eceb4295b26d1736069f10534d88d478c5505b242f1bba7ad7",
+    "expired": false,
+    "id": 15178781548,
+    "name": "gate-summary.md",
+    "size_in_bytes": 2030
+  }
+}

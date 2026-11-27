@@ -1088,11 +1088,45 @@ function commentPageSignature(response) {
     id: comment?.id,
     body: comment?.body,
     author: comment?.user?.login || comment?.author?.login || 'unknown',
+    authorId: comment?.user?.id,
     authorType: comment?.user?.type,
+    appId: comment?.performed_via_github_app?.id,
+    appSlug: comment?.performed_via_github_app?.slug,
     url: comment?.html_url || comment?.url || '',
   }));
   const hasNext = Boolean(response?.headers?.link?.includes('rel="next"'));
   return createHash('sha256').update(JSON.stringify({ records, hasNext })).digest('hex');
+}
+
+function isGateStatusComment(comment, {owner, repo, pullNumber}) {
+  const user = comment.user;
+  const app = comment.performed_via_github_app;
+  const gatePublisher = (user?.id === 41898282 && user.login === 'github-actions[bot]'
+      && app?.id === 15368 && app.slug === 'github-actions')
+    || (user?.id === 254563091 && user.login === 'stranske-keepalive[bot]'
+      && app?.id === 2645242 && app.slug === 'stranske-keepalive');
+  const expectedUrl = ['https://github.com', owner, repo, 'pull', pullNumber].join('/')
+    + '#issuecomment-' + comment.id;
+  if (!gatePublisher || user.type !== 'Bot' || !Number.isSafeInteger(comment.id)
+      || comment.id <= 0 || typeof comment.html_url !== 'string'
+      || comment.html_url.toLowerCase() !== expectedUrl.toLowerCase()) return false;
+  const marker = comment.body.match(/^<!-- gate-summary: pr=(\d+) head=([0-9a-f]{12}) -->\r?\n## Automated Status Summary\r?\n\*\*Head SHA:\*\* ([0-9a-f]{40})\r?\n/);
+  return Boolean(marker && marker[1] === String(pullNumber) && marker[3].startsWith(marker[2]));
+}
+
+function withoutGateJobStatusRows(text, owner, repo) {
+  const lines = text.split(/\r?\n/);
+  const header = lines.indexOf('| Workflow / Job | Result | Logs |');
+  const snapshot = lines.indexOf('_Snapshot at publication. See the linked run and required checks for final results._');
+  if (header < 3 || snapshot <= header || lines[header + 1] !== '|----------------|--------|------|') return text;
+  const repository = [owner, repo].join('/').toLowerCase();
+  for (let index = header + 2; index < snapshot && lines[index].startsWith('|'); index += 1) {
+    const row = lines[index].match(/^\| [^|]+ \/ [^|]+ \| [^|]+ \| \[logs\]\(https:\/\/github\.com\/([^\s/]+\/[^\s/]+)\/actions\/runs\/\d+\/job\/\d+\) \|$/);
+    if (row?.[1].toLowerCase() === repository && lines[index].match(/\/actions\/runs\//g)?.length === 1) {
+      lines[index] = '';
+    }
+  }
+  return lines.join('\n');
 }
 
 // Explicit necessary-material selectors may name a comment on the target PR or
@@ -1222,6 +1256,7 @@ async function fetchVerifierEvidence({
   const artifactChars = positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_CHARS', DEFAULT_EVIDENCE_ARTIFACT_CHARS);
 
   const comments = { status: 'absent', complete: true, records: [], reason: '' };
+  const gateStatusRecords = new Set();
   // Protocol inventory is necessary control evidence, independent of optional
   // proof rendering. Scan conversation pages even after text budgets fill.
   const eventHistory = { schema: 'verifier-event-history/v1', complete: true, records: [], reason: '' };
@@ -1357,6 +1392,9 @@ async function fetchVerifierEvidence({
             body: comment?.body || '',
             source: source.name,
           }, commentChars, usedCommentChars);
+          if (!result.truncated && conversation && isGateStatusComment(comment, {owner, repo, pullNumber})) {
+            gateStatusRecords.add(comments.records.at(-1));
+          }
           usedCommentChars = result.usedChars;
           truncated = truncated || result.truncated;
           if (result.truncated) { reportLimit('character'); if (!conversation) break; }
@@ -1466,7 +1504,12 @@ async function fetchVerifierEvidence({
   // explicit evidence selection. Typed evidence inputs and locally labelled
   // evidence lines select their union before budgeting; incidental links retain
   // discovery only when no explicit set exists.
-  const labelledEvidenceLines = [pullRequestBody, ...referenceTexts, ...commentBodies]
+  // The Gate workflow renders job names such as "ledger validation". Its
+  // authenticated log rows are status navigation even when a job name contains
+  // an evidence label. Keep them for incidental discovery and comment capture.
+  const labelledCommentBodies = comments.records.map(comment => gateStatusRecords.has(comment)
+    ? withoutGateJobStatusRows(comment.body, owner, repo) : comment.body);
+  const labelledEvidenceLines = [pullRequestBody, ...referenceTexts, ...labelledCommentBodies]
     .flatMap(positiveEvidenceLines);
   const explicitEvidenceRunIds = new Set(
     extractReferencedRunIds([
