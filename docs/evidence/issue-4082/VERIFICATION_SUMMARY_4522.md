@@ -182,3 +182,53 @@ printf '%s  %s\n' 'bf1a85a828d6330e3257f48d1dd25b33dcf9a8d3ec1f1521784341f3ecc1d
     tar -xpzf "$archive" -C "$recovered" &&
     printf '%s\n' "$recovered"
 ```
+
+## Recount the accepted capture offline
+
+From the repository root, use `jq` to calculate the result from the retained run
+rows and compare it with the published counts. The window is half-open. A
+qualifying cancellation has a distinct same-head sibling in the same repository
+within five seconds. The denominator includes every Gate run in the window.
+
+```bash
+jq -er '
+  . as $report
+  | (.interval_start | fromdateiso8601) as $start
+  | (.interval_end | fromdateiso8601) as $window_end
+  | [.runs[] | map(. + {seconds: (.createdAt | fromdateiso8601)})] as $repos
+  | if .status != "complete" or .errors != {} or $window_end - $start != 172800
+      or (.collected_at | fromdateiso8601) < $window_end
+      or (.repos | sort) != (.runs | keys)
+      or any($repos[][]; .seconds < $start or .seconds >= $window_end or .conclusion == "")
+    then error("Incomplete observation") else . end
+  | ($repos | map(length) | add) as $total
+  | ([ $repos[] as $runs | $runs[] as $run
+       | select($run.event == "pull_request" and $run.conclusion == "cancelled")
+       | select(any($runs[]; .databaseId != $run.databaseId and .headSha == $run.headSha
+           and (.seconds - $run.seconds | fabs) <= 5)) ] | length) as $qualified
+  | (100 * $qualified / $total) as $percentage
+  | if [$qualified, $total, $percentage, ($percentage <= 5)] ==
+       [$report.numerator, $report.denominator, $report.percentage, $report.passed]
+    then "complete \($qualified)/\($total) (\($percentage)%)"
+    else error("Recount differs from the accepted capture") end
+' docs/evidence/issue-4082/observation-evidence-final.json
+```
+
+The command prints `complete 0/401 (0%)`.
+
+The original collector, its registry reader, and the campaign roster are
+available at the [observation commit](https://github.com/stranske/Workflows/commit/6324a78d924ce06eb56f1e8af3c2a7261aed0b6b).
+Recover them from a checkout that includes that commit. This command extracts
+files and prints their location.
+
+```bash
+(
+    set -euo pipefail
+    recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-4082-collector.XXXXXX")
+    git archive 6324a78d924ce06eb56f1e8af3c2a7261aed0b6b \
+        scripts/measure_gate_cancellations.py \
+        scripts/list_registered_consumer_repos.py \
+        .github/workflows/maint-68-sync-consumer-repos.yml | tar -xf - -C "$recovered"
+    printf '%s\n' "$recovered"
+)
+```
