@@ -88,7 +88,7 @@ versions plus source unreachability establish that this selected producer has no
 created an unresolved typed effect. The empty run inventories are supporting
 observations, not a universal assertion about deleted records or legacy work.
 Exact repository commits, workflow hashes and introduction commits are recorded in
-[the lineage audit](../evidence/verifier-correction-inert-split/deployment-lineage.json).
+[the lineage audit](../evidence/verifier-correction-deployment-lineage.json).
 
 ## Current and future paths
 
