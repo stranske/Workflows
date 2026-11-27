@@ -20,7 +20,7 @@ import tempfile
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Protocol, TypeGuard
+from typing import Any, Literal, Protocol, TypeGuard
 
 from scripts.state_fingerprint import GitHubApi, _github_context
 
@@ -1616,10 +1616,12 @@ def should_dispatch(
     if authority_challenge and not isinstance(storage, FallbackRunnerStorage):
         raise ValueError("Authority challenge reservation requires authoritative auto storage.")
     key = _runner_key(pr_number, head_sha, provider)
+    read_store: Literal["primary", "legacy"] = "primary"
     try:
         if isinstance(storage, FallbackRunnerStorage):
             prior = storage.primary.read_record(pr_number, provider)
             if prior is None:
+                read_store = "legacy"
                 # Respect legacy fallback reservations until they finish/age out,
                 # but any newly granted reservation must be written to primary.
                 if isinstance(storage.fallback, RepoVariableRunnerStorage):
@@ -1631,7 +1633,7 @@ def should_dispatch(
     except Exception as exc:
         if not isinstance(storage, FallbackRunnerStorage):
             raise
-        _log_storage_failure("read", exc, phase="reservation")
+        _log_storage_failure("read", exc, phase="reservation", store=read_store)
         return _unavailable_dispatch(key)
     continuation_completions = _continuation_completion_count(prior)
 
@@ -1658,15 +1660,19 @@ def should_dispatch(
             return DebounceDecision(False, "invalid-or-consumed-authority-challenge", key)
         # Preparation does not lock the runner reservation. Re-read immediately before the
         # write so a dispatch that acquired ownership during preparation is not overwritten.
+        read_store = "primary"
         try:
             prior = storage.primary.read_record(pr_number, provider)
             if prior is None:
+                read_store = "legacy"
                 if isinstance(storage.fallback, RepoVariableRunnerStorage):
                     prior = storage.fallback.read_record(pr_number, provider, require_access=True)
                 else:
                     prior = storage.fallback.read_record(pr_number, provider)
         except Exception as exc:
-            _log_storage_failure("read", exc, phase="authority-reservation-prewrite")
+            _log_storage_failure(
+                "read", exc, phase="authority-reservation-prewrite", store=read_store
+            )
             return _unavailable_dispatch(key, prior)
         if _authority_pending_is_live(prior):
             # No reservation write occurred, so this prepared receipt can be released safely.
@@ -1981,18 +1987,25 @@ def _storage_failure_message(exc: Exception) -> str | None:
     return message[:STORAGE_FAILURE_MESSAGE_MAX_CHARS] or None
 
 
-def _log_storage_failure(operation: str, exc: Exception, *, phase: str = "completion") -> None:
+def _log_storage_failure(
+    operation: str,
+    exc: Exception,
+    *,
+    phase: str = "completion",
+    store: Literal["primary", "legacy"] | None = None,
+) -> None:
     # GitHubApi preserves the HTTP/network exception as its cause. Log diagnostic
     # metadata, not raw exception text, which can contain URLs or response bodies.
     cause = exc.__cause__ or exc
     code = getattr(cause, "code", None)
     status = str(code) if isinstance(code, int) and 100 <= code <= 599 else "unknown"
     message = _storage_failure_message(exc)
+    store_detail = f" store={store}" if store else ""
     detail = f" http_message={json.dumps(message)}" if message else ""
     print(
         f"warning: authoritative {phase} {operation} failed: "
         f"error_type={type(exc).__name__} cause_type={type(cause).__name__} "
-        f"http_status={status}{detail}",
+        f"http_status={status}{store_detail}{detail}",
         file=sys.stderr,
     )
 

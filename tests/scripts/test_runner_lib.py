@@ -3036,6 +3036,7 @@ def test_auto_dispatch_requires_primary_storage(
     assert not fallback.writes
     error = capsys.readouterr().err
     assert f"authoritative reservation {operation} failed" in error
+    assert ("store=primary" in error) == (operation == "read")
     assert "http_status=403" in error
     assert secret not in error
 
@@ -3081,6 +3082,7 @@ def test_auto_dispatch_checks_real_legacy_backend_access(
         assert not primary.writes
         error = capsys.readouterr().err
         assert f"http_status={status}" in error
+        assert "store=legacy" in error
         assert "private-response" not in error
 
 

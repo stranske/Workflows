@@ -7,6 +7,19 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27 · Verified tool and fixture placement
+
+The [weekly queue cleanup](https://github.com/stranske/Workflows/pull/5368) reached Workflows main at `3198902b1f62`. For the November 26 trip-planner review, the diagnostic still returned three candidates and the final publisher still approved zero because the feedback was stale. All four outputs matched. The coordinator dropped three unnecessary reads totaling 40,189 bytes on this input. The installed repo-review suite passed 833 cases. [Gate](https://github.com/stranske/Workflows/actions/runs/46060452921)
+
+Keep the three model-evaluation tools at their existing module paths. Moving them changed the harness fingerprint and caused the confirmation command to reject a previously valid screen control. Keep the three verifier-shadow command paths. The regrouped version reproduced the saved PR result, but all three existing commands failed. Retain the shared verifier configuration and the distinct test suites for its tool and verifier-side readers. The trials used two saved model-evaluation inputs and one frozen verifier case. They made zero provider calls.
+
+Retain the required-contexts file in `.github/config`. The live main ruleset requires exactly `summary`. Moving the file to root config broke the same lookup Maint 71 uses to read consumer policy. The restored lookup passed all 20 Maint 71 cases and all 18 Health 41 cases. Close the former Python starter directory. The receiving PR installed the same workflow blob, ran 182 tests on each of Python 3.13 and 3.14, and produced both coverage artifacts. The three starter assets live together under `templates/workflow-templates`. [Receiving run](https://github.com/stranske/Workflows-Integration-Tests/actions/runs/45931688408)
+
+[Fixture cleanup #5369](https://github.com/stranske/Workflows/pull/5369) combines four suite inputs into two, moves one shared capture out of a one-file directory, and retires an unused Keepalive metrics example and its directory. Five JavaScript suites retained their 320 named cases and the local forwarder retained the same 26 of those. Three Python suites retained all 72 case names. The four JSON source hashes and the original Opus capture remain recoverable. These changes stay proposed pending destination verification.
+
+On the actual Autofix label event for [Orchestrator #1517](https://github.com/stranske/Orchestrator/pull/1517), the retry passed eligibility and resolved the correct head. The receiver encountered HTTP 403 while reading reservation state and stopped before any write. The installed warning did not identify which store refused the read. A diagnostic change distinguishes the PR-comment and legacy-variable reads and preserves the refusal on both. The historical credential's denied endpoint remains unknown. [Native attempt](https://github.com/stranske/Orchestrator/actions/runs/46060805917/attempts/2)
+
+
 ### November 27 · Receiver installation and original checklist closure
 
 All 16 registered receivers installed the consolidated tracker and decomposer. Each receiving default carries the same two source objects and has removed the obsolete tracker index. Maint 71 merged all sixteen and recorded zero ready PRs left over. The reporting jobs that hit the shared installation quota passed on targeted retry. [Fleet merge](https://github.com/stranske/Workflows/actions/runs/46056625131) · [Canary reporting](https://github.com/stranske/Workflows/actions/runs/46052724742/attempts/2) · [Fleet reporting](https://github.com/stranske/Workflows/actions/runs/46053959607/attempts/2)
@@ -363,12 +376,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 0 drainable now · 13 blocked · 13 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 442/752 | 37/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 997/1,540 | 133/177 | — |
+| 3 · Scripts, tools and packages | 450/752 | 37/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,006/1,540 | 135/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 201/334 | 26/47 | — |
-| **Total** | **3,612/5,554** | **314/487** | **185/198** |
+| **Total** | **3,629/5,554** | **316/487** | **185/198** |
 
-**Directory organization.** 3,400 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,417 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
