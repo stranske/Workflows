@@ -14,7 +14,7 @@ The six legacy workflow duties and their six receiving template records have sep
 | Duty | Workflows source | Receiving defaults verified without the old definition |
 |---|---|---:|
 | Standalone Decompose | [Retired at 5720c908](https://github.com/stranske/Workflows/pull/5377). Issue Optimizer preserved the exact output on #4792. | 16/16 |
-| Belt dispatcher, worker dispatch, worker, conveyor, and Auto-Pilot | The exact source change is in [#5379](https://github.com/stranske/Workflows/pull/5379). Its dependency hold is released. The standalone manual conveyor wrapper also retires. | 0/16 for all five |
+| Belt dispatcher, worker dispatch, worker, conveyor, and Auto-Pilot | Retired in [the verified default tree](https://github.com/stranske/Workflows/commit/dd5ca2d5cf5726d227cc30525d5d1382fc11f6ce). The standalone manual conveyor wrapper also retires. | 0/16 for all five |
 
 The verifier now publishes an ordinary follow-up and the shared opener assigns work. Both installed copies matched and 34 post-merge cases passed. New sync findings use the same opener on the Mac and hosted seats. Both installations matched all seven reviewed blobs. A check across 17 repositories found zero active legacy runs or unclaimed legacy issues. The source-only retry helper remains available to old receiving installations. [Verifier producer](https://github.com/stranske/Workflows/pull/5378) · [Sync producer](https://github.com/stranske/lanes/pull/2) · [Hosted source record](https://github.com/stranske/lanes/blob/fbc8362b29f3367d9a47988bbe1b825ba2822e6d/SOURCE.json)
 
@@ -25,6 +25,8 @@ Maint 72 is accepted. [Portable Alpha #2540](https://github.com/stranske/Portabl
 The [Decompose canary](https://github.com/stranske/Workflows/actions/runs/46078983774) created [Travel #1780](https://github.com/stranske/Travel-Plan-Permission/pull/1780), [trip-planner #2079](https://github.com/stranske/trip-planner/pull/2079) and [Portable Alpha #2546](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2546). All three candidate trees removed the old workflow and retained the optimizer assets. Once all signed heads passed native checks, [Maint 71](https://github.com/stranske/Workflows/actions/runs/46079208701/attempts/2) advanced the [full promotion](https://github.com/stranske/Workflows/actions/runs/46079880309). The table counts only immutable receiving defaults.
 
 [All sixteen protected Decompose merges](https://github.com/stranske/Workflows/actions/runs/46081915537) completed. Every receiving default retained the optimizer workflow, helper and prompt.
+
+The [combined retirement canary](https://github.com/stranske/Workflows/actions/runs/46083462185) runs against exact Workflows source dd5ca2d5 and immutable plan 99cbc098. The source PR Gate took 636 seconds including orchestration. Both primary jobs finished below the 600-second target, at 354 and 550 seconds.
 
 Stage 3 and 4 delivery. [#5372](https://github.com/stranske/Workflows/pull/5372) removed the obsolete installer, moved seven suites under their tested owners, and eliminated three contract mirrors on main. All 97 affected cases passed after merge. The primary Gate jobs took 392 and 507 seconds. The whole run took 652 seconds against a 600-second target. Three contract placements await signed receiver publication. [#5374](https://github.com/stranske/Workflows/pull/5374) consolidates the raw optimizer bootstrap. [#5375](https://github.com/stranske/Workflows/pull/5375) groups fifteen loose test files by owner, merges nine authentication tests into the existing suite, and consolidates two duplicate fixture pairs. All 501 focused cases passed on both trees. The original checklist has 26 verified live outcomes and two replay-verified no-demand dispositions.
 
@@ -406,26 +408,26 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 188/198 completed · 5 drainable now · 5 blocked · 10 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 193/198 completed · 5 drainable now · 0 blocked · 5 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
 | 3 · Scripts, tools and packages | 506/752 | 37/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,082/1,540 | 137/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,087/1,540 | 137/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
-| **Total** | **3,763/5,554** | **318/487** | **188/198** |
+| **Total** | **3,768/5,554** | **318/487** | **193/198** |
 
-**Directory organization.** 3,551 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,556 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
 | [Keep in current role](workflow-decisions.md#keep) | 128 |
-| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 15 |
+| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 20 |
 | [Other verified decisions](workflow-decisions.md#verified) | 45 |
 | [Awaiting verification](workflow-decisions.md#waiting) | 0 |
 | [In review](workflow-decisions.md#review) | 0 |
-| [Proposed changes](workflow-decisions.md#proposed) | 10 |
+| [Proposed changes](workflow-decisions.md#proposed) | 5 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
 
