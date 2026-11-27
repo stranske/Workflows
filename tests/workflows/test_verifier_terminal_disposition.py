@@ -68,7 +68,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
         "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'"
         in resolve_step["if"]
     )
-    assert install_step["env"]["CODEX_CLI_PACKAGE"] == "@openai/codex@0.153.2"
+    assert install_step["env"]["CODEX_CLI_PACKAGE"] == "@openai/codex@0.172.0"
     assert (
         'npm ci --prefix "$codex_cli_prefix" --ignore-scripts' in install_step["run"]
         or "npm ci --prefix .workflows-lib/.github/actions/verifier-codex-cli --ignore-scripts"

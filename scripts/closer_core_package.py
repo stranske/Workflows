@@ -48,7 +48,7 @@ CORE_OWNED_PATHS: tuple[str, ...] = (
 # Declared third-party runtime deps; each line affects package_digest.
 RUNTIME_DEPENDENCIES: dict[str, str] = {
     "jsonschema": ">=4.22.0",
-    "PyYAML": "6.0.3",
+    "PyYAML": ">=6.0.3",
     "requests": "2.34.2",
 }
 

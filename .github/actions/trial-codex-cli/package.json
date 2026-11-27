@@ -1,0 +1,9 @@
+{
+  "name": "workflows-trial-codex-cli",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Locked Codex CLI runtime for the read-only model profile trial runner.",
+  "dependencies": {
+    "@openai/codex": "0.153.2"
+  }
+}

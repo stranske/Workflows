@@ -189,8 +189,9 @@ and end-to-end runtime integration are separate, unverified boundaries.
 with a public relative-path descriptor. It never replaces an existing destination.
 Verification checks the closed file set, entrypoint, file digests and declared
 interpreter dependencies. Host paths and credentials belong in a separate local
-binding. The tested minimum is jsonschema 4.22.0; the descriptor pins PyYAML and
-requests versions. Runtime launch cannot override the sealed package environment.
+binding. The tested minimums are jsonschema 4.22.0 and PyYAML >=6.0.3 (minimum
+constraints, not exact pins); the descriptor pins the requests version. Runtime
+launch cannot override the sealed package environment.
 
 A changed specification may replace a legally drained operation. A different
 executor must explicitly acknowledge replacement. The exact prior record and its
