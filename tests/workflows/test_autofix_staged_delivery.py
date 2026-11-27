@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -117,6 +118,8 @@ def test_consumer_residual_receipt(
     build = by_name["Build consolidated PR comment"]
     assert steps.index(checkout) < steps.index(by_name[update_name])
     assert steps.index(checkout) < steps.index(by_name[trend_name]) < steps.index(build)
+    assert re.fullmatch(r"actions/checkout@[0-9a-f]{40}", checkout["uses"])
+    assert checkout["with"].get("persist-credentials") is False
     assert checkout["with"]["sparse-checkout-cone-mode"] is False
 
     source = WORKFLOW.parents[2]
