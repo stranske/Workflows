@@ -1,7 +1,6 @@
 name: Create New PR from Verification
 
-# Creates a follow-up issue from verification feedback, then
-# triggers auto-pilot to prepare a new PR.
+# Publishes a deduplicated verifier follow-up for the shared opener.
 #
 # Trigger: Add `verify:create-new-pr` label to a merged PR
 
@@ -26,7 +25,7 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
-  actions: write
+  actions: read
   models: read
 
 env:
@@ -75,7 +74,7 @@ jobs:
             Workflows
           permission-contents: read
           permission-issues: write
-          permission-actions: write
+          permission-actions: read
 
       - name: Select GitHub token
         id: select-token
@@ -100,7 +99,7 @@ jobs:
             echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
             echo "source=service-bot" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Using GITHUB_TOKEN: follow-up issue events will not trigger other workflows; the explicit auto-pilot dispatch below must succeed."
+            echo "::warning::Using GITHUB_TOKEN: GitHub suppresses chained workflow events; the shared opener discovers the issue on its ordinary polling pass."
             echo "token=$GITHUB_TOKEN" >> "$GITHUB_OUTPUT"
             echo "source=github-token" >> "$GITHUB_OUTPUT"
           fi
@@ -639,7 +638,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
           # GitHub Models needs the workflow token's models: read grant.
-          # The selected App/PAT token is reserved for issue and dispatch APIs.
+          # The selected App/PAT token is reserved for issue APIs.
           GITHUB_TOKEN: ${{ github.token }}
           ORIGINAL_ISSUE_NUMBER: ${{ steps.collect.outputs.original_issue_number }}
           ORIGINAL_ISSUE_TITLE: ${{ steps.collect.outputs.original_issue_title }}
@@ -936,90 +935,17 @@ jobs:
               return;
             }
 
-            // Resolve agent from PR labels; fall back to registry default
-            let _defaultAgent = 'codex';
-            try {
-              const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
-              _defaultAgent =
-                loadAgentRegistry('./.github/agents/registry.yml').default_agent || 'codex';
-            } catch (_) {}
-            let agentKey = _defaultAgent;
-            try {
-              const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              const labels =
-                (context.payload.pull_request && context.payload.pull_request.labels) || [];
-              agentKey = resolveAgentFromLabels(labels, {
-                registryPath: './.github/agents/registry.yml',
-              });
-            } catch (err) {
-              core.warning(
-                `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}: ` +
-                  err.message
-              );
-              agentKey = _defaultAgent;
-            }
-            const normalized =
-              String(agentKey || _defaultAgent).trim().toLowerCase() || _defaultAgent;
-            const agentLabel = `agent:${normalized}`;
-            const fromLabel = `from:${normalized}`;
-
             const issue = await withRetry((client) => (client || github).rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: [
-                'follow-up',
-                agentLabel,
-                fromLabel,
-                `runner:${normalized}`,
-                'agents:auto-pilot',
-              ]
+              labels: ['follow-up']
             }));
 
             core.info(`Created issue #${issue.data.number}`);
             core.setOutput('issue_number', issue.data.number);
             core.setOutput('issue_url', issue.data.html_url);
-
-      - name: Dispatch auto-pilot continuation
-        id: dispatch-autopilot
-        if: >-
-          steps.check-merged.outputs.merged == 'true' &&
-          steps.terminal-artifact.outputs.terminal == 'true' &&
-          steps.chain-check.outputs.exceeded != 'true' &&
-          steps.extract-verdict.outputs.needs_human != 'true' &&
-          steps.create-issue.outputs.issue_number != ''
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        env:
-          ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        with:
-          github-token: ${{ steps.select-token.outputs.token }}
-          script: |
-            const fs = require('fs');
-            const helperPath = './.github/scripts/github-api-with-retry.js';
-            const retryHelpers = fs.existsSync(helperPath)
-              ? require(helperPath)
-              : { withRetry: (fn) => fn() };
-            const { withRetry } = retryHelpers;
-
-            const issueNumber = process.env.ISSUE_NUMBER;
-            if (!issueNumber) {
-              core.setFailed('Missing issue number; cannot dispatch auto-pilot.');
-              return;
-            }
-            const ref = process.env.DEFAULT_BRANCH || 'main';
-            await withRetry((client) => (client || github).rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'agents-auto-pilot.yml',
-              ref,
-              inputs: {
-                issue_number: String(issueNumber),
-                force_step: 'optimize'
-              }
-            }));
-            core.info(`Dispatched agents-auto-pilot for follow-up issue #${issueNumber}.`)
 
       - name: Comment on original PR
         if: >-
@@ -1055,7 +981,7 @@ jobs:
               '',
               '**Next steps:**',
               '1. Review the generated issue',
-              '2. Auto-pilot will continue preparing a new PR',
+              '2. The shared opener will assess the issue and select a worker if eligible',
               '',
               '> Or work on it manually - the choice is yours!'
             ].join('\n');
@@ -1082,7 +1008,6 @@ jobs:
           VERDICT: ${{ steps.extract-verdict.outputs.verdict }}
           FOLLOWUP_ISSUE_NUMBER: ${{ steps.create-issue.outputs.issue_number }}
           FOLLOWUP_ISSUE_URL: ${{ steps.create-issue.outputs.issue_url }}
-          DISPATCH_AUTOPILOT_OUTCOME: ${{ steps.dispatch-autopilot.outcome }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ steps.select-token.outputs.token }}
@@ -1101,7 +1026,6 @@ jobs:
             const sourceId = sourceIssue || String(prNumber);
 
             const followupIssue = process.env.FOLLOWUP_ISSUE_NUMBER || '';
-            const dispatchOutcome = (process.env.DISPATCH_AUTOPILOT_OUTCOME || '').trim();
             const chainDepth = Number.parseInt(process.env.CHAIN_DEPTH || '0', 10) || 0;
             const maxChainDepth = Number.parseInt(process.env.MAX_CHAIN_DEPTH || '2', 10) || 2;
 
@@ -1140,21 +1064,8 @@ jobs:
               policyAction = 'skip-follow-up';
               policyTrigger = 'missing-follow-up-output';
               policyReason = reason;
-            } else if (dispatchOutcome === 'success') {
-              reason = 'Verification follow-up issue was created and auto-pilot was dispatched.';
-              policyReason = reason;
-            } else if (dispatchOutcome === 'failure' || dispatchOutcome === 'cancelled') {
-              reason =
-                'Verification follow-up issue was created, but auto-pilot dispatch ' +
-                `${dispatchOutcome}.`;
-              policyReason = reason;
-            } else if (dispatchOutcome === 'skipped') {
-              reason = 'Verification follow-up issue was created; auto-pilot dispatch was skipped.';
-              policyReason = reason;
             } else if (followupIssue) {
-              reason =
-                'Verification follow-up issue was created; auto-pilot dispatch status was ' +
-                'not reported.';
+              reason = 'The follow-up issue is available to the shared opener.';
               policyReason = reason;
             }
 
@@ -1170,7 +1081,6 @@ jobs:
               needs_human: needsHuman,
               followup_issue_number: followupIssue || undefined,
               followup_issue_url: process.env.FOLLOWUP_ISSUE_URL || undefined,
-              dispatch_outcome: dispatchOutcome || undefined,
               workflow: context.workflow,
               run_id: context.runId,
               run_attempt: context.runAttempt,
@@ -1215,7 +1125,6 @@ jobs:
               workflow: context.workflow,
               actor: context.actor,
               terminal_disposition_artifact: `verifier-terminal-disposition-${context.runId}`,
-              dispatch_outcome: dispatchOutcome || undefined,
               needs_human: needsHuman,
             });
             fs.writeFileSync(

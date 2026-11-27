@@ -11,7 +11,7 @@ const surfaces=['.github/workflows/agents-verify-to-new-pr.yml','templates/consu
 // Both predecessor surfaces had these exact job bytes at 7c5ac26448ed6149ba984584ed1db821ce049371.
 const predecessorJob=gunzipSync(fs.readFileSync(path.join(root,
   'tests/fixtures/verifier_correction/ordinary-followup-predecessor.yml.gz'))).toString('utf8');
-const successorSha256='625e3dc9f5eac0334439b4838a12e173f3962662ff6408cc581a0df903745b31';
+const successorSha256='91f4203ce9124cbfbdf86416e4f41c412374ccd451c47b3ed1fdc7b57e410eba';
 
 for(const surface of surfaces) {
  test(`${surface}: authored workflow has only the ordinary and read-only collection jobs`,()=>{
@@ -23,7 +23,7 @@ for(const surface of surfaces) {
   assert.equal(createHash('sha256').update(predecessorJob).digest('hex'),lineage.legacy_job_sha256[surface]);
   assert.doesNotMatch(predecessorJob,/guardLegacyCorrection|correction_guard|resolveCodingScope/);
  });
- test(`${surface}: ordinary merged-PR label lane matches the exact continuation identity successor`,()=>{
+ test(`${surface}: ordinary merged-PR label lane matches the exact shared-opener intake successor`,()=>{
   const source=read(surface),job=source.slice(source.indexOf('  create-new-pr:\n'),source.indexOf('\n  collect-correction:\n')).trimEnd();
   assert.equal(createHash('sha256').update(job).digest('hex'),successorSha256);
   assert.doesNotMatch(job,/guardLegacyCorrection|correction_guard|resolveCodingScope/);
