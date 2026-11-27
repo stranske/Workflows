@@ -992,7 +992,6 @@ test('named exploration acceptance test fails when exploration is disabled and p
     '.github/scripts/agent_delegation_policy.js',
     '.github/scripts/rate_limit_receipt.js',
     '.github/scripts/rate_limit_receipt.json',
-    '.github/scripts/agent_delegation_policy.test.js',
     '.github/scripts/__tests__/agent_delegation_policy.test.js',
     'tests/fixtures/route-weights-with-exploration.json',
   ]) {
@@ -1019,7 +1018,7 @@ test('named exploration acceptance test fails when exploration is disabled and p
       result = spawnSync(process.execPath, [
         `--test-name-pattern=^${testName}$`,
         '--test-reporter=tap',
-        '.github/scripts/agent_delegation_policy.test.js',
+        '.github/scripts/__tests__/agent_delegation_policy.test.js',
       ], {
         cwd: isolatedRoot,
         timeout: 10000,
