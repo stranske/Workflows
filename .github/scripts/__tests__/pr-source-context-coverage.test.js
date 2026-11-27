@@ -13,7 +13,7 @@ const {
 } = require('../pr_source_context_coverage.js');
 
 const { buildPrSourceContextReport } = require('../pr_source_context_report.js');
-const release3769 = require('./fixtures/release-3769.json');
+const { release3769 } = require('./fixtures/source-context-release-pulls.json');
 
 function writeReport(root, artifactName, report) {
   const dir = path.join(root, artifactName, '123');

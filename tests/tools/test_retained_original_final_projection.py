@@ -13,7 +13,7 @@ from tools.verifier_corpus_evidence import admitted_decision
 from tests.tools.test_retained_verification_recovery import setup_case, write_archive
 
 PRODUCER = "5e8f7a842231f16d8f5ba3ae1a48ed7625afa2feafe774963cdba066196fd0b8"
-FINAL = Path(__file__).parents[1] / "fixtures/verifier-original-final/opus-canary984-final.txt"
+FINAL = Path(__file__).parents[1] / "fixtures/verifier-opus-canary984-final.txt"
 
 
 def failed_row():

@@ -23,8 +23,7 @@ const {
   resolvePrSourceContext: templateResolvePrSourceContext,
 } = require('../../../templates/consumer-repo/.github/scripts/source_context.js');
 
-const release3769 = require('./fixtures/release-3769.json');
-const release3787 = require('./fixtures/release-3787.json');
+const { release3769, release3787 } = require('./fixtures/source-context-release-pulls.json');
 // Synthetic trusted origin; the captured production body/title/branch stay exact.
 const releasePull = {
   ...release3769,

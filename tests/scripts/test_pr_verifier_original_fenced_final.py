@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from scripts.langchain import pr_verifier as verifier
 
-FINAL = Path(__file__).parents[1] / "fixtures/verifier-original-final/opus-canary984-final.txt"
+FINAL = Path(__file__).parents[1] / "fixtures/verifier-opus-canary984-final.txt"
 SHA256 = "a80e3b6eb417182a22851c42246d618540f96048fc15d5b62161348690fa0177"
 
 
