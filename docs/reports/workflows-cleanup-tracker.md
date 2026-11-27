@@ -28,15 +28,24 @@ This change retires the one-time #4484 ledger correction from live scripts. Its 
 The follow-up to the fleet recovery changes has reproduced both hosted failures and the exact reviewer feedback case. Scoped promotion still selects just the two named receivers in replay. The general assessor for an open PR remains under development. [Fleet review and release](https://github.com/stranske/Workflows/pull/5287#issuecomment-7205240036)
 **Stage 1B is complete.** All 27 original root files have final placements. Trip-planner’s required Ubuntu job installs checksum-pinned actionlint 1.7.10, rejects an invalid copy of its smoke workflow and accepts the checked-in workflow. The ordinary main run took 122 seconds. Workflows subsequently removed the 5,759,160-byte root executable and its exemption from the root allowlist. The root check found zero stray files among 16 tracked files. The removal Gate passed in 580 seconds, with the two primary Python jobs at 334 and 495 seconds. [Receiving Ubuntu job](https://github.com/stranske/trip-planner/actions/runs/45912825084/job/140224974778) · [Source retirement](https://github.com/stranske/Workflows/pull/5292) · [Removal Gate](https://github.com/stranske/Workflows/actions/runs/45913120809)
 
-**How Stage 1A can finish.** All 198 original workflows have a design decision. Of the 36 open acceptance checks, 22 have a keep decision, 13 a retirement decision and one a consolidation decision. The dates below are the recorded next checks. A checkpoint can close a low-demand keep with its stated qualification. The hosted migration still requires actual handoffs.
+**Stage 1A, November 26 at 9:15 p.m. Chicago.** All 198 original workflows have a design decision. Of those, 170 have a recorded functional disposition and 28 have open checks. Five receiving workflows produced native results. Three additional keeps have a documented limit on what production demand allowed us to verify. The ten former December 7 checks now use the following functional criteria.
 
-| Next check | Rows | Action |
-|---|---:|---|
-| November 29 | 1 | The receiving maintainer can disposition Maint 72’s scoped removal of `pr_body.md`. Verify the receiving default and the next weekly diagnostic. [Portable Alpha PR](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540) |
-| November 30 | 1 | Read Health 44’s scheduled parent, its child and the published fingerprint. Also inspect the first of the two remaining weekly opportunities for the original delivery checks. |
-| December 1 | 1 | Verify the full seven-day window after retiring Health 69’s producer, including downstream ingest and the recorded sync condition. |
-| December 2 | 11 | For the receiving optimizer and the verifier pair, trace an authorized receiving Apply or a genuine finding through its receiving result and duplicate controls. Use the other eight rows’ recorded inputs or expiry dispositions. |
-| December 7 | 22 | Twelve legacy definitions share the hosted handoff. The lane operator needs five distinct eligible shared-opener starts, one claim across concurrent seats, an offline-local start, restart with no duplicate, Mac feedback, and a guarded close with receiving sync. Finish the four-pass observation over at least two hours before retirement. The other ten rows have their own input or low-demand dispositions. [Hosted migration](#hosted-orchestration-migration) |
+| Workflow | What satisfies the check | Observed result |
+|---|---|---|
+| Python gallery | Run the published caller on the receiver’s real suite and recover both coverage reports. | 182 tests passed on each of Python 3.13 and 3.14, with two artifacts. [Receiving run](https://github.com/stranske/Workflows-Integration-Tests/actions/runs/45931688408) |
+| Basic Node starter | Run the locked receiver suite and recover source coverage from the same job. | 266 tests passed. The downloaded report covered 1,968 of 2,317 statements across 50 frontend files. [Receiving artifact](https://github.com/stranske/trip-planner/actions/runs/45932594347/artifacts/15169024187) |
+| Reusable 12 Docker | Build a real receiver image and probe its running service. | Trend’s build took 148s and readiness took 11s. Its adoption PR is in review. [Job](https://github.com/stranske/Trend_Model_Project/actions/runs/45931573048/job/140285180446) |
+| Reusable 13 smoke | Run an assertion across a real host and pinned dependency, then verify the result after restart. | The Travel-Plan-Permission/trip-planner pair passed in 21s. An empty checkout credential failed the first invocation. [Job](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45932071576/job/140286743985) |
+| Standalone cosmetic repair | Match preview to an actual receiver PR and run a clean control with writes enabled. | Two genuine formatting edits matched. The clean run skipped publication. [Receiving PR](https://github.com/stranske/Workflows-Integration-Tests/pull/69) · [Clean control](https://github.com/stranske/Workflows-Integration-Tests/actions/runs/45932349698) |
+| Health 42 fork annotation | Match a real fork lint diagnostic to a line and commit. Where no authorized fork exists, retain the restricted-permission replay and measure eligible demand. | Qualified keep. Zero eligible in 399 source PRs and zero writable fork pairs in scope. The actual line-12 diagnostic was replayed. Native annotation reopens on the first qualifying fork. [Source run](https://github.com/stranske/Workflows/actions/runs/44854599675) |
+| Receiving fork Gate status | Match a genuine fork Gate to a status on its exact head, or record the measured lack of opportunity and controls. | Qualified keep. Zero eligible in 186 receiving PRs. The same-repo control and fork-policy replay are recorded. Native fork publication reopens on the first qualifying fork. [Control input](https://github.com/stranske/Workflows/pull/4852) |
+| Maint 84 stub pruning | Publish a reviewed deletion for eligible markers, or reconcile an empty scheduled and write-enabled operator scan with the positive selection replay. | Qualified keep. Zero tracked markers, two ordinary empty scans, and a 35-marker positive replay. Reopen the production deletion check on the next eligible marker. [Operator job](https://github.com/stranske/Workflows/actions/runs/45931323207/job/140284384183) |
+| Dependency lock backstop | On a genuine dependency-bot PR, run regeneration against its head and verify the resulting write or already-correct lock. | Open. The bot produced a branch changing all three lock inputs and the lock. Normal PR creation was requested for this group. Verify native regeneration, author and receiving head. [Renovate dashboard](https://github.com/stranske/Workflows/issues/2390) |
+| Generic receiving smoke caller | Select the installed variables-based caller with real dependency, command and suitable read credential. | Open. All 15 installed callers lack both the opt-in variables and named credential. The unchanged job skipped. The receiver’s own pilot proved a read-only job token works for this public pair. A one-run interface would let a receiver opt in without enabling concurrent push and PR jobs. [Unchanged job](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45932071576/job/140286745488) |
+
+The twelve proposed legacy retirements also use functional release criteria. The hosted seat must show five attributable starts, one claim during overlap, a start with the Mac offline, restart without duplication, returned feedback, and a guarded close through receiving sync. The measured overlap observation remains required. At this check the count was 0/5. Auto-Pilot and the belt remain operational. [Hosted migration](#hosted-orchestration-migration)
+
+A design issue selected from the weekly review gave the installed receiving optimizer real work. Analyze posted concrete suggestions on trip-planner #2066. The opener claimed it and opened an implementation PR. Its active writer owns subsequent edits. The receiving managed Apply still needs its own eligible issue and native result. [Design issue and suggestions](https://github.com/stranske/trip-planner/issues/2066#issuecomment-7208628096) · [Implementation](https://github.com/stranske/trip-planner/pull/2068)
 
 **November 26, 22:10 UTC.** All 16 source-sync PRs merged. The receiving default branches have all 128 Agents 70 cutover files, all 16 corrected verifier SDK workflows and all 16 expected model catalogs. Zero source-sync PRs remained open. Seventy surplus files remain in 14 receivers. The promoted source predates the directory-pruning change. Verify the next ordinary promotion that includes it. The seven-day agent-PR and Keepalive comparison is due December 2. [Fleet result and receiving branches](https://github.com/stranske/Workflows/actions/runs/45901009621) · [Directory pruning change](https://github.com/stranske/Workflows/pull/5252)
 
@@ -62,7 +71,7 @@ The smoke review retained the public reusable workflow and create-only installat
 
 The [runner admission change](https://github.com/stranske/Workflows/pull/5279) moves two previously observed no-write cases ahead of checkout. The [local Action-version wrapper](https://github.com/stranske/Workflows/pull/5278) was removed after four historical outputs and 54 current template inputs matched the hosted updater.
 
-November 26, 2026 UTC. The [stage table](#stage-progress-and-workflow-decisions) tracks current decisions against the November 19 inventory. The original delivery checklist remains at **26/28**. The review reopened 56 file and ten folder decisions and then verified their new placements on main. Of six other forwarding pages reopened, four have since been removed and two still have live readers under review. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Twelve-hour progress and acceptance checks](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
+Earlier November 26 checkpoint. The [stage table](#stage-progress-and-workflow-decisions) tracks current decisions against the November 19 inventory. At that checkpoint the original delivery checklist stood at **26/28**. The review reopened 56 file and ten folder decisions and then verified their new placements on main. Of six other forwarding pages reopened, four have since been removed and two still have live readers under review. [Progress by stage](#stage-progress-and-workflow-decisions) · [All workflow decisions](workflow-decisions.md) · [Twelve-hour progress and acceptance checks](https://github.com/stranske/Workflows/pull/4784#issuecomment-7181582528)
 
 The obsolete local ChatGPT intake deployer was removed after all six approved receiving defaults matched the managed intake and the installed 282-copy, 17-removal plan reproduced byte-for-byte. All three agent routes passed on the merged tree. [Retirement #5272](https://github.com/stranske/Workflows/pull/5272) · [Template receiving commit](https://github.com/stranske/Template/commit/48b3aa12121dda6216496a4155cb184be76dd54c)
 
@@ -187,7 +196,7 @@ The two evidence directories illustrate the unfinished organizational work. In t
 - **PR-meta source.** #5146 made an ordinary automation-only comment report no human activation after a successful Gate. A fresh Trend #6247 event checked out the exact merged writer, produced that reason and skipped dispatch. The distinct wrapped #5131 input and live arbitration/retry remain open. Both Python jobs of #5146's ordinary main Selftest passed, in 687 and 527 seconds. [Native receiver](https://github.com/stranske/Trend_Model_Project/actions/runs/45588036250) · [Source classifier](https://github.com/stranske/Workflows/pull/5146)
 - **Manual integration routes.** The two wrapper paths are gone. All eight command and exit controls matched, and the local guide points directly to the local formatting script. The later main suite covered the identical guide blob and removed paths after the first run was superseded. [Wrapper merge](https://github.com/stranske/Workflows/pull/5126) · [Combined main Selftest](https://github.com/stranske/Workflows/actions/runs/45562286598)
 
-The original delivery checklist is **26/28**. Read Maint 84’s actual Monday 08:00 UTC schedule on November 30 and December 7. At those same checkpoints, measure eligible bot-authored Workflows PRs that changed a configured lock input. After December 7, close any case still without an eligible input as replay-verified, production delivery unobserved for lack of demand. An eligible failure remains actionable. **Four of the first five** workflow decisions are complete. Auto-Pilot reopened under the shared-seat decision. Agents 64 keeps its verified standalone opt-in assignment check. The redundant nested route follows the Agents 70 caller migration. The separate Health 42 fix still needs an annotation on a real fork PR. The hourly review proceeds across stages 1A–5 while those inputs are pending. [Previous checkpoint](https://github.com/stranske/Workflows/blob/5cec05ecaa2fbd56325fa5584637102a1c349b32/docs/reports/workflows-cleanup-tracker.md#current-structure-review)
+The original delivery checklist has **27 of 28 dispositions**. Twenty-six passed, Maint 84 is replay-verified with production deletion unobserved for lack of demand, and the dependency-lock delivery check is open. A positive production write requires a real qualifying bot head that needs correction. The two real empty Maint 84 scans and 35-marker positive replay are recorded above. [Pruner run](https://github.com/stranske/Workflows/actions/runs/45931323207) · [Dependency request](https://github.com/stranske/Workflows/issues/2390)
 
 
 ## Stage progress and workflow decisions
@@ -196,13 +205,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 162/198 completed · 1 drainable now · 35 blocked · 36 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 170/198 completed · 2 drainable now · 26 blocked · 28 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,560/2,901 | 110/220 | — |
 | 3 · Scripts, tools and packages | 371/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 910/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,066/5,554** | **298/487** | **162/198** |
+| **Total** | **3,066/5,554** | **298/487** | **170/198** |
 
 **Directory organization.** 2,854 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
@@ -210,11 +219,11 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 114 |
+| [Keep in current role](workflow-decisions.md#keep) | 117 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 10 |
-| [Other verified decisions](workflow-decisions.md#verified) | 38 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 20 |
-| [In review](workflow-decisions.md#review) | 3 |
+| [Other verified decisions](workflow-decisions.md#verified) | 43 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 13 |
+| [In review](workflow-decisions.md#review) | 2 |
 | [Proposed changes](workflow-decisions.md#proposed) | 13 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
@@ -678,7 +687,7 @@ The [guarded closer guide](../ops/LOCAL_LANES.md#retired-pr-finalizer) now combi
 
 ## Awaiting live verification
 
-- [ ] **Observe the next Maint 84 commit with eligible input.** The November 16 schedule selected 35 eligible files. GitHub rejected its direct push because main requires a PR and the `summary` check. The corrected workflow requested the PR step for the same 35 files in replay. Preview and a repeat on the cleaned tree requested zero writes. The November 20 default branch contained zero eligible filenames. Close when a scheduled run opens or updates a reviewed deletion PR and its changes land on main. The schedule runs Mondays at 08:00 UTC. [Failed delivery](https://github.com/stranske/Workflows/actions/runs/43830898674) · [Repair PR #4783](https://github.com/stranske/Workflows/pull/4783)
+- [x] **Maint 84 — replay-verified, production deletion unobserved for lack of demand.** The repaired path selected the original 35 eligible markers in replay. The scheduled scan and a subsequent normal operator run with publication enabled both found nothing to prune. The reviewed PR route remains in place. Reopen the positive production check when a real closed-issue marker exists. [Repair](https://github.com/stranske/Workflows/pull/4783) · [Normal operator](https://github.com/stranske/Workflows/actions/runs/45931323207/job/140284384183)
 - [ ] **Verify delivery of the dependency-lock correction to a live bot PR.** The repair merged. The compatible archived PR produced the same lock hash as the primary resolver. A repeat requested zero writes and the incompatible input preserved its lock. Close when a real, eligible Dependabot or Renovate PR receives the regenerated `requirements.lock` on its intended branch and expected head. No eligible PR or fallback run had appeared as of the November 19 check. [PR #4779](https://github.com/stranske/Workflows/pull/4779)
 
 ## Completed
