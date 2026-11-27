@@ -7,6 +7,16 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27, consumer promotion and archive delivery
+
+Health 69 is retired. Two template PRs and the corresponding pushes exercised its former triggers after removal. GitHub recorded zero legacy runs, its registration is deleted, and the installed consumer scheduler no longer invokes the importer. The replacement sync checker verified 14 ordinary merged receiving PRs against their default trees. It had previously treated intentionally removed files as unreadable and left all 14 pending. [Source removal](https://github.com/stranske/Workflows/pull/5086) · [Receiving example](https://github.com/stranske/Doc-Lineage/pull/202)
+
+The ordinary canary produced three reviewed receiving PRs. The cross-repository notification returned HTTP 403 on all three. The central queue recovered the persisted handoff, verified the checks and started fleet promotion. All 16 receiving PRs now propose removing the two obsolete SDK paths and four vendored helpers. Accept delivery per receiving default and exact campaign receipt. The verifier's issue, backlink and worker PR require a genuine corrective verdict. [Canary](https://github.com/stranske/Workflows/actions/runs/46019527702) · [Queue recovery](https://github.com/stranske/Workflows/actions/runs/46021230534) · [Fleet promotion](https://github.com/stranske/Workflows/actions/runs/46021514751)
+
+Two archive changes removed 65 loose captures, 63 net paths and 706,455 tracked bytes from main. The 31 old runtime diagnostics recover from Git. The other 34 outputs share one indexed offline archive for a current reader. Five current replay and operator inputs remain together. Seven additional completed validation groups have a single Git-history guide in review. [Runtime diagnostics](https://github.com/stranske/Workflows/pull/5345) · [Offline recovery](https://github.com/stranske/Workflows/pull/5344) · [Seven historical groups](https://github.com/stranske/Workflows/pull/5346)
+
+The original delivery checklist remains separate. Twenty-six checks passed, Maint 84 has a qualified no-demand disposition, and the positive dependency-bot lock correction is open. Renovate refreshed the existing dependency group and three lockfiles but its PR-creation setting suppressed the opening after rebase. The scoped configuration change preserves the weekly schedule and normal review. Health 83's metrics command remains in scripts/ and reproduced the published report on its original production input. [Renovate repair](https://github.com/stranske/Workflows/pull/5347) · [Health 83](https://github.com/stranske/Workflows/actions/runs/45948692632)
+
 ### November 27, 14:01 UTC review
 
 Workflows main retired the standalone Reusable 16 keepalive runner, 27 other obsolete files and its fixture directory. The installed current keepalive function reproduced the exact task fingerprint and all nine tasks on PR #5337. The source change removed 4,566 lines and added six. The two primary Gate jobs took 439 and 363 seconds. The earlier grouped-suite change also received a successful default-branch Selftest on its release successor. [Runner retirement](https://github.com/stranske/Workflows/pull/5340) · [Gate](https://github.com/stranske/Workflows/actions/runs/46004382224) · [Grouped-suite default verification](https://github.com/stranske/Workflows/actions/runs/46005690135)
@@ -294,24 +304,24 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 181/198 completed · 1 drainable now · 16 blocked · 17 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 182/198 completed · 3 drainable now · 13 blocked · 16 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,567/2,901 | 111/220 | — |
-| 3 · Scripts, tools and packages | 405/752 | 34/43 | — |
+| 2 · Evidence and archives | 1,637/2,901 | 112/220 | — |
+| 3 · Scripts, tools and packages | 406/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 929/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 199/334 | 26/47 | — |
-| **Total** | **3,127/5,554** | **299/487** | **181/198** |
+| **Total** | **3,198/5,554** | **300/487** | **182/198** |
 
-**Directory organization.** 2,915 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,986 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
 | [Keep in current role](workflow-decisions.md#keep) | 127 |
-| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 11 |
+| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 12 |
 | [Other verified decisions](workflow-decisions.md#verified) | 43 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 5 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 4 |
 | [In review](workflow-decisions.md#review) | 0 |
 | [Proposed changes](workflow-decisions.md#proposed) | 12 |
 
