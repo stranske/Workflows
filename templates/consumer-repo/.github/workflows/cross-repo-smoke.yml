@@ -10,7 +10,8 @@
 #   CROSS_REPO_SMOKE_HOST_INSTALL_COMMAND=<command>   (optional)
 #   CROSS_REPO_SMOKE_DEPENDENCY_INSTALL_COMMAND=<cmd> (optional)
 #
-# Requires repository secret CROSS_REPO_TOKEN with read access to the dependency repo.
+# Public dependency checkouts can use the read-only job token.
+# For a private dependency, provide CROSS_REPO_TOKEN with read access to that repo.
 #
 # NOTE: Do NOT add a top-level 'permissions:' block here. It causes startup_failure
 # when calling reusable workflows. The reusable workflow defines its own permissions.
