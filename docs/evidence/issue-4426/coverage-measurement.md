@@ -225,3 +225,7 @@ for one target remains distinct from measured zero improvement. The command
 rejects ambiguous rounded branch counts and marks archive verification,
 comparable execution and branch-arc recovery false. It grants no exclusions.
 The archive-based command still requires the exact digest-matching bytes.
+
+To map two retained coverage inventories across specified Git revisions, use
+`--compare-checkouts` with the same script. The [Gate comparison example](gate-check.md#provisioned-baseline-comparison-and-ranked-remainder-completion-2026-11-12)
+uses the bundled inventories and Git objects.

@@ -7,11 +7,15 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**November 27, verifier coverage evidence.** Nine historical records from two consecutive PR-verifier coverage runs now share one offline archive. On the installed tree all nine hashes and modes matched the originals, a corrupted snapshot failed its checksum, and all 198 named regression outcomes matched the baseline. The consolidation removed eight tracked paths and 94,779 uncompressed bytes. [Installed archive](https://github.com/stranske/Workflows/pull/5305) · [Offline recovery](../evidence/issue-4426/gate-check.md#recover-the-verifier-chunk-mutation-records)
+
+The existing coverage reconciliation command also compares the two six-target inventories with `--compare-checkouts`. Its log report and cross-revision comparison reproduced the original JSON byte-for-byte. Keeping the executable under `scripts/` preserves ordinary code CI and coverage measurement. The historical inputs and the original commands remain recoverable with the evidence. [Current comparison command](../evidence/issue-4426/gate-check.md#provisioned-baseline-comparison-and-ranked-remainder-completion-2026-11-12)
+
 **November 27, 01:24 UTC. Stage 1A has 162 accepted workflows out of 198.** On a real guide defect, the hosted optimizer published suggestions and applied them after operator approval. The 65-second Apply job added six subtasks, preserved the original issue and both acceptance criteria, and set the formatted label. The installed validator accepted the resulting body. This completes the Workflows operator. The managed copy still needs a receiving Apply. [Suggestions on the guide defect](https://github.com/stranske/Workflows/issues/5300#issuecomment-7207235960) · [Apply and issue edit](https://github.com/stranske/Workflows/actions/runs/45922234428/job/140255396255)
 
 The receiving sync resolver is installed. Its replay recovered the historical Trend dependency and refused unsupported evidence. The live Maint 90 producer remains a separate change. Portable Alpha’s Event Hub recognized the corrected Maint 72 publisher on its scoped removal PR and skipped the unrelated issue writer. The protected receiver removal and weekly diagnostic remain open. [Receiver resolver](https://github.com/stranske/Workflows/pull/5290) · [Maint 90 producer](https://github.com/stranske/Workflows/pull/5291) · [Receiving Event Hub](https://github.com/stranske/Portable-Alpha-Extension-Model/actions/runs/45920864372)
 
-**Closed issue #4484.** The [installed cleanup](https://github.com/stranske/Workflows/commit/2c70670643e69372967a87b5050daae4fd969495) removed its one-use recovery script and retired 19 command-specific test cases. Its general schema check now runs in the maintained ledger suite. Each primary Gate report contained all 81 validator cases, and both grammar reports contained zero. The installed ledger still resolves the original 35 batches and their 3,652 terminal results.
+For **closed issue #4484**, the [installed cleanup](https://github.com/stranske/Workflows/commit/2c70670643e69372967a87b5050daae4fd969495) removed its one-use recovery script and retired 19 command-specific test cases. Its general schema check now runs in the maintained ledger suite. Each primary Gate report contained all 81 validator cases, and both grammar reports contained zero. The installed ledger still resolves the original 35 batches and their 3,652 terminal results.
 
 Ten October 30–31 AGY evidence records now share one directory on main. All ten original Git blobs, ten guide links and the recorded pilot and judge outputs passed the installed-tree check. This closes ten file and two folder decisions. [Installed archive](https://github.com/stranske/Workflows/pull/5295)
 
@@ -194,13 +198,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 162/198 completed · 1 drainable now · 35 blocked · 36 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,551/2,901 | 110/220 | — |
-| 3 · Scripts, tools and packages | 369/752 | 34/43 | — |
+| 2 · Evidence and archives | 1,560/2,901 | 110/220 | — |
+| 3 · Scripts, tools and packages | 371/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 910/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,055/5,554** | **298/487** | **162/198** |
+| **Total** | **3,066/5,554** | **298/487** | **162/198** |
 
-**Directory organization.** 2,843 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,854 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
