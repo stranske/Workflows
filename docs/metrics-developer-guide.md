@@ -98,7 +98,7 @@ Example config:
 
 ## Updating tests
 
-- Add new fixture values in `tests/fixtures/sample_metrics.json`.
+- Add new fixture values in `tests/metrics/sample_metrics.json`.
 - Update the [dashboard pipeline test](../tests/metrics/test_metrics_dashboard.py)
   assertions if the new metric is required for the pipeline.
 - For dashboard logic changes, update unit tests in

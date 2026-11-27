@@ -19,7 +19,7 @@ def _write_repo_metrics(metrics_dir: Path, fixture_path: Path) -> list[str]:
 
 def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
-    fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "sample_metrics.json"
+    fixture_path = Path(__file__).with_name("sample_metrics.json")
     metrics_dir = tmp_path / "repo-metrics"
     repos = _write_repo_metrics(metrics_dir, fixture_path)
 
@@ -95,7 +95,7 @@ def test_metrics_dashboard_pipeline(tmp_path: Path) -> None:
 
 
 def test_metrics_dashboard_pipeline_with_config(tmp_path: Path) -> None:
-    fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "sample_metrics.json"
+    fixture_path = Path(__file__).with_name("sample_metrics.json")
     metrics_dir = tmp_path / "repo-metrics"
     repos = _write_repo_metrics(metrics_dir, fixture_path)
 
