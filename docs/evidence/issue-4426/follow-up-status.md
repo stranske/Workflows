@@ -66,6 +66,8 @@ All required test suites continue to pass with the repository-selected Python:
 
 Latest bounded-review chunk:
 
+The [verifier chunk packet](gate-check.md#recover-the-verifier-chunk-mutation-records) preserves the nine historical files cited in the next two updates.
+
 Four new cases cover oversized unparseable input, the request cap for oversized
 files, comparison-mode chunk routing, and memory exhaustion on the second
 response serialization fallback. The unchanged chunk suite/configuration gains

@@ -70,7 +70,7 @@ provider calls for rejected input. Provider invocation and local prompt
 measurement are the test seams; chunk construction and aggregation run as-is.
 
 Five parameter cases each have a named mutation failure and restored pass in
-`chunk-failure-mutations.json`; reproduce with
+the [archived chunk-failure results](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/chunk-failure-mutations.json). The [recovery guide](gate-check.md#recover-the-verifier-chunk-mutation-records) restores the files used by the historical command
 `python docs/evidence/issue-4426/chunk-failure-mutation-driver.txt`.
 The prior receipts and their source snapshots remain unchanged.
 
