@@ -259,7 +259,7 @@ def test_canonical_llm_requirements_include_faiss_runtime() -> None:
         REPO_ROOT / "templates" / "consumer-repo" / "tools" / "requirements-llm.txt",
     ):
         requirements = path.read_text(encoding="utf-8").splitlines()
-        assert "faiss-cpu==1.14.2" in requirements
+        assert "faiss-cpu==1.16.0" in requirements
 
 
 @pytest.mark.parametrize("workflow", ROOT_SPARSE_LANGCHAIN_WORKFLOWS)

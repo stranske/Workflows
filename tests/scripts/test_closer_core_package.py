@@ -169,6 +169,7 @@ def test_draft_portable_snapshot_integration(source_commit: str) -> None:
     [
         ("jsonschema", "4.21.0"),
         ("PyYAML", "6.0.2"),
+        ("PyYAML", "unknown"),
         ("requests", "2.0.0"),
         ("jsonschema", "unknown"),
     ],
@@ -185,9 +186,19 @@ def test_dependency_probe_rejects_unsupported_versions(monkeypatch, name, versio
         core_pkg.verify_runtime_dependencies(sys.executable)
 
 
-@pytest.mark.parametrize("version", ["4.22.0", "4.26.0", "5.0.0"])
-def test_dependency_probe_accepts_declared_minimum_and_newer(monkeypatch, version):
-    versions = {"jsonschema": version, "PyYAML": "6.0.3", "requests": "2.34.2"}
+@pytest.mark.parametrize(
+    "name,version",
+    [
+        ("jsonschema", "4.22.0"),
+        ("jsonschema", "4.26.0"),
+        ("jsonschema", "5.0.0"),
+        ("PyYAML", "6.0.3"),
+        ("PyYAML", "6.0.4"),
+    ],
+)
+def test_dependency_probe_accepts_declared_minimum_and_newer(monkeypatch, name, version):
+    versions = {"jsonschema": "4.22.0", "PyYAML": "6.0.3", "requests": "2.34.2"}
+    versions[name] = version
     monkeypatch.setattr(
         core_pkg.subprocess,
         "run",

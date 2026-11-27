@@ -163,7 +163,7 @@ def test_progress_review_uses_subscription_without_langchain_install():
         in step["run"]
     )
     lock = json.loads((ROOT / ".github/actions/maint78-codex-cli/package-lock.json").read_text())
-    assert lock["packages"]["node_modules/@openai/codex"]["version"] == "0.160.0"
+    assert lock["packages"]["node_modules/@openai/codex"]["version"] == "0.172.0"
     assert lock["packages"]["node_modules/@openai/codex"]["integrity"]
 
 
