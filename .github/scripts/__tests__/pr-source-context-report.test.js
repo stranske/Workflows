@@ -14,7 +14,7 @@ const {
   writeReport,
 } = require('../pr_source_context_report.js');
 
-const release3769 = require('./fixtures/release-3769.json');
+const { release3769 } = require('./fixtures/source-context-release-pulls.json');
 
 test('release #3769 report retains inferred automation and the complete release checklist', () => {
   const report = buildPrSourceContextReport({

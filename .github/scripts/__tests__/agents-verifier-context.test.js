@@ -147,8 +147,7 @@ test('comment pagination detects deletion shifts and changed snapshots in every 
   });
 });
 const issueBodyClosed = fs.readFileSync(path.join(fixturesDir, 'issue-body-closed.md'), 'utf8');
-const release3769 = require('./fixtures/release-3769.json');
-const release3787 = require('./fixtures/release-3787.json');
+const { release3769, release3787 } = require('./fixtures/source-context-release-pulls.json');
 
 const buildVerifierContext = (options) => buildVerifierContextImpl({
   ...options,

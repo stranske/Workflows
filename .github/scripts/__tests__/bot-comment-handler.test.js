@@ -4,8 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-const commentsFixture = require('./fixtures/bot-comment-handler-comments.json');
-const dispositionFixtures = require('./fixtures/bot-comment-terminal-dispositions.json');
+const {
+  comments: commentsFixture,
+  terminalDispositions: dispositionFixtures,
+} = require('./fixtures/bot-comment-handler-inputs.json');
 
 const {
   DEFAULT_BOT_AUTHORS,
