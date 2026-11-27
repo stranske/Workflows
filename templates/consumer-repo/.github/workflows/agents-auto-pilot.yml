@@ -4,12 +4,13 @@ name: Agents Auto-Pilot
 # End-to-end automation: Issue → Format → Optimize → Apply → Agent → Keepalive → Merge
 # Triggered by:
 # 1. agents:auto-pilot label (initial trigger)
-# 2. Issue/PR closed events (for verification)
-# 3. Manual dispatch (for testing/recovery)
+# 2. An enrolled sync-core handoff releases its first opportunity
+# 3. Issue/PR closed events (for verification)
+# 4. Manual dispatch (for testing/recovery)
 
 on:
   issues:
-    types: [labeled, closed]
+    types: [labeled, unlabeled, closed]
   pull_request:
     types: [labeled, closed]
   # Note: Optimizer now runs inline in auto-pilot, not as separate workflow
@@ -65,7 +66,8 @@ jobs:
   # Only passes for:
   #   1. workflow_dispatch (self-dispatched pipeline steps)
   #   2. agents:auto-pilot label specifically added (initial trigger)
-  #   3. Issue/PR closed with agents:auto-pilot label (verification)
+  #   3. The scoped sync-core first-opportunity label is removed (fallback)
+  #   4. Issue/PR closed with agents:auto-pilot label (verification)
   # All other label events (status:in-progress, agents:formatted, etc.)
   # are rejected HERE, so they never enter the concurrency group and
   # cannot displace pending re-dispatched runs.
@@ -73,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
-      proceed: ${{ steps.eligibility.outputs.should-run }}
+      proceed: ${{ steps.eligibility.outputs.should-run == 'true' && steps.sync_opener_first.outputs.proceed != 'false' }}
     steps:
       - name: Checkout eligibility action
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -91,14 +93,47 @@ jobs:
         id: eligibility
         uses: ./.github/actions/agent-event-eligibility
         with:
-          expected-actions: workflow_dispatch,labeled,closed
+          expected-actions: workflow_dispatch,labeled,unlabeled,closed
           custom-predicate: >-
             event_name == 'workflow_dispatch' ||
             (action == 'labeled' && label.name == 'agents:auto-pilot') ||
+            (event_name == 'issues' && action == 'unlabeled' && label.name == 'sync:opener-first') ||
             (action == 'closed' && (
               (issue && contains(issue.labels[].name, 'agents:auto-pilot')) ||
               (pull_request && contains(pull_request.labels[].name, 'agents:auto-pilot'))
             ))
+
+      - name: Route an enrolled sync-core handoff
+        if: >-
+          steps.eligibility.outputs.should-run == 'true' &&
+          github.event_name == 'issues' &&
+          (github.event.action == 'labeled' || github.event.action == 'unlabeled')
+        id: sync_opener_first
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          SYNC_CORE_OPENER_FIRST_ISSUER_ID: ${{ vars.SYNC_CORE_OPENER_FIRST_ISSUER_ID }}
+        with:
+          script: |
+            const { action, issue, label, sender } = context.payload;
+            const pilot = 'sync:opener-first';
+            const labels = new Set(issue?.labels?.map(entry => entry.name) || []);
+            const issuer = process.env.SYNC_CORE_OPENER_FIRST_ISSUER_ID;
+            const enrolled = /^[1-9][0-9]*$/.test(issuer || '') &&
+              String(issue?.user?.id) === issuer && String(sender?.id) === issuer &&
+              issue?.state === 'open' &&
+              /^<!-- sync-core opener-first\/v1 -->\r?\n<!-- sync-core\/v1 handoff fp=[0-9a-f]{12}(?:[0-9a-f]{4})? -->\r?\n/.test(issue.body || '') &&
+              ['sync', 'automated', 'agents:auto-pilot'].every(name => labels.has(name));
+
+            if (action === 'unlabeled' && label?.name === pilot) {
+              const held = ['agents:paused', 'agents:auto-pilot-pause', 'agents:auto-pilot-failed',
+                'needs-human', 'intake:held', 'do-not-merge', 'status:in-progress', 'status:ready'];
+              const released = enrolled && !labels.has(pilot) &&
+                !held.some(name => labels.has(name)) && ![...labels].some(name => name.startsWith('agent:'));
+              core.setOutput('proceed', String(released));
+            } else if (action === 'labeled' && label?.name === 'agents:auto-pilot' && enrolled && labels.has(pilot)) {
+              core.info('Sync-core handoff reserved for the shared opener. Legacy routing resumes on release.');
+              core.setOutput('proceed', 'false');
+            }
 
   # ── Main auto-pilot job ──────────────────────────────────────────────
   auto-pilot:
@@ -286,6 +321,8 @@ jobs:
         if: steps.check_enabled.outputs.enabled == 'true'
         id: context
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          SYNC_CORE_OPENER_FIRST_ISSUER_ID: ${{ vars.SYNC_CORE_OPENER_FIRST_ISSUER_ID }}
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
@@ -310,6 +347,8 @@ jobs:
             });
 
             let issueNumber, issue, pr;
+            const syncFallback = context.eventName === 'issues' && context.payload.action === 'unlabeled' &&
+              context.payload.label?.name === 'sync:opener-first';
             const deferForRateLimit = (stage, error) => {
               if (!isRateLimitError(error)) {
                 return false;
@@ -366,8 +405,8 @@ jobs:
               return;
             }
 
-            // Fetch issue if not in payload (with retry)
-            if (!issue) {
+            // A queued sync release must re-read labels and state before acting.
+            if (!issue || syncFallback) {
               try {
                 const { data } = await withRetry((client) =>
                   client.rest.issues.get({
@@ -384,6 +423,26 @@ jobs:
             }
 
             const labels = issue.labels.map(l => l.name);
+
+            const issuer = process.env.SYNC_CORE_OPENER_FIRST_ISSUER_ID;
+            if (issue.state === 'open' && issuer && String(issue.user?.id) === issuer &&
+                labels.includes('sync:opener-first') && labels.includes('agents:auto-pilot') &&
+                labels.includes('sync') && labels.includes('automated') &&
+                /^<!-- sync-core opener-first\/v1 -->\r?\n<!-- sync-core\/v1 handoff fp=[0-9a-f]{12}(?:[0-9a-f]{4})? -->\r?\n/.test(issue.body || '')) {
+              core.setOutput('should_continue', 'false');
+              core.setOutput('reason', 'sync-opener-first');
+              return;
+            }
+
+            if (syncFallback && (issue.state !== 'open' || !labels.includes('agents:auto-pilot') ||
+                labels.some(name => name.startsWith('agent:') || [
+                  'sync:opener-first', 'agents:paused', 'intake:held', 'do-not-merge',
+                  'status:ready', 'status:in-progress',
+                ].includes(name)))) {
+              core.setOutput('should_continue', 'false');
+              core.setOutput('reason', 'sync-opener-release-no-longer-eligible');
+              return;
+            }
 
             // Check for pause label
             if (labels.includes('agents:auto-pilot-pause')) {
@@ -491,6 +550,11 @@ jobs:
               }
             }
 
+            if (syncFallback && linkedPR) {
+              core.setOutput('should_continue', 'false');
+              core.setOutput('reason', 'sync-opener-release-has-linked-pr');
+              return;
+            }
             core.setOutput('issue_number', issueNumber);
             core.setOutput('issue_title', issue.title);
             core.setOutput('issue_state', issue.state);

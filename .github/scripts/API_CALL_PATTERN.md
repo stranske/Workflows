@@ -255,9 +255,10 @@ When converting a script to use token-aware retry:
 
 4. **Test locally** to ensure the wrapped calls work correctly.
 
-5. **Run the guard script** to verify all calls are protected:
+5. **Run the local audit** to find potentially unprotected calls.
+
    ```bash
-   node .github/scripts/__checks__/api-call-guard.js
+   node scripts/api-call-guard.js
    ```
 
 ## Common Patterns
@@ -306,22 +307,16 @@ const [issueResult, prResult] = await Promise.all([
 ]);
 ```
 
-## CI Enforcement
+## Local JavaScript Audit
 
-The `api-call-guard.js` script runs in CI to catch unprotected API calls:
+From the Workflows repository root, scan the JavaScript helpers under `.github/scripts/`.
 
 ```bash
-node .github/scripts/__checks__/api-call-guard.js
+node scripts/api-call-guard.js
 ```
 
-This will fail if any script has `github.rest.*` calls that aren't protected by either:
-- Importing `ensureRateLimitWrapped` (Pattern 1 - proxy approach)
-- Using `withRetry` callbacks (Pattern 2 - explicit approach)
+The audit reports file and line numbers for potentially unprotected REST, GraphQL, and pagination calls. It exits with status 1 when it finds any. It uses a file-level wrapper heuristic and skips test files, dependencies, and low-level retry helpers.
 
-## Exempt Files
+## Hosted Validation
 
-The following files are exempt from the API call guard:
-- `github-api-with-retry.js` - The retry wrapper itself
-- `token_load_balancer.js` - Token management
-- Files in `__tests__/` - Test files
-- Files in `__checks__/` - CI guard scripts
+Maint 52 Validate Workflows runs `python scripts/check_api_wrapper_guard.py --base-ref main` to check changed files against the base branch for direct GitHub API usage, missing wrapper hints, and missing token setup for workflows. Maint 66 Monthly Audit runs the Python guard with `--all` and writes its report to the audit artifact. Health 42 runs actionlint and publishes workflow annotations.

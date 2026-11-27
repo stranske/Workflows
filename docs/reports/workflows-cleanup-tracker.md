@@ -19,6 +19,12 @@ The ordinary promotion merged all 16 reviewed receiving PRs. An independent read
 
 The regular hosted seat now includes the shared opener. Earlier scheduled passes correctly skipped apply while the Mac was active. The [ordinary scheduled run](https://github.com/stranske/Orchestrator/actions/runs/46031816842) acquired the shared lease during the Mac pause, and the local pause was released. All three lanes finished. The opener actually started Workflows #5352, the local controller respected the hosted lease, and 30/30 hosted feedback records reached the Mac. The dependency Gate produced that issue. No sync remediation was filed, so five qualifying sync-originated starts remain. Auto-Pilot, Decompose and the belt continue serving existing work. Portable Alpha's protected main has removed its 23,072-byte pr_body.md and retained the original ignore rule. A new normal preview reported the corrected receiver and made zero writes. The independent weekly diagnosis remains outstanding. [Hosted enrollment](https://github.com/stranske/Orchestrator/pull/1509) · [Receiver route](https://github.com/stranske/Workflows/pull/5348) · [Portable Alpha](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540) · [Post-merge preview](https://github.com/stranske/Workflows/actions/runs/46028294563/job/140605331171)
 
+The receiving verification follow-up has a qualified keep. Sixteen installations matched the source, the historical receiving job created an issue and posted its backlink, and the latest two-provider comparison returned PASS on all five original inputs. No authenticated outstanding correction surfaced in the 46-hour review. Reopen the positive path when a current receiving finding needs a worker. The design-kit folder stays together after testing its ordered stylesheet imports, guide links and button callback. [Receiving comparison](https://github.com/stranske/trip-planner/pull/2068#issuecomment-7223317580)
+
+The runtime-4550 archive proposal moves 127 historical captures to their two original Git revisions. Nine of nine representative files recovered independently. Baseline, candidate and restoration all preserved 245 named cases. Removing one active inventory failed its real CLI and named test. The proposed net reduction is 3,335,525 bytes. [Archive proposal](https://github.com/stranske/Workflows/pull/5357)
+
+Protected main a52cfa08865c7ed9656fa61a605067664dcd34b8 contains the reviewed API guard at scripts/api-call-guard.js. Its former single-child folder, two static matrix files and the old run-count guide are absent. The four operator-guide and CLI objects from #5333 match exactly. The installed source completed four original file decisions and one folder decision. [Installed operator changes](https://github.com/stranske/Workflows/pull/5341) · [Original operator controls](https://github.com/stranske/Workflows/pull/5333)
+
 ### November 27, 14:01 UTC review
 
 Workflows main retired the standalone Reusable 16 keepalive runner, 27 other obsolete files and its fixture directory. The installed current keepalive function reproduced the exact task fingerprint and all nine tasks on PR #5337. The source change removed 4,566 lines and added six. The two primary Gate jobs took 439 and 363 seconds. The earlier grouped-suite change also received a successful default-branch Selftest on its release successor. [Runner retirement](https://github.com/stranske/Workflows/pull/5340) · [Gate](https://github.com/stranske/Workflows/actions/runs/46004382224) · [Grouped-suite default verification](https://github.com/stranske/Workflows/actions/runs/46005690135)
@@ -306,24 +312,24 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 184/198 completed · 0 drainable now · 14 blocked · 14 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 0 drainable now · 13 blocked · 13 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,754/2,901 | 115/220 | — |
-| 3 · Scripts, tools and packages | 406/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 937/1,540 | 129/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 200/334 | 26/47 | — |
-| **Total** | **3,324/5,554** | **304/487** | **184/198** |
+| 3 · Scripts, tools and packages | 408/752 | 35/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 938/1,540 | 130/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 201/334 | 26/47 | — |
+| **Total** | **3,328/5,554** | **306/487** | **185/198** |
 
-**Directory organization.** 3,112 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,116 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 127 |
+| [Keep in current role](workflow-decisions.md#keep) | 128 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 13 |
 | [Other verified decisions](workflow-decisions.md#verified) | 44 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 2 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 1 |
 | [In review](workflow-decisions.md#review) | 0 |
 | [Proposed changes](workflow-decisions.md#proposed) | 12 |
 
