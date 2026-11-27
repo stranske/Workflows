@@ -7,7 +7,9 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
-**November 27, 09:01 UTC review.** Two qualified keeps bring Stage 1A to 181 of 198. Retain the hosted verifier continuation. Its historical selected run created #3383 and led to merged worker PR #3385. Both post-cleanup authored copies reproduced one issue creation and reuse on repeat in a local replay. The native post-cleanup result remains open. The managed receiver still needs ordinary fleet installation and one selected continuation. Integration-Tests received its separate SDK cleanup. [Original continuation](https://github.com/stranske/Workflows/actions/runs/33929656672) · [Worker PR](https://github.com/stranske/Workflows/pull/3385) · [SDK retirement](https://github.com/stranske/Workflows/pull/5313)
+### November 27, 09:01 UTC review
+
+Two qualified keeps bring Stage 1A to 181 of 198. Retain the hosted verifier continuation. Its historical selected run created #3383 and led to merged worker PR #3385. Both post-cleanup authored copies reproduced one issue creation and reuse on repeat in a local replay. The native post-cleanup result remains open. The managed receiver still needs ordinary fleet installation and one selected continuation. Integration-Tests received its separate SDK cleanup. [Original continuation](https://github.com/stranske/Workflows/actions/runs/33929656672) · [Worker PR](https://github.com/stranske/Workflows/pull/3385) · [SDK retirement](https://github.com/stranske/Workflows/pull/5313)
 
 Retain the Muse worker. It delivered a ten-file change in Manager-Mosaic #117, and replacing its setup with the shared action failed on a supported historical Workflows ref. The current audit found zero selections across four caller routes. The current model, launch flags, provider output and same-head settlement remain open until a genuine selected run. [Historical selected job](https://github.com/stranske/Manager-Mosaic/actions/runs/39104966522/job/117608884399) · [Merged change](https://github.com/stranske/Manager-Mosaic/pull/117)
 
