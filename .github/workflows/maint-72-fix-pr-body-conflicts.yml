@@ -60,37 +60,15 @@ jobs:
 
           import json
           import os
-          import re
           from pathlib import Path
 
+          from scripts.list_registered_consumer_repos import extract_repos
+
           path = Path('.github/workflows/maint-68-sync-consumer-repos.yml')
-          lines = path.read_text(encoding='utf-8').splitlines()
-
-          start_index = None
-          for index, line in enumerate(lines):
-            if re.search(r'\bREGISTERED_CONSUMER_REPOS\s*:\s*\|\s*$', line):
-              start_index = index + 1
-              break
-
-          if start_index is None:
-            raise SystemExit('Could not find REGISTERED_CONSUMER_REPOS: | block')
-
-          block_indent = None
-          repos: list[str] = []
-          for raw_line in lines[start_index:]:
-            if raw_line.strip() == '':
-              continue
-
-            indent = len(raw_line) - len(raw_line.lstrip(' '))
-            if block_indent is None:
-              block_indent = indent
-
-            if indent < (block_indent or 0):
-              break
-
-            value = raw_line.strip()
-            if value:
-              repos.append(value)
+          try:
+            repos = extract_repos(path, require_block=True)
+          except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
 
           target = os.environ.get('TARGET_REPO', '').strip()
           if target:

@@ -1,4 +1,3 @@
-import json
 import os
 import shutil
 import subprocess
@@ -97,22 +96,52 @@ def test_integration_sync_failure_is_a_transient_alert() -> None:
     assert "Do not close this durable tracker after recovery." not in source
 
 
-def test_integration_sync_checks_out_the_retry_helpers_runtime_dependencies() -> None:
-    workflow = _workflow()
+def test_integration_sync_sparse_tree_includes_recovery_helpers(tmp_path: Path) -> None:
     checkout = next(
         step
-        for step in workflow["jobs"]["sync"]["steps"]
+        for step in _workflow()["jobs"]["sync"]["steps"]
         if step.get("name") == "Checkout Workflows repo"
-    )
-    sparse_checkout = str(checkout["with"]["sparse-checkout"])
-
-    for helper in (
+    )["with"]
+    source_paths = (
         ".github/scripts/error_classifier.js",
         ".github/scripts/github-api-with-retry.js",
         ".github/scripts/github-rate-limited-wrapper.js",
+        ".github/scripts/sync_tracker_state/index.js",
         ".github/scripts/token_load_balancer.js",
-    ):
-        assert helper in sparse_checkout
+        ".github/scripts/package.json",
+    )
+    vendor_path = ".github/scripts/node_modules/minimatch/package.json"
+    for path in (*source_paths, vendor_path):
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(path, encoding="utf-8")
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "-f", "."], cwd=tmp_path, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-qm",
+            "seed",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    assert checkout["sparse-checkout-cone-mode"] is False
+    subprocess.run(
+        ["git", "sparse-checkout", "set", "--no-cone", "--stdin"],
+        cwd=tmp_path,
+        input=checkout["sparse-checkout"],
+        text=True,
+        check=True,
+    )
+    assert all((tmp_path / path).is_file() for path in source_paths)
+    assert not (tmp_path / vendor_path).exists()
 
 
 def test_integration_sync_success_closes_even_a_marker_free_legacy_alert() -> None:
@@ -126,18 +155,13 @@ def test_integration_sync_success_closes_even_a_marker_free_legacy_alert() -> No
     assert "state_reason: 'completed'" in source
 
 
-def test_integration_sync_api_setup_preserves_vendored_dependencies(tmp_path: Path) -> None:
+def test_integration_sync_api_setup_isolated_from_source_package(tmp_path: Path) -> None:
     workspace = tmp_path / "runner workspace"
-    install_dir = workspace / "workflows/.github/scripts"
-    install_dir.mkdir(parents=True)
-    shutil.copyfile(REPO_ROOT / ".github/scripts/package.json", install_dir / "package.json")
-    # Keep installed API packages in the developer checkout out of this fixture:
-    # their presence would skip npm and leave the alias preparation untested.
-    shutil.copytree(
-        REPO_ROOT / ".github/scripts/node_modules/minimatch",
-        install_dir / "node_modules/minimatch",
-    )
-    original_package = (install_dir / "package.json").read_bytes()
+    install_dir = workspace / "workflows/.github"
+    scripts_dir = install_dir / "scripts"
+    scripts_dir.mkdir(parents=True)
+    source_package = REPO_ROOT / ".github/scripts/package.json"
+    shutil.copyfile(source_package, scripts_dir / "package.json")
     setup = next(
         step
         for step in _workflow()["jobs"]["sync"]["steps"]
@@ -146,41 +170,60 @@ def test_integration_sync_api_setup_preserves_vendored_dependencies(tmp_path: Pa
     configured_dir = setup["with"]["install_dir"].replace("${{ github.workspace }}", str(workspace))
     action_dir = REPO_ROOT / ".github/actions/setup-api-client"
     action = yaml.safe_load((action_dir / "action.yml").read_text())
-    script = action["runs"]["steps"][0]["run"].replace("${{ inputs.install_dir }}", configured_dir)
-    # Exercise the authored shell and alias helper; only the external installer is inert.
+    assert not (scripts_dir / "node_modules").exists()
+
+    # Exercise the authored setup and Node's lookup from the recovery source directory.
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     npm = bin_dir / "npm"
     npm.write_text(
-        "#!/bin/bash\nset -euo pipefail\n"
-        'node -e \'const fs = require("fs"); '
-        'const p = JSON.parse(fs.readFileSync("minimatch/package.json")); '
-        'if (p.name !== "minimatch") process.exit(1);\'\n'
-        'touch "$GITHUB_WORKSPACE/npm-invoked"\n'
+        """#!/bin/bash
+set -euo pipefail
+test "$PWD" = "$GITHUB_WORKSPACE/workflows/.github"
+test "$(cat package.json)" = '{"private":true}'
+mkdir -p node_modules/test-api-client
+printf '%s\n' '{"exports":{"require":"./index.cjs","import":"./index.mjs"}}' > node_modules/test-api-client/package.json
+printf '%s\n' 'module.exports = true;' > node_modules/test-api-client/index.cjs
+printf '%s\n' 'export default true;' > node_modules/test-api-client/index.mjs
+""",
+        encoding="utf-8",
     )
     npm.chmod(0o755)
-    sleep = bin_dir / "sleep"
-    sleep.write_text("#!/bin/bash\nexit 0\n")
-    sleep.chmod(0o755)
-    result = subprocess.run(
-        ["/bin/bash", "-c", script],
-        cwd=workspace,
-        env=os.environ
-        | {
-            "GITHUB_WORKSPACE": str(workspace),
-            "GITHUB_ACTION_PATH": str(action_dir),
-            "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
-        },
-        capture_output=True,
-        text=True,
-        timeout=30,
+    env_file = workspace / "env"
+    env = os.environ | {
+        "GITHUB_ENV": str(env_file),
+        "GITHUB_WORKSPACE": str(workspace),
+        "GITHUB_ACTION_PATH": str(action_dir),
+        "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+    }
+    for step in action["runs"]["steps"][:2]:
+        script = step["run"].replace("${{ inputs.install_dir }}", configured_dir)
+        result = subprocess.run(
+            ["/bin/bash", "-c", script],
+            cwd=workspace,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    assert (
+        env_file.read_text(encoding="utf-8")
+        .splitlines()[0]
+        .startswith(f"NODE_PATH={install_dir / 'node_modules'}")
     )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert (workspace / "npm-invoked").is_file()
-    assert not (install_dir / "minimatch").exists()
-    assert (install_dir / "node_modules/minimatch/package.json").is_file()
-    assert (install_dir / "package.json").read_bytes() == original_package
-    assert json.loads(original_package)["dependencies"]["minimatch"].startswith("file:")
+    assert not (scripts_dir / "node_modules").exists()
+    assert (scripts_dir / "package.json").read_bytes() == source_package.read_bytes()
+    probe = scripts_dir / "probe.cjs"
+    probe.write_text(
+        """const assert = require('node:assert/strict');
+assert.equal(require('test-api-client'), true);
+import('test-api-client').then((module) => assert.equal(module.default, true));
+""",
+        encoding="utf-8",
+    )
+    subprocess.run(["node", str(probe)], cwd=workspace, check=True, timeout=10)
 
 
 def test_integration_sync_summary_passes_the_publication_result_as_data() -> None:
