@@ -5,7 +5,7 @@ const {
   findOrCreateTracker,
   isConsumerOpenPr,
   updateTrackerBody,
-} = require('./sync_tracker_state');
+} = require('./sync_tracker_state.js');
 const { mergeEligibility, parseDeliveryRecord } = require('./sync_pr_lease_contract');
 
 const CAMPAIGN_SCHEMA = 'sync-dependabot-campaign/v1';

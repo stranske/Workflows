@@ -118,7 +118,7 @@
         ".github/scripts/should-post-review.js",
         ".github/scripts/source_context.js",
         ".github/scripts/sync_pr_lease_contract.js",
-        ".github/scripts/sync_tracker_state/**",
+        ".github/scripts/sync_tracker_state.js",
         ".github/scripts/terminal_disposition.js",
         ".github/scripts/terminal_disposition_coverage.js",
         ".github/scripts/timeout_config.js",
