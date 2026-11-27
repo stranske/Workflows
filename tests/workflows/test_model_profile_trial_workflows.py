@@ -11,6 +11,7 @@ RUNNER = Path(".github/workflows/reusable-model-profile-trial.yml")
 REGISTRY = Path(".github/agents/registry.yml")
 TEMPLATE_REGISTRY = Path("templates/consumer-repo/.github/agents/registry.yml")
 TRIAL_CLI_ROOT = Path(".github/actions/trial-codex-cli")
+RENOVATE_CONFIG = Path("renovate.json")
 
 
 def _workflow(path: Path):
@@ -132,6 +133,21 @@ def test_runner_uses_separate_pinned_helper_checkout_and_full_action_shas():
     assert "runner-src/scripts/model_profile_trial_contract.py" in source[auth_offset:]
 
 
+def _assert_renovate_freezes_trial_codex_cli() -> None:
+    renovate = json.loads(RENOVATE_CONFIG.read_text(encoding="utf-8"))
+    trial_glob = f"{TRIAL_CLI_ROOT.as_posix()}/**"
+    assert trial_glob in renovate.get("ignorePaths", [])
+    disabling_rules = [
+        rule
+        for rule in renovate.get("packageRules", [])
+        if trial_glob in rule.get("matchFileNames", []) and rule.get("enabled") is False
+    ]
+    assert disabling_rules, f"renovate.json must disable updates for {trial_glob}"
+    for rule in disabling_rules:
+        # A narrowing matcher would leave other trial-cli updates enabled.
+        assert set(rule) <= {"description", "matchFileNames", "enabled"}
+
+
 def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
     registry = yaml.safe_load(REGISTRY.read_text(encoding="utf-8"))
     trial = registry["model_profile_trial_contract"]
@@ -148,6 +164,7 @@ def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
     trial_lock = json.loads((TRIAL_CLI_ROOT / "package-lock.json").read_text(encoding="utf-8"))
     assert trial_lock["packages"][""]["dependencies"]["@openai/codex"] == trial["cli_version"]
     assert trial_lock["packages"]["node_modules/@openai/codex"]["version"] == trial["cli_version"]
+    _assert_renovate_freezes_trial_codex_cli()
     assert trial["runtime_fallback_allowed"] is False
     assert trial["auxiliary_evaluator_allowed"] is False
     for profile_id in (
@@ -163,6 +180,10 @@ def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
         assert profile["reasoning_effort"] == "high"
         assert profile["permission_mode"] == "read-only"
         assert profile["safety"] == "read-only"
+
+
+def test_renovate_does_not_bump_pinned_trial_codex_cli():
+    _assert_renovate_freezes_trial_codex_cli()
 
 
 def test_consumer_template_registry_matches_authoritative_registry():
