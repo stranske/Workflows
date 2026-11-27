@@ -1,0 +1,135 @@
+{
+  "rate_limit_response": {
+    "resources": {
+      "core": {
+        "limit": 5000,
+        "remaining": 1,
+        "used": 4999,
+        "reset": 1700000000
+      },
+      "graphql": {
+        "limit": 5000,
+        "remaining": 2500,
+        "used": 2500
+      },
+      "search": {
+        "limit": 30,
+        "remaining": 0,
+        "used": 31
+      }
+    }
+  },
+  "summary": {
+    "timestamp": "2026-05-06T12:00:00Z",
+    "tokens": {
+      "github_token": {
+        "source": "GITHUB_TOKEN",
+        "core": {
+          "limit": 5000,
+          "remaining": 2500,
+          "used": 2500,
+          "pct": "50.0"
+        },
+        "graphql": {
+          "limit": 5000,
+          "remaining": 5000,
+          "used": 0,
+          "pct": "0"
+        },
+        "search": {
+          "limit": 30,
+          "remaining": 30,
+          "used": 0,
+          "pct": "0"
+        },
+        "reset": "2026-05-06T13:00:00Z"
+      },
+      "owner_pr_pat": {
+        "source": "OWNER_PR_PAT",
+        "core": {
+          "limit": 5000,
+          "remaining": 1000,
+          "used": 4000,
+          "pct": "80.0"
+        },
+        "graphql": {
+          "limit": 5000,
+          "remaining": 2499,
+          "used": 2501,
+          "pct": "50.0"
+        },
+        "search": {
+          "limit": 30,
+          "remaining": 20,
+          "used": 10,
+          "pct": "33.3"
+        },
+        "reset": "2026-05-06T13:00:00Z"
+      },
+      "service_bot_pat": {},
+      "workflows_app": {
+        "source": "WORKFLOWS_APP",
+        "core": {
+          "limit": 15000,
+          "remaining": 14999,
+          "used": 1,
+          "pct": "0"
+        },
+        "graphql": {
+          "limit": 5000,
+          "remaining": 4999,
+          "used": 1,
+          "pct": "0"
+        },
+        "search": {
+          "limit": 30,
+          "remaining": 30,
+          "used": 0,
+          "pct": "0"
+        },
+        "reset": "2026-05-06T13:00:00Z"
+      },
+      "keepalive_app": {},
+      "gh_app": {}
+    },
+    "total_pools": 3,
+    "total_remaining": 18499,
+    "total_limit": 25000
+  },
+  "consumer_activity": [
+    {
+      "repo": "stranske/example-a",
+      "runs_last_hour": 3,
+      "in_progress": 1,
+      "queued": 1,
+      "completed": 1,
+      "top_workflows": [
+        {
+          "name": "CI",
+          "count": 2
+        },
+        {
+          "name": "Release",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "id": 101,
+      "created_at": "2026-05-05T10:00:00Z",
+      "run_number": 71
+    },
+    {
+      "id": 102,
+      "created_at": "2026-05-06T11:00:00Z",
+      "run_number": 72
+    },
+    {
+      "id": 103,
+      "created_at": "2026-05-07T00:00:00Z",
+      "run_number": 73
+    }
+  ]
+}

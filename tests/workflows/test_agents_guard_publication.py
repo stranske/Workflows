@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "agents_guard_3898"
 
 # SHA-256 of `condition + "\n" + script` from the immutable workflow files at
 # Portable-Alpha-Extension-Model d323b67a17b3fd0a6eee17c1c1dd35244abf455a and
@@ -108,12 +109,8 @@ def test_fork_boundary_prevents_normal_and_corrective_read_only_writes(template,
         for item in workflow["jobs"]["guard"]["steps"]
         if item.get("name") == "Report agents guard commit status"
     )
-    historical = json.loads(
-        (ROOT / "tests/fixtures/agents_guard_3898_canary_publisher.json").read_text()
-    )
-    reviewed = json.loads(
-        (ROOT / "tests/fixtures/agents_guard_3898_review_commit_publisher.json").read_text()
-    )
+    historical = json.loads((FIXTURES_DIR / "canary_publisher.json").read_text())
+    reviewed = json.loads((FIXTURES_DIR / "review_commit_publisher.json").read_text())
     assert historical["head"] == "d323b67a17b3fd0a6eee17c1c1dd35244abf455a"
     assert historical["condition"] == "always()"
     assert historical["script"].count("createCommitStatus") == 1
