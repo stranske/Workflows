@@ -7,6 +7,10 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27, installed issue-3743 archive and compact runtime index
+
+Protected default at 306362f1dc089d2c57867b8f3e691dbfe7ac9290 removed 59 tracked files and eliminated two original folders. The net reduction in the issue-3743 evidence tree, including the revised navigation, was 355,161 bytes. Both historical guides and the old serial dispatcher resolve at their original revision, and the new source landing page preserves the route. [Installed archive](https://github.com/stranske/Workflows/pull/5350) The compact runtime-4550 proposal has nine producer groups and two permanent Git trees. It preserves the 55 original navigation links and all 245 named regression cases, while reducing the checkout by a proposed 3,367,067 bytes. [Compact archive proposal](https://github.com/stranske/Workflows/pull/5357)
+
 ### November 27, consumer promotion and archive delivery
 
 Health 69 is retired. GitHub recorded zero legacy runs after two real template PRs and pushes exercised its former triggers. Its registration was deleted and the installed consumer scheduler no longer invokes its importer. The replacement sync checker verified 14 previously pending merged receiving PRs against their default trees. It had mistaken intentionally removed files for failed reads. [Source removal](https://github.com/stranske/Workflows/pull/5086) · [Receiving example](https://github.com/stranske/Doc-Lineage/pull/202)
@@ -314,13 +318,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 0 drainable now · 13 blocked · 13 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,754/2,901 | 115/220 | — |
+| 2 · Evidence and archives | 1,813/2,901 | 117/220 | — |
 | 3 · Scripts, tools and packages | 408/752 | 35/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 938/1,540 | 130/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 201/334 | 26/47 | — |
-| **Total** | **3,328/5,554** | **306/487** | **185/198** |
+| **Total** | **3,387/5,554** | **308/487** | **185/198** |
 
-**Directory organization.** 3,116 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,175 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 

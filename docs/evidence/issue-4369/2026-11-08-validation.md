@@ -1499,6 +1499,7 @@ Targeted passing logs (class: checks against test fixtures, not production use):
 `subject-refusal-maint71-delivery-receipts.log`,
 `subject-refusal-maint71_merge_sync_prs.log`, `scope-binding-tests.log`,
 `payload-path-binding-tests.log`, `supported-binding-tests.log`.
+See [capture recovery](#recover-historical-runtime-and-seat-captures).
 
 Causal candidate receipts (class: read-only observation of production runs).
 Maint 68 `42485644055` dispatched Maint 71 `42485792262`, which opened consumer
@@ -2021,7 +2022,7 @@ stop here; no new code repair, full-suite execution, provider attempt or workflo
 dispatch was made during this round. Cost: read-only Git/GitHub checks plus this
 evidence publication; zero additional runner executions.
 
-The [round-2 command receipt](runtime-4550/4558-round2-readback.json) records exit-0
+The [round-2 command receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round2-readback.json) records exit-0
 ancestry checks for the required ancestor, salvaged PR 4551 head and published
 main reachability of `0a06f1976db1dd7eb12853f493a3371ee4736bcf`. All nine retained
 fix files compare unchanged against the salvaged head. A live PR read confirmed
@@ -2075,7 +2076,7 @@ Publication reconciliation: the bot published `e925444af29e451ad4c8278943c2a6186
 ## Keepalive round 3: producer inventory replay — 2026-11-08
 
 The first unchecked task remains blocked by the retained non-PASS upstream
-verification disposition. The [readback receipt](runtime-4550/4558-round3-readback.json)
+verification disposition. The [readback receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round3-readback.json)
 reconfirms that PR 4551 is merged at the selected immutable revision
 `0a06f1976db1dd7eb12853f493a3371ee4736bcf`. Live main is
 `34e923fe7c4dd99d24de003464f9b1adfe20bb6d`, whose parent is that revision.
@@ -2182,7 +2183,7 @@ repository or base, changed ancestry or trees, another suite checkout, a filtere
 suite command, a failing exit, or a timeout. Both complete retained suite logs
 also match their recorded SHA-256 digests. These are offline evidence tests;
 they do not claim a new hosted full-suite run or a passing provider assessment.
-The [fresh local ancestry checks](runtime-4550/4558-round4-ancestry.json)
+The [fresh local ancestry checks](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round4-ancestry.json)
 independently exit 0 for the required ancestor, salvaged head and reachability
 from `origin/main`.
 
@@ -2230,7 +2231,7 @@ BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4558-round4-black-runtime timeout -k 2
 It exits **0**, **977 files would be left unchanged**; the
 [complete Black output](runtime-4550/4558-round4-black.log) is retained.
 `git diff --check` also exits 0. Commands, results and current PR state are
-summarized in the [round-4 receipt](runtime-4550/4558-round4-readback.json).
+summarized in the [round-4 receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round4-readback.json).
 
 Publication remains blocked. Explicit-path `git add` exits **128** because
 `.git/index.lock` cannot be created on the read-only filesystem. A connected
@@ -2253,17 +2254,17 @@ Git/GitHub queries and evidence publication; zero additional runner executions.
 The previous worker's publication blocker is historical: its scoped tests and
 receipts are now present in published head `cb1d6221c61d3d71f5bac500b1c3512d1e200ed2`.
 
-The [seat readback](runtime-4550/4558-seat-round4-readback.json) independently
+The [seat readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-readback.json) independently
 rechecks required ancestry, salvaged-head ancestry, published-main reachability,
 and whole-tree equality between PR 4551's salvaged head and acceptance revision
 `0a06f1976db1dd7eb12853f493a3371ee4736bcf`. The
-[fresh merge receipt](runtime-4550/4558-seat-round4-merged-pr.json) confirms PR 4551
+[fresh merge receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-merged-pr.json) confirms PR 4551
 merged at that revision. T1's conditional delivery requirement applies when the
 fixes are absent from main; they are present. The separate retained upstream
 assessment remains non-PASS and is not cleared by this interpretation.
 
 Both complete hosted suite log digests match their exit-0 receipts on that same
-immutable checkout. The [fresh run readback](runtime-4550/4558-seat-round4-acceptance-run.json)
+immutable checkout. The [fresh run readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-acceptance-run.json)
 confirms successful Selftest run 42523162606. The prior exact-command receipts
 retain runner identity, selected interpreter paths, execution bounds and timings;
 no full suite was run locally. Historical diagnostic failures justify no repair
@@ -2273,7 +2274,7 @@ A fresh `git show` of source revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf`
 and contents-API read of consumer merge `1ff9e11cd51a456333c626cb354543b63202bef6`
 produce identical 7,087-byte files. The retained `cmp` command exits **0**.
 Both blobs are `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`.
-[Comparison receipt](runtime-4550/4558-seat-round4-bytes.json),
+[Comparison receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-bytes.json),
 [source bytes](runtime-4550/4558-seat-round4-source.txt), and
 [merged consumer bytes](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-consumer.txt) ([recover this filename](#recover-identical-seat-receipts)) retain the
 identities and payloads independently of candidate metadata.
@@ -2336,7 +2337,7 @@ change and performs no acceptance rerun. Its outcome command is
 with a 120-second external bound; stop this readback at the first unresolved
 step after three failed attempts or 60 minutes, whichever comes first.
 
-The [round-5 receipt](runtime-4550/4558-seat-round5-readback.json) retains native
+The [round-5 receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round5-readback.json) retains native
 CI run metadata and diagnostic excerpts from both complete downloaded job logs.
 [Run 42538048213](https://github.com/stranske/Workflows/actions/runs/42538048213)
 failed on incoming head `17a2ff3b86460d514079e7398e0d7053034d0197`.
@@ -2396,7 +2397,7 @@ failed attempts or 60 minutes, whichever occurs first. The outcome command is
 `/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py -m 'not slow'`.
 No production code repair or full local suite is attempted.
 
-The [round-6 receipt](runtime-4550/4558-seat-round6-readback.json) binds failed
+The [round-6 receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round6-readback.json) binds failed
 [Selftest run 42539507760](https://github.com/stranske/Workflows/actions/runs/42539507760)
 to incoming head `48a2d6828122b8c8bdb8afd36b5aa6c0c09397f8`. Complete downloaded
 logs for jobs 128911206256 and 128911206258 again report **2 failed, 8 passed**:
@@ -2451,7 +2452,7 @@ original acceptance campaign. Outcome command:
 Commands have a 120-second bound; stop after three failed attempts at one step
 or 60 minutes, whichever occurs first. No full suite runs locally.
 
-The [round-7 receipt](runtime-4550/4558-seat-round7-readback.json) binds
+The [round-7 receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round7-readback.json) binds
 [Selftest run 42540722369](https://github.com/stranske/Workflows/actions/runs/42540722369)
 to incoming head `8d8f3552e35442647de5457156e638a221acc067`. Downloaded logs
 for compatibility jobs 128915094357 and 128915094410 each report **2 failed,
@@ -2535,13 +2536,13 @@ in each retained comparison command. Missing or duplicated entries, changed
 blob IDs, nonzero exits and moving refs are rejected. No production symbol
 was repaired from a historical diagnostic log.
 
-The [focused test receipt](runtime-4550/4558-round8-tests.json) and
+The [focused test receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round8-tests.json) and
 [complete log](runtime-4550/4558-round8-tests.log) record **71 passed in 1.03s**,
 exit **0**, with 21 new mutation cases. Relevant-file Black and Ruff pass.
 These tests validate retained evidence; they do not constitute another hosted
 full-suite execution or clear the upstream non-PASS assessment.
 
-The [fresh readback](runtime-4550/4558-round8-readback.json) finds issue 4550
+The [fresh readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round8-readback.json) finds issue 4550
 closed and PR 4551 merged, ready-state preserved. Native remote comparison
 shows the selected revision remains an ancestor of main
 `e8aa27930bddd15f479b1312db14828b1542e2ee`. This strengthens the already
@@ -2639,17 +2640,17 @@ incomplete pages, duplicate/out-of-bounds runs, chronological ordering and the
 actual retained round-9 inventory. Every observation retains
 `chain_acceptance=false`; no artifact-derived causal proof is invented.
 
-The [validation receipts](runtime-4550/4558-round9-tests.json) retain exact
+The [validation receipts](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-tests.json) retain exact
 commands, bounds, timings, exit codes and complete-log hashes. Direct Node
 validation passes **32 tests**; the Node test runner also exits 0. Focused
 Python lifecycle validation passes **71 tests**. Both CLI replays exit 0:
-[producer observation](runtime-4550/4558-round9-producer-replay.json) and
-[merger observation](runtime-4550/4558-round9-merger-replay.json). The merger
+[producer observation](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-producer-replay.json) and
+[merger observation](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-merger-replay.json). The merger
 input is the retained inventory with `workflow_path` set to the exact Maint 71
 path; its temporary local copy was removed after replay. No Python source file
 was changed, so the conditional Python pre-commit formatting gate does not apply.
 
-The [readback](runtime-4550/4558-round9-readback.json) records the single merger
+The [readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round9-readback.json) records the single merger
 lead, [run 42544857435](https://github.com/stranske/Workflows/actions/runs/42544857435),
 with `event=workflow_dispatch`, actor and triggering actor
 `stranske-automation-bot`. Those fields alone do not authenticate the caller.
@@ -2683,14 +2684,14 @@ first unresolved step after three failed attempts or 60 minutes, whichever
 comes first; this supplement does not restart the original acceptance run.
 No production code was changed.
 
-The [cited run receipt](runtime-4550/4558-seat-round8-cited-run.json) binds
+The [cited run receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-cited-run.json) binds
 Gate run **42544364151** to **0b03620ce5bbc954b4a6385a1048df1ffbe6e759**,
 not incoming head **ab3593ad342906b33f9c660ee1951f56d777f9b4**. Its terminal
 conclusion is `cancelled`; the failed summary prints
 `Gate did not report explicit success: Python CI cancelled; waiting for rerun.`
-The [current run](runtime-4550/4558-seat-round8-current-run.json),
+The [current run](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-current-run.json),
 **42545724638**, tests the incoming head and was still `in_progress` at readback.
-Its [job receipt](runtime-4550/4558-seat-round8-current-jobs.json) has both
+Its [job receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-current-jobs.json) has both
 Python matrix jobs in progress and successful lint, typecheck, JavaScript,
 docs and test-quality jobs. Neither a new code defect nor Gate success can be
 inferred from the cancelled predecessor. No workflow repair or pin change is
@@ -2700,13 +2701,13 @@ The [producer inventory](runtime-4550/4558-seat-round8-producer-inventory.json)
 and [merger inventory](runtime-4550/4558-seat-round8-merger-inventory.json)
 cover **2026-11-09T01:23:40Z–2026-11-09T01:49:57Z** with exact workflow IDs,
 no event filter, and complete pagination. The observer exits 0 for each:
-[producer result](runtime-4550/4558-seat-round8-producer-observation.json)
-contains **0** runs; [merger result](runtime-4550/4558-seat-round8-merger-observation.json)
+[producer result](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-producer-observation.json)
+contains **0** runs; [merger result](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-merger-observation.json)
 contains **2** `workflow_dispatch` leads, **42545795504** and **42546550033**.
 Their caller origin remains `UNKNOWN`. No producer or artifact-derived causal
 chain is established, and no Maint 68 or Maint 71 dispatch was performed.
 
-The [verification receipt](runtime-4550/4558-seat-round8-verification.json)
+The [verification receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-verification.json)
 rechecks required-ancestor and salvaged-#4551-head ancestry of published main
 **0a06f1976db1dd7eb12853f493a3371ee4736bcf**, plus that revision's reachability
 from current `origin/main`. All three commands exit **0**. The complete Node
@@ -2727,7 +2728,7 @@ zero active/blocking/nonblocking/unknown findings for candidate
 `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, source
 `bbfc6ae604c8e8c4021138c5efe964a368482957`, generation `a478e45c16b6` in
 [the target report](runtime-4550/4557-maint71-target.json).
-Discussion **4434491702 is excluded**. A [fresh consumer PR thread read](runtime-4550/4558-seat-round8-consumer-threads.json)
+Discussion **4434491702 is excluded**. A [fresh consumer PR thread read](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-consumer-threads.json)
 confirms the actual merge identity and **0** review threads with
 `hasNextPage=false`. The [complete issue-4369 comment observation](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-comments.json) ([local recovery](#recover-the-seat-comment-captures))
 retains pages of **49 and 0**, 49 unique IDs, and explicit UTC boundary
@@ -2944,20 +2945,20 @@ justified by a cancelled predecessor run. Blocking/drainable pair:
 **drainable=1** (validate and publish exact-head diagnostic/evidence update).
 
 Outcome **A1=verified historical execution receipts; overall acceptance=incomplete**.
-The [cited native run](runtime-4550/4558-seat-round9-cited-run.json)
+The [cited native run](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-cited-run.json)
 42549415323 is **cancelled** at predecessor head
 `825337ce48bd897465f015219c8bc0f56fea609b`, not incoming head
 `a3b5f1539ad0be40a4f53ac380264781ff10fdc5`. Its Python 3.13 job
 128944827899 prints “The operation was canceled” and `PYTEST_OUTCOME=cancelled`
-([excerpt](runtime-4550/4558-seat-round9-cancellation-excerpt.log)); the
-[Gate summary](runtime-4550/4558-seat-round9-gate-excerpt.log) says
+([excerpt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-cancellation-excerpt.log)); the
+[Gate summary](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-gate-excerpt.log) says
 “Python CI cancelled; waiting for rerun.” The cancellation initiator/cause is
 UNKNOWN. This does not demonstrate a failing source assertion. The actual
-[incoming-head Gate run](runtime-4550/4558-seat-round9-current-run.json)
+[incoming-head Gate run](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-current-run.json)
 42551000234 is **queued**, with no conclusion at readback. No workflow or code
 was changed to address a predecessor cancellation, and no rerun was dispatched.
 
-The [verification receipt](runtime-4550/4558-seat-round9-verification.json)
+The [verification receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-verification.json)
 records three successful ancestry commands, both complete hosted-suite log
 hashes, immutable source readback, fresh consumer contents-API readback, and the
 exact `cmp` command exiting **0**. Selected published main remains
@@ -2971,7 +2972,7 @@ commands to that same revision, supported runner, absolute interpreter paths,
 600/1800-second bounds, timings and exit **0**. These are historical executions,
 not full-suite executions of this PR head. Focused receipt validation using
 `/opt/anaconda3/bin/python3` exits **0**, **124 passed in 0.71s**
-([complete focused log](runtime-4550/4558-seat-round9-focused.log)).
+([complete focused log](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-focused.log)).
 
 Outcome **A2=0 (equal bytes)**: source template at selected main and consumer
 `tools/subscription_llm.py` at actual PR 2486 merge
@@ -2985,7 +2986,7 @@ active/blocking/nonblocking/unknown findings for candidate
 `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, source
 `bbfc6ae604c8e8c4021138c5efe964a368482957`, generation `a478e45c16b6`.
 Discussion **4434491702 is excluded**. A
-[fresh consumer review-thread read](runtime-4550/4558-seat-round9-consumer-threads.json)
+[fresh consumer review-thread read](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-consumer-threads.json)
 confirms the actual merged revision and zero threads, `hasNextPage=false`.
 No discussion was resolved or waived by this round.
 
@@ -2995,8 +2996,8 @@ Outcome **A3=unproved**. Complete workflow-specific inventories cover
 [merger inventory](runtime-4550/4558-seat-round9-merger-inventory.json).
 Both retain an explicit empty terminal page, total **0**, and matching exact
 workflow identities. The bounded observer replays exit **0** and find no runs
-([producer](runtime-4550/4558-seat-round9-producer-observation.json),
-[merger](runtime-4550/4558-seat-round9-merger-observation.json)). No new chain
+([producer](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-producer-observation.json),
+[merger](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-merger-observation.json)). No new chain
 is established; original producer dispatch provenance remains UNKNOWN.
 
 Outcome **A4=observation refreshed**. The
@@ -3006,7 +3007,7 @@ retains pages of **49 and 0**, **49 unique IDs**, explicit UTC boundary
 observation boundary independent of workflow-run timing. The applicable
 exact-head findings and merged-byte result are recorded above.
 
-The [PR readback](runtime-4550/4558-seat-round9-pr.json) confirms open and ready
+The [PR readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-pr.json) confirms open and ready
 (`draft=false`) on the original branch. No pins, production code, workflow,
 consumer template or test changed. Cost: read-only API/Git checks and the focused
 receipt validator; **zero new runner executions, zero workflow dispatches,
@@ -3313,7 +3314,7 @@ source symbol or weaken the Gate based on this signal. Pending CI blocks merge;
 the drain is to let the already-running exact-head Gate finish while collecting
 read-only evidence. No rerun, dispatch, cancellation or merge is requested.
 
-The [verification receipt](runtime-4550/4558-seat-round10-verification.json)
+The [verification receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-verification.json)
 records **124 focused receipt tests passed** in 0.59 seconds, all three Git
 ancestry checks exiting 0, and retained source/consumer `cmp` exiting 0. Both
 full-suite log hashes and hosted execution receipts remain valid at published
@@ -3323,14 +3324,14 @@ on this evidence-only PR head. No production source or dependency pin changed.
 The complete workflow-specific inventories cover
 **2026-11-09T03:01:54Z–03:30:44Z**. The
 [producer inventory](runtime-4550/4558-seat-round10-producer-inventory.json)
-and [replay](runtime-4550/4558-seat-round10-producer-observation.json) contain
+and [replay](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-producer-observation.json) contain
 zero Maint 68 runs. The
 [merger inventory](runtime-4550/4558-seat-round10-merger-inventory.json)
-and [replay](runtime-4550/4558-seat-round10-merger-observation.json) contain
+and [replay](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-merger-observation.json) contain
 two Maint 71 workflow-dispatch runs, **42555977107** and **42556352733**.
 Their caller origin remains **UNKNOWN**. Their downloaded reports
-([first](runtime-4550/4558-seat-round10-42555977107-sync-pr-merge-report.json),
-[second](runtime-4550/4558-seat-round10-42556352733-sync-pr-merge-report.json))
+([first](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-42555977107-sync-pr-merge-report.json),
+[second](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-42556352733-sync-pr-merge-report.json))
 are scoped to another consumer and contain no Portable-Alpha-Extension-Model
 candidate or causal-successor receipt. They do not satisfy T5/A3. No Maint 68
 or Maint 71 was dispatched by this work. The drain remains read-only observation
@@ -3340,7 +3341,7 @@ writer lock changed.
 The fresh [issue-4369 comment receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-comments.json) ([local recovery](#recover-the-seat-comment-captures))
 retains all **49** comments through **2026-11-09T03:30:44Z**, with explicit page
 sizes **49, 0** and complete pagination. The fresh
-[consumer thread readback](runtime-4550/4558-seat-round10-consumer-threads.json)
+[consumer thread readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-consumer-threads.json)
 confirms PR 2486 head `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, actual merge
 `1ff9e11cd51a456333c626cb354543b63202bef6`, and zero review threads with
 `hasNextPage=false`. There are zero applicable active exact-head Maint 71
@@ -3349,18 +3350,18 @@ consumer blobs both remain `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2` and the
 [exact byte comparison](runtime-4550/4558-byte-comparison.json) is revalidated
 by this round's exit-0 `cmp`.
 
-The [current-head job receipt](runtime-4550/4558-seat-round10-current-jobs.json)
+The [current-head job receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-current-jobs.json)
 subsequently shows Python 3.13/3.14 cancelled as well. The run was still queued
 with no terminal conclusion at readback; completed logs were unavailable.
 Cancellation cause is **UNKNOWN**. The
-[cited predecessor excerpt](runtime-4550/4558-seat-round10-gate-excerpt.log)
+[cited predecessor excerpt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-gate-excerpt.log)
 retains the actual summary error. No test assertion failure was reproduced and
 no source repair is warranted by these receipts. The upstream non-PASS verifier
 remains unresolved. Overall acceptance remains incomplete.
 
 Before publication, remote keepalive commit `523b4c04f` arrived. Rebased onto
 that commit, preserving both appended evidence sections and its collector fix.
-The [post-rebase checks](runtime-4550/4558-seat-round10-post-rebase.json) pass:
+The [post-rebase checks](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-post-rebase.json) pass:
 **81 observer tests**, **124 receipt tests**, and `git diff --check` exit 0.
 The initial non-fast-forward push was rejected without changing remote history.
 
@@ -3468,19 +3469,19 @@ rerun, schedule change or merge is planned.
 
 The supplied Gate run **42557039655** is terminal **cancelled**, belongs to
 predecessor `b818bbd881d5d9999937b2e2e2181e43d8092403`, and its
-[summary excerpt](runtime-4550/4558-seat-round11-gate-excerpt.log) prints
+[summary excerpt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-gate-excerpt.log) prints
 `Python CI cancelled; waiting for rerun.` The
-[full job readback](runtime-4550/4558-seat-round11-42557039655-run.json)
+[full job readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42557039655-run.json)
 records both Python jobs cancelled. This is not an assertion failure and does
 not justify a code repair. The incoming-head run **42558056987**, bound to
 `f36e687f7b5b3b329469b625034578b18b1198d5`, is still running in the
-[retained readback](runtime-4550/4558-seat-round11-42558056987-run.json), with
+[retained readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42558056987-run.json), with
 both Python jobs in progress. Cancellation cause remains **UNKNOWN**. Publishing
 this evidence creates another head, so this readback cannot establish its CI
 result. The continuation must let the newest head finish rather than treating
 superseded cancellations as reproduced source defects.
 
-[Verification](runtime-4550/4558-seat-round11-verification.json) rechecks all
+[Verification](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-verification.json) rechecks all
 three ancestry relationships, both complete hosted raw-log hashes against their
 original receipts, exit-0 retained payload `cmp`, and **124 focused receipt tests
 passed** in 0.63 seconds. Selected published main remains
@@ -3494,12 +3495,12 @@ The complete workflow-specific inventory covers
 contains zero Maint 68 runs. The
 [merger inventory](runtime-4550/4558-seat-round11-merger-inventory.json)
 contains successful workflow-dispatch runs **42557538415** and **42558127073**.
-Their retained [first report](runtime-4550/4558-seat-round11-42557538415-sync-pr-merge-report.json)
-and [second report](runtime-4550/4558-seat-round11-42558127073-sync-pr-merge-report.json)
+Their retained [first report](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42557538415-sync-pr-merge-report.json)
+and [second report](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42558127073-sync-pr-merge-report.json)
 are dev-tool deliveries. The first records `no_prs` for the target consumer;
 the second has no target-consumer result. Neither supplies the qualifying
 subscription-payload producer/plan/candidate/merge chain. The
-[artifact summary](runtime-4550/4558-seat-round11-artifact-summary.json)
+[artifact summary](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-artifact-summary.json)
 retains report hashes and target results. Caller origin remains **UNKNOWN**;
 T5/A3 remain incomplete. No Maint 68/71/82 dispatch was performed by this seat.
 
@@ -3532,19 +3533,19 @@ focused check. Stop at the first unresolved step after three failed attempts or
 60 minutes, whichever occurs first. Collection began **04:15:43.557153Z**;
 the maximum deadline is **05:15:43.557153Z**. No production code was changed.
 
-The supplied [Gate run 42558056987](runtime-4550/4558-seat-round12-42558056987-run.json)
+The supplied [Gate run 42558056987](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-42558056987-run.json)
 is terminal **cancelled** and belongs to predecessor
 `f36e687f7b5b3b329469b625034578b18b1198d5`, not incoming head
 `e7381722f2ca843b7611dccaf05a36180c7110a5`. Both Python matrix jobs were
-cancelled. Its [summary excerpt](runtime-4550/4558-seat-round12-gate-excerpt.log)
+cancelled. Its [summary excerpt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-gate-excerpt.log)
 prints `Python CI cancelled; waiting for rerun.` The
-[incoming-head run 42559738777](runtime-4550/4558-seat-round12-42559738777-run.json)
+[incoming-head run 42559738777](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-42559738777-run.json)
 was still in progress at collection. No test assertion failure was reproduced;
 cancellation cause is UNKNOWN. This evidence commit creates a new head, whose
 CI must be assessed independently. No rerun, cancellation, dispatch, schedule
 change, merge or dependency-pin edit was performed by this seat.
 
-[Verification](runtime-4550/4558-seat-round12-verification.json) confirms required
+[Verification](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-verification.json) confirms required
 ancestor inclusion, salvaged PR 4551 head inclusion, and reachability from fetched
 `origin/main`, each exit 0. Both complete hosted raw-log SHA-256 hashes match
 the original receipts, and both receipts bind exit 0 to the same selected main
@@ -3574,7 +3575,7 @@ discussion **4434491702** is excluded. Both retained payloads have blob
 command and exit code remain in the [byte receipt](runtime-4550/4558-byte-comparison.json).
 This supplies the refreshed T7/A4 observation without claiming T5/A3.
 
-The [upstream verifier readback](runtime-4550/4558-seat-round12-verifier-readback.json)
+The [upstream verifier readback](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-verifier-readback.json)
 remains attempt 1. Its Actions success does not clear the previously retained
 non-PASS model verdict. T1's ancestry/fix inclusion is verified, but its required
 verification-gate delivery clause remains unresolved. Blocking/drainable pair:
@@ -3867,4 +3868,203 @@ Use the printed directory as the working directory for the recorded round 4
   cp "$source_dir/4558-seat-round11-consumer-threads.json" "$receipts/4558-seat-round12-consumer-threads.json"
   printf '%s\n' "$out"
 )
+```
+
+## Recover historical runtime and seat captures
+
+Each group lists its exact filenames, starting with a representative.
+
+Recover a capture using its filename and publication commit.
+
+
+```sh
+(
+  set -eu
+  revision=0a06f1976db1dd7eb12853f493a3371ee4736bcf
+  receipt=node-targeted.json
+  git fetch --no-tags --depth=1 origin "$revision"
+  out=$(mktemp -d "${TMPDIR:-/tmp}/workflows-runtime-receipt.XXXXXX")
+  git show "$revision:docs/evidence/issue-4369/runtime-4550/$receipt" > "$out/$receipt"
+  shasum -a 256 "$out/$receipt"
+)
+```
+
+### Original publication #4551
+
+[Browse Git tree](https://github.com/stranske/Workflows/tree/0a06f1976db1dd7eb12853f493a3371ee4736bcf/docs/evidence/issue-4369/runtime-4550)
+
+#### Focused runtime test captures (10)
+
+```text
+node-targeted.json
+node-targeted.log
+python-async-named.json
+python-async-named.log
+python-context-coverage.json
+python-context-coverage.log
+python-targeted.json
+python-targeted.log
+python-truncation-named.json
+python-truncation-named.log
+```
+
+#### Maint 71 lifecycle, missing-canary, and finding investigations (8)
+
+```text
+missing-canary-live-observation.json
+delivery-lifecycle-binding-red.log
+delivery-lifecycle-validation.json
+historical-finding-gates.json
+historical-finding-gates.log
+historical-finding-live-observation.json
+missing-canary-production-replay.json
+missing-canary-production-replay.log
+```
+
+#### Native candidate and Maint 71 subject refusal investigations (15)
+
+```text
+native-scope-live-observation.json
+native-scope-replay.json
+native-scope-replay.log
+native-tuple-live-observation.json
+native-tuple-tests-1.log
+native-tuple-tests-2.log
+native-tuple-tests-3.log
+native-tuple-tests.json
+subject-refusal-maint71-delivery-receipts.log
+subject-refusal-maint71_merge_sync_prs.log
+subject-refusal-observation.json
+subject-refusal-python-diagnostic.log
+subject-refusal-red.log
+subject-refusal-scoped-canary-refresh.log
+subject-refusal-validation.json
+```
+
+#### Runtime reconciliation and issue metadata (5)
+
+```text
+issue-4369-comments.json
+consumer-payload.txt
+downstream-binding-red.log
+schedule-inventory.json
+workflow-dispatch-inventory.json
+```
+
+#### Verifier artifact and coding transport investigations (20)
+
+```text
+coding-stdin-live-observation.json
+artifact-stall-after.log
+artifact-stall-before.log
+artifact-stall-direct.log
+artifact-stall-followup.json
+artifact-stall-python-diagnostic.log
+artifact-stall-validation.json
+coding-stall-after.log
+coding-stall-before.log
+coding-stall-followup.json
+coding-stall-regression-after.log
+coding-stall-regression-before.log
+coding-stall-regression.json
+coding-stall-validation.json
+coding-stdin-direct.log
+coding-stdin-red.json
+coding-stdin-red.log
+coding-stdin-targeted.json
+coding-stdin-targeted.log
+coding-stdin-validation.json
+```
+
+### Original publication #4558
+
+[Browse Git tree](https://github.com/stranske/Workflows/tree/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550)
+
+#### Hosted seat run, gate, review, and verifier readbacks (39)
+
+```text
+4558-seat-round12-verification.json
+4558-seat-round10-cited-run.json
+4558-seat-round10-consumer-threads.json
+4558-seat-round10-current-jobs.json
+4558-seat-round10-current-run.json
+4558-seat-round10-gate-excerpt.log
+4558-seat-round10-post-rebase.json
+4558-seat-round10-pr.json
+4558-seat-round10-verification.json
+4558-seat-round11-42557039655-run.json
+4558-seat-round11-42558056987-run.json
+4558-seat-round11-artifact-summary.json
+4558-seat-round11-gate-excerpt.log
+4558-seat-round11-verification.json
+4558-seat-round12-42558056987-run.json
+4558-seat-round12-42559738777-run.json
+4558-seat-round12-gate-excerpt.log
+4558-seat-round12-verifier-readback.json
+4558-seat-round4-acceptance-run.json
+4558-seat-round4-bytes.json
+4558-seat-round4-merged-pr.json
+4558-seat-round4-readback.json
+4558-seat-round5-readback.json
+4558-seat-round6-readback.json
+4558-seat-round7-readback.json
+4558-seat-round8-cited-run.json
+4558-seat-round8-consumer-threads.json
+4558-seat-round8-current-jobs.json
+4558-seat-round8-current-run.json
+4558-seat-round8-pr.json
+4558-seat-round8-verification.json
+4558-seat-round9-cancellation-excerpt.log
+4558-seat-round9-cited-run.json
+4558-seat-round9-consumer-threads.json
+4558-seat-round9-current-run.json
+4558-seat-round9-focused.log
+4558-seat-round9-gate-excerpt.log
+4558-seat-round9-pr.json
+4558-seat-round9-verification.json
+```
+
+#### Maint 68 and Maint 71 issue 4558 review and replay outputs (16)
+
+```text
+4558-round2-readback.json
+4558-round3-readback.json
+4558-round4-ancestry.json
+4558-round4-readback.json
+4558-round8-readback.json
+4558-round8-tests.json
+4558-round9-lifecycle.log
+4558-round9-merger-replay.json
+4558-round9-merger-replay.log
+4558-round9-observer-direct.log
+4558-round9-observer-test-runner.log
+4558-round9-producer-replay.json
+4558-round9-producer-replay.log
+4558-round9-readback.json
+4558-round9-tests.json
+4558-source-issue.json
+```
+
+#### Maint 68 and Maint 71 seat observation outputs (8)
+
+```text
+4558-seat-round10-merger-observation.json
+4558-seat-round10-observation.json
+4558-seat-round10-producer-observation.json
+4558-seat-round8-merger-observation.json
+4558-seat-round8-producer-observation.json
+4558-seat-round9-merger-observation.json
+4558-seat-round9-observation.json
+4558-seat-round9-producer-observation.json
+```
+
+#### Maint 71 seat merge and canary artifact captures (6)
+
+```text
+4558-seat-round11-42557538415-sync-pr-merge-report.json
+4558-seat-round10-42555977107-sync-canary-evidence.json
+4558-seat-round10-42555977107-sync-pr-merge-report.json
+4558-seat-round10-42556352733-sync-canary-evidence.json
+4558-seat-round10-42556352733-sync-pr-merge-report.json
+4558-seat-round11-42558127073-sync-pr-merge-report.json
 ```
