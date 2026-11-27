@@ -30,7 +30,7 @@ from scripts.repo_review_docs_drift_scan import (
 )
 
 FIXTURE_PATH = (
-    Path(__file__).parent / "fixtures" / "repo_review_docs_drift_scan" / "seeded_responses.json"
+    Path(__file__).parents[1] / "fixtures" / "repo_review_docs_drift_scan" / "seeded_responses.json"
 )
 SEEDED_FIXTURE_RESPONSES: dict[str, str] = {
     key: json.dumps(value)
