@@ -642,7 +642,8 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
     # scripts/langchain/response_content.py (#4434) adds one copy entry.
     # Autofix PR-head observation and completion validation add one copy entry.
     # The shared auto-pilot summary environment is shipped with its CLI callers.
-    assert len(plan["entries"]) == 282
+    # Retire both files from the disabled verifier correction effect job.
+    assert len(plan["entries"]) == 280
     assert {
         "scripts/autopilot_summary_environment.py",
         ".github/scripts/autofix_metrics.js",
@@ -685,7 +686,12 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ),
         ("src/manager_mosaic/schemas/evidence-object-v1.schema.json", ("stranske/Manager-Mosaic",)),
     }
-    assert len(plan["removals"]) == 17
+    removals = {entry["target"] for entry in plan["removals"]}
+    assert len(removals) == 19
+    assert {
+        ".github/scripts/verifier_correction_artifact_sdk/package.json",
+        ".github/scripts/verifier_correction_artifact_sdk/package-lock.json",
+    } <= removals
     assert all(entry["source_tree"] in {"root", "template"} for entry in plan["entries"])
     assert all(entry["resolved_source"] for entry in plan["entries"])
     assert len({entry["target"] for entry in plan["entries"]}) == len(plan["entries"])

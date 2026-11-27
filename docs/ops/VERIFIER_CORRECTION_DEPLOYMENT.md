@@ -57,13 +57,12 @@ flowchart LR
 ```
 
 This release retains the original verifier seed, read-only request collection,
-public v1 schemas, pure effect/reconciliation kernels and inert tests. It does
-**not** deploy typed issue creation, continuation or coding. The effect job has
-an unconditional false condition, production effect/continuation factories refuse
-before native I/O, Auto rejects a supplied typed selector before ordinary effects,
-and the actual runner CLI refuses an unsupported correction sidecar before writing
-a provider prompt. No variable, caller field, role record or credential can enable
-this source policy. Activation requires another reviewed source change.
+public v1 schemas, pure effect/reconciliation kernels and inert tests. The
+previously disabled effect job and its private artifact SDK are retired.
+Production effect/continuation factories refuse before native I/O, Auto rejects
+a supplied typed selector before ordinary effects, and the runner CLI refuses
+an unsupported correction sidecar before writing a provider prompt. Activation
+requires a reviewed source change and the separate admission work below.
 
 Ordinary Auto, Belt, Codex, keepalive and merged-PR label follow-up no longer call
 repository-wide correction-history discovery. Their ordinary routing, stop

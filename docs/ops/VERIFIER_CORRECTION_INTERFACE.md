@@ -87,8 +87,8 @@ The effect adapter has mandatory trusted-host dependencies and no live defaults:
 original-seed/request/test-decision authentication, fresh facts, complete
 existing-follow-up-ledger reads, durable conditional ledger append, authenticated
 issue/started-receipt reconciliation, the existing GitHub client and a clock.
-The separate conditional effect job consumes its own retained admitted artifact;
-the collection job performs no issue or dispatch effects.
+Read-only collection retains the admitted context for inspection. The effect
+adapter remains an offline reference exercised with inert transport.
 
 Both fixed stages share one trusted effect key:
 
@@ -188,15 +188,14 @@ and first-request limits are required. Missing/deleted historical checkpoints
 remain UNKNOWN unless the exact historical effect job was positively skipped;
 expiry, forks, duplicates and upload uncertainty cannot imply absence. These
 artifacts require the authenticated PR concurrency host integration; they are not
-a new store or a cross-workflow lock. The retained, disabled effect-job definition installs the official Actions artifact
-SDK only if a future reviewed deployment enables that branch using its private checked-in
-package manifest and full integrity lock with install scripts disabled. The exact
-runtime module/export was checked after a cold offline install; no SDK method or
-GitHub effect was invoked. The operational Auto workflow retains its original
-Workflows-only PR-meta/keepalive fallbacks, while the consumer keeps its consolidated
-entry points. The inert split preserves that existing routing difference. The disabled effect-job definition shares the original
-repository/PR concurrency group. Its fresh native collector includes all relevant
-nonterminal Actions states; missing assignment/queue evidence remains owned UNKNOWN.
+a new store or a cross-workflow lock. The disabled hosted effect job and its
+private SDK were retired. Offline transport tests and historical provenance
+checks retain the original job and step identities. The operational Auto
+workflow retains its original Workflows-only PR-meta/keepalive fallbacks, while
+the consumer keeps its consolidated entry points.
+
+The native collector includes all relevant nonterminal Actions states. Missing
+assignment or queue evidence remains owned UNKNOWN.
 A native assignee event and versioned strict cross-reference content projection bind
 existing ownership. Cross-referenced events have no numeric event ID; mutable issue
 body/labels never become lineage identity. Connected events are joined using their

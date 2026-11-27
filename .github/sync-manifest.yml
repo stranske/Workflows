@@ -232,6 +232,10 @@ removals:
     description: "Remove retired belt conveyor alias wrapper from template consumers (callers rewired to agents-73-codex-belt-conveyor.yml)"
   - target: .github/scripts/rate-limit-aware-client.js
     description: "Remove retired rate-limit-aware client from template consumers (superseded by github-rate-limited-wrapper.js)"
+  - target: .github/scripts/verifier_correction_artifact_sdk/package.json
+    description: "Remove the SDK file used only by the retired verifier correction effect job"
+  - target: .github/scripts/verifier_correction_artifact_sdk/package-lock.json
+    description: "Remove the SDK file used only by the retired verifier correction effect job"
 # Codex prompts for agent operations
 prompts:
   - source: .github/codex/prompts/keepalive_next_task.md
@@ -656,14 +660,6 @@ scripts:
 
   - source: .github/scripts/verifier_correction_runtime.js
     description: "Wires native correction consumer/reconciliation and mandatory coding scope into existing lanes; missing classifier provenance, current qualification or explicit coding budget stays held"
-    delivery: copy
-
-  - source: .github/scripts/verifier_correction_artifact_sdk/package.json
-    description: "Pinned package manifest for the existing official Actions artifact SDK used only by admitted correction checkpoints"
-    delivery: copy
-
-  - source: .github/scripts/verifier_correction_artifact_sdk/package-lock.json
-    description: "Frozen integrity-checked transitive dependency lock for correction artifact checkpoint transport; installed with scripts disabled"
     delivery: copy
 
   - source: .github/scripts/verifier_correction_artifacts.js
