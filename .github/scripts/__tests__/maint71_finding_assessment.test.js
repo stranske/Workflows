@@ -121,16 +121,13 @@ test('marker JSON escapes comment delimiters and round-trips', () => {
   assert.deepEqual(JSON.parse(json), value);
 });
 
-test('dispatch receipts: only completed runs Maint 90 dispatched spend the budget', () => {
-  const now = Date.parse('2026-11-26T20:00:00Z');
-  const receipt = (id, at) => ({ dispatch: { maint71_run_id: id, dispatched_at: at } });
-  const runs = [{ id: 11, status: 'completed' }, { id: 12, status: 'in_progress' }, { id: 99, status: 'completed' }];
-  assert.equal(A.spentDispatches([receipt(11, '2026-11-26T19:50:00Z')], runs, now).length, 1);
-  assert.equal(A.spentDispatches([receipt(12, '2026-11-26T19:50:00Z')], runs, now).length, 0);
-  // Unknown run id: spent once it had an hour to finish, so the budget always drains.
-  assert.equal(A.spentDispatches([receipt(null, '2026-11-26T19:30:00Z')], runs, now).length, 0);
-  assert.equal(A.spentDispatches([receipt(null, '2026-11-26T18:30:00Z')], runs, now).length, 1);
-  assert.equal(A.spentDispatches([receipt(13, '2026-11-26T18:30:00Z')], runs, now).length, 1);
+test('dispatch receipts: only named runs read as completed spend the budget', () => {
+  const status = new Map([[11, 'completed'], [12, 'in_progress']]);
+  const budget = (receipts) => A.dispatchBudget(receipts.map((id) => ({ maint71_run_id: id })), status);
+  assert.deepEqual(budget([11]), { spent: 1, total: 1, unconfirmed: 0 });
+  assert.deepEqual(budget([12]), { spent: 0, total: 1, unconfirmed: 1 });
+  // An unidentified or unreadable run is unconfirmed, never a run that processed the proof.
+  assert.deepEqual(budget([null, 13]), { spent: 0, total: 2, unconfirmed: 2 });
 });
 
 test('a request bound to an older head does not authorize an assessment of the current head', () => {
@@ -171,29 +168,52 @@ test('no verification record without a passing run and a failing negative contro
     validation: { repository: 'workflows', command: 'node --test a.test.js' } };
   const base = { candidate, assessment, completedAt: '2026-11-26T17:38:00Z', rawOutput: '{}',
     verifierProfile: 'codex-6.1-sol-medium' };
-  const ran = { test_paths: ['a.test.js'] };
+  const clean = { passed: 1, failed: 0, errors: 0, skipped: 0 };
+  const failedOne = { passed: 0, failed: 1, errors: 0, skipped: 0 };
+  const ran = { test_paths: ['a.test.js'], negative_failed_tests: ['a.test.js::adds one'] };
+  const ok = { exit_code: 0, tests: clean };
+  const neg = (extra) => ({ exit_code: 1, prepared: true, test_present: true, tests: failedOne, ...extra });
   for (const regression of [
-    { ...ran, with_fix: { exit_code: 1 }, without_fix: { exit_code: 1, prepared: true, test_present: true } },
-    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 0, prepared: true, test_present: true } },
-    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: null, prepared: false } },
+    { ...ran, with_fix: { exit_code: 1, tests: failedOne }, without_fix: neg() },
+    { ...ran, with_fix: ok, without_fix: neg({ exit_code: 0, tests: clean }) },
+    { ...ran, with_fix: ok, without_fix: { exit_code: null, prepared: false } },
     // The fix added its own test and the revert removed it: not evidence.
-    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 1, prepared: true, test_present: false } },
+    { ...ran, with_fix: ok, without_fix: neg({ test_present: false }) },
     // Timeout, start failure, pytest usage error / no tests collected: not evidence.
-    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 124, prepared: true, test_present: true } },
-    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 127, prepared: true, test_present: true } },
-    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 4, prepared: true, test_present: true } },
-    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 5, prepared: true, test_present: true } },
+    { ...ran, with_fix: ok, without_fix: neg({ exit_code: 124 }) },
+    { ...ran, with_fix: ok, without_fix: neg({ exit_code: 127 }) },
+    { ...ran, with_fix: ok, without_fix: neg({ exit_code: 4 }) },
+    { ...ran, with_fix: ok, without_fix: neg({ exit_code: 5 }) },
+    // pytest --continue-on-collection-errors: exit 1, but the test never ran.
+    { ...ran, negative_failed_tests: [], with_fix: ok,
+      without_fix: neg({ tests: { passed: 0, failed: 0, errors: 1, skipped: 0 } }) },
+    // The target test failed, but a collection or setup error also occurred.
+    { ...ran, with_fix: ok, without_fix: neg({ tests: { passed: 0, failed: 1, errors: 1, skipped: 0 } }) },
+    // Exit 1 from a different test than the one that passed with the fix.
+    { ...ran, negative_failed_tests: [], with_fix: ok, without_fix: neg() },
+    // No per-test results, or a with-fix run that executed nothing.
+    { ...ran, with_fix: { exit_code: 0 }, without_fix: neg() },
+    { ...ran, with_fix: { exit_code: 0, tests: { passed: 0, failed: 0, errors: 0, skipped: 1 } }, without_fix: neg() },
+    { ...ran, with_fix: ok, without_fix: neg({ tests: null }) },
     // No named test file.
-    { test_paths: [], with_fix: { exit_code: 0 }, without_fix: { exit_code: 1, prepared: true, test_present: true } },
+    { ...ran, test_paths: [], with_fix: ok, without_fix: neg() },
   ]) {
     assert.throws(() => A.buildVerificationRecord({ ...base, regression }), /verification_requires_pass_and_regression/);
   }
+  assert.equal(A.regressionEstablished({ ...ran, with_fix: ok, without_fix: neg() }), true);
 });
 
 // ---- end-to-end replay through discover -> artifacts -> publish ----
 
-function mockGithub({ comments = [], runs = [], runIdBase = 9000, answerFromGraphqlCall = Infinity } = {}) {
-  const calls = { comments: [], dispatches: [], graphql: 0 };
+const THREAD2 = 'PRRT_kwDOO0LrSc68P4-second';
+function secondThread() {
+  const nodes = JSON.parse(JSON.stringify(timeline).split(THREAD).join(THREAD2));
+  return nodes.map((node, index) => ({ ...node, id: `${node.id}-2`, fullDatabaseId: 880000 + index }));
+}
+
+function mockGithub({ comments = [], runs = [], runIdBase = 9000, answerFromGraphqlCall = Infinity,
+  twoThreads = false, failDurableReadOn = Infinity } = {}) {
+  const calls = { comments: [], dispatches: [], graphql: 0, durableReads: 0 };
   const pull = { number: 6250, state: 'open', head: { ref: 'sync/workflows-delivery', sha: HEAD,
     repo: { full_name: REPO } }, base: { ref: 'main', repo: { full_name: REPO } },
     user: { login: 'stranske' }, body: PR_BODY };
@@ -218,6 +238,11 @@ function mockGithub({ comments = [], runs = [], runIdBase = 9000, answerFromGrap
     repos: { compareCommitsWithBasehead: async () => ({ data: { status: 'ahead', behind_by: 0, ahead_by: 3 } }) },
     actions: {
       listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+      getWorkflowRun: async ({ run_id: id }) => {
+        const run = runs.find((item) => item.id === id);
+        if (!run) throw Object.assign(new Error('Not Found'), { status: 404 });
+        return { data: run };
+      },
       createWorkflowDispatch: async (params) => {
         calls.dispatches.push(params);
         return { data: { workflow_run_id: runIdBase + calls.dispatches.length - 1 } };
@@ -226,14 +251,25 @@ function mockGithub({ comments = [], runs = [], runIdBase = 9000, answerFromGrap
   };
   const github = {
     rest,
-    paginate: async (method) => {
+    paginate: async (method, params) => {
       if (method === rest.pulls.list) return [pull];
-      if (method === rest.issues.listComments) return comments;
+      if (method === rest.issues.listComments) {
+        if (params?.issue_number === 1836) {
+          calls.durableReads += 1;
+          if (calls.durableReads >= failDurableReadOn) throw Object.assign(new Error('Server Error'), { status: 502 });
+        }
+        return comments;
+      }
       return [];
     },
     graphql: async () => {
       calls.graphql += 1;
-      if (calls.graphql < answerFromGraphqlCall) return { repository: { pullRequest: reviewState() } };
+      if (calls.graphql < answerFromGraphqlCall) {
+        const state = reviewState();
+        if (twoThreads) state.reviewThreads.nodes.push({ id: THREAD2, isResolved: false, isOutdated: false,
+          comments: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: secondThread() } });
+        return { repository: { pullRequest: state } };
+      }
       const nodes = structuredClone(timeline);
       nodes[2].body = 'REJECT\nThe stale footer assertion still fails.';
       return { repository: { pullRequest: reviewState(nodes) } };
@@ -282,8 +318,11 @@ async function replay({ fix, validation, regression, verdict = 'PASS', rationale
   return { outcomes, calls, item };
 }
 
-const PASSING_REGRESSION = { test_paths: ['tests/test_post_ci_summary.py'], with_fix: { exit_code: 0, tail: '1 passed' },
-  without_fix: { exit_code: 1, prepared: true, test_present: true, tail: '1 failed' }, finished_at: '2026-11-26T17:38:00Z' };
+const PASSING_REGRESSION = { test_paths: ['tests/test_post_ci_summary.py'],
+  with_fix: { exit_code: 0, tail: '1 passed', tests: { passed: 1, failed: 0, errors: 0, skipped: 0 } },
+  without_fix: { exit_code: 1, prepared: true, test_present: true, tail: '1 failed',
+    tests: { passed: 0, failed: 1, errors: 0, skipped: 0 } },
+  negative_failed_tests: ['tests/test_post_ci_summary.py::test_footer'], finished_at: '2026-11-26T17:38:00Z' };
 
 test('replay: #6250 with a verified Workflows source fix publishes the verification and dispatches Maint 71', async () => {
   const { outcomes, calls } = await replay({
@@ -382,7 +421,7 @@ test('redispatch spends its budget only on Maint 71 runs that carried this proof
   };
   const busy = await sweep([verification, receipt9000], [{ id: 9000, status: 'in_progress', created_at: '2026-11-26T17:39:30Z' }], 9100);
   assert.deepEqual(busy.outcomes.map((item) => item.outcome), ['redispatch_held']);
-  // Two unrelated Maint 71 runs complete; our run 9000 is not among them, so nothing is spent.
+  // Two unrelated Maint 71 runs complete and our run 9000 is unreadable: nothing is spent.
   const unrelated = await sweep([verification, receipt9000], [
     { id: 2, status: 'completed', created_at: '2026-11-26T17:45:00Z' },
     { id: 3, status: 'completed', created_at: '2026-11-26T18:15:00Z' },
@@ -397,4 +436,43 @@ test('redispatch spends its budget only on Maint 71 runs that carried this proof
     { id: 9001, status: 'completed', created_at: '2026-11-26T18:20:00Z' },
   ], 9200);
   assert.deepEqual(exhausted.outcomes.map((item) => item.outcome), ['handed_to_owner:maint71_did_not_resolve']);
+});
+
+test('redispatch hands off after four receipts whose runs cannot be confirmed', async () => {
+  const first = await replay({ fix: { kind: 'source', sha: SOURCE_FIX },
+    validation: { repository: 'workflows', command: 'node --test a.test.js' }, regression: PASSING_REGRESSION });
+  const [verification] = first.calls.comments;
+  const receipt = (n) => ({ id: 7100 + n, created_at: '2026-11-26T17:39:00Z', user: { login: 'stranske' },
+    html_url: `https://github.com/stranske/Workflows/issues/1836#issuecomment-${7100 + n}`,
+    body: A.renderDispatchReceipt({ repository: REPO, pr: 6250, head_sha: HEAD, thread_id: THREAD },
+      { runId: null, commentUrl: verification.html_url, dispatchedAt: '2026-11-26T17:39:00Z' }) });
+  const sweep = async (comments) => {
+    const { github, calls } = mockGithub({ comments });
+    const h = harness();
+    await discover({ github, context: h.context, core: h.core, now: AFTER_WINDOW,
+      env: { REGISTERED_REPOS: REPO, TRUSTED_SYNC_ACTORS: 'stranske' } });
+    const outcomes = await publish({ github, context: h.context, core: h.core, now: AFTER_WINDOW,
+      env: { MATRIX_JSON: h.outputs.matrix, REDISPATCH_JSON: h.outputs.redispatch, DRY_RUN: 'false' } });
+    return { outcomes, calls };
+  };
+  const three = await sweep([verification, receipt(1), receipt(2), receipt(3)]);
+  assert.deepEqual(three.outcomes.map((item) => item.outcome), ['redispatched']);
+  const four = await sweep([verification, receipt(1), receipt(2), receipt(3), receipt(4)]);
+  assert.deepEqual(four.outcomes.map((item) => item.outcome), ['handed_to_owner:maint71_runs_unconfirmed']);
+});
+
+test('a read failure on one finding skips the whole PR and discards its planned work', async () => {
+  const both = mockGithub({ twoThreads: true });
+  const ok = harness();
+  const found = await discover({ github: both.github, context: ok.context, core: ok.core, now: AFTER_WINDOW,
+    env: { REGISTERED_REPOS: REPO, TRUSTED_SYNC_ACTORS: 'stranske' } });
+  assert.equal(found.matrix.length, 2, 'both findings on the PR are assessable');
+  const failing = mockGithub({ twoThreads: true, failDurableReadOn: 2 });
+  const h = harness();
+  const skipped = await discover({ github: failing.github, context: h.context, core: h.core, now: AFTER_WINDOW,
+    env: { REGISTERED_REPOS: REPO, TRUSTED_SYNC_ACTORS: 'stranske' } });
+  assert.equal(skipped.matrix.length, 0, 'the first finding queued before the failure is discarded');
+  assert.equal(skipped.counts.unreadable_prs, 1);
+  assert.match(h.notices.find((line) => line.includes('whole PR skipped')), /6250: durable issue unreadable \(502\)/);
+  assert.match(h.notices.find((line) => line.startsWith('Maint 90 findings')), /held 2, drainable now 0.*unreadable this run 1/);
 });

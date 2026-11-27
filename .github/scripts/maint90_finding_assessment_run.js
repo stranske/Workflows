@@ -21,6 +21,9 @@ const MAX_ASSESSMENTS_PER_RUN = 3;
 // After this many completed Maint 71 runs that Maint 90 dispatched with this
 // finding's proof, without the thread resolving, hand the finding to its owner.
 const MAX_REDISPATCH_RUNS = 2;
+// Dispatches whose runs cannot be confirmed still end in a hand-off after this
+// many receipts, so the budget drains even when run ids are unreadable.
+const MAX_DISPATCH_RECEIPTS = 4;
 
 function loadPolicy() {
   const policy = JSON.parse(fs.readFileSync(path.join(ROOT, 'config/consumer_sync_review_policy.json'), 'utf8'));
@@ -117,54 +120,69 @@ async function discover({ github: rawGithub, context, core, env = process.env, n
             + 'add it to summary_variants in config/consumer_sync_review_policy.json');
         }
       }
+      // Any read failure skips the whole PR: work already planned for it is
+      // discarded and the PR is counted once.
+      const prAssess = [];
+      const prRedispatch = [];
+      const prCounts = { unresolved_findings_with_request: 0, already_attempted: 0, verified_awaiting_maint71: 0, assessable: 0 };
+      let unreadable = '';
+      let closed = null;
       for (const candidate of selected) {
-        counts.unresolved_findings_with_request += 1;
+        prCounts.unresolved_findings_with_request += 1;
         let comments;
         try {
           comments = await listDurableComments(github, context.repo.owner, context.repo.repo,
             candidate.durable_issue_url, candidate.first_requested_at);
         } catch (error) {
-          counts.unreadable_prs += 1;
-          core.warning(`${repository}#${pull.number} ${candidate.thread_id}: durable issue unreadable (${error.status || error.message}); skipped this run`);
-          continue;
+          unreadable = `durable issue unreadable (${error.status || error.message})`;
+          break;
         }
         const prior = A.priorProducerRecords(comments, candidate, trusted);
-        if (prior.attempts.length) { counts.already_attempted += 1; continue; }
+        if (prior.attempts.length) { prCounts.already_attempted += 1; continue; }
         const fresh = prior.verifications.filter(({ verification }) =>
           now - Date.parse(verification.completed_at || '') < A.VERIFICATION_TTL_MS);
         if (fresh.length) {
-          counts.verified_awaiting_maint71 += 1;
+          prCounts.verified_awaiting_maint71 += 1;
           const latest = fresh[fresh.length - 1];
           const receipts = prior.dispatches.filter(({ dispatch }) => dispatch.verification_url === latest.comment.html_url);
-          redispatch.push({ candidate, comment_url: latest.comment.html_url,
+          prRedispatch.push({ candidate, comment_url: latest.comment.html_url,
             comment_created_at: latest.comment.created_at, record: latest.verification,
             dispatches: receipts.map(({ dispatch }) => dispatch) });
           continue;
         }
-        let closed;
-        try {
-          ({ data: closed } = await github.rest.pulls.list({
-            owner, repo, state: 'closed', base: pull.base.ref, sort: 'updated', direction: 'desc', per_page: 50,
-          }));
-        } catch (error) {
-          counts.unreadable_prs += 1;
-          core.warning(`${repository}#${pull.number}: merged receiver pulls unreadable (${error.status || error.message}); skipped this run`);
-          continue;
+        if (!closed) {
+          try {
+            ({ data: closed } = await github.rest.pulls.list({
+              owner, repo, state: 'closed', base: pull.base.ref, sort: 'updated', direction: 'desc', per_page: 50,
+            }));
+          } catch (error) {
+            unreadable = `merged receiver pulls unreadable (${error.status || error.message})`;
+            break;
+          }
         }
-        counts.assessable += 1;
+        prCounts.assessable += 1;
         const receiverPulls = closed.filter((item) => item.merged_at
           && Date.parse(item.merged_at) > Date.parse(candidate.finding_created_at)
           && item.number !== candidate.pr)
           .slice(0, 20)
           .map((item) => ({ number: item.number, title: item.title, merged_at: item.merged_at,
             base: item.base.ref, merge_commit_sha: item.merge_commit_sha }));
-        assess.push({
+        prAssess.push({
           key: A.findingKey(candidate),
           slug: `${repo}-${candidate.pr}-${candidate.thread_id}`.replace(/[^A-Za-z0-9_-]/g, '-'),
           candidate, base_ref: pull.base.ref, receiver_pulls: receiverPulls,
           prompt: A.buildAssessmentPrompt(candidate, { baseRef: pull.base.ref, receiverPulls }),
         });
       }
+      if (unreadable) {
+        counts.unreadable_prs += 1;
+        counts.unresolved_findings_with_request += selected.length;
+        core.warning(`${repository}#${pull.number}: ${unreadable}; whole PR skipped this run`);
+        continue;
+      }
+      for (const [key, value] of Object.entries(prCounts)) counts[key] += value;
+      assess.push(...prAssess);
+      redispatch.push(...prRedispatch);
     }
   }
   const matrix = assess.slice(0, MAX_ASSESSMENTS_PER_RUN);
@@ -335,13 +353,25 @@ async function publish({ github: rawGithub, context, core, env = process.env, no
     const { candidate, record } = item;
     const live = await liveCandidateState({ github, candidate, policy, profiles, now });
     if (!live.live) { outcomes.push({ key: A.findingKey(candidate), outcome: 'no_longer_assessable' }); continue; }
-    // Only Maint 71 runs Maint 90 dispatched with this proof spend the budget.
-    const runs = await maint71Runs(github, context);
-    const spent = A.spentDispatches((item.dispatches || []).map((dispatch) => ({ dispatch })), runs, now);
-    if (spent.length >= MAX_REDISPATCH_RUNS) {
+    // Only Maint 71 runs Maint 90 dispatched with this proof spend the budget,
+    // each read directly by its id.
+    const runStatus = new Map();
+    for (const dispatch of item.dispatches || []) {
+      if (!dispatch.maint71_run_id) continue;
+      try {
+        const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: dispatch.maint71_run_id });
+        runStatus.set(dispatch.maint71_run_id, run.status);
+      } catch (error) {
+        if (error.status !== 404) throw error;
+      }
+    }
+    const budget = A.dispatchBudget(item.dispatches, runStatus);
+    const exhausted = budget.spent >= MAX_REDISPATCH_RUNS ? 'maint71_did_not_resolve'
+      : budget.total >= MAX_DISPATCH_RECEIPTS ? 'maint71_runs_unconfirmed' : '';
+    if (exhausted) {
       await postComment({ github, context, core, dryRun, issueUrl: candidate.durable_issue_url,
-        body: A.renderAttemptComment(candidate, { verdict: 'PASS', reason: 'maint71_did_not_resolve', runUrl }) });
-      outcomes.push({ key: A.findingKey(candidate), outcome: 'handed_to_owner:maint71_did_not_resolve' });
+        body: A.renderAttemptComment(candidate, { verdict: 'PASS', reason: exhausted, runUrl }) });
+      outcomes.push({ key: A.findingKey(candidate), outcome: `handed_to_owner:${exhausted}` });
       continue;
     }
     const proof = A.buildResolutionProof({ record, commentUrl: item.comment_url });
@@ -353,4 +383,4 @@ async function publish({ github: rawGithub, context, core, env = process.env, no
   return outcomes;
 }
 
-module.exports = { discover, publish, fixProvenance, MAX_ASSESSMENTS_PER_RUN, MAX_REDISPATCH_RUNS };
+module.exports = { discover, publish, fixProvenance, MAX_ASSESSMENTS_PER_RUN, MAX_REDISPATCH_RUNS, MAX_DISPATCH_RECEIPTS };

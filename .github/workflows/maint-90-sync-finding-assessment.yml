@@ -194,16 +194,14 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "22"
-      - name: Isolate the code under test
-        # Receiver code and its dependencies run as an unprivileged user from a
-        # copy in that user's home. The supervisor (runner user) alone writes
-        # out/regression.json, which that user cannot write.
+      - name: Create the unprivileged test user
+        # The runner prepares both trees with trusted git as the runner user,
+        # then hands copies to this user, which runs installs and tests only.
+        # It cannot write the trees' sources or out/regression.json.
         run: |
           set -euo pipefail
           sudo useradd --create-home --shell /bin/bash maint90-test
           sudo chmod 755 /home/maint90-test
-          sudo cp -a case /home/maint90-test/case
-          sudo chown -R maint90-test:maint90-test /home/maint90-test/case
           mkdir -p out in
       - name: Run the regression with and without the fix
         env:
@@ -212,7 +210,7 @@ jobs:
           printf '%s' "$ITEM_JSON" > out/item.json
           python .github/scripts/maint90_run_regression.py \
             --assessment in/assessment.json --item out/item.json \
-            --receiver /home/maint90-test/case/receiver --workflows /home/maint90-test/case/workflows \
+            --receiver case/receiver --workflows case/workflows \
             --run-as maint90-test --output out/regression.json
       - name: Stop the code under test
         if: always()

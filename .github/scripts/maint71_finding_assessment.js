@@ -233,18 +233,26 @@ function commandArgv(command) {
   return String(command).split(' ');
 }
 
+const cleanCount = (value) => Number.isInteger(value) && value >= 0;
+
 /**
- * The regression evidence the record may claim: the named test files passed on
- * the fixed tree and, still present after the fix was reverted, ran and failed
- * (exit 1). A missing test, timeout, start failure or collection error is not
- * evidence about the unfixed behaviour.
+ * The regression evidence the record may claim, from per-test results: on the
+ * fixed tree the named tests ran and passed (none failed or errored); with the
+ * fix reverted and the tests restored, the run exited 1 with no collection or
+ * setup errors, and at least one test that passed on the fixed tree failed.
+ * A missing test, timeout, start failure or collection error is not evidence.
  */
 function regressionEstablished(regression) {
+  const fixed = regression?.with_fix?.tests;
+  const reverted = regression?.without_fix?.tests;
   return regression?.with_fix?.exit_code === 0
     && Array.isArray(regression.test_paths) && regression.test_paths.length > 0
-    && regression?.without_fix?.prepared === true
+    && cleanCount(fixed?.passed) && fixed.passed > 0 && fixed.failed === 0 && fixed.errors === 0
+    && regression.without_fix.prepared === true
     && regression.without_fix.test_present === true
-    && regression.without_fix.exit_code === TEST_FAILED_EXIT;
+    && regression.without_fix.exit_code === TEST_FAILED_EXIT
+    && cleanCount(reverted?.failed) && reverted.errors === 0
+    && Array.isArray(regression.negative_failed_tests) && regression.negative_failed_tests.length > 0;
 }
 
 function evidenceForFix(candidate, fix, receiverFix) {
@@ -343,16 +351,16 @@ function renderDispatchReceipt(candidate, { runId, commentUrl, dispatchedAt, run
 }
 
 /**
- * A receipt is spent when its Maint 71 run completed, or (run id unknown) once
- * the run had ample time to finish, so the budget always drains.
+ * Redispatch budget from receipts and the directly read status of each named
+ * Maint 71 run (runStatus: run id -> status, absent when unreadable). Only a
+ * named run that completed is spent; a receipt with no readable run is
+ * unconfirmed and never counted as a run that processed the proof.
  */
-function spentDispatches(dispatches, runs, now, unknownRunAfterMs = 60 * 60 * 1000) {
-  const byId = new Map((runs || []).map((run) => [run.id, run]));
-  return (dispatches || []).filter(({ dispatch }) => {
-    if (dispatch.maint71_run_id) return byId.get(dispatch.maint71_run_id)?.status === 'completed'
-      || (!byId.has(dispatch.maint71_run_id) && now - Date.parse(dispatch.dispatched_at || '') > unknownRunAfterMs);
-    return now - Date.parse(dispatch.dispatched_at || '') > unknownRunAfterMs;
-  });
+function dispatchBudget(dispatches, runStatus) {
+  const receipts = dispatches || [];
+  const spent = receipts.filter((dispatch) => dispatch.maint71_run_id
+    && runStatus.get(dispatch.maint71_run_id) === 'completed');
+  return { spent: spent.length, total: receipts.length, unconfirmed: receipts.length - spent.length };
 }
 
 function buildResolutionProof({ record, commentUrl }) {
@@ -407,7 +415,7 @@ function simulatedVerificationArgs({ candidate, record, proof, state, recordBind
 
 module.exports = {
   ATTEMPT_MARKER, DISPATCH_MARKER, COMMAND_RE, TEST_FAILED_EXIT, VERIFICATION_TTL_MS, markerJson,
-  renderDispatchReceipt, spentDispatches,
+  renderDispatchReceipt, dispatchBudget,
   consumerSyncMarker, laneForSyncPhase, findingKey, selectAssessableFindings, priorProducerRecords,
   buildAssessmentPrompt, parseAssessment, commandArgv, regressionEstablished, buildVerificationRecord,
   renderVerificationComment, renderAttemptComment, buildResolutionProof, buildMaint71Dispatch,

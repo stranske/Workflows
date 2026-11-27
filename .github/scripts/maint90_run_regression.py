@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 """Maint 90 regression runner: the machine half of an independent finding verification.
 
-Runs the verifier's test command on the fixed tree (must exit 0) and again with
-the fix's product code reverted (must exit 1, the "tests failed" code of pytest,
-node --test and npm test). The named test files are restored from the fixed tree
-after the revert, so a fix that adds its own regression test still runs that
-test against the unfixed code; a missing test, a timeout (124), a start failure
-(127) or a collection/usage error is not a negative control. That pair is the
+The supervisor (this process) prepares two trees with trusted git before any
+code under test runs: the fixed tree, and a reverted tree where the fix's code is
+reverted and the named test files are restored from the fixed tree. The
+verifier's test command then runs in each tree with per-test JUnit results:
+
+* fixed tree: exit 0, at least one test passed, none failed or errored;
+* reverted tree: exit 1 (tests ran and failed), no collection or setup errors,
+  and at least one test that passed on the fixed tree failed here.
+
+A missing test, a timeout (124), a start failure (127), a collection error or a
+failure of some other test is not a negative control. That pair is the
 `failed-before-fix` evidence Maint 71 requires.
 
 Runs in a job with no secrets; the command must match the allowlist and is
-executed without a shell. With --run-as, every command that touches the code
-under test runs as that unprivileged user, which cannot write the evidence file
-this supervisor writes.
+executed without a shell. With --run-as, dependency installs and test runs use
+that unprivileged user and a copy of each tree in its home; git and the evidence
+file stay with the supervisor, so test code cannot fake the revert or write the
+evidence.
 """
 
 from __future__ import annotations
@@ -22,8 +28,11 @@ import datetime as dt
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 COMMAND_RE = re.compile(
@@ -33,6 +42,7 @@ TIMEOUT_SECONDS = 600
 TAIL = 4000
 TEST_FAILED_EXIT = 1
 TEST_SUFFIXES = (".py", ".js", ".mjs", ".cjs", ".ts")
+MAX_RESULTS_BYTES = 5_000_000
 RUN_AS: str | None = None
 
 
@@ -40,30 +50,7 @@ def now() -> str:
     return dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def sandbox_home() -> str:
-    return f"/home/{RUN_AS}" if RUN_AS else os.environ.get("HOME", "/tmp")
-
-
-def sandbox_path() -> str:
-    path = os.environ.get("PATH", "")
-    return f"{sandbox_home()}/venv/bin:{path}" if RUN_AS else path
-
-
-def run(argv: list[str], cwd: Path, timeout: int = TIMEOUT_SECONDS) -> dict:
-    env = {
-        "PATH": sandbox_path(),
-        "HOME": sandbox_home(),
-        "LANG": "C.UTF-8",
-        "CI": "true",
-        "PYTHONDONTWRITEBYTECODE": "1",
-    }
-    if RUN_AS:
-        # The supervisor keeps the evidence; the code under test cannot reach it.
-        argv = (
-            ["sudo", "-n", "-u", RUN_AS, "--", "env", "-i"]
-            + [f"{key}={value}" for key, value in env.items()]
-            + argv
-        )
+def _exec(argv: list[str], cwd: Path, env: dict, timeout: int) -> dict:
     try:
         proc = subprocess.run(
             argv, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout, check=False
@@ -76,14 +63,46 @@ def run(argv: list[str], cwd: Path, timeout: int = TIMEOUT_SECONDS) -> dict:
         return {"exit_code": 127, "tail": str(error)}
 
 
-def install_dependencies(command: str, repo: Path) -> list[dict]:
+def supervise(argv: list[str], cwd: Path, timeout: int = TIMEOUT_SECONDS) -> dict:
+    """Trusted tools (git, cp) as the supervisor, never from a test-writable PATH."""
+    env = {"PATH": os.environ.get("PATH", ""), "HOME": os.environ.get("HOME", "/tmp")}
+    env.update({"LANG": "C.UTF-8", "GIT_TERMINAL_PROMPT": "0"})
+    return _exec(argv, cwd, env, timeout)
+
+
+def sandbox_home() -> str:
+    return f"/home/{RUN_AS}" if RUN_AS else os.environ.get("HOME", "/tmp")
+
+
+def sandboxed(argv: list[str], cwd: Path, tree: str, timeout: int = TIMEOUT_SECONDS) -> dict:
+    """Code under test: as the unprivileged user, with that tree's own venv."""
+    path = os.environ.get("PATH", "")
+    if RUN_AS:
+        path = f"{sandbox_home()}/venv-{tree}/bin:{path}"
+    env = {
+        "PATH": path,
+        "HOME": sandbox_home(),
+        "LANG": "C.UTF-8",
+        "CI": "true",
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
+    if RUN_AS:
+        argv = (
+            ["sudo", "-n", "-u", RUN_AS, "--", "env", "-i"]
+            + [f"{key}={value}" for key, value in env.items()]
+            + argv
+        )
+    return _exec(argv, cwd, env, timeout)
+
+
+def install_dependencies(command: str, repo: Path, tree: str) -> list[dict]:
     """Best effort; a failed install shows up as a failing with-fix run."""
     steps: list[list[str]] = []
     if command.startswith(("python", "pytest")):
         python = sys.executable
         if RUN_AS:
-            steps.append([sys.executable, "-m", "venv", f"{sandbox_home()}/venv"])
-            python = f"{sandbox_home()}/venv/bin/python"
+            steps.append([sys.executable, "-m", "venv", f"{sandbox_home()}/venv-{tree}"])
+            python = f"{sandbox_home()}/venv-{tree}/bin/python"
         steps.append([python, "-m", "pip", "install", "--quiet", "pytest"])
         for name in ("requirements-dev.txt", "requirements.txt"):
             if (repo / name).is_file():
@@ -93,7 +112,7 @@ def install_dependencies(command: str, repo: Path) -> list[dict]:
             steps.append([python, "-m", "pip", "install", "--quiet", "-e", "."])
     elif (repo / "package-lock.json").is_file():
         steps.append(["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"])
-    return [{"argv": step, **run(step, repo, timeout=900)} for step in steps]
+    return [{"argv": step, **sandboxed(step, repo, tree, timeout=900)} for step in steps]
 
 
 def test_paths(argv: list[str]) -> list[str]:
@@ -112,21 +131,86 @@ def test_paths(argv: list[str]) -> list[str]:
     return paths
 
 
-def restore_tests(repo: Path, paths: list[str]) -> dict:
-    """Put the fixed tree's test files back after reverting the fix."""
-    result = run(["git", "checkout", "HEAD", "--", *paths], repo)
-    return {"restored": result["exit_code"] == 0, "tail": result["tail"]}
+def with_results(argv: list[str], results: Path) -> list[str] | None:
+    """The command with a per-test JUnit report; None when the runner has none."""
+    if argv[:3] == ["python", "-m", "pytest"] or argv[:1] == ["pytest"]:
+        return [*argv, f"--junitxml={results}"]
+    if argv[:2] == ["node", "--test"]:
+        return [
+            "node",
+            "--test",
+            "--test-reporter=junit",
+            f"--test-reporter-destination={results}",
+            *argv[2:],
+        ]
+    return None
 
 
-def revert(repo: Path, sha: str) -> dict:
-    parents = run(["git", "rev-list", "--parents", "-n", "1", sha], repo)
+def read_results(path: Path) -> dict | None:
+    """Per-test outcomes from a JUnit report, or None when there is no usable report."""
+    try:
+        if not path.is_file() or path.stat().st_size > MAX_RESULTS_BYTES:
+            return None
+        root = ET.parse(path).getroot()
+    except (OSError, ET.ParseError):
+        return None
+    outcome: dict[str, list[str]] = {"passed": [], "failed": [], "errors": [], "skipped": []}
+    for case in root.iter("testcase"):
+        ident = "::".join(
+            part
+            for part in (case.get("file", ""), case.get("classname", ""), case.get("name", ""))
+            if part
+        )
+        if case.find("error") is not None:
+            outcome["errors"].append(ident)
+        elif case.find("failure") is not None:
+            outcome["failed"].append(ident)
+        elif case.find("skipped") is not None:
+            outcome["skipped"].append(ident)
+        else:
+            outcome["passed"].append(ident)
+    return outcome
+
+
+def counts(results: dict | None) -> dict | None:
+    return None if results is None else {key: len(value) for key, value in results.items()}
+
+
+def prepare_reverted(tree: Path, sha: str, paths: list[str]) -> dict:
+    """Revert the fix and restore the named test files, with trusted git."""
+    parents = supervise(["git", "rev-list", "--parents", "-n", "1", sha], tree)
     if parents["exit_code"] != 0:
-        return {"prepared": False, "tail": parents["tail"]}
+        return {"prepared": False, "test_present": False, "tail": parents["tail"]}
     argv = ["git", "revert", "--no-edit", "--no-commit"]
     if len(parents["tail"].split()) > 2:
         argv += ["-m", "1"]
-    result = run([*argv, sha], repo)
-    return {"prepared": result["exit_code"] == 0, "tail": result["tail"]}
+    reverted = supervise([*argv, sha], tree)
+    if reverted["exit_code"] != 0:
+        return {"prepared": False, "test_present": False, "tail": reverted["tail"]}
+    restored = supervise(["git", "checkout", "HEAD", "--", *paths], tree)
+    present = restored["exit_code"] == 0 and all((tree / path).is_file() for path in paths)
+    return {"prepared": True, "test_present": present, "tail": restored["tail"]}
+
+
+def place(tree: Path, name: str) -> Path:
+    """Hand a supervisor-prepared tree to the unprivileged user (a copy in its home)."""
+    if not RUN_AS:
+        return tree
+    dest = Path(sandbox_home()) / name
+    supervise(["sudo", "-n", "rm", "-rf", str(dest)], tree.parent)
+    copied = supervise(["sudo", "-n", "cp", "-a", str(tree), str(dest)], tree.parent)
+    owned = supervise(["sudo", "-n", "chown", "-R", f"{RUN_AS}:{RUN_AS}", str(dest)], tree.parent)
+    if copied["exit_code"] != 0 or owned["exit_code"] != 0:
+        raise RuntimeError(f"cannot place {name} tree: {copied['tail']}{owned['tail']}")
+    return dest
+
+
+def run_tree(command: str, argv: list[str], tree: Path, name: str, scratch: Path) -> dict:
+    results = (Path(sandbox_home()) if RUN_AS else scratch) / f"results-{name}.xml"
+    install = install_dependencies(command, tree, name)
+    run = sandboxed(with_results(argv, results) or argv, tree, name)
+    parsed = read_results(results)
+    return {**run, "tests": counts(parsed), "_results": parsed, "install": install}
 
 
 def main() -> int:
@@ -151,7 +235,7 @@ def main() -> int:
     def write(payload: dict) -> int:
         payload.setdefault("finished_at", now())
         out.write_text(json.dumps(payload, indent=2))
-        print(json.dumps({k: v for k, v in payload.items() if k != "install"}, indent=2)[:6000])
+        print(json.dumps(payload, indent=2)[:6000])
         return 0
 
     assessment = assessment_doc.get("assessment") if assessment_doc.get("ok") else None
@@ -168,14 +252,14 @@ def main() -> int:
     if fix["kind"] == "receiver":
         offered = {p["number"]: p["merge_commit_sha"] for p in item.get("receiver_pulls", [])}
         fix_sha = offered.get(fix["pr"])
-        fix_repo = Path(args.receiver)
     else:
         fix_sha = fix["sha"]
-        fix_repo = Path(args.workflows)
     if not fix_sha or not re.fullmatch(r"[0-9a-f]{40}", fix_sha):
         return write({"reason": "fix_commit_unknown"})
 
     argv = command.split(" ")
+    if with_results(argv, Path("results.xml")) is None:
+        return write({"command": command, "reason": "test_results_unavailable_for_runner"})
     paths = test_paths(argv)
     if not paths:
         return write({"command": command, "reason": "no_test_path_named"})
@@ -183,23 +267,40 @@ def main() -> int:
         return write(
             {"command": command, "test_paths": paths, "reason": "test_path_missing_with_fix"}
         )
-    install = install_dependencies(command, repo)
-    with_fix = run(argv, repo)
-    reverted = revert(fix_repo, fix_sha)
-    if reverted["prepared"]:
-        restored = restore_tests(repo, paths)
-        present = restored["restored"] and all((repo / path).is_file() for path in paths)
-        without_fix = {**run(argv, repo), "prepared": True, "test_present": present}
+
+    scratch = Path(tempfile.mkdtemp(prefix="maint90-"))
+    fixed_src = scratch / "fixed"
+    reverted_src = scratch / "reverted"
+    shutil.copytree(repo, fixed_src, symlinks=True)
+    shutil.copytree(repo, reverted_src, symlinks=True)
+    prepared = prepare_reverted(reverted_src, fix_sha, paths)
+
+    with_fix = run_tree(command, argv, place(fixed_src, "fixed"), "fixed", scratch)
+    if prepared["prepared"] and prepared["test_present"]:
+        without_fix = run_tree(command, argv, place(reverted_src, "reverted"), "reverted", scratch)
     else:
-        without_fix = {
-            "exit_code": None,
-            "prepared": False,
-            "test_present": False,
-            "tail": reverted["tail"],
-        }
+        without_fix = {"exit_code": None, "tests": None, "_results": None, "install": []}
+    without_fix.update(
+        prepared=prepared["prepared"],
+        test_present=prepared["test_present"],
+    )
+    if not prepared["prepared"]:
+        without_fix["tail"] = prepared["tail"]
+
+    fixed_results = with_fix.pop("_results")
+    reverted_results = without_fix.pop("_results")
+    negative = sorted(
+        set((reverted_results or {}).get("failed", []))
+        & set((fixed_results or {}).get("passed", []))
+    )
+    wt, nt = with_fix["tests"], without_fix["tests"]
     reason = ""
     if with_fix["exit_code"] != 0:
         reason = "regression_failed_with_fix"
+    elif wt is None:
+        reason = "test_results_missing_with_fix"
+    elif wt["passed"] == 0 or wt["failed"] or wt["errors"]:
+        reason = "with_fix_tests_not_clean"
     elif not without_fix["prepared"]:
         reason = "fix_revert_conflicted"
     elif not without_fix["test_present"]:
@@ -208,6 +309,13 @@ def main() -> int:
         reason = "negative_control_passed_without_fix"
     elif without_fix["exit_code"] != TEST_FAILED_EXIT:
         reason = f"negative_control_not_a_test_failure:{without_fix['exit_code']}"
+    elif nt is None:
+        reason = "test_results_missing_without_fix"
+    elif nt["errors"]:
+        reason = "negative_control_collection_or_setup_error"
+    elif not negative:
+        reason = "negative_control_no_matching_test_failed"
+    install = {"fixed": with_fix.pop("install"), "reverted": without_fix.pop("install")}
     return write(
         {
             "command": command,
@@ -215,6 +323,7 @@ def main() -> int:
             "test_paths": paths,
             "with_fix": with_fix,
             "without_fix": without_fix,
+            "negative_failed_tests": negative[:50],
             "reason": reason,
             "install": install,
         }
