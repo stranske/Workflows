@@ -62,5 +62,9 @@ jobs:
           commit-message: "maint: prune closed-issue agent stubs"
           title: "maint: prune closed-issue agent stubs"
           body: |
+            <!-- workflow-source:automation_run -->
+            <!-- workflow-source-ref:maint-84-prune-agent-stubs -->
             Maint 84 selected bootstrap stubs whose linked issues are closed.
             Review the deletions and required checks before merging.
+
+            Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   SOURCE_TYPES,
@@ -1171,6 +1173,71 @@ test('resolvePrSourceContext suppresses stale issue metadata on the bound corpus
   assert.equal(context.requiresIssue, false);
   assert.equal(context.isRecurringDataJob, true);
   assert.deepEqual(templateResolvePrSourceContext(pull), context);
+});
+
+const repositoryRoot = path.resolve(process.env.WORKFLOWS_ROOT || path.join(__dirname, '../../..'));
+
+function publisherFromWorkflow({ workflow, stepName, runId, branchSuffix = '' }) {
+  const source = fs.readFileSync(path.join(repositoryRoot, workflow), 'utf8');
+  const start = `      - name: ${stepName}\n`;
+  const step = source.split(start)[1];
+  assert.ok(step, `missing ${stepName} in ${workflow}`);
+  const body = step.split('          body: |\n')[1];
+  assert.ok(body, `missing create-pull-request body in ${workflow}`);
+  const bodyEnd = body.split(/\n {6}- name: /)[0];
+  const branch = step.match(/^          branch: (.+)$/m)?.[1];
+  assert.ok(branch, `missing create-pull-request branch in ${workflow}`);
+  const labels = step.match(/^          labels: ['\"]?(.+?)['\"]?$/m)?.[1]
+    .split(',').map(label => label.trim()).filter(Boolean) || [];
+  return {
+    body: bodyEnd.replace(/^ {12}/gm, '')
+      .replace(/\$\{\{ github\.server_url \}\}/g, 'https://github.com')
+      .replace(/\$\{\{ github\.repository \}\}/g, 'stranske/Workflows')
+      .replace(/\$\{\{ github\.run_id \}\}/g, runId),
+    branch: branch.replace(/\$\{\{ github\.run_id \}\}/g, runId)
+      .replace(/\$\{\{ inputs\['branch-suffix'\] && format\('-\{0\}', inputs\['branch-suffix'\]\) \|\| '' \}\}/, branchSuffix),
+    labels: labels.map(name => ({ name })),
+  };
+}
+
+test('resolvePrSourceContext recognizes the actual retained maintenance publisher bodies as automation runs', () => {
+  const publishers = [
+    {
+      name: 'Maint 45 cosmetic repair',
+      workflow: '.github/workflows/maint-45-cosmetic-repair.yml',
+      stepName: 'Create cosmetic repair PR',
+      runId: '45',
+      sourceRef: 'maint-45-cosmetic-repair',
+    },
+    {
+      name: 'Maint 84 stub pruning',
+      workflow: '.github/workflows/maint-84-prune-agent-stubs.yml',
+      stepName: 'Open or update the stub cleanup pull request',
+      runId: '84',
+      sourceRef: 'maint-84-prune-agent-stubs',
+    },
+    {
+      name: 'Maint 86 model promotion preparation',
+      workflow: '.github/workflows/maint-86-model-promotion-prepare.yml',
+      stepName: 'Open promotion PR (human merges to approve)',
+      runId: '86',
+      sourceRef: 'maint-86-model-promotion-prepare',
+    },
+  ];
+
+  for (const publisher of publishers) {
+    const pull = publisherFromWorkflow(publisher);
+    const context = resolvePrSourceContext({
+      body: pull.body,
+      head: { ref: pull.branch },
+      labels: pull.labels,
+    });
+    assert.equal(context.sourceType, SOURCE_TYPES.AUTOMATION_RUN, publisher.name);
+    assert.equal(context.sourceRef, publisher.sourceRef, publisher.name);
+    assert.equal(context.issueNumber, null, publisher.name);
+    assert.equal(context.isValid, true, publisher.name);
+    assert.equal(context.requiresIssue, false, publisher.name);
+  }
 });
 
 test('corpus harvest suppression requires the exact controlled repository branch and labels', () => {

@@ -267,6 +267,18 @@ Final validation is retained in `execution-configuration-validation.json`:
 
 ## Bounded review follow-up, 2026-11-07
 
+### Recover the verifier chunk mutation records
+
+The [offline packet](verifier-chunk-mutation-records.tar.gz) contains the bounded-review and chunk-failure drivers, their recorded mutation and validation results, and the bounded-review test snapshot. Both sets measured the same chunked PR verifier in November 2026. From the repository root, recover and verify all nine files in a separate directory.
+
+```bash
+restored=$(mktemp -d) &&
+  tar -xzf docs/evidence/issue-4426/verifier-chunk-mutation-records.tar.gz -C "$restored" &&
+  (cd "$restored" && shasum -a 256 -c SHA256SUMS)
+```
+
+The commands below record the historical run. The extracted files retain their original relative paths. To inspect the results directly, open the [bounded-review receipts](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/bounded-review-mutations.json) or the [chunk-failure receipts](https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/chunk-failure-mutations.json) at their publishing revision.
+
 Final results for this chunk:
 
 - The required four-module behavioral command passes 165 tests in 3.06s,
@@ -631,6 +643,8 @@ this checkout's branch or representing a remote Gate run.
 
 
 ## Chunk failure coverage selection, 2026-11-07
+
+The [verifier chunk recovery instructions](#recover-the-verifier-chunk-mutation-records) cover the driver, results and validations cited below.
 
 Before editing, the required four-module selection with targeted verifier
 coverage passed 156 tests in 6.30s, exit 0 (Cover: 22.90%). The evidence and

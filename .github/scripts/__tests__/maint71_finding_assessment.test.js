@@ -257,26 +257,15 @@ test('replay: #6250 with a verified Workflows source fix publishes the verificat
     prNumber: 6250, headSha: HEAD, actor: 'stranske', trustedActors: ['stranske'] }).ok, true);
 });
 
-test('replay: the real #6251 receiver fix reaches a verdict either way', async () => {
+test('replay: the real #6251 receiver fix is verified and dispatched (#5290 receiver_fix proof)', async () => {
   const { outcomes, calls } = await replay({
     fix: { kind: 'receiver', pr: 6251 },
     validation: { repository: 'receiver', command: 'python -m pytest tests/test_post_ci_summary.py -q --noconftest' },
     regression: PASSING_REGRESSION,
   });
-  // Maint 71 accepts receiver-side fixes once #5290's receiver_fix proof lands;
-  // until then the finding is handed to its owner with the reason, never left waiting.
-  const probe = validateReviewResolutionProof({ schema: 'workflows-sync-review-resolution/v1', repository: REPO,
-    pr: 6250, head_sha: HEAD, thread_id: THREAD, originating_reviewer: 'codex',
-    receiver_fix: { repository: REPO, pr: 6251, base_ref: 'main', merge_sha: RECEIVER_FIX_MERGE },
-    evidence_url: `https://github.com/${REPO}/pull/6251`, reason: 'x', acceptance_mode: 'independent-verification',
-    reviewer_acceptance_url: 'https://github.com/stranske/Workflows/issues/1836#issuecomment-1' },
-  { owner: 'stranske', repo: 'Trend_Model_Project', prNumber: 6250, headSha: HEAD, actor: 'stranske', trustedActors: ['stranske'] });
-  if (probe.ok) {
-    assert.deepEqual(outcomes.map((item) => item.outcome), ['verified_and_dispatched']);
-  } else {
-    assert.match(outcomes[0].outcome, /^handed_to_owner:proof_rejected:/);
-  }
+  assert.deepEqual(outcomes.map((item) => item.outcome), ['verified_and_dispatched']);
   assert.equal(calls.comments.length, 1);
+  assert.equal(calls.dispatches.length, 1);
 });
 
 test('replay: a FAIL verdict hands the finding to its owner once and is not re-assessed on that head', async () => {

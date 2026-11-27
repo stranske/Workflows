@@ -21,8 +21,10 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 try:
+    from scripts.langchain.response_content import text_from_response_content
     from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ModuleNotFoundError:
+    from response_content import text_from_response_content
     from trace_utils import TraceInfo, invoke_with_trace
 
 # ---------------------------------------------------------------------------
@@ -537,8 +539,8 @@ def refine_flagged_tasks(
             raise
 
     # Parse response
-    content = getattr(response, "content", None) or str(response)
-    fates = _parse_refinement_response(content, flagged)
+    content = text_from_response_content(getattr(response, "content", response), separator="\n")
+    fates = _parse_refinement_response(content or "", flagged)
 
     # Extract tasks (non-None results)
     tasks = [f.result for f in fates if f.result is not None]
