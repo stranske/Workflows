@@ -16,7 +16,18 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: ci-autofix-loop-${{ github.event.pull_request.number || github.run_id }}
+  # Keep other label events out of the PR's running and pending slots.
+  group: >-
+    ci-autofix-loop-${{
+      (
+        github.event_name == 'pull_request_target' &&
+        github.event.label.name != 'autofix' &&
+        github.event.label.name != 'autofix:clean' &&
+        format('label-event-{0}', github.run_id)
+      )
+      || github.event.pull_request.number
+      || github.run_id
+    }}
   cancel-in-progress: true
 
 jobs:

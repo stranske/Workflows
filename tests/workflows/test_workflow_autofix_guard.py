@@ -7,6 +7,7 @@ import re
 import subprocess
 from typing import Any
 
+import pytest
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
@@ -54,6 +55,27 @@ def test_autofix_loop_does_not_subscribe_to_workflow_job_events() -> None:
     assert (
         "workflow_job" not in triggers
     ), "workflow_job events create noisy push-associated autofix runs with no correctness gain"
+
+
+@pytest.mark.parametrize(
+    "caller",
+    [
+        WORKFLOWS / "autofix.yml",
+        pathlib.Path("templates/consumer-repo") / WORKFLOWS / "autofix.yml",
+    ],
+    ids=["source", "consumer-template"],
+)
+def test_other_label_names_take_a_run_specific_group_before_the_pr_group(
+    caller: pathlib.Path,
+) -> None:
+    concurrency = yaml.safe_load(caller.read_text(encoding="utf-8"))["concurrency"]
+    group = " ".join(concurrency["group"].split())
+    assert (
+        "${{ ( github.event_name == 'pull_request_target' && "
+        "github.event.label.name != 'autofix' && github.event.label.name != 'autofix:clean' && "
+        "format('label-event-{0}', github.run_id) ) || github.event.pull_request.number"
+    ) in group
+    assert concurrency["cancel-in-progress"] is True
 
 
 def test_agents_autofix_loop_uses_direct_retry_helper_contract() -> None:

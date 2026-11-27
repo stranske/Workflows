@@ -36,9 +36,16 @@ permissions:
   pull-requests: write
 
 concurrency:
+  # Keep other label events out of the PR's running and pending slots.
   group: >-
     autofix-${{
-      github.event.pull_request.number
+      (
+        github.event_name == 'pull_request_target' &&
+        github.event.label.name != 'autofix' &&
+        github.event.label.name != 'autofix:clean' &&
+        format('label-event-{0}', github.run_id)
+      )
+      || github.event.pull_request.number
       || (
         github.event.workflow_run.pull_requests &&
         github.event.workflow_run.pull_requests[0] &&
