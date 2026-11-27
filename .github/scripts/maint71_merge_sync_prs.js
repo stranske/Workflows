@@ -3,7 +3,7 @@
 const { validateIndependentFindingFromNative, collectFindingReviewState,
   validateNativeConversationDisposition, collectOriginatingCompletions,
   collectBoundInlineStockCompletion, receiverFixIdentity, isReceiverFindingPull,
-  readReceiverFix, receiverFixPrecedesHead } = require('./maint71_finding_verification');
+  readReceiverFix, receiverFixPrecedesHead, proofReceipts } = require('./maint71_finding_verification');
 
 const DEFAULT_REVIEW_POLICY = Object.freeze({
   minimum_responses: 1,
@@ -3759,6 +3759,8 @@ async function run({ github, context, core }) {
   );
   const evidenceOnly = parseBooleanInput(process.env.EVIDENCE_ONLY_INPUT, false);
   const resolutionOnly = parseBooleanInput(process.env.RESOLUTION_ONLY_INPUT, false);
+  // Exactly one Maint 71 step per run writes Maint 90 proof receipts (the workflow sets this).
+  const emitProofReceipts = parseBooleanInput(process.env.EMIT_PROOF_RECEIPTS_INPUT, false);
   const prepareOnly = parseBooleanInput(process.env.PREPARE_ONLY_INPUT, false);
   const candidateEvidenceAuthorized = parseBooleanInput(
     process.env.CANDIDATE_EVIDENCE_AUTHORIZED,
@@ -4243,6 +4245,21 @@ async function run({ github, context, core }) {
         );
       } catch (error) {
         errors.push(`${proof.thread_id}:${error.message || error}`);
+      }
+    }
+    if (emitProofReceipts && (!dryRun || resolutionOnly)) {
+      const receipts = proofReceipts({ proofs: matching, resolved, errors, headSha: pr.head.sha,
+        runId: context.runId, runAttempt: process.env.GITHUB_RUN_ATTEMPT, processedAt: new Date().toISOString() });
+      for (const { owner: issueOwner, repo: issueRepo, issue_number: issueNumber, body, receipt } of receipts) {
+        try {
+          await withRetry((client) => client.rest.issues.createComment({
+            owner: issueOwner, repo: issueRepo, issue_number: issueNumber, body,
+          }));
+        } catch (error) {
+          // Unwritten receipts leave the run unconfirmed for Maint 90, which
+          // its dispatch-receipt cap bounds; never fail the merge pass for it.
+          core.warning(`Maint 90 proof receipt for ${receipt.thread_id} not written: ${error.message || error}`);
+        }
       }
     }
     return { resolved, wouldResolve, errors };

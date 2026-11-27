@@ -991,7 +991,7 @@ The contributor setup instructions now use this helper and the supported floor.
 No credential implementation, workflow or consumer template was changed.
 
 Provisioning command (exit 0; complete output in
-[`runtime-4548/setup.log`](runtime-4548/setup.log)):
+[`runtime-4548/setup.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/setup.log)):
 
 ```console
 python3 scripts/setup_validation_env.py /tmp/workflows-4369-venv --system-site-packages
@@ -1017,18 +1017,18 @@ and `tests/test_subscription_llm.py` match that merge byte-for-byte. These runs
 include the uncommitted setup helper, six new tests and contributor instructions;
 they are not receipts for a published implementation commit. File hashes and
 that distinction are retained in
-[`runtime-4548/workspace.json`](runtime-4548/workspace.json).
+[`runtime-4548/workspace.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/workspace.json).
 
 The focused command `python3 -m pytest -q tests/ -k claude_config_dir` exits
 **0** in **36.919 seconds** (pytest: `44 passed, 50467 deselected in 31.23s`).
 Its existing fixtures use temporary empty credential files, isolated HOME/auth
 variables and mocked CLI discovery/subprocess execution. Complete output and
 the revision/interpreter/start/exit/duration/hash receipt are
-[`focused.log`](runtime-4548/focused.log) and
-[`focused.json`](runtime-4548/focused.json).
+[`focused.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/focused.log) and
+[`focused.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/focused.json).
 The helper's targeted suite exits **0**, `6 passed`, with complete
-[`helper-tests.log`](runtime-4548/helper-tests.log) and
-[`helper-tests.json`](runtime-4548/helper-tests.json).
+[`helper-tests.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/helper-tests.log) and
+[`helper-tests.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/helper-tests.json).
 
 Black formatted both new Python files; Ruff on both passes. The required
 repository-wide Black check exits **0**, `973 files would be left unchanged`:
@@ -1043,7 +1043,7 @@ from binding its local socket. The successful invocation uses
 `maybe_use_uvloop()` with a recurring `loop.call_later(0.05, heartbeat)` callback.
 The callback only schedules itself, allowing thread-completion callbacks to be
 serviced. Formatter logic, file selection and checks are unchanged. Output is
-retained in [`black.log`](runtime-4548/black.log). The ordinary one-worker
+retained in [`black.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/black.log). The ordinary one-worker
 invocation without this scheduling workaround was interrupted (exit 130).
 
 Staging the meaningful source change failed (exit **128**):
@@ -1054,6 +1054,61 @@ fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock':
 
 The requested commit cannot be created under this run's read-only `.git` mount.
 No successful local commit or remote publication is claimed.
+
+### Historical setup and test captures
+
+The historical command output and timing receipts are preserved at their
+original publication revision. The checkout retains the collection inventory
+used to identify the stalled tests and the downstream observation fixtures.
+
+| Historical capture | SHA-256 |
+| --- | --- |
+| [`black.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/black.log) | `f33647e7df8ab5272ffb5a9689bc604492faac477e72a0e0b433c7ba9d1ef0c8` |
+| [`focused.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/focused.json) | `9a4d3d5abd44a3e9c5b0ba94fe6d9e4f111f943120fe85016f964bd52afe8835` |
+| [`focused.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/focused.log) | `67ab463d32fda2343aa36f6caeea449b2c8e05884f6918b806a73ee5db38d33a` |
+| [`helper-tests.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/helper-tests.json) | `26f0847d178f03a6953774615e1ffb534ba21858516e0d61d088ed7c6ce9305b` |
+| [`helper-tests.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/helper-tests.log) | `16b3b5475bf1ca9682b1a1628f28d4a9cbae84b2a547a4ef4a54a056c10e8a54` |
+| [`node-baseline-diagnostic.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-baseline-diagnostic.json) | `e757ff5b77cc5170009a7d0aa11dc9b6b044e2c972aa60a38b415b43d9a8db2c` |
+| [`node-baseline-diagnostic.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-baseline-diagnostic.log) | `338a6ea66d109b2f01dc2603efea429d6999c03217a72835de1a4c4d0ed46bd7` |
+| [`node-direct-diagnostic.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-direct-diagnostic.json) | `70369643eb1c78aa6209a87ebb34afe894c82b1e5582e2da9db89364df9df4ae` |
+| [`node-direct-diagnostic.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-direct-diagnostic.log) | `c4e526a0ec86e1e4ce17cb7282e34814c362e956c86e92abac1a1ae4b0e073a4` |
+| [`node-full.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-full.json) | `284c1a60b11510707900c60e78275b6df0fe176b4af9da77ca7472570f3f5377` |
+| [`node-full.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-full.log) | `e5da51e10c908dc6e28bacdc7641015a11f667f4f11809a97f4468679382709f` |
+| [`node-hang-diagnostic.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-hang-diagnostic.json) | `9eaf8b512e1cb136c7e1d1943f8d55c6e5e42def2d59cf7e14a0d3dae52236dc` |
+| [`node-hang-diagnostic.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-hang-diagnostic.log) | `63bc75d5c391c9695d8edab53b3d2509a33f13aa4c5bba948114eff229d428b7` |
+| [`node-named-baseline.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-named-baseline.json) | `eb9691f18641aa8ddd1cb0051fc7ee4f1a7500a97a5e87b7c0293be9b1bf69aa` |
+| [`node-named-baseline.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-named-baseline.log) | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| [`node-named-current.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-named-current.json) | `5d316283060e27510a420f449599421f0c3ee688868790ac1abc5b4417c1f35f` |
+| [`node-named-current.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-named-current.log) | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| [`python-current-diagnostic.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-current-diagnostic.json) | `550eb200b11c2920c62b1c62c65e15e0c8d0af27db6a2e92ce910a313626ee8a` |
+| [`python-current-diagnostic.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-current-diagnostic.log) | `0c27e62e75dd82f15130cb6838e68d27d6c91b34cf76bd4899d87fbdb9ddeee4` |
+| [`python-failure-baseline.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-failure-baseline.json) | `6d8134a85959b440f4aa8d7c8ec302bd8cd14b26cd1d924c16f0f547f4d1c113` |
+| [`python-failure-baseline.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-failure-baseline.log) | `dd2ec4d2c16fd19633483e94c699244affee5565e09a66310efe955601b42ed2` |
+| [`python-failure-current.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-failure-current.json) | `1f2b288fe0b476198999ff30167e6b128153baf16af87c39c266f361dd601661` |
+| [`python-failure-current.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-failure-current.log) | `05950c00bbc4c5d44be1ab6ee9a363ebd0b710bc54548d86ef379dd0219b187b` |
+| [`python-full.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-full.json) | `17a6ae8c6b0b753417e47ba6f877f6a23f7f81c28390fb62a3e2250bbfc270c9` |
+| [`python-full.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-full.log) | `b630712466c4885e872415f0a4a4e9a522ec42594c0f6ea6215bee2615a288ad` |
+| [`python-stall-baseline.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-stall-baseline.json) | `c627fd577a8b84ea6fc896135c67d95215e327b95390f95a1353797c1b82cbe9` |
+| [`python-stall-baseline.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-stall-baseline.log) | `2e165529e598f028ca6b8b6730a0d76cc91ad30a23b537e02a0dae0876423c32` |
+| [`python-stall-current.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-stall-current.json) | `ed1b03f79ff4fd9f533097331fab6eb28e0c75709aceca4017a261fb2d4e345c` |
+| [`python-stall-current.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-stall-current.log) | `af9c485b3c8b750f2973a4b54b82bfd7a79a75f699616f9112cff8102fd17929` |
+| [`setup.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/setup.log) | `b775a36e1b4df04c6387b9a26bde44bc0dba25d88782f274cae00dc7fca3a010` |
+| [`workspace.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/workspace.json) | `0b2eb297dde7dc0f2577c352cfbc0b545a7a40ba18fd91a8a877ab470992cd54` |
+
+From the repository root, fetch the publication only if it is missing from
+your checkout. Extract the captures to a fresh directory to preserve their
+original paths. Compare each file's SHA-256 with the table.
+
+```sh
+revision=b21fae85fe4f79e72c4133c29a3814b9d5950c3a
+directory=docs/evidence/issue-4369/runtime-4548
+{ git cat-file -e "$revision^{commit}" 2>/dev/null ||
+    git fetch --no-tags --depth=1 origin "$revision"; } &&
+    recovered=$(mktemp -d) &&
+    git archive --output="$recovered/runtime-4548.tar" "$revision" "$directory" &&
+    tar -xf "$recovered/runtime-4548.tar" -C "$recovered" &&
+    printf 'Recovered captures under %s/%s\n' "$recovered" "$directory"
+```
 
 ### Downstream observation
 
@@ -1124,9 +1179,9 @@ suffix="\n[truncated]")` returns `"## H"` where the test expects `"##"`.
 Both the named test file and `scripts/langchain/issue_pr_context.py` are unchanged
 between that parent and this checkout. This is a demonstrated pre-existing
 failure, unrelated to credential-directory resolution. No repair or test-policy
-change was made. Raw results: [`python-failure-current.log`](runtime-4548/python-failure-current.log),
-[`python-failure-current.json`](runtime-4548/python-failure-current.json), and
-[`python-failure-baseline.log`](runtime-4548/python-failure-baseline.log).
+change was made. Raw results: [`python-failure-current.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-failure-current.log),
+[`python-failure-current.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-failure-current.json), and
+[`python-failure-baseline.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-failure-baseline.log).
 
 The exact full Node command stops emitting file-level progress after
 `keepalive-instruction-template.test.js`. A diagnostic with process isolation
@@ -1150,10 +1205,10 @@ this sandbox; it does not establish its root cause or a failure on hosted CI.
 The diagnostic selection and isolation option apply only to the separate
 reproducer. The full-source command uses its original selection and options.
 Raw diagnostic logs and revision/timing receipts are
-[`node-named-current.json`](runtime-4548/node-named-current.json),
-[`node-named-baseline.json`](runtime-4548/node-named-baseline.json),
-[`node-direct-diagnostic.log`](runtime-4548/node-direct-diagnostic.log), and
-[`node-baseline-diagnostic.log`](runtime-4548/node-baseline-diagnostic.log).
+[`node-named-current.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-named-current.json),
+[`node-named-baseline.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-named-baseline.json),
+[`node-direct-diagnostic.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-direct-diagnostic.log), and
+[`node-baseline-diagnostic.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-baseline-diagnostic.log).
 The filtered reproductions produce empty stdout before timing out; their
 corresponding `.log` files are retained too. No test is disabled in the full gate.
 
@@ -1175,8 +1230,8 @@ records another pre-existing runtime blocker under this environment; it does
 not establish whether the cause is in asyncio, an optional dependency, or the
 sandbox. No workaround is injected into the tests and no test is disabled.
 The verbose raw logs are
-[`python-stall-current.log`](runtime-4548/python-stall-current.log) and
-[`python-stall-baseline.log`](runtime-4548/python-stall-baseline.log).
+[`python-stall-current.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-stall-current.log) and
+[`python-stall-baseline.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-stall-baseline.log).
 
 The blocker comment and additive `needs-human` label were also attempted on
 PR 4549. Automatic approval review rejected each for the same
@@ -1194,9 +1249,9 @@ hosted-CI environment.
 The exact full Node command reached its **600-second** bound, exit **124**,
 with wall duration **600.018s**. It did not emit a complete suite summary. Its
 complete captured stdout/stderr through termination is retained as
-[`node-full.log`](runtime-4548/node-full.log), with expanded command, revision,
+[`node-full.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-full.log), with expanded command, revision,
 interpreter, UTC timestamps, exit, timeout and SHA-256 in
-[`node-full.json`](runtime-4548/node-full.json). This is a failed validation
+[`node-full.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/node-full.json). This is a failed validation
 attempt, not a full-source pass or evidence that every Node test ran.
 
 ### Final gate receipts for this follow-up
@@ -1205,9 +1260,9 @@ The exact full Python command reached its **900-second** bound, exit **124**,
 with wall duration **900.067s**. Its last emitted progress remains at 6%, after
 3,589 outcomes including the reproduced truncation failure. There is no complete
 suite summary and no claim that the remaining tests executed. Complete captured
-stdout/stderr through termination is [`python-full.log`](runtime-4548/python-full.log),
+stdout/stderr through termination is [`python-full.log`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-full.log),
 with revision/interpreter/UTC start/exit/duration/hash in
-[`python-full.json`](runtime-4548/python-full.json).
+[`python-full.json`](https://github.com/stranske/Workflows/blob/b21fae85fe4f79e72c4133c29a3814b9d5950c3a/docs/evidence/issue-4369/runtime-4548/python-full.json).
 
 All commands below use the supported environment and identified descendant
 checkout described above. The full commands retain their original selection;

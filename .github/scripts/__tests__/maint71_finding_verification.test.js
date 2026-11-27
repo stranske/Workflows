@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { sha256, validateIndependentFindingVerification: validate,
-  validateIndependentFindingFromNative, validateNativeConversationDisposition } = require('../maint71_finding_verification');
+  validateIndependentFindingFromNative, validateNativeConversationDisposition, readProofReceipt } = require('../maint71_finding_verification');
 const { validateReviewResolutionProof } = require('../maint71_merge_sync_prs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -417,6 +417,7 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
     let resolutions = 0;
     let attestationReads = 0;
     let receiverFixReads = 0;
+    const receipts = [];
     const repoIdentity = { full_name: args.proof.repository };
     const generatedPull = { number: 1, state: 'open',
       base: { ref: 'main', repo: repoIdentity },
@@ -436,7 +437,8 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
             base_commit: { sha: receiverFix.merge_sha }, merge_base_commit: { sha: receiverFix.merge_sha } } };
         },
       },
-        issues: { getComment: async () => {
+        issues: { createComment: async (params) => { receipts.push(params); return { data: {} }; },
+          getComment: async () => {
           attestationReads++;
           if (attestationReads === 2 && race === 'attestation-deleted') throw new Error('404 deleted');
           return { data: race === 'unassessed' || (attestationReads === 2 && race === 'attestation-edited')
@@ -493,8 +495,9 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
       parseDeliveryRecord: require('../sync_pr_lease_contract').parseDeliveryRecord,
       reviewResolutionProofs: [args.proof], reviewResolutionProofParseError: '',
       trustedResolutionActors: ['stranske'], reviewerProfiles: args.reviewerProfiles,
-      reviewPolicy: args.policy, dryRun: false, resolutionOnly: true,
-      context: { actor: 'stranske', repo: { owner: 'stranske', repo: 'Workflows' } },
+      reviewPolicy: args.policy, dryRun: false, resolutionOnly: true, emitProofReceipts: true,
+      context: { actor: 'stranske', runId: 4242, repo: { owner: 'stranske', repo: 'Workflows' } },
+      process: { env: { GITHUB_RUN_ATTEMPT: '1' } }, core: { warning() {} },
       withRetry: (fn) => fn(github), withReviewReadRetry: (fn) => fn(github),
       console: { log() {} },
     };
@@ -507,6 +510,14 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
       assert.equal(result.errors[0],
         `${args.proof.thread_id}:failed_transport_or_freshness_unproven`);
     }
+    // Every evaluated Maint 90 proof leaves exactly one receipt with Maint 71's own outcome.
+    assert.equal(receipts.length, 1);
+    assert.deepEqual([receipts[0].owner, receipts[0].repo, receipts[0].issue_number], ['stranske', 'Workflows', 1836]);
+    const receipt = readProofReceipt(receipts[0].body);
+    assert.equal(receipt.maint71_run_id, 4242);
+    assert.equal(receipt.verification_url, args.proof.reviewer_acceptance_url);
+    assert.equal(receipt.outcome, race === 'none' ? 'resolved' : 'rejected');
+    assert.equal(receipt.reason, race === 'none' ? '' : result.errors[0].slice(args.proof.thread_id.length + 1));
     if (receiverFix && race === 'none') assert.equal(receiverFixReads, 2);
     if (['wrong-fix-repo', 'source-missing', 'unassessed', 'untrusted-publisher', 'negative-missing'].includes(race)) {
       assert.equal(receiverFixReads, 0);
