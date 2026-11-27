@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import shutil
+import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import Mock
@@ -945,3 +949,133 @@ def test_tracker_step_excludes_pull_requests_and_comment_step_unchanged() -> Non
 
     comment = next(step for step in steps if step["name"] == "Comment on PR")
     assert comment["if"] == "failure() && github.event_name == 'pull_request'"
+
+
+def _publish_tracker(tmp_path: Path, search: list[dict], labelled: list[dict]) -> list:
+    yaml = pytest.importorskip("yaml")
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is required to run the freshness publisher")
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    script = next(
+        step["with"]["script"]
+        for step in workflow["jobs"]["contract-integrity"]["steps"]
+        if step.get("id") == "publish-freshness-tracker"
+    )
+    report = tmp_path / "registry-status.json"
+    report.write_text(json.dumps(_baseline_report()), encoding="utf-8")
+    harness = """
+const assert = require('node:assert/strict');
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const writes = [];
+const record = (action) => async ({ issue_number, state }) => {
+  writes.push([action, issue_number ?? null, state ?? null]);
+  return { data: { number: 1 } };
+};
+const github = {
+  rest: {
+    search: { issuesAndPullRequests: async ({ q }) => {
+      assert.equal(q, 'repo:stranske/Workflows is:issue in:body "backplane-freshness-tracker:v1"');
+      return { data: { items: input.search } };
+    } },
+    issues: {
+      listForRepo: () => {},
+      create: record('create'),
+      update: record('update'),
+      addLabels: record('addLabels'),
+    },
+  },
+  paginate: async (method, { state, labels }) => {
+    assert.equal(method, github.rest.issues.listForRepo);
+    assert.equal(state, 'all');
+    assert.equal(labels, 'automated');
+    return input.labelled;
+  },
+};
+const core = {
+  setOutput() {}, info() {}, notice() {}, warning() {},
+  setFailed(message) { throw Error(message); },
+};
+const load = (name) => name === 'child_process'
+  ? { execFileSync: (_, args, options) => require(name).execFileSync(input.python, args, options) }
+  : require(name);
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+new AsyncFunction('require', 'github', 'context', 'core', input.script)(
+  load, github, { repo: { owner: 'stranske', repo: 'Workflows' } }, core
+).then(() => console.log(JSON.stringify(writes))).catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+"""
+    result = subprocess.run(
+        [node, "-e", harness],
+        cwd=ROOT,
+        env=dict(
+            os.environ,
+            TMPDIR=str(tmp_path),
+            REPORT_PATH=str(report),
+            RUN_URL=RUN_2,
+            HEAD_SHA="sha2",
+        ),
+        input=json.dumps(
+            {"script": script, "search": search, "labelled": labelled, "python": sys.executable}
+        ),
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def _tracker_issue(number: int, state: str = "open") -> dict:
+    return {
+        "number": number,
+        "state": state,
+        "title": "Renamed freshness tracker",
+        "body": vbr.render_tracker(_baseline_report(), RUN_1, "sha1"),
+        "labels": [{"name": "automated"}],
+        "user": {"id": 41898282, "login": "github-actions[bot]", "type": "Bot"},
+    }
+
+
+@pytest.mark.parametrize("candidate", ["quoted_marker", "review_issue", "wrong_creator", "pr"])
+def test_publisher_creates_when_only_non_tracker_candidate_exists(
+    tmp_path: Path, candidate: str
+) -> None:
+    issue = _tracker_issue(1)
+    if candidate == "quoted_marker":
+        issue["body"] = f"Use a stable body marker (for example `{vbr.TRACKER_MARKER}`)."
+    elif candidate == "review_issue":
+        # A previous publisher overwrote the review issue body and added the
+        # automated label, but the review-intake label and creator persisted.
+        issue["labels"].append({"name": "repo-review-approved"})
+    elif candidate == "wrong_creator":
+        issue["user"] = {"id": 1234, "login": "owner", "type": "User"}
+        issue["title"] = vbr.TRACKER_TITLE
+    else:
+        issue["pull_request"] = {}
+    assert _publish_tracker(tmp_path, [issue], [issue]) == [["create", None, None]]
+
+
+def test_publisher_updates_oldest_open_tracker_after_rename_and_relabel(tmp_path: Path) -> None:
+    retitled = _tracker_issue(2)
+    retitled["labels"] = [{"name": "operator-review"}]
+    candidates = [_tracker_issue(1, "closed"), _tracker_issue(3), retitled]
+
+    assert _publish_tracker(tmp_path, candidates, []) == [
+        ["update", 2, None],
+        ["addLabels", 2, None],
+    ]
+
+
+@pytest.mark.parametrize("stale_search_copy", [False, True])
+def test_publisher_reopens_oldest_closed_tracker_from_label_listing(
+    tmp_path: Path, stale_search_copy: bool
+) -> None:
+    search = [_tracker_issue(1)] if stale_search_copy else []
+    labelled = [_tracker_issue(2, "closed"), _tracker_issue(1, "closed")]
+    assert _publish_tracker(tmp_path, search, labelled) == [
+        ["update", 1, "open"],
+        ["addLabels", 1, None],
+    ]

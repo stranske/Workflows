@@ -150,6 +150,7 @@ jobs:
             const { withRetry, paginateWithRetry } = require('./.github/scripts/github-api-with-retry.js');
             const { owner, repo } = context.repo;
             const marker = '<!-- backplane-freshness-tracker:v1 -->';
+            const actionsBotId = 41898282; // github-actions[bot], the GITHUB_TOKEN issue creator.
 
             // Find the tracker by body marker, never by title. Search is eventually
             // consistent, so the label listing backs it up for back-to-back runs.
@@ -163,10 +164,17 @@ jobs:
               owner, repo, state: 'all', labels: 'automated', per_page: 100,
             });
             for (const item of labelled) {
-              if (!item.pull_request) candidates.set(item.number, item);
+              candidates.set(item.number, item);
             }
             const matches = [...candidates.values()]
-              .filter((item) => (item.body || '').includes(marker))
+              .filter((item) =>
+                !item.pull_request &&
+                item.body?.split(/\r?\n/, 1)[0] === marker &&
+                item.user?.id === actionsBotId &&
+                // Review intake shares this creator. It may carry a tracker
+                // body after an erroneous update, so exclude approved work.
+                !item.labels?.some((label) => label.name === 'repo-review-approved')
+              )
               .sort((a, b) => a.number - b.number);
             // Prefer the oldest open tracker; otherwise the oldest closed one.
             const existing = matches.find((item) => item.state === 'open') || matches[0] || null;
