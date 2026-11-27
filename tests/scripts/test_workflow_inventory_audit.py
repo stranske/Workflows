@@ -18,9 +18,9 @@ WORKFLOWS = REPO_ROOT / ".github/workflows"
 
 
 def test_excluded_reusable_matches_maint66_shell_logic() -> None:
-    worker = (WORKFLOWS / "agents-72-codex-belt-worker.yml").read_text(encoding="utf-8")
+    reusable = (WORKFLOWS / "reusable-12-ci-docker.yml").read_text(encoding="utf-8")
     health42 = (WORKFLOWS / "health-42-actionlint.yml").read_text(encoding="utf-8")
-    assert excluded_from_not_run_inventory(worker) is True
+    assert excluded_from_not_run_inventory(reusable) is True
     assert excluded_from_not_run_inventory(health42) is False
 
 
@@ -57,7 +57,7 @@ def test_not_run_candidates_omit_call_only_reusables() -> None:
     candidates = not_run_candidates(rows)
     # Every candidate must not be excluded
     assert all(not row.excluded_from_not_run for row in candidates)
-    assert all(row.stem != "agents-72-codex-belt-worker" for row in candidates)
+    assert all(row.stem != "reusable-12-ci-docker" for row in candidates)
 
 
 def test_inspect_workflow_file_reads_display_name(tmp_path: Path) -> None:

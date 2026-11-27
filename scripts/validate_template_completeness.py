@@ -35,8 +35,6 @@ WORKFLOWS_ONLY = {
     # Debug/testing workflows
     "agents-debug-issue-event.yml",
     "agents-model-profile-trial.yml",  # Workflows-owned remote trial transport
-    # Only the hosted repository previously offered the optional belt promotion scan.
-    "agents-73-codex-belt-conveyor-dispatch.yml",
     # Internal dispatch handlers
     "agents-keepalive-branch-sync.yml",
     "agents-keepalive-dispatch-handler.yml",

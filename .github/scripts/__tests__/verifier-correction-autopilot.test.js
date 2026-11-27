@@ -362,9 +362,3 @@ test('missing or expired started artifacts never fall through to an ordinary-mod
  f.transport.load=async()=>{throw Error('retained receipt expired');};
  await assert.rejects(f.scan(),/retained receipt expired/);
 });
-
-test('restored ordinary workflow is not misrepresented as an installed typed-mode proof source',async()=>{
- const fs=require('fs'),path=require('path'),f=ordinaryExecutionFixture();
- f.state.source=fs.readFileSync(path.resolve(__dirname,'../../workflows/agents-auto-pilot.yml'));
- await assert.rejects(f.scan(),/source step ambiguous/);
-});

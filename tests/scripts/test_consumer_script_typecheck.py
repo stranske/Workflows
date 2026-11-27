@@ -18,7 +18,6 @@ def test_manifest_synced_helpers_typecheck_without_repo_overrides(tmp_path: Path
             str(config),
             "--cache-dir",
             str(tmp_path / "mypy-cache"),
-            str(ROOT / "scripts/autopilot_step_timer.py"),
             str(ROOT / "scripts/check_docs_drift.py"),
             str(ROOT / "scripts/sync_status_file_ignores.py"),
         ]

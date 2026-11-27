@@ -12,8 +12,6 @@ def test_consumer_ci_guide_matches_current_agent_entrypoints() -> None:
 
     for current_surface in (
         "agents-issue-intake.yml",
-        "agents-71-codex-belt-dispatcher.yml",
-        "agents-72-codex-belt-worker-dispatch.yml",
         "agents-80-pr-event-hub.yml",
         "agents-81-gate-followups.yml",
         "agents-verifier.yml",

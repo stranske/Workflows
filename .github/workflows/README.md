@@ -86,11 +86,6 @@ workflow files.
 | `health-43-ci-signature-guard.yml` | pull_request/push (`main`) | Validates the signed job manifest for `pr-00-gate.yml`.
 | `agents-63-issue-intake.yml` | issues, workflow_dispatch, workflow_call | Canonical intake workflow that normalizes ChatGPT topic lists and bridges `agent:codex` issues into the belt or intake paths. |
 | `maint-45-cosmetic-repair.yml` | workflow_dispatch | Manual pytest + cosmetic fixer that raises guard-gated PRs for tolerated drift. |
-| `agents-71-codex-belt-dispatcher.yml` | workflow_call, workflow_dispatch | Picks the next `agent:codex` + `status:ready` issue, creates the `codex/issue-*` branch and marks the issue in progress. Its callers arrange the worker (`agents-auto-pilot.yml`, manual dispatch). |
-| `agents-72-codex-belt-worker.yml` | workflow_call | Validates the queued issue/branch, ensures divergence from base, and opens or refreshes the Codex automation PR with labels, assignees, and activation. |
-| `agents-72-codex-belt-worker-dispatch.yml` | workflow_dispatch | Forwards manual or Auto-Pilot dispatches to the reusable worker. |
-| `agents-73-codex-belt-conveyor.yml` | workflow_call | Checks the combined status of the supplied head, merges eligible PRs, removes the branch, closes the issue and requests the next dispatch. |
-| `agents-73-codex-belt-conveyor-dispatch.yml` | workflow_dispatch | Source-only manual belt promotion: preview by default (`dry_run`), live eligibility filter, calls `agents-73-codex-belt-conveyor.yml`. No schedule. |
 | `reusable-10-ci-python.yml` | workflow_call | Unified CI executor for the Python stack. |
 | `reusable-12-ci-docker.yml` | workflow_call | Docker smoke reusable consumed by `pr-00-gate.yml`. |
 | `reusable-18-autofix.yml` | workflow_call | Executes fixes for opted-in [Autofix callers](../../docs/ci/WORKFLOWS.md#autofix-routes). |
@@ -132,8 +127,8 @@ Prefer a tagged ref (`@v1`) in consumer repos; reserve `@main` for intentional u
 
 ### Agents Orchestration (Issue #2615)
 Issue #2615 centralises issue-driven automation: **Agents 63 Issue Intake** plus
-`reusable-agents-issue-bridge.yml` own bridge work; the **Codex belt**
-(`agents-71/72/73`) and **Auto-Pilot** own queue and issue-to-PR paths.
+`reusable-agents-issue-bridge.yml` own bridge work. The shared lanes own queue
+admission and exact-head PR promotion.
 Begin Codex work with an [Agent task issue][agent-task-template]
 (`agents` + `agent:codex` labels).
 
@@ -145,12 +140,7 @@ The lifecycle is:
    In invite mode it prepares the branch and posts a compare link on the issue.
    Open that link and create the PR as its author. In PR mode the bridge can
    open or reuse a PR and post the configured agent comment.
-3. Apply `agents:auto-pilot` for full inline automation, or let the belt claim
-   `status:ready` issues via `agents-71-codex-belt-dispatcher.yml`.
-
-For manual belt promotion after Gate success, dispatch
-`agents-73-codex-belt-conveyor-dispatch.yml` with `dry_run=true` (default preview)
-before a live run.
+3. The [shared opener and closer](../../docs/ops/LOCAL_LANES.md#lanes-overview) claim eligible work and handle guarded exact-head promotion.
 
 The guard test `tests/workflows/test_workflow_agents_consolidation.py` enforces
 topology invariants for keepalive, belt, and intake surfaces.
@@ -318,18 +308,9 @@ Branch protection requires the Gate **`summary`** job per `.github/config/requir
 - Tune dependency severity gating.
 - Tag releases for stable reuse.
 
-1. Navigate to **Actions → Agents 64 Verify Agent Assignment → Run workflow** for
-   spot issue verification, or **Agents 73 Dispatch Codex Belt Conveyor** for belt
-   promotion preview (`dry_run` default).
-2. For belt promotion preview:
-
-   ```bash
-   gh workflow run agents-73-codex-belt-conveyor-dispatch.yml \
-     --raw-field dry_run=true
-   ```
-
-3. Review the dispatch run summary for eligibility decisions and conveyor hand-off.
-4. Gate summary jobs echo failing runs in the `ci-failure` rollup when Gate is affected.
+1. Run **Agents 64 Verify Agent Assignment** for spot issue verification.
+2. Inspect the [shared closer](../../docs/ops/LOCAL_LANES.md#lanes-overview) run for eligibility and exact-head promotion.
+3. Gate summary jobs report failing runs in the `ci-failure` rollup.
 
 ---
 ## 6. Onboarding Checklist (~7 min)
@@ -340,8 +321,7 @@ Branch protection requires the Gate **`summary`** job per `.github/config/requir
    `AUTOFIX_OPT_IN_LABEL`) are set.
 3. Review Gate and its integrated summary jobs on a recent PR to familiarise yourself
    with the consolidated reporting.
-4. Use **Agents 73 Dispatch Codex Belt Conveyor** with `dry_run=true` to preview
-   belt promotion before a live conveyor call.
+4. Review the [shared lane procedure](../../docs/ops/LOCAL_LANES.md#lanes-overview) before promoting agent work.
 5. Consult `docs/ci/WORKFLOWS.md` for the authoritative workflow roster before
    adding or renaming jobs.
 
@@ -355,6 +335,6 @@ Branch protection requires the Gate **`summary`** job per `.github/config/requir
   remain archived in `ARCHIVE_WORKFLOWS.md`.
 
 Refer to the archive if you need to resurrect behaviour for forensic analysis;
-otherwise, prefer Auto-Pilot, the Codex belt, and keepalive workflows.
+otherwise, use the shared lane procedure and the keepalive workflows.
 
 [agent-task-template]: https://github.com/stranske/Workflows/issues/new?template=agent_task.yml

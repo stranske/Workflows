@@ -131,15 +131,8 @@ def validate_workflow(file_path: Path, verbose: bool = False) -> bool:
         return True
 
 
-# Workflows with pre-existing lint issues that are temporarily skipped
-# TODO: Fix these workflows and remove from skip list
-# See: https://github.com/mhfed/Workflows/issues/XXXX
-LEGACY_SKIP_WORKFLOWS = {
-    # Belt workflows have long lines - need refactoring
-    "agents-71-codex-belt-dispatcher.yml",
-    "agents-72-codex-belt-worker.yml",
-    "agents-73-codex-belt-conveyor.yml",
-}
+# Temporary exceptions for workflows with pre-existing lint issues.
+LEGACY_SKIP_WORKFLOWS: set[str] = set()
 
 
 def discover_changed_workflows(base_ref: str = "origin/main") -> list[Path]:

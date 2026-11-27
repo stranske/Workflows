@@ -16,13 +16,7 @@ In the current topology, issue intake flows through
 authored Gate-completion and hourly keepalive sweeps live in
 [`.github/workflows/agents-keepalive-loop.yml`](../.github/workflows/agents-keepalive-loop.yml)
 and [`.github/workflows/agents-keepalive-sweep.yml`](../.github/workflows/agents-keepalive-sweep.yml),
-standalone issue-to-PR queue automation runs through the Codex belt
-([`.github/workflows/agents-71-codex-belt-dispatcher.yml`](../.github/workflows/agents-71-codex-belt-dispatcher.yml),
-[`.github/workflows/agents-72-codex-belt-worker-dispatch.yml`](../.github/workflows/agents-72-codex-belt-worker-dispatch.yml),
-[`.github/workflows/agents-72-codex-belt-worker.yml`](../.github/workflows/agents-72-codex-belt-worker.yml),
-[`.github/workflows/agents-73-codex-belt-conveyor.yml`](../.github/workflows/agents-73-codex-belt-conveyor.yml),
-and [`.github/workflows/agents-73-codex-belt-conveyor-dispatch.yml`](../.github/workflows/agents-73-codex-belt-conveyor-dispatch.yml)
-for source-only manual belt promotion),
+the [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) own issue-to-PR claims and guarded promotion,
 PR-meta keepalive commands dispatch workers directly
 ([#5162](https://github.com/stranske/Workflows/pull/5162)),
 and measured worker capacity is enforced at dispatch
@@ -72,21 +66,14 @@ cutover is unchanged by this retirement.
   [`.github/workflows/agents-keepalive-loop.yml`](../.github/workflows/agents-keepalive-loop.yml);
   hourly stalled-PR resync runs in
   [`.github/workflows/agents-keepalive-sweep.yml`](../.github/workflows/agents-keepalive-sweep.yml);
-  issue-to-PR queue work runs through the standalone Codex belt
-  (`agents-71`/`72`/`73`); full issue pipelines use
-  [`.github/workflows/agents-auto-pilot.yml`](../.github/workflows/agents-auto-pilot.yml);
+  the [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) own issue-to-PR claims and exact-head promotion;
   ad-hoc issue verification uses
   [`.github/workflows/agents-64-verify-agent-assignment.yml`](../.github/workflows/agents-64-verify-agent-assignment.yml).
 - **PR-meta dispatch (#5162).** `agents-pr-meta-v4.yml` submits keepalive worker
   commands directly rather than routing through the retired orchestrator init/main
   pair; measured worker capacity at dispatch ships with
   [#5163](https://github.com/stranske/Workflows/pull/5163).
-- **Belt promotion dispatch.** Queue promotion after Gate success uses
-  [`agents-73-codex-belt-conveyor-dispatch.yml`](../.github/workflows/agents-73-codex-belt-conveyor-dispatch.yml):
-  manual `workflow_dispatch` only (no schedule), `dry_run` defaulting to preview,
-  bounded promotion count, live eligibility selection, and a call into the retained
-  `agents-73-codex-belt-conveyor.yml` callable. A manually supplied target cannot
-  bypass the eligibility filter.
+- **Agent PR promotion.** The [shared closer](ops/LOCAL_LANES.md#lanes-overview) checks the current PR head, required checks, and review clearance before merging.
 
 ## Protection layers
 

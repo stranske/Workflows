@@ -130,11 +130,13 @@ def test_workflow_source_never_falls_back_to_root(tmp_path: Path) -> None:
         for entry in workflows
         if entry.source_tree == "template"
     )
-    auto_pilot = next(
-        entry for entry in workflows if entry.target == ".github/workflows/agents-auto-pilot.yml"
+    followups = next(
+        entry
+        for entry in workflows
+        if entry.target == ".github/workflows/agents-81-gate-followups.yml"
     )
-    assert auto_pilot.source == ".github/workflows/agents-auto-pilot.yml"
-    assert auto_pilot.source_tree == "template"
+    assert followups.source == ".github/workflows/agents-81-gate-followups.yml"
+    assert followups.source_tree == "template"
 
     source = ".github/workflows/reusable-pr-context.yml"
     write_source(tmp_path, source, template=False, content="root-only twin\n")
@@ -671,7 +673,6 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         entry.get("target", entry["source"]).rstrip("/") for entry in copy_entries
     )
     assert {
-        "scripts/autopilot_summary_environment.py",
         ".github/scripts/autofix_metrics.js",
         "tools/subscription_llm.py",
         ".github/scripts/rate_limit_receipt.js",

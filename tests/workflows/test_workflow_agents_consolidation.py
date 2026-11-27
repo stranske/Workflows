@@ -432,69 +432,6 @@ def test_autofix_file_discovery_fails_closed_on_rate_limit():
         ) in text
 
 
-def test_auto_pilot_context_and_cycle_reads_defer_on_rate_limit():
-    text = (WORKFLOWS_DIR / "agents-auto-pilot.yml").read_text(encoding="utf-8")
-
-    assert (
-        "deferForRateLimit" in text
-    ), "Auto-pilot context discovery must share a rate-limit deferral helper"
-    assert (
-        "Auto-pilot determine context deferred during" in text
-    ), "Auto-pilot must explain which context read was deferred"
-    for stage in ["issue fetch", "optimizer comment scan", "timeline scan"]:
-        assert stage in text, f"Auto-pilot must defer safely during {stage}"
-    assert (
-        "core.setOutput('reason', 'rate-limited')" in text
-    ), "Auto-pilot must expose rate-limited context deferrals as an output"
-    assert (
-        "core.setOutput('rate_limited', 'true')" in text
-    ), "Auto-pilot cycle count must expose rate-limit deferrals as an output"
-    assert (
-        "steps.cycles.outputs.rate_limited != 'true'" in text
-    ), "Auto-pilot must not choose a next step after a rate-limited cycle count"
-
-
-def test_auto_pilot_dispatches_pr_event_hub_pr_meta_only():
-    root_workflow = WORKFLOWS_DIR / "agents-auto-pilot.yml"
-    consumer_workflow = Path("templates/consumer-repo/.github/workflows/agents-auto-pilot.yml")
-
-    for workflow_path in (root_workflow, consumer_workflow):
-        text = workflow_path.read_text(encoding="utf-8")
-        assert "import json, os, sys" in text
-        assert "inputsByWorkflow" in text
-        assert "'agents-80-pr-event-hub.yml': {" in text
-        assert "handler: 'pr-meta'" in text
-
-    root_text = root_workflow.read_text(encoding="utf-8")
-    assert "agents-pr-meta-v4.yml" in root_text
-    assert "agents-keepalive-loop.yml" in root_text
-
-    consumer_text = consumer_workflow.read_text(encoding="utf-8")
-    assert "workflowIds: ['agents-80-pr-event-hub.yml']" in consumer_text
-    assert "workflowIds: ['agents-81-gate-followups.yml']" in consumer_text
-    assert "agents-pr-meta-v4.yml" not in consumer_text
-    assert "agents-keepalive-loop.yml" not in consumer_text
-
-
-def test_auto_pilot_verify_step_parses_in_source_and_template():
-    workflow_paths = [
-        WORKFLOWS_DIR / "agents-auto-pilot.yml",
-        Path("templates/consumer-repo/.github/workflows/agents-auto-pilot.yml"),
-    ]
-
-    for workflow_path in workflow_paths:
-        step = _workflow_step_by_id(workflow_path, "verify_step")
-        script = (step.get("with") or {}).get("script") or ""
-
-        assert "capabilities: ['issues:write', 'pulls:read']\n}));" not in script
-        assert (
-            "capabilities: ['issues:write', 'pulls:read', 'actions:write']\n});\n"
-            "const issueNumber = Number(process.env.ISSUE_NUMBER);"
-        ) in script
-        assert "agentKey" not in script
-        assert "Dispatched belt dispatcher" not in script
-
-
 def test_legacy_agent_workflows_removed():
     present = {p.name for p in WORKFLOWS_DIR.glob("agents-*.yml")}
     forbidden = {
@@ -1523,9 +1460,7 @@ def test_hosted_gemini_runs_on_subscription_login_never_api_key():
 
     callers = [
         WORKFLOWS_DIR / "agents-keepalive-loop.yml",
-        WORKFLOWS_DIR / "agents-auto-pilot.yml",
         Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"),
-        Path("templates/consumer-repo/.github/workflows/agents-auto-pilot.yml"),
     ]
     for path in callers:
         text = path.read_text(encoding="utf-8")

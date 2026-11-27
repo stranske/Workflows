@@ -12,7 +12,6 @@ import pytest
 import yaml
 
 WORKFLOWS_DIR = Path(".github/workflows")
-AUTO_PILOT = WORKFLOWS_DIR / "agents-auto-pilot.yml"
 ISSUE_OPTIMIZER = WORKFLOWS_DIR / "agents-issue-optimizer.yml"
 VERIFIER = WORKFLOWS_DIR / "reusable-agents-verifier.yml"
 VERIFY_TO_ISSUE = WORKFLOWS_DIR / "agents-verify-to-issue-v2.yml"
@@ -263,16 +262,6 @@ def _render_prompt_with_assemble_step(
     return (tmp_path / output_file).read_text(encoding="utf-8")
 
 
-def test_agents_auto_pilot_llm_install_is_pinned() -> None:
-    text = _load_text(AUTO_PILOT)
-    _assert_pinned_install(
-        text,
-        "python -m pip install -r tools/requirements-llm.txt",
-        AUTO_PILOT.name,
-    )
-    _assert_no_floating_langchain(text, AUTO_PILOT.name)
-
-
 def test_agents_issue_optimizer_llm_install_is_pinned() -> None:
     text = _load_text(ISSUE_OPTIMIZER)
     _assert_pinned_install(
@@ -281,13 +270,6 @@ def test_agents_issue_optimizer_llm_install_is_pinned() -> None:
         ISSUE_OPTIMIZER.name,
     )
     _assert_no_floating_langchain(text, ISSUE_OPTIMIZER.name)
-
-
-def test_agents_auto_pilot_pip_cache_is_configured() -> None:
-    if os.environ.get("AGENT_ENV", "agent-standard") != "agent-high-privilege":
-        pytest.skip("needs-human: workflow updates require agent-high-privilege")
-    workflow = _load_workflow(AUTO_PILOT)
-    _assert_pip_cache(workflow, "tools/requirements-llm.txt", AUTO_PILOT.name)
 
 
 def test_reusable_agents_verifier_llm_install_is_pinned_for_modes() -> None:
@@ -485,7 +467,6 @@ def test_workflow_llm_needs_human_comment_documents_blocker() -> None:
     text = _load_text(NEEDS_HUMAN_COMMENT)
     required_phrases = [
         "Label: needs-human",
-        ".github/workflows/agents-auto-pilot.yml",
         ".github/workflows/agents-issue-optimizer.yml",
         ".github/workflows/reusable-agents-verifier.yml",
         ACTIONS_CACHE_V6_REF,

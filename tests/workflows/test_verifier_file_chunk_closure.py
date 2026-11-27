@@ -105,19 +105,6 @@ def test_intake_replay_preserves_trusted_verifier_closures():
     subprocess.run(["node", "-e", node], cwd=ROOT, check=True, capture_output=True, text=True)
 
 
-def test_auto_pilot_closed_issue_verification_does_not_reopen_sources():
-    # Auto-pilot requests verifier labels; the state-changing reopen path is intake.
-    for relative in [
-        ".github/workflows/agents-auto-pilot.yml",
-        "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
-    ]:
-        workflow = yaml.safe_load((ROOT / relative).read_text())
-        steps = [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
-        script = next(step["with"]["script"] for step in steps if step.get("id") == "verify_step")
-        assert "issues.update" not in script
-        assert "issues.addLabels" in script
-
-
 def test_checkbox_prompt_exceeding_argument_limit_reaches_cli_over_stdin(tmp_path):
     import os
     import subprocess

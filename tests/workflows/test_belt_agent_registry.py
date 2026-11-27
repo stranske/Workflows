@@ -54,31 +54,17 @@ def test_agent_without_a_worker_path_is_rejected():
     assert len(_problems("nope", fake)) == 5
 
 
-def test_belt_workflows_stay_registry_driven():
-    for name in (
-        "agents-71-codex-belt-dispatcher.yml",
-        "agents-72-codex-belt-worker.yml",
-        "agents-73-codex-belt-conveyor.yml",
-    ):
-        assert "agent_registry.js" in (ROOT / ".github/workflows" / name).read_text(), name
-
-
 def test_belt_rotation_uses_real_credential_availability(tmp_path):
     """Run the actual workflow function with the real decision module and API stubs."""
     import json
     import subprocess
 
-    workflow = yaml.safe_load((ROOT / ".github/workflows/agents-auto-pilot.yml").read_text())
-    step = next(
-        s for s in workflow["jobs"]["auto-pilot"]["steps"] if s.get("id") == "create_pr_step"
+    archived = (
+        ROOT / "tests/fixtures/verifier_correction/retired-belt-and-auto-pilot-contracts.json"
     )
-    assert step["env"]["HAS_CURSOR_API_KEY"] == "${{ secrets.CURSOR_API_KEY != '' }}"
-    script = step["with"]["script"]
-    function = script[
-        script.index("async function tryBeltStallRotation") : script.index(
-            "// Check if branch exists"
-        )
-    ]
+    rotation = json.loads(archived.read_text())["autopilot_stall_rotation"]
+    assert rotation["has_cursor_api_key"] == "${{ secrets.CURSOR_API_KEY != '' }}"
+    function = rotation["function"]
     harness = r"""
 const vm = require('node:vm');
 const assert = require('node:assert/strict');

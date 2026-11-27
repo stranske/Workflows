@@ -173,7 +173,6 @@ Create these labels in **Settings** → **Labels** (exact names required):
 | `agent:retry` | `#D93F0B` | Optional recovery-request marker; does not trigger a retry by itself | Operator visibility |
 | `agent:needs-attention` | `#D93F0B` | Agent needs human help | Error recovery |
 | `agents:keepalive` | `#0E8A16` | Enables keepalive automation | PR keepalive loops |
-| `agents:auto-pilot` | `#0052CC` | Triggers end-to-end auto-pilot pipeline | Issue automation |
 | `runner:<agent>` | `#6f42c1` | Optional auto-pilot override (`runner:claude`, etc.) without triggering the issue intake workflow | Issue automation |
 | `agents:format` | `#5319E7` | Triggers direct issue formatting | Issue formatting |
 | `agents:optimize` | `#5319E7` | Triggers issue analysis/suggestions | Issue optimization |
@@ -191,7 +190,6 @@ Create each label:
 - [ ] `agent:retry`
 - [ ] `agent:needs-attention`
 - [ ] `agents:keepalive`
-- [ ] `agents:auto-pilot`
 - [ ] `runner:codex` (optional override, repeat per agent)
 - [ ] `agents:format`
 - [ ] `agents:optimize`
@@ -213,7 +211,6 @@ gh label create "agent:codex" --color "0052CC" --description "Assigns Codex agen
 gh label create "agent:retry" --color "D93F0B" --description "Marks a requested keepalive recovery" --repo "$REPO" 2>/dev/null || echo "agent:retry exists"
 gh label create "agent:needs-attention" --color "D93F0B" --description "Agent needs human help" --repo "$REPO" 2>/dev/null || echo "agent:needs-attention exists"
 gh label create "agents:keepalive" --color "0E8A16" --description "Enables keepalive automation" --repo "$REPO" 2>/dev/null || echo "agents:keepalive exists"
-gh label create "agents:auto-pilot" --color "0052CC" --description "Runs full auto-pilot issue pipeline" --repo "$REPO" 2>/dev/null || echo "agents:auto-pilot exists"
 gh label create "runner:codex" --color "6f42c1" --description "Auto-pilot runner override: codex" --repo "$REPO" 2>/dev/null || echo "runner:codex exists"
 gh label create "agents:format" --color "5319E7" --description "Formats issue into template" --repo "$REPO" 2>/dev/null || echo "agents:format exists"
 gh label create "agents:optimize" --color "5319E7" --description "Analyzes issue and posts suggestions" --repo "$REPO" 2>/dev/null || echo "agents:optimize exists"
@@ -309,8 +306,8 @@ Add each secret:
 - [ ] `KEEPALIVE_APP_PRIVATE_KEY` — **Required for keepalive parity** - Explicit keepalive app key
 - [ ] `KEEPALIVE_AUTHORITY_SIGNING_KEY` — **Required for terminal authority confirmation** - Dedicated random HMAC key; missing key fails closed to ordinary rechecks
 - [ ] `OPENAI_API_KEY` — Required for verify/decompose/optimizer workflows
-- [ ] `CURSOR_API_KEY` — Optional: required only for `agent:cursor` keepalive, belt and autofix
-- [ ] `META_API_KEY` — Optional: required only for `agent:muse` keepalive, belt and autofix (subscription key; see 3.2.4)
+- [ ] `CURSOR_API_KEY` — Optional: required only for `agent:cursor` keepalive and autofix
+- [ ] `META_API_KEY` — Optional: required only for `agent:muse` keepalive and autofix (subscription key; see 3.2.4)
 - [ ] `CLAUDE_API_STRANSKE` — Required for verify/decompose/optimizer workflows
 - [ ] `CLAUDE_CODE_OAUTH_TOKEN` (or `CLAUDE_AUTH_JSON`) — Required for Claude CLI workflow runs
 
@@ -544,9 +541,6 @@ entry points used by this repository:
 |----------|---------|------------------------|
 | `pr-00-gate.yml` | Required CI and exact-head enforcement | **YES** |
 | `agents-issue-intake.yml` | Assignment-label and manual agent intake | No |
-| `agents-auto-pilot.yml` | End-to-end issue automation | No |
-| `agents-71-codex-belt-dispatcher.yml` | Selects queued Codex work | No |
-| `agents-72-codex-belt-worker-dispatch.yml` | Dispatches the callable worker | No |
 | `agents-80-pr-event-hub.yml` | Routes PR events | **YES** |
 | `agents-81-gate-followups.yml` | Routes Gate events and guarded delivery | **YES** |
 | `agents-keepalive-sweep.yml` | Re-evaluates stalled agent PRs | **YES** |
@@ -570,8 +564,8 @@ entry points used by this repository:
 **Validation checklist:**
 
 - [ ] `agents-issue-intake.yml` exists as the local front door
-- [ ] Auto-Pilot, the Agents 71/72 dispatch path, and 80-81 event routers match the template
-- [ ] The 72 worker and 73 conveyor are recorded as callable-only, not operator entry points
+- [ ] Agents 80 and 81 event routers match the template
+- [ ] The retired Agents 71–73 belt workflows and Auto-Pilot workflow are absent from `.github/workflows/` after managed delivery
 - [ ] The retired consumer orchestrator wrapper is absent
 - [ ] No local bootstrap simulator or draft-PR control is present
 
@@ -1002,7 +996,7 @@ active Agents 81 follow-up route when recovery is due.
 ```text
 ┌─────────────────────┐
 │ Issue Intake /       │  Creates or refreshes a ready PR
-│ Agents Auto-Pilot   │
+│ Shared opener       │
 └──────────┬──────────┘
            │
            ▼
@@ -1129,11 +1123,6 @@ inputs:
 │   └── keepalive-instruction.md
 └── workflows/
     ├── agents-issue-intake.yml
-    ├── agents-auto-pilot.yml
-    ├── agents-71-codex-belt-dispatcher.yml
-    ├── agents-72-codex-belt-worker-dispatch.yml
-    ├── agents-72-codex-belt-worker.yml
-    ├── agents-73-codex-belt-conveyor.yml
     ├── agents-80-pr-event-hub.yml
     ├── agents-81-gate-followups.yml
     ├── agents-keepalive-sweep.yml

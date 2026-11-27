@@ -33,19 +33,11 @@ Automation agents touching **any** keepalive code path must consult the followin
    - Recommendations and elements to preserve
 5. **[`../guides/ADD_NEW_AGENT.md`](../guides/ADD_NEW_AGENT.md)** — Checklist for onboarding new agents (registry entries, runner workflows, docs/tests) so every automation surface treats Codex, Claude, and future agents consistently.
 
-## Auto-Pilot Integration
+## Current keepalive operation
 
-The keepalive loop is one stage within the larger **auto-pilot pipeline** (`agents-auto-pilot.yml`). Understanding their relationship is essential:
+The [shared opener and closer](../ops/LOCAL_LANES.md#lanes-overview) own issue admission and PR disposition. Keepalive reads the task appendix from the PR body after Gate and runs the selected agent.
 
-```
-Auto-pilot pipeline:
-  format → optimize → apply → capability-check → CREATE-PR → KEEPALIVE → verify → done
-                                                      │            │
-                                                      │            └─ Event-driven loop:
-                                                      │               Gate pass → task appendix
-                                                      │               → agent runner → push → repeat
-                                                      └─ Creates branch + PR with issue context
-```
+### Provider selection and stall rotation
 
 Keepalive delegation now writes `agents:tried-<agent>` on stall switches as
 well as provider rate-limit switches, and excludes tried agents from rotation.
@@ -72,49 +64,19 @@ does not establish progress. Measured branch or checklist progress overrides the
 classification to `progressed`, including successful summaries quoting quota
 errors, and clears the provider backoff marker.
 
-### How Keepalive Fits In
+On an eligible stalled PR carrying `agent:auto`, the [delegation policy](../../.github/scripts/agent_delegation_policy.js) chooses an untried, runnable provider. The tried labels and rate-limit receipts above govern subsequent selection.
 
-| Auto-pilot does... | Keepalive does... |
-|--------------------|--------------------|
-| Formats and enriches the issue | Drives the agent through PR tasks |
-| Creates the PR and branch | Evaluates Gate results and remaining work |
-| Dispatches the next pipeline step | Builds task appendix from PR body checkboxes |
-| Triggers verification post-merge | Dispatches the registry-backed agent with explicit task context |
+### Gate and retry behavior
 
-### Critical Integration Points
+Keepalive is event-driven via Gate `workflow_run` completion. The root loop accepts Gate runs whose source event was `pull_request` or `workflow_dispatch`, so push-to-default-branch Gate runs are rejected at the job condition before a runner is allocated without suppressing operator reruns. A PR or manual Gate whose `pull_requests` association is empty remains eligible and is resolved by head SHA inside `evaluateKeepaliveLoop`.
 
-Closed issues always enter `verify`, including issues with retained
-`verify:evaluate` or `verify:pr-handoff` labels after reopening. Historical labels
-and closure records cannot select `done`. Verification must confirm an explicit
-evaluate dispatch or applicable verifier run for the merged source PR and head.
-Only a successful verify step with `verify_handoff=found` permits the workflow to
-dispatch its next run with `force_step=done`. The done reporter revalidates the
-PR/head evidence before publishing completion and removing `agents:auto-pilot`.
+Every non-transient run/fix failure records automation-owned recovery state and explicitly dispatches a bounded retry through the active workflow (`agents-keepalive-loop.yml` in the root lane or `agents-81-gate-followups.yml` in consolidated consumers). A failed direct dispatch defers that durable lease for the hourly sweep instead of adding a sticky `agent:retry` label; after 3 failures, the current strategy pauses for the same hourly recovery sweep. It does not infer that a human is required. Each hourly sweep wakeup bypasses state debounce so current state is re-evaluated, while ordinary wakeups retain completed-runner debounce. A possible authority boundary enters an independent scheduled challenge whose durable fingerprint is derived only from the routed agent's registry-backed required credentials, shared registry authority credentials, finite permission targets, and HTTP 401/403; arbitrary runner text is never copied or persisted. Both the root and consolidated consumer lanes require a dedicated keepalive or Workflows App token before marking an agent running or writing the final summary, so every mutation of App-owned state uses the same trusted writer class. Every keepalive reader selects durable state only from a marked summary comment owned by `stranske-keepalive[bot]`, `agents-workflows-bot[bot]`, the identity-checked PAT fallbacks `stranske` and `stranske-automation-bot`, or the migration-only legacy `github-actions[bot]` writer; arbitrary users cannot override an earlier trusted state marker. When the selected App encounters a summary from the known legacy writer or the other dedicated App, it preserves the parsed state in a new comment owned by that App because editing the old comment would retain its original author. The hourly sweep signs a v2 claim binding repository, PR, current ledger generation, boundary fingerprint, due time, expiry, head, nonce, and exact sweep run/attempt. The claim grants a debounce bypass only after a conditional single-use receipt is written to the PR-wide authority ledger on `keepalive-authority-state`. A generic retry, replayed claim, or another workflow sharing `github-actions[bot]` cannot grant or confirm the challenge; the owning downstream attempt must present its receipt and actual worker execution evidence. Missing signing material fails closed to an ordinary non-forced recheck. A matching second failure may record the projected human action and apply `needs-human`. A different auth failure stays automation-owned and is challenged again on the next sweep.
 
-Continuation uses `workflow_dispatch`, which the event gate accepts; it does not
-depend on a `verify:pr-handoff` label event. The executable source and consumer
-regressions are included in `.github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js`.
-After source changes reach main, Maint 68 regenerates the consumer candidate;
-the subsequent Maint 71 report must establish the original finding's disposition.
-Local source tests do not establish deployment or live acceptance.
+### Repository playbook
 
-1. **PR body is the contract**: Auto-pilot writes structured tasks into the PR body. Keepalive reads these tasks via the task appendix. If the PR body format changes, both must be updated together.
+The Orchestrator registry is the single editable owner for curated per-repo definition-of-done and gotcha rules. `repo_knowledge.py --export-agents-md <owner/repo> --repo-path <checkout> --apply` may write a small generated section in a repo's `AGENTS.md` between `<!-- BEGIN orch-playbook -->` and `<!-- END orch-playbook -->`; humans should edit the registry, not the generated block. Keepalive owns freshness validation: Gate runs `scripts/check_agents_md_freshness.py` in warning-only mode so stale cited paths or commands surface without wedging unrelated PRs while the registry is seeded.
 
-2. **Labels are handoff signals**: Auto-pilot applies the selected registry-backed `agent:<name>` label (for example, `agent:codex` or `agent:claude`) and keepalive activates. Every non-transient run/fix failure records automation-owned recovery state and explicitly dispatches a bounded retry through the active workflow (`agents-keepalive-loop.yml` in the root lane or `agents-81-gate-followups.yml` in consolidated consumers). A failed direct dispatch defers that durable lease for the hourly sweep instead of adding a sticky `agent:retry` label; after 3 failures, the current strategy pauses for the same hourly recovery sweep. It does not infer that a human is required. Each hourly sweep wakeup bypasses state debounce so current state is re-evaluated, while ordinary wakeups retain completed-runner debounce. A possible authority boundary enters an independent scheduled challenge whose durable fingerprint is derived only from the routed agent's registry-backed required credentials, shared registry authority credentials, finite permission targets, and HTTP 401/403; arbitrary runner text is never copied or persisted. Both the root and consolidated consumer lanes require a dedicated keepalive or Workflows App token before marking an agent running or writing the final summary, so every mutation of App-owned state uses the same trusted writer class. Every keepalive reader selects durable state only from a marked summary comment owned by `stranske-keepalive[bot]`, `agents-workflows-bot[bot]`, the identity-checked PAT fallbacks `stranske` and `stranske-automation-bot`, or the migration-only legacy `github-actions[bot]` writer; arbitrary users cannot override an earlier trusted state marker. When the selected App encounters a summary from the known legacy writer or the other dedicated App, it preserves the parsed state in a new comment owned by that App because editing the old comment would retain its original author. The hourly sweep signs a v2 claim binding repository, PR, current ledger generation, boundary fingerprint, due time, expiry, head, nonce, and exact sweep run/attempt. The claim grants a debounce bypass only after a conditional single-use receipt is written to the PR-wide authority ledger on `keepalive-authority-state`. A generic retry, replayed claim, or another workflow sharing `github-actions[bot]` cannot grant or confirm the challenge; the owning downstream attempt must present its receipt and actual worker execution evidence. Missing signing material fails closed to an ordinary non-forced recheck. A matching second failure may record the projected human action and apply `needs-human`. A different auth failure stays automation-owned and is challenged again on the next sweep.
-
-3. **Gate is the trigger**: Keepalive is event-driven via Gate `workflow_run` completion. The root loop accepts Gate runs whose source event was `pull_request` or `workflow_dispatch`, so push-to-default-branch Gate runs are rejected at the job condition before a runner is allocated without suppressing operator reruns. A PR or manual Gate whose `pull_requests` association is empty remains eligible and is resolved by head SHA inside `evaluateKeepaliveLoop`. Auto-pilot's `monitor-pr` step watches for keepalive progress. Neither polls — both react to events.
-
-4. **Self-dispatch**: Auto-pilot uses `force_step` re-dispatch, not label changes, to sequence its stages. The keepalive loop is triggered independently by Gate completion, not by auto-pilot dispatch.
-
-5. **Repo playbook context**: The Orchestrator registry is the single editable owner for curated per-repo definition-of-done and gotcha rules. `repo_knowledge.py --export-agents-md <owner/repo> --repo-path <checkout> --apply` may write a small generated section in a repo's `AGENTS.md` between `<!-- BEGIN orch-playbook -->` and `<!-- END orch-playbook -->`; humans should edit the registry, not the generated block. Keepalive owns freshness validation: Gate runs `scripts/check_agents_md_freshness.py` in warning-only mode so stale cited paths or commands surface without wedging unrelated PRs while the registry is seeded.
-
-6. **Stall rotation and challenge before `needs-human`**: When an auto-pilot stall cap is reached, the pipeline tries a *different* eligible agent before requesting an independent authority challenge. It is registry-driven and bounded — the stalled agent is recorded with an `agents:tried-<agent>` label, so each rotation shrinks the candidate set. Exhausting eligible agents proves only that the current strategies stalled, not that a human is required. Two paths:
-   - **Belt lane (create-PR: no branch / no commits)** — no PR/keepalive history exists yet, so the pure decision helper [`agent_stall_rotation.js`](../../.github/scripts/agent_stall_rotation.js) (`decideStallRotation`, capability `belt`) picks the next untried belt-capable agent, swaps the `agent:<name>` label, and re-dispatches the belt via `agents-71-codex-belt-dispatcher.yml` with the new `agent_key`.
-   - **Keepalive lane (monitor-PR: a PR exists)** — reuses the existing registry-driven delegation policy ([`agent_delegation_policy.js`](../../.github/scripts/agent_delegation_policy.js)) rather than rebuilding rotation: auto-pilot adds `agent:auto` to the issue and PR so `decideNextAgent` rotates across the fuller keepalive-capable set (codex/claude/cursor/muse/gemini) on its next round. If `agent:auto` is already present, delegation has had its chance and auto-pilot escalates.
-
-   **How a belt run reaches a given agent (traced 2026-10-16, Workflows#3929).** The three belt workflows (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`) contain no per-agent runner job and never call `reusable-<agent>-run.yml`; the `codex` in their names is historical. They are parameterized by `agent_key` (default `codex`) and read `.github/scripts/agent_registry.js` (`getAgentConfig`) for the branch prefix (`cursor/issue-`, `claude/issue-`, ...), the assignee logins and the required `agent:<key>` label. The agent itself runs afterwards, when the belt-created PR carries `agent:<key>` and the keepalive loop's static `run-<key>` job (root `agents-keepalive-loop.yml`, consumer `agents-81-gate-followups.yml`) dispatches that agent's `reusable-<key>-run.yml`. So an agent is belt-capable when it has a registry entry with a `branch_prefix` and `runner_workflow`, an `agent:<key>` label, and a `run-<key>` keepalive job; `tests/workflows/test_belt_agent_registry.py` enforces that for every `capabilities.belt: true` agent.
-
-   Both paths are **fail-safe**: any error or "no untried eligible agent left" routes to automation retry or an independent challenge with a concrete owner and next action. It does not silently become a human request. Capability gating means the set of rotation targets grows automatically as the registry marks more agents `belt`/`pr_keepalive` capable — no workflow edit needed.
+### Authority ledger and recovery
 
 Authority generations and receipts remain bound to one originating PR head in the SHA-checked ledger. The runner first conditionally prepares that generation and writes its attempt-bound primary reservation. Finalization follows successful mark-running setup and remains a prerequisite for every worker job. Failure or cancellation before finalization conditionally releases only that non-authorizing preparation; cleanup is best effort and the workflow reporter must reconcile interrupted attempts. If that release response is lost, the same preflight-failed owner attempt may retry against the persisted released receipt, but a replacement preparation cannot be released by it. PR head and labels are separate GitHub state, so changed or unavailable evidence denies the result without refunding a consumed receipt. Confirmation uncertainty preserves the ledger and `needs-human`; automation never infers label ownership from a successful add or deletes a possibly concurrent human blocker. A confirmed receipt cannot be reopened merely because its hard label disappeared. The same worker attempt may retry confirmation once against its spent receipt, without granting a new execution. This is a fail-closed, at-most-one-grant protocol, not an atomic transaction across GitHub resources.
 
@@ -137,12 +99,60 @@ submission. PR-meta reports whether GitHub accepted the event. Follow the
 repository's registered command handler to verify that it received the activation
 and performed the requested work.
 
+## Historical Auto-Pilot Integration
+
+The [shared opener and closer](../ops/LOCAL_LANES.md#lanes-overview) own current admission and promotion. This section records the retired Auto-Pilot integration. The keepalive worker and its authority ledger remain active.
+
+```
+Auto-pilot pipeline:
+  format → optimize → apply → capability-check → CREATE-PR → KEEPALIVE → verify → done
+                                                      │            │
+                                                      │            └─ Event-driven loop:
+                                                      │               Gate pass → task appendix
+                                                      │               → agent runner → push → repeat
+                                                      └─ Creates branch + PR with issue context
+```
+
+### How Keepalive Fits In
+
+| Auto-pilot does... | Keepalive does... |
+|--------------------|--------------------|
+| Formats and enriches the issue | Drives the agent through PR tasks |
+| Creates the PR and branch | Evaluates Gate results and remaining work |
+| Dispatches the next pipeline step | Builds task appendix from PR body checkboxes |
+| Triggers verification post-merge | Dispatches the registry-backed agent with explicit task context |
+
+### Former handoff sequence
+
+Closed issues always enter `verify`, including issues with retained
+`verify:evaluate` or `verify:pr-handoff` labels after reopening. Historical labels
+and closure records cannot select `done`. Verification must confirm an explicit
+evaluate dispatch or applicable verifier run for the merged source PR and head.
+Only a successful verify step with `verify_handoff=found` permits the workflow to
+dispatch its next run with `force_step=done`. The done reporter revalidates the
+PR/head evidence before publishing completion and removing `agents:auto-pilot`.
+
+Continuation uses `workflow_dispatch`, which the event gate accepts; it does not
+depend on a `verify:pr-handoff` label event. The executable source and consumer
+regressions are included in `.github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js`.
+After source changes reach main, Maint 68 regenerates the consumer candidate;
+the subsequent Maint 71 report must establish the original finding's disposition.
+Local source tests do not establish deployment or live acceptance.
+
+6. **Stall rotation and challenge before `needs-human`**: When an auto-pilot stall cap is reached, the pipeline tries a *different* eligible agent before requesting an independent authority challenge. It is registry-driven and bounded — the stalled agent is recorded with an `agents:tried-<agent>` label, so each rotation shrinks the candidate set. Exhausting eligible agents proves only that the current strategies stalled, not that a human is required. Two paths:
+   - **Belt lane (create-PR: no branch / no commits)** — no PR/keepalive history exists yet, so the pure decision helper [`agent_stall_rotation.js`](../../.github/scripts/agent_stall_rotation.js) (`decideStallRotation`, capability `belt`) picks the next untried belt-capable agent, swaps the `agent:<name>` label, and re-dispatches the belt via `agents-71-codex-belt-dispatcher.yml` with the new `agent_key`.
+   - **Keepalive lane (monitor-PR: a PR exists)** — reuses the existing registry-driven delegation policy ([`agent_delegation_policy.js`](../../.github/scripts/agent_delegation_policy.js)) rather than rebuilding rotation: auto-pilot adds `agent:auto` to the issue and PR so `decideNextAgent` rotates across the fuller keepalive-capable set (codex/claude/cursor/muse/gemini) on its next round. If `agent:auto` is already present, delegation has had its chance and auto-pilot escalates.
+
+   **How a belt run reaches a given agent (traced 2026-10-16, Workflows#3929).** The three belt workflows (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`) contain no per-agent runner job and never call `reusable-<agent>-run.yml`; the `codex` in their names is historical. They are parameterized by `agent_key` (default `codex`) and read `.github/scripts/agent_registry.js` (`getAgentConfig`) for the branch prefix (`cursor/issue-`, `claude/issue-`, ...), the assignee logins and the required `agent:<key>` label. The agent itself runs afterwards, when the belt-created PR carries `agent:<key>` and the keepalive loop's static `run-<key>` job (root `agents-keepalive-loop.yml`, consumer `agents-81-gate-followups.yml`) dispatches that agent's `reusable-<key>-run.yml`. So an agent is belt-capable when it has a registry entry with a `branch_prefix` and `runner_workflow`, an `agent:<key>` label, and a `run-<key>` keepalive job; `tests/workflows/test_belt_agent_registry.py` enforces that for every `capabilities.belt: true` agent.
+
+   Both paths are **fail-safe**: any error or "no untried eligible agent left" routes to automation retry or an independent challenge with a concrete owner and next action. It does not silently become a human request. Capability gating means the set of rotation targets grows automatically as the registry marks more agents `belt`/`pr_keepalive` capable — no workflow edit needed.
+
 ## Key Principles
 
 1. **Task Focus**: Agents must work on PR tasks, not unrelated improvements. Tasks are explicitly injected via the task appendix.
 
 2. **Agent Agnostic**: The keepalive prompt is agent-agnostic. Routing is determined by the `agent:*` label, not hardcoded agent names.
-   - Manual runs still use `agent:<name>` labels to trigger the bridge. When you’re using auto-pilot, add `agents:auto-pilot` plus an optional `runner:<name>` label (for example `runner:claude`). Auto-pilot records the override, applies the matching `agent:<name>` label when the capability check completes, and keeps keepalive/autofix/verifier flows aligned without kicking off the issue intake workflow.
+   - Manual intake accepts the selected `agent:<name>` label. Ordinary shared-opener work receives its agent and ownership record when the opener admits it.
    - **Capacity-aware intake**: When the `bridge_agent` input is empty, `agents-63-issue-intake.yml` and the consumer `agents-issue-intake.yml` use `fetchRouteWeights()` and `chooseAgentForIntake('implement', routeWeights, registry.agents)` to resolve the default. The chooser selects the highest-posterior runner-backed agent whose registry preflight is not disabled (`preflight.enabled: false` excludes intake) and whose pool state is `ok` (exports without capacity data treat pools as `ok`) and logs the decision to the step summary. Weighted intake requires affirmative boolean `evidence_ok === true` for the task; missing or malformed evidence retains the static default with reason `route-weights-evidence-not-affirmed`. Explicit boolean `evidence_ok: false` retains the static default with the existing reason `route-weights-insufficient-evidence`. Registry/module loading or export failures log a warning and retain the static default (`codex`). Existing label requirements, `agent:auto` handling, and bridge-input precedence still apply; root preflight requires exactly one agent label when an issue number is present.
      Orchestrator's additive `capacity_schema: orchestrator.route-weights-capacity/v1` block is supported with routing schema `orchestrator.route-weights/v1`; a schema bump is not required. Its `capacity.<agent>.state` takes precedence over legacy ranking-row state hints, so a row marked `ok` cannot override a published `shed`, `exhausted`, or `unknown` pool. An absent capacity block, empty block, or missing agent entry retains the legacy `ok` assumption and posterior ordering.
 

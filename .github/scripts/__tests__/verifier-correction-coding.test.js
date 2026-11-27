@@ -154,10 +154,10 @@ test('two actual authenticated scopes historically linked to the same PR remain 
  await assert.rejects(resolvePullCodingScope({transport,pullNumber:10}),/competing authenticated scopes/);
 });
 const {execFileSync}=require('child_process');
-const beltSurfaces=['.github/workflows/agents-72-codex-belt-worker.yml','templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml'];
+const retiredBeltActivation=require('../../../tests/fixtures/verifier_correction/retired-belt-and-auto-pilot-contracts.json');
+const beltSurfaces=Object.keys(retiredBeltActivation.surfaces);
 function activationScript(surface=beltSurfaces[0]) {
- const text=fs.readFileSync(path.join(pythonRoot,surface),'utf8');
- const block=text.slice(text.indexOf('      - name: Post activation comment'));
+ const block=retiredBeltActivation.surfaces[surface].step;
  assert.match(block,/^          BELT_TASK_TITLE: \$\{\{ steps\.ledger_start\.outputs\.task_title \}\}$/m);
  const lines=block.split('\n'),start=lines.findIndex(line=>line.trim()==='script: |')+1,body=[];
  for(const line of lines.slice(start)){if(line && !line.startsWith('            '))break;body.push(line.slice(12));}

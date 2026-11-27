@@ -101,36 +101,9 @@ Issue: "Add user authentication"
 
 ---
 
-### 4. End-to-End Automation (Auto-Pilot)
+### 4. End-to-end automation
 
-**Use Case:** You want complete hands-off automation from issue to merged PR
-
-**Steps:**
-1. Create a well-structured issue with clear tasks
-2. Add label: `agents:auto-pilot`
-3. (Optional) Add `runner:codex`, `runner:claude`, etc. to pick the agent you want auto-pilot to use (skip this to use the registry default).
-4. Monitor progress comments
-
-**What Happens:**
-1. ✅ Issue is formatted automatically
-2. ✅ Issue is analyzed and optimized
-3. ✅ Suggestions are applied
-4. ✅ Agent creates PR
-5. ✅ Keepalive monitors and continues work
-6. ✅ PR is auto-merged when ready (if conditions met)
-7. ✅ Verification runs post-merge
-
-**Safety Limits:**
-- Maximum 10 workflow cycles
-- 4-hour timeout
-- Pause anytime with `agents:auto-pilot-pause`
-- Stops on errors with `agents:auto-pilot-failed`
-- Routes repeated failures to bounded automation retry and scheduled recovery
-- Uses `needs-human` only for independently confirmed external authority
-
-**Time:** 20 minutes to 2 hours depending on complexity
-
-**Best For:** Well-scoped tasks like adding a new endpoint, refactoring a module, or adding tests
+Use the [shared opener and closer](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) for eligible issues and guarded promotion. Follow the issue-linked PR for keepalive and post-merge verification.
 
 ---
 
@@ -146,7 +119,6 @@ Issue: "Add user authentication"
 | `agents:format` | Issue | Direct one-step formatting |
 | `agents:optimize` | Issue | Analyze and suggest improvements |
 | `agents:apply-suggestions` | Issue | Apply optimization suggestions |
-| `agents:auto-pilot` | Issue | Full end-to-end automation |
 | `agents:capability-check` | Issue | Check if agent can complete |
 | `agents:dedup` | Issue | Check for duplicates |
 | `agents:auto-label` | Issue | Apply appropriate labels |
@@ -184,7 +156,6 @@ Issue: "Add user authentication"
 | Label added: `agents:apply-suggestions` | Issue optimizer |
 | Label added: `agent:codex` | Issue intake, Capability check |
 | Label added: `agents:capability-check` | Capability checker |
-| Label added: `agents:auto-pilot` | Auto-pilot orchestrator |
 
 ### PR Events
 
@@ -202,7 +173,6 @@ Issue: "Add user authentication"
 | Workflow | Runs |
 |----------|------|
 | Keepalive loop | Gate workflow_run for eligible PRs (and manual dispatch) |
-| Auto-pilot | On label changes for active issues |
 | Bot comment handler | On every issue/PR comment |
 
 ---
@@ -423,21 +393,7 @@ Extracts concerns from verification comment:
 
 ### Advanced Automation
 
-#### `agents:auto-pilot` - Full End-to-End
-**Complete automation from issue to merge**
-
-Orchestrates entire pipeline:
-1. Format → 2. Optimize → 3. Apply → 4. Agent → 5. Keepalive → 6. Merge → 7. Verify
-
-**Safety:**
-- Max 10 cycles
-- 4-hour timeout
-- Pause: `agents:auto-pilot-pause`
-- Failure: `agents:auto-pilot-failed`
-
-**Agent Selection:** Add `runner:codex`, `runner:claude`, etc. next to `agents:auto-pilot` when you want to pick the agent explicitly. Skip the `runner:` label to use the registry default.
-
-**Best For:** Well-defined, medium complexity tasks
+The [shared opener and closer](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) own issue admission and guarded promotion.
 
 ---
 
@@ -454,7 +410,7 @@ hour, it applies `agents:auto-pilot-pause` to stop the recursion.
 3. Confirm that the issue is no longer being redispatched and that its body is
    valid before resuming automation.
 4. Remove `agents:auto-pilot-pause` to allow the issue through the normal format
-   and auto-pilot gates again.
+   and shared opener gates again.
 
 Do not remove the pause label before correcting the cause; doing so can restart
 the same recursion and exhaust the bounded retry cap again.
@@ -519,21 +475,9 @@ a fresh budget.
 
 ---
 
-### Issue: Auto-Pilot Stopped Early
+### Issue has a legacy Auto-Pilot failure marker
 
-**Symptoms:** `agents:auto-pilot-failed` label added
-
-**Possible Causes:**
-1. Exceeded 10 cycle limit - issue too complex
-2. Hit 4-hour timeout - issue taking too long
-3. Repeated failures - agent stuck on same task
-4. CI repeatedly failing - infrastructure issue
-
-**Next Steps:**
-1. Review progress comments on issue
-2. Check last PR attempt for errors
-3. Simplify issue scope if too complex
-4. Remove failed label and retry with `agents:paused` for manual control
+Check the issue timeline and linked PR for an existing owner, then read the [shared opener](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) disposition.
 
 ---
 
@@ -558,7 +502,7 @@ a fresh budget.
 
 **Pattern 3: Full Automation**
 ```
-1. Add `agents:auto-pilot` (handles everything)
+1. Submit an eligible issue through the shared opener lane
 ```
 
 ---
@@ -645,7 +589,7 @@ Add all three labels before or after merge
 
 ---
 
-### When to Use Auto-Pilot
+### Choosing work for the shared opener
 
 ✅ **Good candidates:**
 - Adding new API endpoint
@@ -1318,10 +1262,6 @@ The sync manifest (`config/sync-manifest.json`) controls what gets synced:
 ```json
 {
   "files": [
-    {
-      "source": "templates/consumer-repo/.github/workflows/agents-auto-pilot.yml",
-      "dest": ".github/workflows/agents-auto-pilot.yml"
-    },
     {
       "source": "templates/consumer-repo/WORKFLOW_USER_GUIDE.md",
       "dest": "docs/WORKFLOW_USER_GUIDE.md"

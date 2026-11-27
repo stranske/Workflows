@@ -69,8 +69,9 @@ def test_legacy_workflow_is_skipped_unless_no_skip_is_set(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    monkeypatch.setattr(validator, "LEGACY_SKIP_WORKFLOWS", {"legacy.yml"})
     workflow = _write_workflow(
-        tmp_path / "agents-71-codex-belt-dispatcher.yml",
+        tmp_path / "legacy.yml",
         [
             "name: Legacy",
             "on: push",

@@ -5,10 +5,9 @@ _Last updated: 2026-11-25_
 This document captures the trimmed agent automation surface after Issue #2190
 and the retirement of the Agents 70 orchestrator stack
 (`agents-70-orchestrator.yml`, `reusable-70-orchestrator-init.yml`,
-`reusable-70-orchestrator-main.yml`, `reusable-16-agents.yml`). The GitHub
-Actions footprint centers on **Agents Keepalive Loop**, **Auto-Pilot**, the
-**Codex belt** (`agents-71/72/73`), and **Agents 64** verification. Legacy
-label-forwarding wrappers remain retired.
+`reusable-70-orchestrator-main.yml`, `reusable-16-agents.yml`). The shared opener judges eligible issues and starts a worker. Gate and
+Keepalive drive work on agent PRs. The shared closer owns review, merge, verification and closure.
+Agents 64 retains its independent assignment check.
 
 ## High-Level Flow
 
@@ -22,10 +21,9 @@ Gate workflow_run (PRs) ───────────────▶ agents-
 agents-keepalive-sweep.yml (hourly) ───▶ agents-keepalive-loop.yml
                                         (stalled PR resync for eligible labels)
 
-agents:auto-pilot label ───────────────▶ agents-auto-pilot.yml
-                                        (inline format → optimize → apply → PR → keepalive → verify)
-
-Codex belt (71 → 72 → 73) ─────────────▶ issue queue → worker PR → conveyor merge
+eligible issue ───────────────────────▶ shared opener judges and starts work
+                                       worker opens PR → Gate and Keepalive iterate
+                                       shared closer reviews, merges and verifies
 ```
 
 - **Keepalive** on PRs is driven by Gate `workflow_run` events
@@ -33,10 +31,9 @@ Codex belt (71 → 72 → 73) ─────────────▶ issue q
   PR-meta on Workflows submits keepalive worker commands directly ([#5162](https://github.com/stranske/Workflows/pull/5162));
   measured dispatch capacity is enforced ([#5163](https://github.com/stranske/Workflows/pull/5163)).
 - Review the [keepalive contract](keepalive/GoalsAndPlumbing.md) before changing keepalive workflows. For branch recovery, follow the [recovery procedure](keepalive/Observability_Contract.md#8-orchestrator-contract) and verify the new head with the [branch-sync gate](keepalive/GoalsAndPlumbing.md#9-branch-sync-gate).
-- Bootstrap PR creation, diagnostics, and stale issue escalation now live in the
-  belt, Auto-Pilot, and keepalive surfaces. Historical wrappers
-  (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, and the Agents 70 stack) were
-  deleted.
+- The [opener and closer](ops/LOCAL_LANES.md#lanes-overview) record admission,
+  active claims, PR links, and verified disposition. Use the keepalive run and
+  hourly sweep for a stalled PR.
 
 ## Key Workflows
 
@@ -53,12 +50,9 @@ The default valid assignee roster includes `copilot`, `chatgpt-codex-connector`,
 `stranske-automation-bot`; provide a comma-separated override when onboarding
 additional automation accounts or running spot checks against bespoke actors.
 
-### Belt promotion (`agents-73-codex-belt-conveyor-dispatch.yml`)
+### Agent PR promotion
 
-- **Triggers:** `workflow_dispatch` only (no schedule; default preview via `dry_run`).
-- **Behaviour:** Runs paid-budget preflight and the live eligibility selector, then
-  calls `agents-73-codex-belt-conveyor.yml` for bounded promotion (0–5 merges) with
-  authenticated branch/PR/head binding. Manual targets cannot bypass eligibility.
+The [shared closer](ops/LOCAL_LANES.md#lanes-overview) checks the current PR head, required checks and review clearance before merging.
 
 ## Related Automation
 
@@ -66,7 +60,9 @@ While the agent wrappers were removed, maintenance automation still supports the
 
 - The Gate summary job writes consolidated run summaries, applies low-risk fixes, uploads patches when automation cannot push directly after `pr-00-gate.yml` finishes, and now owns the CI failure tracker end to end.
 
-## Auto-Pilot Workflow Architecture
+## Historical Auto-Pilot Workflow Architecture
+
+The [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) own current issue admission and guarded promotion. The original Auto-Pilot steps below document the retired workflow.
 
 The `agents-auto-pilot.yml` workflow implements a complete end-to-end automation pipeline from issue creation to PR merge.
 
@@ -79,7 +75,7 @@ The `agents-auto-pilot.yml` workflow implements a complete end-to-end automation
 
 **Label delegation for infrastructure operations** (merge, verify):
 - These steps add labels to hand off to specialized infrastructure
-- `automerge` → belt conveyor / merge lanes
+- `automerge` → guarded merge lanes
 - `verify:evaluate` → Dedicated verifier workflow
 - These are asynchronous by design and shared across all workflows
 
@@ -269,7 +265,7 @@ and retains the `metrics-retention-log` audit artifact for 90 days. Run the CLI 
 
 ## Troubleshooting
 
-### Auto-Pilot Stuck or Not Progressing
+### Historical Auto-Pilot Stuck or Not Progressing
 
 **Symptom:** The auto-pilot workflow appears to stop after triggering format/optimize/apply steps and doesn't proceed.
 
@@ -307,7 +303,7 @@ and retains the `metrics-retention-log` audit artifact for 90 days. Run the CLI 
 - Manually run the needed phase by adding appropriate label
 - Once complete, re-add `agents:auto-pilot` to continue
 
-### Auto-Pilot Stuck in Infinite Loop (Issue #1212)
+### Historical Auto-Pilot Stuck in Infinite Loop (Issue #1212)
 
 **Symptom:** Auto-pilot workflow repeatedly dispatches itself, making 30+ attempts over several hours without progressing past apply step. Label `agents:apply-suggestions` is added and removed in a loop.
 
@@ -364,7 +360,6 @@ Labels in auto-pilot are **hybrid: status markers with functional side effects**
 
 ## Future Enhancements
 
-- Extend Auto-Pilot `params_json` / inline toggles without growing dispatch forms.
-- Monitor belt queue depth via `agents-73-codex-belt-conveyor-dispatch.yml` preview runs before live promotion.
+- Use the [shared closer](ops/LOCAL_LANES.md#lanes-overview) result to inspect PR promotion eligibility.
 
 For questions or updates, open an issue labeled `agent:codex` describing the desired change.

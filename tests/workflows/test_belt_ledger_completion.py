@@ -365,27 +365,6 @@ def test_read_only_audit_reports_issue_3371_task_01(tmp_path: Path) -> None:
     assert ledger.read_bytes() == before
 
 
-@pytest.mark.parametrize(
-    "workflow_path",
-    [
-        Path(".github/workflows/agents-72-codex-belt-worker.yml"),
-        Path("templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml"),
-    ],
-)
-def test_worker_checks_evidence_before_done_and_gates_persistence(workflow_path: Path) -> None:
-    workflow = workflow_path.read_text(encoding="utf-8")
-    evidence = workflow.index("resolve_completion_commit")
-    done_write = workflow.index("target_task['status'] = 'done'", evidence)
-    assert evidence < done_write
-    assert "target_task['status'] = 'blocked'" in workflow
-    assert (
-        "LEDGER_VALIDATE_COMPLETION_TASK_ID: ${{ steps.ledger_finalize.outputs.task_id }}"
-    ) in workflow
-    assert "steps.ledger_finalize.outcome == 'success'" in workflow
-    assert "steps.ledger_final_validation.outcome == 'success'" in workflow
-    assert "Belt task counts:" not in workflow  # rendered by the shared helper
-
-
 @pytest.mark.parametrize("title", ["Update `source.py`.", "Update `./source.py`."])
 def test_preexisting_unchanged_artifact_cannot_complete(tmp_path: Path, title: str) -> None:
     repo = _repo(tmp_path)

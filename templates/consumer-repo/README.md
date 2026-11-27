@@ -32,7 +32,6 @@ the centralized CI and automation workflows from stranske/Workflows.
 | `agents-orchestrator.yml` | (Legacy) Scheduled keepalive sweeps | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
 | `agents-guard.yml` | Security gate for agent workflows | None |
 | `agents-verifier.yml` | Validates agent completions | `SERVICE_BOT_PAT` |
-| `agents-auto-pilot.yml` | End-to-end automation orchestrator | None |
 
 **Deprecation notice (consumer repos):** legacy split PR metadata, bot comment,
 verify-to-issue, keepalive, and autofix template workflows were removed after
@@ -95,7 +94,6 @@ Key components:
 - **agents-81-gate-followups.yml**: Triggered by Gate completion, PR labels
 - **agents-80-pr-event-hub.yml**: Updates PR status summary with task progress
 - **agents-guard.yml**: Security checks before agent execution
-- **agents-auto-pilot.yml**: End-to-end orchestrator (format → optimize → agent → verify)
 - **.github/codex/prompts/**: Agent instruction templates
 - **.github/codex/AGENT_INSTRUCTIONS.md**: Agent-specific guidelines
 
@@ -132,7 +130,7 @@ Agent workflows require additional configuration files:
 3. **Required scripts directory**:
    - `templates/consumer-repo/.github/scripts/` → `.github/scripts/`
    - Includes: `issue_scope_parser.js`, `issue_context_utils.js`, `prompt_injection_guard.js`
-   - For Auto-Pilot and the issue bridge, copy the
+   - For the issue bridge, copy the
      [context formatter](https://github.com/stranske/Workflows/blob/main/scripts/langchain/issue_pr_context.py)
      from the top-level `scripts/langchain/issue_pr_context.py` in the same Workflows checkout
      or source ZIP to `scripts/langchain/issue_pr_context.py` in the consumer repository.

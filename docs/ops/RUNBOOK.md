@@ -77,7 +77,6 @@ Do not infer uniqueness from the numeric prefix alone.
 
 | Prefix | Files |
 | --- | --- |
-| `agents-72` | `agents-72-codex-belt-worker.yml`, `agents-72-codex-belt-worker-dispatch.yml` |
 | `maint-52` | `maint-52-validate-workflows.yml`, `maint-52-sync-dev-versions.yml` |
 | `maint-69` | `maint-69-sync-integration-repo.yml`, `maint-69-sync-labels.yml` |
 | `maint-71` | `maint-71-auto-fix-integration.yml`, `maint-71-merge-sync-prs.yml` |

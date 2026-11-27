@@ -18,10 +18,8 @@ const {
 } = budget;
 
 const ROOT = path.resolve(__dirname, '../../..');
-const WORKFLOWS = [
-  '.github/workflows/agents-auto-pilot.yml',
-  'templates/consumer-repo/.github/workflows/agents-auto-pilot.yml',
-];
+const { autopilot_format_wakeup: archivedWakeup } =
+  require('../../../tests/fixtures/verifier_correction/retired-belt-and-auto-pilot-contracts.json');
 
 let clock = 0;
 const bot = (body) => ({
@@ -206,10 +204,8 @@ test('runner: a failed linked-PR lookup is unknown, not a stop', async () => {
   assert.equal(decision.linkedOpenPrs, null);
 });
 
-test('both auto-pilot workflows gate the backoff and redispatch on the budget module', () => {
-  for (const rel of WORKFLOWS) {
-    const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
-    const job = text.slice(text.indexOf('  format-pause-wakeup:\n'));
+test('archived Auto-Pilot workflow consumers use the retained runtime budget helper', () => {
+  for (const [rel, { body: job }] of Object.entries(archivedWakeup)) {
     assert.ok(job.includes('repository: stranske/Workflows'), rel);
     assert.ok(job.includes('.github/scripts/autopilot_format_retry_budget.js'), rel);
     assert.equal((job.match(/require\('\.\/workflows-lib\/\.github\/scripts\/autopilot_format_retry_budget\.js'\)/g) || []).length, 2, rel);
@@ -220,9 +216,8 @@ test('both auto-pilot workflows gate the backoff and redispatch on the budget mo
     assert.equal(job.includes('createWorkflowDispatch'), false, rel);
     assert.equal(job.includes('removeLabel'), false, rel);
   }
-  const [root, consumer] = WORKFLOWS.map((rel) => {
-    const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
-    return text.slice(text.indexOf('  format-pause-wakeup:\n'));
-  });
+  const [root, consumer] = Object.values(archivedWakeup).map(({ body }) => body);
+  const manifest = fs.readFileSync(path.join(ROOT, '.github/sync-manifest.yml'), 'utf8');
+  assert.match(manifest, /source: \.github\/scripts\/autopilot_format_retry_budget\.js\n    delivery: runtime/);
   assert.equal(root, consumer);
 });
