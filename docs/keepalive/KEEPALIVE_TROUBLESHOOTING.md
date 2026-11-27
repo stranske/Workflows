@@ -72,14 +72,7 @@ The retired Agents 70 keepalive sweep intentionally skipped PRs with `agent:*` l
 - Posting `@codex` would trigger the UI agent
 - Running both CLI and UI agents on the same PR causes conflicts
 
-**Code location:** `scripts/keepalive-runner.js` → `hasCliAgentLabel()` function
-
-**Common mistake:**
-```
-❌ "The orchestrator is skipping my PR because it has agent:codex - this is a bug!"
-✅ "The orchestrator correctly skips CLI agent PRs. If the PR isn't progressing,
-   check the keepalive loop workflow, NOT the orchestrator."
-```
+For current PRs, check the Actions run for the keepalive loop after Gate completes. The retired workflow and its comment-based behavior are documented in the [Agents 70 retirement entry](../archive/ARCHIVE_WORKFLOWS.md#agents-70-retirement).
 
 ### Debugging Decision Tree
 
