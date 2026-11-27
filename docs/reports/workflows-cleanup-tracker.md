@@ -7,13 +7,19 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**November 27, 09:01 UTC review.** Two qualified keeps bring Stage 1A to 181 of 198. Retain the hosted verifier continuation. Its historical selected run created #3383 and led to merged worker PR #3385. Both post-cleanup authored copies reproduced one issue creation and reuse on repeat in a local replay. The native post-cleanup result remains open. The managed receiver still needs ordinary fleet installation and one selected continuation. Integration-Tests received its separate SDK cleanup. [Original continuation](https://github.com/stranske/Workflows/actions/runs/33929656672) · [Worker PR](https://github.com/stranske/Workflows/pull/3385) · [SDK retirement](https://github.com/stranske/Workflows/pull/5313)
+
+Retain the Muse worker. It delivered a ten-file change in Manager-Mosaic #117, and replacing its setup with the shared action failed on a supported historical Workflows ref. The current audit found zero selections across four caller routes. The current model, launch flags, provider output and same-head settlement remain open until a genuine selected run. [Historical selected job](https://github.com/stranske/Manager-Mosaic/actions/runs/39104966522/job/117608884399) · [Merged change](https://github.com/stranske/Manager-Mosaic/pull/117)
+
+The consumer reports and Gate evidence repair merged. On the original W-1 PR head and evaluated merge, the repaired native compare reviewed 3/3 files with both providers and returned PASS. The comparison and terminal disposition artifacts matched their GitHub digests. The follow-up ledger recorded a no-op. Three unused comment generator retirements await normal review and delivery and contribute zero completed file decisions. [Consumer reports](https://github.com/stranske/Workflows/pull/5320) · [Gate evidence repair](https://github.com/stranske/Workflows/pull/5321) · [W-1 result](https://github.com/stranske/Workflows/pull/5317#issuecomment-7214385701) · [Native run](https://github.com/stranske/Workflows/actions/runs/45971216048) · [Proposed retirements](https://github.com/stranske/Workflows/pull/5322)
+
 The November 27 promotion removed **all 70 stale vendor files**. All 16 receiving PRs merged at the expected heads. Their default branches had zero extra and zero missing vendor files, and no stable sync PR remained open. Eight cutover paths matched on every receiver (128/128), and the catalog and verifier matched 16/16 apiece. The later verifier SDK retirement has reached Integration-Tests. All 16 fleet receivers still had its two SDK files at this readback. [Promoted merge ledger](https://github.com/stranske/Workflows/actions/runs/45948491276/artifacts/15176420353) · [Integration publication](https://github.com/stranske/Workflows/actions/runs/45955823635/job/140361939502)
 
 Keep the dedicated Integration publisher for that receiver outside the fleet. Its native sync completed in 21 seconds and receiver CI passed in 54 seconds. Reopen the guarded-retry check on an actual overlapping write. Keep the managed issue optimizer. Its installed receiver App posted [suggestions on weekly design TP-1](https://github.com/stranske/trip-planner/issues/2072#issuecomment-7213264144) in 80 seconds. Applying the whole set would broaden data access and weaken a regression criterion. The receiving Apply check reopens on an in-scope proposal. The [hosted intake fix](https://github.com/stranske/Workflows/pull/5314) and [W-1 implementation](https://github.com/stranske/Workflows/pull/5317) both merged. The W-1 [post-merge comparison](https://github.com/stranske/Workflows/pull/5317#issuecomment-7212893369) reviewed zero files after finding a prior-head Gate link.
 
 **November 27, Chicago.** GitHub Actions opened [weekly design W-1 as #5315](https://github.com/stranske/Workflows/issues/5315) during a Mac pause.
 
-The [hosted job](https://github.com/stranske/Workflows/actions/runs/45950201755/job/140344047371) used the [intake fix](https://github.com/stranske/Workflows/pull/5314). The Mac later started [implementation PR #5317](https://github.com/stranske/Workflows/pull/5317). [Verifier retirement #5313](https://github.com/stranske/Workflows/pull/5313) removed the disabled correction job in both copies and four private SDK files. Consumer removal and a genuine continuation are still open.
+The [hosted job](https://github.com/stranske/Workflows/actions/runs/45950201755/job/140344047371) used the [intake fix](https://github.com/stranske/Workflows/pull/5314). The Mac later started [implementation PR #5317](https://github.com/stranske/Workflows/pull/5317). [Verifier retirement #5313](https://github.com/stranske/Workflows/pull/5313) removed the disabled correction job in both copies and four private SDK files. Managed fleet removal and a genuine post-cleanup continuation are still open.
 
 Keep Health 44 for the complete PR snapshot it published on two events where the scheduler skipped protection. Keep Reusable 20 for receiver PR-body updates and keepalive admission. Its eligible hold and retry are still open. The standalone dependency labeler is gone. The replacement skipped all 25 post-install openings, none of which came from an eligible dependency bot. The original positive lockfile check remains separate. [Health 44 snapshot](https://github.com/stranske/Workflows/actions/runs/45941077995/job/140315339652) · [Receiver cap decision](https://github.com/stranske/Manager-Mosaic/actions/runs/45947611132/job/140335943771) · [Labeler consolidation](https://github.com/stranske/Workflows/pull/5283)
 
@@ -233,13 +239,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 179/198 completed · 1 drainable now · 18 blocked · 19 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 181/198 completed · 1 drainable now · 16 blocked · 17 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,566/2,901 | 110/220 | — |
 | 3 · Scripts, tools and packages | 373/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 911/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,075/5,554** | **298/487** | **179/198** |
+| **Total** | **3,075/5,554** | **298/487** | **181/198** |
 
 **Directory organization.** 2,863 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
@@ -247,10 +253,10 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 125 |
+| [Keep in current role](workflow-decisions.md#keep) | 127 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 11 |
 | [Other verified decisions](workflow-decisions.md#verified) | 43 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 7 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 5 |
 | [In review](workflow-decisions.md#review) | 0 |
 | [Proposed changes](workflow-decisions.md#proposed) | 12 |
 
