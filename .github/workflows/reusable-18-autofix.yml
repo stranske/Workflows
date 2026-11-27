@@ -1403,16 +1403,32 @@ jobs:
             exit 0
           fi
           target_tmp="$tmpdir/history.json"
-          if unzip -p "$tmpdir/artifact.zip" \
-            ci/autofix/history.json > "$target_tmp" 2>/dev/null
+          # A single-file upload stores the basename. Keep reading legacy nested entries.
+          if unzip -p "$tmpdir/artifact.zip" history.json > "$target_tmp" 2>/dev/null ||
+            unzip -p "$tmpdir/artifact.zip" ci/autofix/history.json > "$target_tmp" 2>/dev/null
           then
             mv "$target_tmp" ci/autofix/history.json
             echo "[history] Restored previous history.json"
           else
-            echo "[history] Artifact ${artifact_id} missing ci/autofix/history.json"
+            echo "[history] Artifact ${artifact_id} missing history.json"
             rm -f ci/autofix/history.json
           fi
           rm -rf "$tmpdir"
+
+      - name: Checkout Workflows for PR comment and residual history
+        if: steps.guard.outputs.skip != 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: stranske/Workflows
+          ref: ${{ steps.workflows_ref.outputs.ref }}
+          sparse-checkout: |
+            /.github/actions/build-pr-comment/
+            /scripts/build_autofix_pr_comment.py
+            /scripts/generate_residual_trend.py
+            /scripts/update_residual_history.py
+          sparse-checkout-cone-mode: false
+          path: workflows-lib
+          fetch-depth: 1
 
       - name: Update residual history (same-repo)
         if: >-
@@ -1428,7 +1444,7 @@ jobs:
             echo "[history] missing enriched report"
             exit 0
           fi
-          if ! python scripts/update_residual_history.py; then
+          if ! python "${WORKFLOWS_SCRIPTS_PATH}/scripts/update_residual_history.py"; then
             echo "[history] update failed"
           fi
           # No longer committing history.json (noise in PRs).
@@ -1465,9 +1481,7 @@ jobs:
           }}
         shell: bash
         run: |
-          if [ -f scripts/generate_residual_trend.py ]; then
-            python scripts/generate_residual_trend.py || true
-          fi
+          python "${WORKFLOWS_SCRIPTS_PATH}/scripts/generate_residual_trend.py" || true
           if [ -f ci/autofix/trend.json ]; then
             echo "Trend:"
             cat ci/autofix/trend.json
@@ -1507,18 +1521,6 @@ jobs:
               echo "AUTOFIX_PATCH_URL=$url"
             } >> "$GITHUB_ENV"
           fi
-
-      - name: Checkout Workflows for PR comment action
-        if: steps.guard.outputs.skip != 'true'
-        uses: actions/checkout@v7
-        with:
-          repository: stranske/Workflows
-          ref: ${{ steps.workflows_ref.outputs.ref }}
-          sparse-checkout: |
-            .github/actions/build-pr-comment
-            scripts/build_autofix_pr_comment.py
-          path: workflows-lib
-          fetch-depth: 1
 
       - name: Build consolidated PR comment
         id: build_comment
