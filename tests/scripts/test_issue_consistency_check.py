@@ -61,6 +61,16 @@ def test_collect_header_issue_numbers_ignores_markdown_headings(tmp_path: Path) 
     assert numbers == {9999}
 
 
+def test_collect_header_issue_numbers_ignores_markdown_bold_issue_mentions(tmp_path: Path) -> None:
+    path = tmp_path / "sample.md"
+    path.write_text(
+        "**Review.** One issue creation led to #3383 and later #5315.\n",
+        encoding="utf-8",
+    )
+    numbers = check_issue_consistency.collect_header_issue_numbers(path, max_lines=5)
+    assert numbers == set()
+
+
 def test_extract_issue_numbers_ignores_pr_hashes() -> None:
     text = "PR #1076 relates to Issue #1075"
     numbers = check_issue_consistency.extract_issue_numbers(text)
@@ -705,6 +715,35 @@ def test_main_skips_unreliable_fallback_and_ambiguous_inference(monkeypatch, cap
     monkeypatch.setattr(check_issue_consistency, "collect_changed_files", lambda *_: ([], False))
     assert check_issue_consistency.main() == 1
     assert "Unable to determine issue number" in capsys.readouterr().err
+
+
+def test_main_skips_cleanup_report_without_title_issue(monkeypatch, capsys, tmp_path: Path) -> None:
+    tracker = tmp_path / "workflows-cleanup-tracker.md"
+    tracker.write_text(
+        "**November 27, 09:01 UTC review.** created #3383 and worker PR #3385.\n"
+        "**November 27, Chicago.** opened [weekly design W-1 as #5315](https://example.test/5315).\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.setenv("PR_TITLE", "Record qualified workflow keeps and W-1 verification")
+    monkeypatch.setenv("HEAD_REF", "codex/cleanup-qualified-keeps-0901")
+    monkeypatch.setenv("BASE_REMOTE", "origin")
+    monkeypatch.setattr(sys, "argv", ["check_issue_consistency.py"])
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "collect_commit_messages",
+        lambda *_: (["docs: record qualified workflow keeps and W-1 verification"], False),
+    )
+    monkeypatch.setattr(
+        check_issue_consistency,
+        "collect_changed_files",
+        lambda *_: ([tracker], False),
+    )
+
+    assert check_issue_consistency.main() == 0
+    captured = capsys.readouterr()
+    assert "Unable to determine issue number" not in captured.err
+    assert "Skipping issue consistency check: no issue references found." in captured.out
 
 
 def test_git_subprocess_adapters_and_remote_helpers(monkeypatch) -> None:
