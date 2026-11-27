@@ -65,7 +65,10 @@ The optional workflow inputs are:
   Readable malformed databases, unsafe/unknown names, duplicates, CRC failures and
   failed SQLite probes retain their integrity refusal. Optional discovery alone
   does not create an upload obligation; explicitly selected or required members
-  still need complete capture. Selected proof remains a complete
+  still need complete capture. A member with the `.exit_code` suffix can carry
+  a canonical decimal shell exit status between 0 and 255, with an optional
+  trailing line ending. Include it in an explicit member selection so the
+  collector can validate its bytes. Selected proof remains a complete
   required builder section through ordinary prompt fitting and native count
   admission, even when optional enrichment is omitted. These character budgets
   bound optional packing, not necessary proof or model capacity. A complete single

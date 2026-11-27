@@ -3813,6 +3813,40 @@ test('archive extractor independently records unsupported, entry, character and 
   }
 });
 
+test('artifact extractor validates a selected shell exit status without admitting unknown siblings', () => {
+  const proof = 'pinned_two_app.junit.xml';
+  const status = 'pinned_two_app.exit_code';
+  const extract = ({ value = '0\n', selectedMembers = [proof, status], extra = '' } = {}) =>
+    extractArtifactArchiveText({
+      archiveBuffer: Buffer.from('mock archive'), maxEntries: 5, maxChars: 1000, selectedMembers,
+      execFile: (_command, args, options) => {
+        if (args[0] === '-Z1') return `${proof}\n${status}\n${extra}`;
+        if (args[2] === proof) return Buffer.from('<testsuite tests="1"/>');
+        assert.equal(args[2], status);
+        assert.equal(options.maxBuffer, 5);
+        return Buffer.from(value);
+      },
+    });
+
+  for (const value of ['0\n', '255\r\n', '9']) {
+    const result = extract({ value });
+    assert.equal(result.selectedCaptureComplete, true);
+    assert.equal(result.members[1].raw_bytes, Buffer.byteLength(value));
+    assert.equal(result.members[1].status, 'included');
+  }
+  for (const value of ['256\n', '01\n', '-1\n', '0\n\n', 'x\n', '0\0']) {
+    const result = extract({ value });
+    assert.equal(result.selectedCaptureComplete, false, value);
+    assert.notEqual(result.members[1].status, 'included', value);
+  }
+  assert.equal(extract({ selectedMembers: [proof] }).selectedCaptureComplete, false);
+  for (const extra of ['unknown.bin\n', '../unsafe.exit_code\n']) {
+    const result = extract({ extra });
+    assert.equal(result.selectedCaptureComplete, false);
+    assert.ok(result.failures.includes('unsupported_payload'));
+  }
+});
+
 test('bounded recovery retains the entire explicit reference union beyond its run budget', async () => {
   await withEnv('VERIFIER_EVIDENCE_RUN_LIMIT', '1', async () => {
     const {github, sha} = paginatedRecoveryGithub();
