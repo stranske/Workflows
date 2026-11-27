@@ -1372,6 +1372,41 @@ def test_done_task_allows_valid_non_ledger_commit_acceptance(tmp_path: Path, mon
     assert errors == []
 
 
+def test_validate_ledger_accepts_retained_task_evidence(tmp_path: Path, monkeypatch) -> None:
+    ledger_validate = _load_module(monkeypatch, tmp_path)
+    monkeypatch.setattr(ledger_validate, "_commit_files", lambda commit: ["src/app.py"])
+    monkeypatch.delenv("LEDGER_VALIDATE_COMPLETION_EVIDENCE", raising=False)
+    path = tmp_path / "issue-1-ledger.yml"
+    payload = {
+        "version": 1,
+        "issue": 1,
+        "base": "main",
+        "branch": "feature/ledger",
+        "tasks": [
+            {
+                "id": "task-1",
+                "title": "Ship it",
+                "status": "done",
+                "commit": "abcdef1",
+                "consolidated_from": [
+                    {"id": "task-1", "status": "done", "commit": "abcdef1"},
+                    {"id": "task-2", "status": "done", "commit": "bcdef12"},
+                ],
+            },
+            {
+                "id": "task-3",
+                "title": "Verify the delivery",
+                "status": "blocked",
+                "commit": "",
+                "previous_evidence": {"id": "task-3", "status": "deferred"},
+            },
+        ],
+    }
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    assert ledger_validate.validate_ledger(path) == []
+
+
 def test_todo_task_timestamp_rules_fail_deterministically(tmp_path: Path, monkeypatch) -> None:
     """Acceptance test: todo tasks with timestamps fail deterministically."""
     ledger_validate = _load_module(monkeypatch, tmp_path)
