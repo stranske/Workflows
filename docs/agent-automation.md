@@ -5,10 +5,9 @@ _Last updated: 2026-11-25_
 This document captures the trimmed agent automation surface after Issue #2190
 and the retirement of the Agents 70 orchestrator stack
 (`agents-70-orchestrator.yml`, `reusable-70-orchestrator-init.yml`,
-`reusable-70-orchestrator-main.yml`, `reusable-16-agents.yml`). The GitHub
-Actions footprint centers on **Agents Keepalive Loop** and the
-**Codex belt** (`agents-71/72/73`), and **Agents 64** verification. Legacy
-label-forwarding wrappers remain retired.
+`reusable-70-orchestrator-main.yml`, `reusable-16-agents.yml`). The shared opener judges eligible issues and starts a worker. Gate and
+Keepalive drive work on agent PRs. The shared closer owns review, merge, verification and closure.
+Agents 64 retains its independent assignment check.
 
 ## High-Level Flow
 
@@ -22,10 +21,9 @@ Gate workflow_run (PRs) ───────────────▶ agents-
 agents-keepalive-sweep.yml (hourly) ───▶ agents-keepalive-loop.yml
                                         (stalled PR resync for eligible labels)
 
-eligible issue ───────────────────────▶ shared opener
-                                        (inline format → optimize → apply → PR → keepalive → verify)
-
-Codex belt (71 → 72 → 73) ─────────────▶ issue queue → worker PR → conveyor merge
+eligible issue ───────────────────────▶ shared opener judges and starts work
+                                       worker opens PR → Gate and Keepalive iterate
+                                       shared closer reviews, merges and verifies
 ```
 
 - **Keepalive** on PRs is driven by Gate `workflow_run` events
@@ -33,10 +31,9 @@ Codex belt (71 → 72 → 73) ─────────────▶ issue q
   PR-meta on Workflows submits keepalive worker commands directly ([#5162](https://github.com/stranske/Workflows/pull/5162));
   measured dispatch capacity is enforced ([#5163](https://github.com/stranske/Workflows/pull/5163)).
 - Review the [keepalive contract](keepalive/GoalsAndPlumbing.md) before changing keepalive workflows. For branch recovery, follow the [recovery procedure](keepalive/Observability_Contract.md#8-orchestrator-contract) and verify the new head with the [branch-sync gate](keepalive/GoalsAndPlumbing.md#9-branch-sync-gate).
-- Bootstrap PR creation, diagnostics, and stale issue escalation now live in the
-  belt, Auto-Pilot, and keepalive surfaces. Historical wrappers
-  (`agents-41-assign*.yml`, `agents-42-watchdog.yml`, and the Agents 70 stack) were
-  deleted.
+- The [opener and closer](ops/LOCAL_LANES.md#lanes-overview) record admission,
+  active claims, PR links, and verified disposition. Use the keepalive run and
+  hourly sweep for a stalled PR.
 
 ## Key Workflows
 
@@ -363,7 +360,6 @@ Labels in auto-pilot are **hybrid: status markers with functional side effects**
 
 ## Future Enhancements
 
-- Extend Auto-Pilot `params_json` / inline toggles without growing dispatch forms.
 - Use the [shared closer](ops/LOCAL_LANES.md#lanes-overview) result to inspect PR promotion eligibility.
 
 For questions or updates, open an issue labeled `agent:codex` describing the desired change.

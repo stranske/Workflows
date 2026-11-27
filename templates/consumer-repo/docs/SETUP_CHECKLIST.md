@@ -306,8 +306,8 @@ Add each secret:
 - [ ] `KEEPALIVE_APP_PRIVATE_KEY` — **Required for keepalive parity** - Explicit keepalive app key
 - [ ] `KEEPALIVE_AUTHORITY_SIGNING_KEY` — **Required for terminal authority confirmation** - Dedicated random HMAC key; missing key fails closed to ordinary rechecks
 - [ ] `OPENAI_API_KEY` — Required for verify/decompose/optimizer workflows
-- [ ] `CURSOR_API_KEY` — Optional: required only for `agent:cursor` keepalive, belt and autofix
-- [ ] `META_API_KEY` — Optional: required only for `agent:muse` keepalive, belt and autofix (subscription key; see 3.2.4)
+- [ ] `CURSOR_API_KEY` — Optional: required only for `agent:cursor` keepalive and autofix
+- [ ] `META_API_KEY` — Optional: required only for `agent:muse` keepalive and autofix (subscription key; see 3.2.4)
 - [ ] `CLAUDE_API_STRANSKE` — Required for verify/decompose/optimizer workflows
 - [ ] `CLAUDE_CODE_OAUTH_TOKEN` (or `CLAUDE_AUTH_JSON`) — Required for Claude CLI workflow runs
 
@@ -565,7 +565,7 @@ entry points used by this repository:
 
 - [ ] `agents-issue-intake.yml` exists as the local front door
 - [ ] Agents 80 and 81 event routers match the template
-- [ ] The 72 worker and 73 conveyor are recorded as callable-only, not operator entry points
+- [ ] The retired Agents 71–73 belt workflows and Auto-Pilot workflow are absent from `.github/workflows/` after managed delivery
 - [ ] The retired consumer orchestrator wrapper is absent
 - [ ] No local bootstrap simulator or draft-PR control is present
 

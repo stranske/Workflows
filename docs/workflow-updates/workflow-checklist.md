@@ -1,6 +1,6 @@
 # Workflow Review Checklist
 
-The Agents 71–73 entries record the retired belt. [Shared lane procedures](../ops/LOCAL_LANES.md#lanes-overview) describe current operations.
+The Agents 71–73 and Auto-Pilot entries below describe retired workflows. The old verifier-to-Auto-Pilot dispatch was also retired. [Shared lane procedures](../ops/LOCAL_LANES.md#lanes-overview) describe current operations.
 This checklist will track optimization, consolidation, or archival work for every workflow under `.github/workflows`. Mark each workflow as you finish reviewing it and capture notes on required changes.
 
 | Review | Workflow | Notes |
@@ -11,9 +11,9 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `agents-72-codex-belt-worker-dispatch.yml` | Wrapper that forwards workflow_dispatch inputs to the belt worker; documented behavior (no YAML change needed). |
 | [x] | `agents-72-codex-belt-worker.yml` | Worker already re-validates labels, enforces token fallback order, guards concurrency, and exposes dry-run flags. |
 | [x] | `agents-73-codex-belt-conveyor.yml` | Conveyor already checks Gate status, blocks bootstrap-only placeholders, mirrors token/dry-run protections, and re-dispatches the queue. |
-| [x] | `agents-73-codex-belt-conveyor-dispatch.yml` | Use the manual source-side scan to preview eligible belt PRs before requesting a live promotion. |
+| [x] | `agents-73-codex-belt-conveyor-dispatch.yml` | Retired manual source-side conveyor preview. |
 | [x] | `agents-auto-label.yml` | Still the LangChain-based labeler; removed the redundant App mint so it runs entirely on the shared API client. |
-| [x] | `agents-auto-pilot.yml` | Remains the canonical issue-to-PR pipeline and now validates `runner:*` overrides against the registry before honoring them so stray runner labels can’t misroute agent selection. |
+| [x] | `agents-auto-pilot.yml` | Retired. The shared opener admits work and assigns the worker. |
 | [x] | `agents-autofix-dispatcher.yml` | Dispatch path still needed (Gate autofix failure → loop); kept as-is and documented that it simply forwards run metadata using the App token. |
 | [x] | `agents-autofix-loop.yml` | Re-added the Gate `workflow_run` trigger (alongside the dispatcher path) so Gate failures still launch repairs even in repos that haven’t adopted the new dispatch event, and updated every `withRetry` call to use the token-aware client so rate-limit rotation actually works. |
 | [x] | `agents-autofix-rebase.yml` | New helper keeps PRs rebased via the App token and files `autofix:conflict` only when manual work is needed. |
@@ -33,7 +33,7 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `agents-pr-meta-v4.yml` | Still required until the consolidated orchestrator lands; handles @agent/Gate activations, dispatch summaries, and keepalive re-dispatch with the expected token chain. |
 | [x] | `agents-verifier.yml` | Restored the GitHub App token mint so cross-repo verification checkouts succeed under the service account while still falling back to the shared installation token when App secrets are missing, and explicitly waits for `pr-00-gate.yml`, `pr-11-ci-smoke.yml`, and `selftest-ci.yml` before launching the verifier so we never race Workflows’ own CI. |
 | [x] | `agents-verify-to-issue-v2.yml` | Still needed for convert-verify→issue flow; documented behavior with existing PAT/App token chain for opening follow-up issues. |
-| [x] | `agents-verify-to-new-pr.yml` | Handles verify:create-new-pr end-to-end; now dispatches agents-auto-pilot directly so no bridge workflow is required. |
+| [x] | `agents-verify-to-new-pr.yml` | Publishes a deduplicated follow-up issue for the shared opener. |
 | [x] | `agents-weekly-metrics.yml` | Removed the redundant App-token mint; weekly metrics now uses the shared API client/installation token to download artifacts and update the tracking issue. |
 | [x] | `autofix.yml` | CI autofix now treats lint/format/Ruff/mypy/pytest failures as relevant so it auto-reruns before humans intervene, and the redundant push trigger was removed to avoid spawning no-op runs on every commit. |
 | [x] | `health-40-repo-selfcheck.yml` | Weekly label + branch-protection snapshot still valuable; consider deduping shared helper scripts if more health jobs need the same token plumbing. |
