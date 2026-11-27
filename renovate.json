@@ -16,6 +16,13 @@
       "enabled": false
     },
     {
+      "description": "Freeze the model profile trial runtime: docs/ops/ASTRA_ROLLOUT.md and .github/agents/registry.yml (model_profile_trial_contract.runner_ref @b06c6d16c3162a624c179a4c4f2080ec3c14876e, cli_version) require @openai/codex 0.153.2 so historical trial arms stay comparable. Change it only together with the trial contract.",
+      "matchFileNames": [
+        ".github/actions/trial-codex-cli/**"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Keep Python on the reviewed 3.14 runtime until a coordinated shared-policy migration.",
       "matchManagers": [
         "github-actions"
