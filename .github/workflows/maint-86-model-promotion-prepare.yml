@@ -79,6 +79,8 @@ jobs:
           labels: "model-selection,needs-human-approval"
           delete-branch: true
           body: |
+            <!-- workflow-source:automation_run -->
+            <!-- workflow-source-ref:maint-86-model-promotion-prepare -->
             Automated **preparation** of a verifier model selection change
             (stranske/Workflows#2819 move 3). See the run summary for the exact
             promotion/rollback and its evidence.
@@ -87,3 +89,5 @@ jobs:
             approval the policy requires (`human_approval_required=true`). Review the
             attached benchmark evidence before merging. To reject, close the PR — the
             live selection is unchanged until merge.
+
+            Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

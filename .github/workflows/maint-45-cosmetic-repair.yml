@@ -143,9 +143,13 @@ jobs:
           commit-message: "ci: apply cosmetic repairs"
           labels: 'testing,autofix:applied'
           body: |
+            <!-- workflow-source:automation_run -->
+            <!-- workflow-source-ref:maint-45-cosmetic-repair -->
             The original pytest report contains guarded cosmetic failures.
             This PR applies the reported changes for review. The workflow did
             not rerun pytest after applying the repair.
+
+            Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
       - name: Upload cosmetic repair evidence
         if: always()
