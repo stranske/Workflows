@@ -71,6 +71,22 @@ def test_collect_header_issue_numbers_ignores_markdown_bold_issue_mentions(tmp_p
     assert numbers == set()
 
 
+def test_collect_header_issue_numbers_ignores_pr5323_tracker_bold_lines(tmp_path: Path) -> None:
+    """Regression for Gate run 45971850254: tracker bold lines are not header comments."""
+    path = tmp_path / "workflows-cleanup-tracker.md"
+    path.write_text(
+        "**November 27, 09:01 UTC review.** Two qualified keeps bring Stage 1A to 181 of 198. "
+        "Retain the hosted verifier continuation. Its historical selected run created #3383 and "
+        "led to merged worker PR #3385. Both post-cleanup authored copies reproduced one issue "
+        "creation and reuse on repeat in a local replay.\n"
+        "**November 27, Chicago.** GitHub Actions opened [weekly design W-1 as #5315]"
+        "(https://github.com/stranske/Workflows/issues/5315) during a Mac pause.\n",
+        encoding="utf-8",
+    )
+    numbers = check_issue_consistency.collect_header_issue_numbers(path, max_lines=10)
+    assert numbers == set()
+
+
 def test_extract_issue_numbers_ignores_pr_hashes() -> None:
     text = "PR #1076 relates to Issue #1075"
     numbers = check_issue_consistency.extract_issue_numbers(text)
