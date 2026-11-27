@@ -7,6 +7,10 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**November 27 UTC.** Maint 45 stays available to apply a narrowly authorized test repair from an original JUnit report. Its native clean and runtime-refusal paths both suppressed PR publication. In 68 digest-verified reports across 23 ordinary runs, none of the 56 failure occurrences qualified. Black/Ruff formatting does not provide this guarded test-repair function. Reopen the positive-publication check on the first eligible original report. [Clean run](https://github.com/stranske/Workflows/actions/runs/45742682797) · [Native refusal](https://github.com/stranske/Workflows/actions/runs/45621655864)
+
+The public checkout fix reached Workflows main. The installed source, template and operator guide passed their credential checks. The same runtime completed a two-repository smoke and restart in 21 seconds. The Maint 90 producer also reached main. Its first operator run saw one sync PR, zero held findings and zero eligible assessments. A native verification or owner escalation remains open. [Public checkout](https://github.com/stranske/Workflows/pull/5309) · [Paired run](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45933975962/job/140292800828) · [Maint 90 discovery](https://github.com/stranske/Workflows/actions/runs/45943409901)
+
 **November 26, 10:04 p.m. Chicago. Stage 1A has 173/198 dispositions; 25 functional checks remain.** The connector moderator, the create-only cross-repository smoke caller and the manual rollback preparer stay available. Each has an observed useful control and a specific production effect that has yet to occur.
 
 | Workflow | Retention evidence | What reopens its production check |
@@ -55,7 +59,7 @@ The follow-up to the fleet recovery changes has reproduced both hosted failures 
 | Dependency lock backstop | On a genuine dependency-bot PR, run regeneration against its head and verify the resulting write or already-correct lock. | Open. The bot produced a branch changing all three lock inputs and the lock. Normal PR creation was requested for this group. Verify native regeneration, author and receiving head. [Renovate dashboard](https://github.com/stranske/Workflows/issues/2390) |
 | Generic receiving smoke caller | Select the installed variables-based caller with real dependency, command and suitable read credential. | Qualified keep at the subsequent paired comparison above. All 15 sampled installed callers lacked both the opt-in variables and named credential. The unchanged job skipped. The receiver’s own pilot proved a read-only job token works for this public pair. A one-run interface would let a receiver opt in without enabling concurrent push and PR jobs. [Unchanged job](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45932071576/job/140286745488) |
 
-The twelve proposed legacy retirements also use functional release criteria. The hosted seat must show five attributable starts, one claim during overlap, a start with the Mac offline, restart without duplication, returned feedback, and a guarded close through receiving sync. The measured overlap observation remains required. At this check the count was 0/5. Auto-Pilot and the belt remain operational. [Hosted migration](#hosted-orchestration-migration)
+The twelve proposed legacy retirements depend on how the replacement handles five eligible sync handoffs. Either seat may handle a handoff. Each needs exactly one shared-opener start, including a timely hosted start while the Mac is offline. The cutover also checks shared claims, retries, restart, feedback, in-flight work, guarded close and receiving sync. Auto-Pilot and the belt continue to serve those routes. [Hosted migration](#hosted-orchestration-migration)
 
 A design issue selected from the weekly review gave the installed receiving optimizer real work. Analyze posted concrete suggestions on trip-planner #2066. The opener claimed it and opened an implementation PR. Its active writer owns subsequent edits. The receiving managed Apply still needs its own eligible issue and native result. [Design issue and suggestions](https://github.com/stranske/trip-planner/issues/2066#issuecomment-7208628096) · [Implementation](https://github.com/stranske/trip-planner/pull/2068)
 
@@ -103,7 +107,7 @@ The two evidence directories illustrate the unfinished organizational work. In t
 
 - **Earlier twelve-hour sample through 09:40 Chicago time, November 25.** Main went from 4,770 to 4,720 tracked paths and from 99,747,169 to 97,226,347 checkout bytes. Root files stayed at 22. Published decisions changed by +104 files, +9 folders and +12 workflows. Of 40 merged cleanup Gates, 17 selected both primary jobs. 34/34 selected primary jobs met 600 seconds, with a maximum of 540 seconds. 11 whole Gates exceeded 600 seconds. Billed cost was unavailable. [Default comparison](https://github.com/stranske/Workflows/compare/fd856d39926baa878e6ff8043dcef4a3ec28d431...8fbd7dd7ecaf75ca893cf933967d24c3c1ccdbf4)
 - **First hosted handoff.** The shared-state comparison retained the first eligible handoff in Auto-Pilot on both hosts and recognized the existing experiment reservation after publication. Auto-Pilot monitored the already-open #5135 from #5136, added `agent:auto`, and recorded `REVIEW_NEEDED` in the capability assessment. The scoped read found zero new shared-opener starts. Two Cursor keepalive continuations used the existing repair PR #5135. The manual hosted opener still needs an ordinary judge and start, a Mac feedback database receipt, and restart, outage and concurrent-claim verification. [First handoff](https://github.com/stranske/Workflows/issues/5136) · [Matched shadow](https://github.com/stranske/Orchestrator/actions/runs/45554321359/job/139002622861)
-- **12:17 UTC manual opener parity.** The November 25 GitHub Actions shadow loaded 1,075 shared state files in 17 seconds and matched all seven actions and reasons from the applied local round. Both counted zero of eight opener-held slots, zero in closer, eight free slots and zero starts or work requests. The existing #5136 link was preserved. All five legacy registrations remain active, and verified fresh hosted starts remain zero of five. [Dated hosted shadow](https://github.com/stranske/Orchestrator/actions/runs/45612186265/job/139198291665)
+- **12:17 UTC manual opener parity.** The November 25 GitHub Actions shadow loaded 1,075 shared state files in 17 seconds and matched all seven actions and reasons from the applied local round. Both counted zero of eight opener-held slots, zero in closer, eight free slots and zero starts or work requests. The existing #5136 link was preserved. All five legacy registrations remain active, and the receipt found zero attributable hosted starts. [Dated hosted shadow](https://github.com/stranske/Orchestrator/actions/runs/45612186265/job/139198291665)
 - **Correction Artifact SDK placement.** Keep the dedicated two-file correction package and its exact generated counterpart. The manifest and lock are separate checkout-relative inputs with exact Trip-planner blobs. Moving either broke the named workflow copy and plan entry. The existing shared minimatch package could not import the Artifact SDK. Removing the managed folder retained the root-sourced compiled plan and ordinary template regeneration restored both files exactly. Source #5177 corrected the staged npm invocation. Exact main replay installed all 252 pinned packages and constructed the client. The selected native correction and managed receiver deployment remain open. [Source repair](https://github.com/stranske/Workflows/pull/5177)
 - **Integration publisher and root lint.** Maint 69 produced ten native receiving commits with ten passing exact receiving CI runs and two actual no-ops. The independent labels edit was preserved after a subsequent delivery. Live overlapping-writer retry remains open. The root Actionlint executable has no required Linux proof. Six named skips span the relevant Trip-planner runs. [Latest integration CI](https://github.com/stranske/Workflows-Integration-Tests/actions/runs/45627357769)
 - **Manual provider tool placement.** The actual Maint 39 OpenAI run used the exact current provider helper and reported 75% confidence with the expected task. Its current imports and managed plan both require the root tool path. The general provider suite and original tracing opt-out each detect a different deliberate failure. All 118 original cases passed after restoration and in both native Selftest lanes before the raw-copy fix added a second opt-out case. [Selected native provider](https://github.com/stranske/Workflows/actions/runs/45621656452/job/139231140861) · [Native Selftest including the original cases](https://github.com/stranske/Workflows/actions/runs/45715801241)
@@ -217,13 +221,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 173/198 completed · 1 drainable now · 24 blocked · 25 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 174/198 completed · 1 drainable now · 23 blocked · 24 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,560/2,901 | 110/220 | — |
 | 3 · Scripts, tools and packages | 372/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 910/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,067/5,554** | **298/487** | **173/198** |
+| **Total** | **3,067/5,554** | **298/487** | **174/198** |
 
 **Directory organization.** 2,855 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
@@ -231,10 +235,10 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 120 |
+| [Keep in current role](workflow-decisions.md#keep) | 121 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 10 |
 | [Other verified decisions](workflow-decisions.md#verified) | 43 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 11 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 10 |
 | [In review](workflow-decisions.md#review) | 1 |
 | [Proposed changes](workflow-decisions.md#proposed) | 13 |
 
@@ -244,7 +248,9 @@ Completed changes include retiring four archived definitions and moving Health 4
 
 ## Hosted orchestration migration
 
-At 19:10 UTC on November 26, all eight recorded handoffs were closed. Seven had legacy belt receipts and zero had an attributable shared opener start (0/5). The Mac replayed all 16 calls from the hosted closer journal. The scheduled seat runs closer and sync; opener is manual. The lane operator needs the next genuine unclaimed handoff, one shared-opener start on each of five eligible issues, a timely hosted start while the Mac is offline, a restart/overlap demonstration, and a guarded exact-head close with receiving sync. Keep the 12 legacy definitions through this cutover. [Hosted opener](https://github.com/stranske/Orchestrator/actions/runs/45826140838) · [Feedback journal](https://github.com/stranske/Orchestrator/actions/runs/45844583394) · [Seat configuration](https://github.com/stranske/Orchestrator/blob/6a92d8859e09ea94ff6503b832c432c08a9118b2/.github/workflows/lane-seat.yml)
+**The owner accepted the hosted closer and sync trial.** During the four-hour Mac pause, the hosted lanes completed three clean passes. They recorded 16, 20 and 20 feedback calls. The Mac replayed all 56 and rejected zero. The fourth scheduled pass fell outside the window. The owner closed the trial. [Third hosted pass](https://github.com/stranske/Orchestrator/actions/runs/45917415162)
+
+**The hosted opener judged a real issue.** The manual Actions run found eight free slots and judged trip-planner #2071. Orchestrator reserved it for a comparative experiment and published an issue-specific receipt. The run issued zero worker starts. At 05:14:52 UTC the Mac replayed all seven calls from this hosted run and rejected zero. Scheduling the opener now requires the first actual hosted worker start on eligible work. The five-handoff retirement check remains separate. The original closer/sync trial is complete. [Hosted job](https://github.com/stranske/Orchestrator/actions/runs/45944166542/job/140324957251) · [Experiment reservation](https://github.com/stranske/trip-planner/issues/2071#issuecomment-7210419717) · [Seat header correction](https://github.com/stranske/Orchestrator/pull/1504)
 
 **The selected design is a scheduled GitHub Actions seat running the same controller, opener, closer and sync code as the local seat. The lanes and Orchestrator own the seat build.** The shared opener judge shapes the issue and records checkable acceptance criteria. Hosted starts use keepalive. The shared closer owns verification and guarded disposition. Sync classifies and hands off work, and Maint 71 retains merge authority for sync PRs. Gate, the verifier, and the Maint 68/71/82 delivery path serve both seats. [Existing lane contracts](../ops/LOCAL_LANES.md)
 
