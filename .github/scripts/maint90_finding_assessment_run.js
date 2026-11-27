@@ -8,7 +8,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  collectFindingReviewState, validateIndependentFindingVerification,
+  collectFindingReviewState, validateIndependentFindingVerification, collectOriginatingCompletions,
 } = require('./maint71_finding_verification');
 const { validateReviewResolutionProof } = require('./maint71_merge_sync_prs');
 const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
@@ -18,8 +18,8 @@ const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 const ROOT = path.join(__dirname, '..', '..');
 const ACTIVE = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 const MAX_ASSESSMENTS_PER_RUN = 3;
-// After this many completed Maint 71 runs since the verification without the
-// thread resolving, stop redispatching and hand the finding to its owner.
+// After this many completed Maint 71 runs that Maint 90 dispatched with this
+// finding's proof, without the thread resolving, hand the finding to its owner.
 const MAX_REDISPATCH_RUNS = 2;
 
 function loadPolicy() {
@@ -77,7 +77,8 @@ async function discover({ github: rawGithub, context, core, env = process.env, n
   const assess = [];
   const redispatch = [];
   const counts = { sync_prs: 0, unresolved_findings_with_request: 0, window_open: 0, answered: 0,
-    no_current_head_request: 0, unknown_stock_summary: 0, assessable: 0, already_attempted: 0, verified_awaiting_maint71: 0 };
+    no_current_head_request: 0, unknown_stock_summary: 0, assessable: 0, already_attempted: 0, verified_awaiting_maint71: 0,
+    unreadable_prs: 0 };
   for (const repository of repos) {
     const [owner, repo] = repository.split('/');
     let pulls;
@@ -93,7 +94,16 @@ async function discover({ github: rawGithub, context, core, env = process.env, n
       const record = parseDeliveryRecord(pull.body || '');
       if (!record) continue;
       counts.sync_prs += 1;
-      const state = await collectFindingReviewState({ owner, repo, number: pull.number, read: (fn) => fn(github) });
+      // A failed read on one PR skips that PR only; findings are never selected
+      // from an incomplete inventory.
+      let state;
+      try {
+        state = await collectFindingReviewState({ owner, repo, number: pull.number, read: (fn) => fn(github) });
+      } catch (error) {
+        counts.unreadable_prs += 1;
+        core.warning(`${repository}#${pull.number}: review inventory unreadable (${error.status || error.message}); skipped this run`);
+        continue;
+      }
       const { selected, skipped } = A.selectAssessableFindings({
         repository, pr: pull.number, state, record, policy, profiles, now,
       });
@@ -101,16 +111,23 @@ async function discover({ github: rawGithub, context, core, env = process.env, n
         if (item.reason === 'reassessment_window_open') { counts.window_open += 1; counts.unresolved_findings_with_request += 1; }
         if (item.reason === 'originating_reviewer_answered') { counts.answered += 1; counts.unresolved_findings_with_request += 1; }
         if (item.reason === 'no_request_on_current_head') { counts.no_current_head_request += 1; counts.unresolved_findings_with_request += 1; }
-        if (item.reason === 'unknown_stock_summary') {
-          counts.unknown_stock_summary += 1; counts.unresolved_findings_with_request += 1;
+        if (item.reason === 'unknown_stock_summary') { counts.unknown_stock_summary += 1; counts.unresolved_findings_with_request += 1; }
+        if (item.summary) {
           core.warning(`${repository}#${pull.number} ${item.thread_id}: unlisted stock cheer "${item.summary}"; `
             + 'add it to summary_variants in config/consumer_sync_review_policy.json');
         }
       }
       for (const candidate of selected) {
         counts.unresolved_findings_with_request += 1;
-        const comments = await listDurableComments(github, context.repo.owner, context.repo.repo,
-          candidate.durable_issue_url, candidate.first_requested_at);
+        let comments;
+        try {
+          comments = await listDurableComments(github, context.repo.owner, context.repo.repo,
+            candidate.durable_issue_url, candidate.first_requested_at);
+        } catch (error) {
+          counts.unreadable_prs += 1;
+          core.warning(`${repository}#${pull.number} ${candidate.thread_id}: durable issue unreadable (${error.status || error.message}); skipped this run`);
+          continue;
+        }
         const prior = A.priorProducerRecords(comments, candidate, trusted);
         if (prior.attempts.length) { counts.already_attempted += 1; continue; }
         const fresh = prior.verifications.filter(({ verification }) =>
@@ -118,14 +135,23 @@ async function discover({ github: rawGithub, context, core, env = process.env, n
         if (fresh.length) {
           counts.verified_awaiting_maint71 += 1;
           const latest = fresh[fresh.length - 1];
+          const receipts = prior.dispatches.filter(({ dispatch }) => dispatch.verification_url === latest.comment.html_url);
           redispatch.push({ candidate, comment_url: latest.comment.html_url,
-            comment_created_at: latest.comment.created_at, record: latest.verification });
+            comment_created_at: latest.comment.created_at, record: latest.verification,
+            dispatches: receipts.map(({ dispatch }) => dispatch) });
+          continue;
+        }
+        let closed;
+        try {
+          ({ data: closed } = await github.rest.pulls.list({
+            owner, repo, state: 'closed', base: pull.base.ref, sort: 'updated', direction: 'desc', per_page: 50,
+          }));
+        } catch (error) {
+          counts.unreadable_prs += 1;
+          core.warning(`${repository}#${pull.number}: merged receiver pulls unreadable (${error.status || error.message}); skipped this run`);
           continue;
         }
         counts.assessable += 1;
-        const { data: closed } = await github.rest.pulls.list({
-          owner, repo, state: 'closed', base: pull.base.ref, sort: 'updated', direction: 'desc', per_page: 50,
-        });
         const receiverPulls = closed.filter((item) => item.merged_at
           && Date.parse(item.merged_at) > Date.parse(candidate.finding_created_at)
           && item.number !== candidate.pr)
@@ -149,7 +175,7 @@ async function discover({ github: rawGithub, context, core, env = process.env, n
     + `(assess ${matrix.length}/${counts.assessable}, redispatch ${redispatch.length}; `
     + `window open ${counts.window_open}, answered ${counts.answered}, `
     + `no current-head request ${counts.no_current_head_request}, unlisted stock cheer ${counts.unknown_stock_summary}, `
-    + `handed to owner ${counts.already_attempted}; `
+    + `handed to owner ${counts.already_attempted}, unreadable this run ${counts.unreadable_prs}; `
     + `sync PRs ${counts.sync_prs})`);
   core.setOutput('matrix', JSON.stringify({ item: matrix }));
   core.setOutput('has_assessments', matrix.length ? 'true' : 'false');
@@ -185,24 +211,38 @@ function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
 }
 
-async function dispatchMaint71({ github, context, core, proof, consumerSync, dryRun }) {
+async function dispatchMaint71({ github, context, core, proof, consumerSync, dryRun, now = Date.now() }) {
   const runs = await maint71Runs(github, context);
   const active = runs.find((run) => ACTIVE.includes(run.status));
   if (active) {
     core.notice(`Maint 71 writer ${active.id} active; verification kept for the next Maint 90 sweep`);
-    return false;
+    return null;
   }
   const inputs = A.buildMaint71Dispatch({ proof, consumerSync });
   if (dryRun) {
     core.notice(`Dry run: would dispatch Maint 71 ${inputs.active_sync_hash} with proof for ${proof.thread_id}`);
-    return false;
+    return null;
   }
-  await github.rest.actions.createWorkflowDispatch({
-    ...context.repo, workflow_id: 'maint-71-merge-sync-prs.yml',
-    ref: context.payload.repository?.default_branch || 'main', inputs,
-  });
-  core.notice(`Dispatched Maint 71 ${inputs.active_sync_hash} to resolve ${proof.repository}#${proof.pr} ${proof.thread_id}`);
-  return true;
+  const request = { ...context.repo, workflow_id: 'maint-71-merge-sync-prs.yml',
+    ref: context.payload.repository?.default_branch || 'main', inputs };
+  const dispatchedAt = new Date(now).toISOString();
+  let response;
+  try {
+    response = await github.rest.actions.createWorkflowDispatch({ ...request, return_run_details: true });
+  } catch (error) {
+    if (error.status !== 422) throw error;
+    response = await github.rest.actions.createWorkflowDispatch(request);
+  }
+  const runId = Number(response?.data?.workflow_run_id) || null;
+  core.notice(`Dispatched Maint 71 ${inputs.active_sync_hash}${runId ? ` run ${runId}` : ''} to resolve ${proof.repository}#${proof.pr} ${proof.thread_id}`);
+  return { runId, dispatchedAt };
+}
+
+async function recordDispatch({ github, context, core, candidate, dispatch, commentUrl, runUrl, dryRun }) {
+  if (!dispatch) return;
+  await postComment({ github, context, core, dryRun, issueUrl: candidate.durable_issue_url,
+    body: A.renderDispatchReceipt(candidate, { runId: dispatch.runId, commentUrl,
+      dispatchedAt: dispatch.dispatchedAt, runUrl }) });
 }
 
 async function postComment({ github, context, issueUrl, body, dryRun, core }) {
@@ -254,19 +294,31 @@ async function publish({ github: rawGithub, context, core, env = process.env, no
     const provenance = await fixProvenance({ github, candidate, assessment,
       receiverPulls: item.receiver_pulls, baseRef: item.base_ref });
     if (!provenance.ok) { await handOff(provenance.reason, assessment.rationale); continue; }
+    // Re-read reviewer activity after the provenance reads, right before PASS.
+    const fresh = await liveCandidateState({ github, candidate, policy, profiles, now });
+    if (!fresh.live) { outcomes.push({ key: item.key, outcome: 'no_longer_assessable' }); continue; }
+    const [owner, repo] = candidate.repository.split('/');
+    let topLevelComments;
+    try {
+      topLevelComments = await collectOriginatingCompletions({ owner, repo, number: candidate.pr,
+        head: candidate.head_sha, profiles, read: (fn) => fn(github) });
+    } catch (error) {
+      core.warning(`${item.key}: PR conversation unreadable (${error.status || error.message}); PASS not published this run`);
+      outcomes.push({ key: item.key, outcome: 'conversation_unreadable' });
+      continue;
+    }
     const completedAt = regression.finished_at;
     const record = A.buildVerificationRecord({ candidate, assessment, regression,
       receiverFix: provenance.receiverFix, completedAt, rawOutput,
       verifierProfile: policy.finding_verification_fallback.verifier_profiles[0] });
     // Check the record with the production validators before publishing.
-    const [owner, repo] = candidate.repository.split('/');
     const simulatedId = 1;
     const proof = A.buildResolutionProof({ record, commentUrl: `${candidate.durable_issue_url}#issuecomment-${simulatedId}` });
     const proofCheck = validateReviewResolutionProof(proof, { owner, repo, prNumber: candidate.pr,
       headSha: candidate.head_sha, actor: publisher, trustedActors: trustedPublishers(policy) });
     if (!proofCheck.ok) { await handOff(`proof_rejected:${proofCheck.errors.join(',')}`, assessment.rationale); continue; }
-    const simulated = A.simulatedVerificationArgs({ candidate, record, proof, state: live.state,
-      recordBinding: live.record, policy, profiles, commentId: simulatedId,
+    const simulated = A.simulatedVerificationArgs({ candidate, record, proof, state: fresh.state,
+      recordBinding: fresh.record, policy, profiles, commentId: simulatedId, topLevelComments,
       createdAt: new Date(Math.max(now, Date.parse(completedAt) + 1000)).toISOString(), publisher });
     const check = validateIndependentFindingVerification(simulated);
     if (!check.ok) { await handOff(`verification_rejected:${check.reason}`, assessment.rationale); continue; }
@@ -274,7 +326,8 @@ async function publish({ github: rawGithub, context, core, env = process.env, no
       body: A.renderVerificationComment(record, { runUrl }) });
     const realProof = A.buildResolutionProof({ record, commentUrl: comment.html_url });
     const dispatched = await dispatchMaint71({ github, context, core, proof: realProof,
-      consumerSync: live.consumerSync, dryRun });
+      consumerSync: fresh.consumerSync, dryRun, now });
+    await recordDispatch({ github, context, core, candidate, dispatch: dispatched, commentUrl: comment.html_url, runUrl, dryRun });
     outcomes.push({ key: item.key, outcome: dispatched ? 'verified_and_dispatched' : 'verified' });
   }
 
@@ -282,17 +335,18 @@ async function publish({ github: rawGithub, context, core, env = process.env, no
     const { candidate, record } = item;
     const live = await liveCandidateState({ github, candidate, policy, profiles, now });
     if (!live.live) { outcomes.push({ key: A.findingKey(candidate), outcome: 'no_longer_assessable' }); continue; }
+    // Only Maint 71 runs Maint 90 dispatched with this proof spend the budget.
     const runs = await maint71Runs(github, context);
-    const since = Date.parse(item.comment_created_at);
-    const completedSince = runs.filter((run) => run.status === 'completed' && Date.parse(run.created_at) > since);
-    if (completedSince.length >= MAX_REDISPATCH_RUNS) {
+    const spent = A.spentDispatches((item.dispatches || []).map((dispatch) => ({ dispatch })), runs, now);
+    if (spent.length >= MAX_REDISPATCH_RUNS) {
       await postComment({ github, context, core, dryRun, issueUrl: candidate.durable_issue_url,
         body: A.renderAttemptComment(candidate, { verdict: 'PASS', reason: 'maint71_did_not_resolve', runUrl }) });
       outcomes.push({ key: A.findingKey(candidate), outcome: 'handed_to_owner:maint71_did_not_resolve' });
       continue;
     }
     const proof = A.buildResolutionProof({ record, commentUrl: item.comment_url });
-    const dispatched = await dispatchMaint71({ github, context, core, proof, consumerSync: live.consumerSync, dryRun });
+    const dispatched = await dispatchMaint71({ github, context, core, proof, consumerSync: live.consumerSync, dryRun, now });
+    await recordDispatch({ github, context, core, candidate, dispatch: dispatched, commentUrl: item.comment_url, runUrl, dryRun });
     outcomes.push({ key: A.findingKey(candidate), outcome: dispatched ? 'redispatched' : 'redispatch_held' });
   }
   for (const outcome of outcomes) core.notice(`${outcome.key}: ${outcome.outcome}`);

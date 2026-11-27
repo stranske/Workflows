@@ -19,6 +19,12 @@ const VERIFICATION_SCHEMA = 'workflows-sync-finding-verification/v1';
 const ATTEMPT_MARKER = 'maint71-finding-assessment-attempt:v1';
 const VERIFICATION_RE = /<!-- maint71-finding-verification:v1 ([\s\S]*?) -->/g;
 const ATTEMPT_RE = /<!-- maint71-finding-assessment-attempt:v1 ([\s\S]*?) -->/g;
+const DISPATCH_MARKER = 'maint90-maint71-dispatch:v1';
+const DISPATCH_RE = /<!-- maint90-maint71-dispatch:v1 ([\s\S]*?) -->/g;
+// Exit code every allowlisted runner uses for "tests ran and failed" (pytest,
+// node --test, npm test). Timeouts (124), start failures (127) and pytest's
+// usage/collection codes (2-5) are not evidence about the unfixed behaviour.
+const TEST_FAILED_EXIT = 1;
 const REQUEST_RE = /<!-- maint71-review-(?:reassessment|disposition):v1 ([\s\S]*?) -->/g;
 const CONSUMER_SYNC_RE = /<!-- workflows-consumer-sync:v1 ([\s\S]*?) -->/g;
 // Commands run without a shell (argv split on spaces), so these characters are
@@ -28,6 +34,12 @@ const SHA_RE = /^[0-9a-f]{40}$/;
 const MIN_RATIONALE = 40;
 // A verification older than this cannot pass Maint 71's freshness check.
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+
+// JSON for an HTML-comment marker: '<' and '>' are escaped so a quoted '-->' in
+// a rationale cannot end the marker early. JSON.parse returns the same value.
+function markerJson(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+}
 
 function singleMarker(body, pattern) {
   const matches = [...String(body || '').matchAll(pattern)];
@@ -101,9 +113,10 @@ function selectAssessableFindings({ repository, pr, state, record, policy, profi
       && Date.parse(item.createdAt || '') > firstRequestedAt
       && !isStockFindingReceipt(item.body, profile));
     if (answers.length) {
-      const unknown = answers.map((item) => unknownStockSummary(item.body, profile)).find(Boolean);
-      if (unknown && answers.length === 1) skipped.push({ thread_id: thread.id, reason: 'unknown_stock_summary', summary: unknown });
-      else skip('originating_reviewer_answered');
+      // An unlisted stock cheer is reported whether or not a real answer also exists.
+      const unknown = answers.map((item) => unknownStockSummary(item.body, profile)).filter(Boolean);
+      const reason = unknown.length === answers.length ? 'unknown_stock_summary' : 'originating_reviewer_answered';
+      skipped.push({ thread_id: thread.id, reason, ...(unknown.length ? { summary: unknown[0] } : {}) });
       continue;
     }
     const request = current.reduce((latest, entry) => (entry.at > latest.at ? entry : latest));
@@ -124,6 +137,7 @@ function selectAssessableFindings({ repository, pr, state, record, policy, profi
 function priorProducerRecords(comments, candidate, trusted) {
   const verifications = [];
   const attempts = [];
+  const dispatches = [];
   for (const comment of comments || []) {
     if (!trusted.includes(comment?.user?.login)) continue;
     const verification = singleMarker(comment.body, VERIFICATION_RE);
@@ -136,8 +150,13 @@ function priorProducerRecords(comments, candidate, trusted) {
       && attempt.repository === candidate.repository && attempt.pr === candidate.pr) {
       attempts.push({ comment, attempt });
     }
+    const dispatch = singleMarker(comment.body, DISPATCH_RE);
+    if (dispatch?.thread_id === candidate.thread_id && dispatch.head_sha === candidate.head_sha
+      && dispatch.repository === candidate.repository && dispatch.pr === candidate.pr) {
+      dispatches.push({ comment, dispatch });
+    }
   }
-  return { verifications, attempts };
+  return { verifications, attempts, dispatches };
 }
 
 function buildAssessmentPrompt(candidate, { baseRef, receiverPulls = [] } = {}) {
@@ -215,13 +234,17 @@ function commandArgv(command) {
 }
 
 /**
- * The regression evidence the record may claim: the command passed on the
- * fixed tree and failed with the fix removed. Anything else is not evidence.
+ * The regression evidence the record may claim: the named test files passed on
+ * the fixed tree and, still present after the fix was reverted, ran and failed
+ * (exit 1). A missing test, timeout, start failure or collection error is not
+ * evidence about the unfixed behaviour.
  */
 function regressionEstablished(regression) {
   return regression?.with_fix?.exit_code === 0
-    && Number.isInteger(regression?.without_fix?.exit_code) && regression.without_fix.exit_code !== 0
-    && regression.without_fix.prepared === true;
+    && Array.isArray(regression.test_paths) && regression.test_paths.length > 0
+    && regression?.without_fix?.prepared === true
+    && regression.without_fix.test_present === true
+    && regression.without_fix.exit_code === TEST_FAILED_EXIT;
 }
 
 function evidenceForFix(candidate, fix, receiverFix) {
@@ -281,7 +304,7 @@ function renderVerificationComment(record, { runUrl } = {}) {
     `Fix: ${record.evidence_url}`,
     runUrl ? `Run: ${runUrl}` : '',
     '',
-    `<!-- maint71-finding-verification:v1 ${JSON.stringify(record)} -->`,
+    `<!-- maint71-finding-verification:v1 ${markerJson(record)} -->`,
   ].filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n');
 }
 
@@ -297,8 +320,39 @@ function renderAttemptComment(candidate, { verdict, reason, rationale, runUrl })
     'The thread stays open for its owner. Maint 90 does not retry this finding on this head; a new head gets a fresh assessment.',
     runUrl ? `Run: ${runUrl}` : '',
     '',
-    `<!-- ${ATTEMPT_MARKER} ${JSON.stringify(attempt)} -->`,
+    `<!-- ${ATTEMPT_MARKER} ${markerJson(attempt)} -->`,
   ].filter(Boolean).join('\n');
+}
+
+/**
+ * Receipt for one Maint 71 dispatch that carried this finding's proof. The
+ * redispatch budget counts only these runs, never unrelated Maint 71 runs.
+ */
+function renderDispatchReceipt(candidate, { runId, commentUrl, dispatchedAt, runUrl }) {
+  const receipt = {
+    schema: 'maint90-maint71-dispatch/v1', repository: candidate.repository, pr: candidate.pr,
+    head_sha: candidate.head_sha, thread_id: candidate.thread_id, verification_url: commentUrl,
+    maint71_run_id: runId || null, dispatched_at: dispatchedAt,
+  };
+  return [
+    `Maint 90 dispatched Maint 71 with the verification proof for ${candidate.repository}#${candidate.pr} thread \`${candidate.thread_id}\`${runId ? ` (run ${runId})` : ''}.`,
+    runUrl ? `Run: ${runUrl}` : '',
+    '',
+    `<!-- ${DISPATCH_MARKER} ${markerJson(receipt)} -->`,
+  ].filter(Boolean).join('\n');
+}
+
+/**
+ * A receipt is spent when its Maint 71 run completed, or (run id unknown) once
+ * the run had ample time to finish, so the budget always drains.
+ */
+function spentDispatches(dispatches, runs, now, unknownRunAfterMs = 60 * 60 * 1000) {
+  const byId = new Map((runs || []).map((run) => [run.id, run]));
+  return (dispatches || []).filter(({ dispatch }) => {
+    if (dispatch.maint71_run_id) return byId.get(dispatch.maint71_run_id)?.status === 'completed'
+      || (!byId.has(dispatch.maint71_run_id) && now - Date.parse(dispatch.dispatched_at || '') > unknownRunAfterMs);
+    return now - Date.parse(dispatch.dispatched_at || '') > unknownRunAfterMs;
+  });
 }
 
 function buildResolutionProof({ record, commentUrl }) {
@@ -337,22 +391,23 @@ function buildMaint71Dispatch({ proof, consumerSync }) {
 
 // Simulates the GitHub comment Maint 71 will read, so the record is checked by
 // the production validator before anything is published.
-function simulatedVerificationArgs({ candidate, record, proof, state, recordBinding, policy, profiles, commentId, createdAt, publisher }) {
+function simulatedVerificationArgs({ candidate, record, proof, state, recordBinding, policy, profiles, commentId, createdAt, publisher, topLevelComments }) {
   const thread = state.reviewThreads.nodes.find((item) => item.id === candidate.thread_id);
   return {
     proof, record: recordBinding, thread, threads: state.reviewThreads,
     comment: {
       id: commentId, html_url: `${recordBinding.durable_issue_url}#issuecomment-${commentId}`,
       user: { login: publisher }, created_at: createdAt,
-      body: `<!-- maint71-finding-verification:v1 ${JSON.stringify(record)} -->`,
+      body: `<!-- maint71-finding-verification:v1 ${markerJson(record)} -->`,
     },
-    policy, reviewerProfiles: profiles, topLevelComments: { complete: true, nodes: [] },
+    policy, reviewerProfiles: profiles, topLevelComments,
     now: Date.parse(createdAt) + 1000,
   };
 }
 
 module.exports = {
-  ATTEMPT_MARKER, COMMAND_RE, VERIFICATION_TTL_MS,
+  ATTEMPT_MARKER, DISPATCH_MARKER, COMMAND_RE, TEST_FAILED_EXIT, VERIFICATION_TTL_MS, markerJson,
+  renderDispatchReceipt, spentDispatches,
   consumerSyncMarker, laneForSyncPhase, findingKey, selectAssessableFindings, priorProducerRecords,
   buildAssessmentPrompt, parseAssessment, commandArgv, regressionEstablished, buildVerificationRecord,
   renderVerificationComment, renderAttemptComment, buildResolutionProof, buildMaint71Dispatch,

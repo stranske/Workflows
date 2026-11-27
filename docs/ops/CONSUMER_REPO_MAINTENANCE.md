@@ -2416,7 +2416,11 @@ It selects unresolved threads whose first targeted request is older than the
 window, with a bound request on the current head and no substantive reviewer
 reply. It runs an independent `codex-6.1-sol-medium` assessment in a read-only
 sandbox. Then, in a job with no secrets, it runs the named test with the fix
-(must exit 0) and with the fix reverted (must exit non-zero). Commands are
+(must exit 0) and with the fix's code reverted (must exit 1, a real test
+failure). The named test files are restored from the fixed tree after the
+revert, so a fix that adds its own test still runs it; a missing test, a timeout,
+a start failure or a collection error is not a negative control. The code under
+test runs as an unprivileged user that cannot write the evidence file. Commands are
 limited to `python -m pytest`, `pytest`, `node --test` and `npm test --` and run
 without a shell. A PASS is checked against the production validators, published
 on the durable issue and dispatched to Maint 71 with the resolution proof.
@@ -2425,7 +2429,9 @@ A FAIL, a broken negative control, unverifiable fix provenance or a rejected
 proof becomes one `maint71-finding-assessment-attempt:v1` hand-off comment for
 that finding and head; a new head gets a new assessment. A published
 verification is re-dispatched while Maint 71 is busy and handed off after two
-completed Maint 71 runs that leave the thread open. The Codex connector rotates
+completed Maint 71 runs that carried its proof and left the thread open; each
+dispatch leaves a `maint90-maint71-dispatch:v1` receipt naming its run, so
+unrelated Maint 71 runs never spend that budget. The Codex connector rotates
 the cheer after its stock summary, so the known cheers are listed in
 `inline_targeted_stock_completion.summary_variants`. A receipt-shaped reply with
 an unlisted cheer still counts as an answer, and Maint 90 reports it as

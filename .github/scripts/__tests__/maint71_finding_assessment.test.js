@@ -99,6 +99,40 @@ test('rotating stock cheers do not count as an answer (Portable-Alpha-Extension-
   assert.equal(select(AFTER_WINDOW, nodes).selected.length, 1);
 });
 
+test('an unlisted cheer is named even when the reviewer replied more than once', () => {
+  const nodes = structuredClone(timeline);
+  const cheer = nodes[2].body.replace('Hooray!', 'Still broken.');
+  nodes[2].body = cheer;
+  nodes.splice(3, 0, { ...structuredClone(nodes[2]), id: 'second-cheer', fullDatabaseId: 999001 });
+  const { skipped } = select(AFTER_WINDOW, nodes);
+  assert.equal(skipped[0].reason, 'unknown_stock_summary');
+  assert.equal(skipped[0].summary, "Codex Review: Didn't find any major issues. Still broken.");
+  // A real answer beside the unlisted cheer keeps the thread answered and still names the cheer.
+  nodes[3].body = 'REJECT\nThe stale footer assertion still fails.';
+  const answered = select(AFTER_WINDOW, nodes).skipped[0];
+  assert.equal(answered.reason, 'originating_reviewer_answered');
+  assert.equal(answered.summary, "Codex Review: Didn't find any major issues. Still broken.");
+});
+
+test('marker JSON escapes comment delimiters and round-trips', () => {
+  const value = { rationale: 'quotes <!-- workflows-consumer-sync:v1 {} --> from a workflow' };
+  const json = A.markerJson(value);
+  assert.equal(json.includes('-->'), false);
+  assert.deepEqual(JSON.parse(json), value);
+});
+
+test('dispatch receipts: only completed runs Maint 90 dispatched spend the budget', () => {
+  const now = Date.parse('2026-11-26T20:00:00Z');
+  const receipt = (id, at) => ({ dispatch: { maint71_run_id: id, dispatched_at: at } });
+  const runs = [{ id: 11, status: 'completed' }, { id: 12, status: 'in_progress' }, { id: 99, status: 'completed' }];
+  assert.equal(A.spentDispatches([receipt(11, '2026-11-26T19:50:00Z')], runs, now).length, 1);
+  assert.equal(A.spentDispatches([receipt(12, '2026-11-26T19:50:00Z')], runs, now).length, 0);
+  // Unknown run id: spent once it had an hour to finish, so the budget always drains.
+  assert.equal(A.spentDispatches([receipt(null, '2026-11-26T19:30:00Z')], runs, now).length, 0);
+  assert.equal(A.spentDispatches([receipt(null, '2026-11-26T18:30:00Z')], runs, now).length, 1);
+  assert.equal(A.spentDispatches([receipt(13, '2026-11-26T18:30:00Z')], runs, now).length, 1);
+});
+
 test('a request bound to an older head does not authorize an assessment of the current head', () => {
   const nodes = structuredClone(timeline).map((item) => ({
     ...item, body: item.body.replaceAll(HEAD, 'f'.repeat(40)),
@@ -137,10 +171,20 @@ test('no verification record without a passing run and a failing negative contro
     validation: { repository: 'workflows', command: 'node --test a.test.js' } };
   const base = { candidate, assessment, completedAt: '2026-11-26T17:38:00Z', rawOutput: '{}',
     verifierProfile: 'codex-6.1-sol-medium' };
+  const ran = { test_paths: ['a.test.js'] };
   for (const regression of [
-    { with_fix: { exit_code: 1 }, without_fix: { exit_code: 1, prepared: true } },
-    { with_fix: { exit_code: 0 }, without_fix: { exit_code: 0, prepared: true } },
-    { with_fix: { exit_code: 0 }, without_fix: { exit_code: null, prepared: false } },
+    { ...ran, with_fix: { exit_code: 1 }, without_fix: { exit_code: 1, prepared: true, test_present: true } },
+    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 0, prepared: true, test_present: true } },
+    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: null, prepared: false } },
+    // The fix added its own test and the revert removed it: not evidence.
+    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 1, prepared: true, test_present: false } },
+    // Timeout, start failure, pytest usage error / no tests collected: not evidence.
+    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 124, prepared: true, test_present: true } },
+    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 127, prepared: true, test_present: true } },
+    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 4, prepared: true, test_present: true } },
+    { ...ran, with_fix: { exit_code: 0 }, without_fix: { exit_code: 5, prepared: true, test_present: true } },
+    // No named test file.
+    { test_paths: [], with_fix: { exit_code: 0 }, without_fix: { exit_code: 1, prepared: true, test_present: true } },
   ]) {
     assert.throws(() => A.buildVerificationRecord({ ...base, regression }), /verification_requires_pass_and_regression/);
   }
@@ -148,8 +192,8 @@ test('no verification record without a passing run and a failing negative contro
 
 // ---- end-to-end replay through discover -> artifacts -> publish ----
 
-function mockGithub({ comments = [], runs = [] } = {}) {
-  const calls = { comments: [], dispatches: [] };
+function mockGithub({ comments = [], runs = [], runIdBase = 9000, answerFromGraphqlCall = Infinity } = {}) {
+  const calls = { comments: [], dispatches: [], graphql: 0 };
   const pull = { number: 6250, state: 'open', head: { ref: 'sync/workflows-delivery', sha: HEAD,
     repo: { full_name: REPO } }, base: { ref: 'main', repo: { full_name: REPO } },
     user: { login: 'stranske' }, body: PR_BODY };
@@ -174,7 +218,10 @@ function mockGithub({ comments = [], runs = [] } = {}) {
     repos: { compareCommitsWithBasehead: async () => ({ data: { status: 'ahead', behind_by: 0, ahead_by: 3 } }) },
     actions: {
       listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
-      createWorkflowDispatch: async (params) => { calls.dispatches.push(params); },
+      createWorkflowDispatch: async (params) => {
+        calls.dispatches.push(params);
+        return { data: { workflow_run_id: runIdBase + calls.dispatches.length - 1 } };
+      },
     },
   };
   const github = {
@@ -184,7 +231,13 @@ function mockGithub({ comments = [], runs = [] } = {}) {
       if (method === rest.issues.listComments) return comments;
       return [];
     },
-    graphql: async () => ({ repository: { pullRequest: reviewState() } }),
+    graphql: async () => {
+      calls.graphql += 1;
+      if (calls.graphql < answerFromGraphqlCall) return { repository: { pullRequest: reviewState() } };
+      const nodes = structuredClone(timeline);
+      nodes[2].body = 'REJECT\nThe stale footer assertion still fails.';
+      return { repository: { pullRequest: reviewState(nodes) } };
+    },
   };
   return { github, calls };
 }
@@ -210,8 +263,8 @@ function writeArtifacts(item, { assessment, regression, raw = '{"verdict":"PASS"
   return root;
 }
 
-async function replay({ fix, validation, regression, verdict = 'PASS' }) {
-  const { github, calls } = mockGithub();
+async function replay({ fix, validation, regression, verdict = 'PASS', rationale, mock = {} }) {
+  const { github, calls } = mockGithub(mock);
   const h = harness();
   const env = { REGISTERED_REPOS: REPO, TRUSTED_SYNC_ACTORS: 'stranske,stranske-automation-bot' };
   const found = await discover({ github, context: h.context, core: h.core, env, now: AFTER_WINDOW });
@@ -220,7 +273,7 @@ async function replay({ fix, validation, regression, verdict = 'PASS' }) {
   const [item] = found.matrix;
   assert.equal(item.receiver_pulls[0].number, 6251);
   const assessment = verdict === 'PASS'
-    ? { ok: true, assessment: { verdict, rationale: 'tests/test_post_ci_summary.py:149-152 accepts the new footer; the stale assertion is gone.', fix, validation } }
+    ? { ok: true, assessment: { verdict, rationale: rationale || 'tests/test_post_ci_summary.py:149-152 accepts the new footer; the stale assertion is gone.', fix, validation } }
     : { ok: true, assessment: { verdict, rationale: 'The stale assertion at tests/test_post_ci_summary.py:150 still fails.', fix: null, validation: null } };
   const root = writeArtifacts(item, { assessment, regression });
   const outcomes = await publish({ github, context: h.context, core: h.core, now: AFTER_WINDOW,
@@ -229,18 +282,23 @@ async function replay({ fix, validation, regression, verdict = 'PASS' }) {
   return { outcomes, calls, item };
 }
 
-const PASSING_REGRESSION = { with_fix: { exit_code: 0, tail: '1 passed' },
-  without_fix: { exit_code: 1, prepared: true, tail: '1 failed' }, finished_at: '2026-11-26T17:38:00Z' };
+const PASSING_REGRESSION = { test_paths: ['tests/test_post_ci_summary.py'], with_fix: { exit_code: 0, tail: '1 passed' },
+  without_fix: { exit_code: 1, prepared: true, test_present: true, tail: '1 failed' }, finished_at: '2026-11-26T17:38:00Z' };
 
 test('replay: #6250 with a verified Workflows source fix publishes the verification and dispatches Maint 71', async () => {
   const { outcomes, calls } = await replay({
     fix: { kind: 'source', sha: SOURCE_FIX },
     validation: { repository: 'workflows', command: 'node --test .github/scripts/__tests__/post-ci.test.js' },
     regression: PASSING_REGRESSION,
+    rationale: 'post-ci.test.js:40 now expects the footer <!-- post-ci --> marker; the stale assertion is gone.',
   });
   assert.deepEqual(outcomes.map((item) => item.outcome), ['verified_and_dispatched']);
-  assert.equal(calls.comments.length, 1);
+  assert.equal(calls.comments.length, 2, 'verification plus one dispatch receipt');
   const record = JSON.parse(calls.comments[0].body.match(/<!-- maint71-finding-verification:v1 (.*?) -->/)[1]);
+  assert.match(record.rationale, /<!-- post-ci -->/);
+  const receipt = JSON.parse(calls.comments[1].body.match(/<!-- maint90-maint71-dispatch:v1 (.*?) -->/)[1]);
+  assert.equal(receipt.maint71_run_id, 9000);
+  assert.equal(receipt.verification_url, calls.comments[0].html_url);
   assert.equal(record.thread_id, THREAD);
   assert.equal(record.reviewer_unanswered, true);
   assert.equal(record.validation[0].negative_control, 'failed-before-fix');
@@ -264,8 +322,20 @@ test('replay: the real #6251 receiver fix is verified and dispatched (#5290 rece
     regression: PASSING_REGRESSION,
   });
   assert.deepEqual(outcomes.map((item) => item.outcome), ['verified_and_dispatched']);
-  assert.equal(calls.comments.length, 1);
+  assert.equal(calls.comments.length, 2);
   assert.equal(calls.dispatches.length, 1);
+});
+
+test('replay: a reviewer reply that lands during the provenance reads stops the PASS', async () => {
+  // graphql call 1 = discover, 2 = first live read, 3 = re-read after provenance.
+  const { outcomes, calls } = await replay({
+    fix: { kind: 'source', sha: SOURCE_FIX },
+    validation: { repository: 'workflows', command: 'node --test a.test.js' },
+    regression: PASSING_REGRESSION, mock: { answerFromGraphqlCall: 3 },
+  });
+  assert.deepEqual(outcomes.map((item) => item.outcome), ['no_longer_assessable']);
+  assert.equal(calls.comments.length, 0);
+  assert.equal(calls.dispatches.length, 0);
 });
 
 test('replay: a FAIL verdict hands the finding to its owner once and is not re-assessed on that head', async () => {
@@ -295,12 +365,12 @@ test('replay: a negative control that passes without the fix is not evidence', a
   assert.equal(calls.dispatches.length, 0);
 });
 
-test('a published verification is redispatched while Maint 71 is busy, then handed off after two Maint 71 runs', async () => {
+test('redispatch spends its budget only on Maint 71 runs that carried this proof', async () => {
   const first = await replay({ fix: { kind: 'source', sha: SOURCE_FIX },
     validation: { repository: 'workflows', command: 'node --test a.test.js' }, regression: PASSING_REGRESSION });
-  const verification = first.calls.comments[0];
-  const sweep = async (runs) => {
-    const { github, calls } = mockGithub({ comments: [verification], runs });
+  const [verification, receipt9000] = first.calls.comments;
+  const sweep = async (comments, runs, runIdBase) => {
+    const { github, calls } = mockGithub({ comments, runs, runIdBase });
     const h = harness();
     const env = { REGISTERED_REPOS: REPO, TRUSTED_SYNC_ACTORS: 'stranske' };
     const found = await discover({ github, context: h.context, core: h.core, env, now: AFTER_WINDOW });
@@ -310,14 +380,21 @@ test('a published verification is redispatched while Maint 71 is busy, then hand
       env: { MATRIX_JSON: h.outputs.matrix, REDISPATCH_JSON: h.outputs.redispatch, DRY_RUN: 'false' } });
     return { outcomes, calls };
   };
-  const busy = await sweep([{ id: 1, status: 'in_progress', created_at: '2026-11-26T17:39:30Z' }]);
+  const busy = await sweep([verification, receipt9000], [{ id: 9000, status: 'in_progress', created_at: '2026-11-26T17:39:30Z' }], 9100);
   assert.deepEqual(busy.outcomes.map((item) => item.outcome), ['redispatch_held']);
-  const idle = await sweep([]);
-  assert.deepEqual(idle.outcomes.map((item) => item.outcome), ['redispatched']);
-  assert.equal(idle.calls.dispatches.length, 1);
-  const exhausted = await sweep([
+  // Two unrelated Maint 71 runs complete; our run 9000 is not among them, so nothing is spent.
+  const unrelated = await sweep([verification, receipt9000], [
     { id: 2, status: 'completed', created_at: '2026-11-26T17:45:00Z' },
     { id: 3, status: 'completed', created_at: '2026-11-26T18:15:00Z' },
-  ]);
+  ], 9001);
+  assert.deepEqual(unrelated.outcomes.map((item) => item.outcome), ['redispatched']);
+  assert.equal(unrelated.calls.dispatches.length, 1);
+  const receipt9001 = unrelated.calls.comments[0];
+  assert.match(receipt9001.body, /"maint71_run_id":9001/);
+  // Both runs that carried the proof completed without resolving: hand off.
+  const exhausted = await sweep([verification, receipt9000, receipt9001], [
+    { id: 9000, status: 'completed', created_at: '2026-11-26T17:41:00Z' },
+    { id: 9001, status: 'completed', created_at: '2026-11-26T18:20:00Z' },
+  ], 9200);
   assert.deepEqual(exhausted.outcomes.map((item) => item.outcome), ['handed_to_owner:maint71_did_not_resolve']);
 });
