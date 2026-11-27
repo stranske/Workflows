@@ -30,7 +30,9 @@ The [combined retirement canary](https://github.com/stranske/Workflows/actions/r
 
 The corrected exact-source canary passed, and I verified the six obsolete YAMLs and three retired Python helpers absent on each of its authenticated candidate heads. The verifier and Issue Optimizer survived on every candidate. [Travel #1781](https://github.com/stranske/Travel-Plan-Permission/pull/1781) · [trip-planner #2080](https://github.com/stranske/trip-planner/pull/2080) · [Portable Alpha #2547](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2547) · [Canary assessment](https://github.com/stranske/Workflows/actions/runs/46084054953)
 
-Stage 3 and 4 delivery. [#5372](https://github.com/stranske/Workflows/pull/5372) removed the obsolete installer, moved seven suites under their tested owners, and eliminated three contract mirrors on main. All 97 affected cases passed after merge. The primary Gate jobs took 392 and 507 seconds. The whole run took 652 seconds against a 600-second target. Three contract placements await signed receiver publication. [#5374](https://github.com/stranske/Workflows/pull/5374) consolidates the raw optimizer bootstrap. [#5375](https://github.com/stranske/Workflows/pull/5375) groups fifteen loose test files by owner, merges nine authentication tests into the existing suite, and consolidates two duplicate fixture pairs. All 501 focused cases passed on both trees. The original checklist has 26 verified live outcomes and two replay-verified no-demand dispositions.
+Travel and Portable Alpha passed their sealed receiving Gates. The trip-planner Gate on #2080 found a receiver-owned timer suite importing the retired helper. Its Python 3.13 and 3.14 failures reproduced on the signed head. [Receiver correction #2081](https://github.com/stranske/trip-planner/pull/2081) removes only the 13 dedicated cases. On the old receiving base, this repair alone, and its composition with the signed sync, default and hosted collection agreed on every other case (3,229 before, 3,216 after). The composed input also passed the two formerly failing collection and mypy checks. Once the receiving repair merges, the native sync producer can rebuild against that base and proceed to the remaining thirteen repositories. The controlling outcome is absence on the sixteen receiving defaults. [Failing receiver Gate](https://github.com/stranske/trip-planner/actions/runs/46083943913) · [Receiver repair Gate](https://github.com/stranske/trip-planner/actions/runs/46085181125)
+
+Stage 3 and 4 delivery. [#5372](https://github.com/stranske/Workflows/pull/5372) removed the obsolete installer, moved seven suites under their tested owners, and eliminated three contract mirrors on main. All 97 affected cases passed after merge. The primary Gate jobs took 392 and 507 seconds. The whole run took 652 seconds against a 600-second target. The three canonical contract files matched all 48 installed blobs across sixteen receivers after protected promotion. Both former mirror directories are gone. [#5374](https://github.com/stranske/Workflows/pull/5374) consolidates the raw optimizer bootstrap. [#5375](https://github.com/stranske/Workflows/pull/5375) groups fifteen loose test files by owner, merges nine authentication tests into the existing suite, and consolidates two duplicate fixture pairs. All 501 focused cases passed on both trees. The original checklist has 26 verified live outcomes and two replay-verified no-demand dispositions.
 
 ### November 27 · Package and feature ownership
 
@@ -414,11 +416,11 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
 | 3 · Scripts, tools and packages | 506/752 | 37/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,087/1,540 | 137/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,090/1,540 | 139/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
-| **Total** | **3,768/5,554** | **318/487** | **193/198** |
+| **Total** | **3,771/5,554** | **320/487** | **193/198** |
 
-**Directory organization.** 3,556 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,559 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
