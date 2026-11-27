@@ -105,7 +105,7 @@ async function invoke(source, inventory, generated) {
   assert.equal(outputs.issue_url, issueUrl(outputs.issue_number));
   for (const request of creations) {
     assert.deepEqual(request, {...repo, ...generated,
-      labels: ['follow-up', 'agent:codex', 'from:codex', 'runner:codex', 'agents:auto-pilot']});
+      labels: ['follow-up']});
   }
   return [outputs.issue_number, creations.length, reads];
 }
