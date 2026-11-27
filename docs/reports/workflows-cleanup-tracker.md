@@ -7,6 +7,14 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27, installed script and test organization
+
+The repository-review publication helpers now live in one package. The external evaluator, scorecard and uploader retained their command names. On the installed source, all three commands reproduced the original reconciliation: three already-filed issues suppressed and zero repeat filings. The checksum and missing-scope controls rejected the altered inputs. The cadence command also reproduced all four original reports. [Publication package](https://github.com/stranske/Workflows/pull/5358) · [Cadence fixtures and guides](https://github.com/stranske/Workflows/pull/5342)
+
+The seventeen repository-review test files now share a folder and the installed family passed all 833 tests. Local default, marked Gate core, Gate grammar and canonical Selftest retained 47,488, 17,138, 30,340 and 47,478 named cases on the compared source pair. Two fixture lookups and one test self-reference changed. The verifier's parsed-YAML suite now owns its workflow isolation checks. It rejected two prohibited provider references and a nested models key that earlier versions missed. The dedicated workflow-helper suite passed all 161 cases after removal of its unused one-line package marker. Its JavaScript suite retains the execution tests. [Test family](https://github.com/stranske/Workflows/pull/5360) · [Verifier assertions](https://github.com/stranske/Workflows/pull/5359)
+
+The production follow-up workflows retained their shared verifier policy and parsing modules. Both reproduced the recorded UNVERIFIABLE_INPUT verdict from PR #5301. Keeping their executable modules under scripts preserves the exact imports and managed sync paths. The keepalive child-process helpers retained all 84 named cases. The scheduled pilot delivered 64 expected objects to 16 receiving defaults. The five qualifying sync-created issue starts remain outstanding. [Consumer campaign](https://github.com/stranske/Workflows/actions/runs/46040358033)
+
 ### November 27, installed publication package and repository-review tests
 
 The two internal publication modules now share one package on main. Replaying the October approval queue suppressed all three existing filings through the unchanged operator entry points. All seventeen repository-review tests have moved into one folder, and all 833 cases passed on the installed default. Two fixture anchors and one self-reference changed. The four collection routes each retained the same named selections, including 17,138 cases in the marked Gate core suite. [Installed publication package](https://github.com/stranske/Workflows/pull/5358) · [Installed repository-review tests](https://github.com/stranske/Workflows/pull/5360)
@@ -336,11 +344,11 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,944/2,901 | 118/220 | — |
 | 3 · Scripts, tools and packages | 429/752 | 36/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 977/1,540 | 131/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 980/1,540 | 132/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 201/334 | 26/47 | — |
-| **Total** | **3,578/5,554** | **311/487** | **185/198** |
+| **Total** | **3,581/5,554** | **312/487** | **185/198** |
 
-**Directory organization.** 3,366 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,369 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
