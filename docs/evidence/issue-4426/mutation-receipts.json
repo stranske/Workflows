@@ -2284,6 +2284,21 @@
     "restored_passes": 6,
     "source_restored": true
   },
+  "verifier_chunk_record_access": {
+    "archive_path": "verifier-chunk-mutation-records.tar.gz",
+    "recovery_guide": "gate-check.md#recover-the-verifier-chunk-mutation-records",
+    "original_records": {
+      "bounded-review-mutation-driver.txt": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/bounded-review-mutation-driver.txt",
+      "bounded-review-mutations.json": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/bounded-review-mutations.json",
+      "bounded-review-shallow-validation.json": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/bounded-review-shallow-validation.json",
+      "bounded-review-tests-before.py.txt": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/bounded-review-tests-before.py.txt",
+      "bounded-review-validation.json": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/bounded-review-validation.json",
+      "chunk-failure-mutation-driver.txt": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/chunk-failure-mutation-driver.txt",
+      "chunk-failure-mutations.json": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/chunk-failure-mutations.json",
+      "chunk-failure-shallow-validation.json": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/chunk-failure-shallow-validation.json",
+      "chunk-failure-validation.json": "https://github.com/stranske/Workflows/blob/8084366d968d5c4f68208536ca8bb3956ce99091/docs/evidence/issue-4426/chunk-failure-validation.json"
+    }
+  },
   "chunk_failure_receipts_record": "chunk-failure-mutations.json",
   "chunk_failure_production_restored": true,
   "bounded_review_receipts_record": "bounded-review-mutations.json",
