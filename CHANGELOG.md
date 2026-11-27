@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.18](https://github.com/stranske/Workflows/compare/v1.52.17...v1.52.18) (2026-11-27)
+
+
+### Bug Fixes
+
+* distinguish Health 78 trackers from design issues ([#5338](https://github.com/stranske/Workflows/issues/5338)) ([dea846b](https://github.com/stranske/Workflows/commit/dea846b8d81a2eda5101db651bdaa45cd2cd5c99))
+* mark maintenance PR publishers as automation ([#5299](https://github.com/stranske/Workflows/issues/5299)) ([ce64a90](https://github.com/stranske/Workflows/commit/ce64a90124d2ab1b471895350bd902eb01afe0a2))
+
 ## [1.52.17](https://github.com/stranske/Workflows/compare/v1.52.16...v1.52.17) (2026-11-26)
 
 
