@@ -13,7 +13,11 @@ Two qualified keeps bring Stage 1A to 181 of 198. Retain the hosted verifier con
 
 Retain the Muse worker. It delivered a ten-file change in Manager-Mosaic #117, and replacing its setup with the shared action failed on a supported historical Workflows ref. The current audit found zero selections across four caller routes. The current model, launch flags, provider output and same-head settlement remain open until a genuine selected run. [Historical selected job](https://github.com/stranske/Manager-Mosaic/actions/runs/39104966522/job/117608884399) · [Merged change](https://github.com/stranske/Manager-Mosaic/pull/117)
 
-The consumer reports and Gate evidence repair merged. On the original W-1 PR head and evaluated merge, the repaired native compare reviewed 3/3 files with both providers and returned PASS. The comparison and terminal disposition artifacts matched their GitHub digests. The follow-up ledger recorded a no-op. Three unused comment generator retirements await normal review and delivery and contribute zero completed file decisions. [Consumer reports](https://github.com/stranske/Workflows/pull/5320) · [Gate evidence repair](https://github.com/stranske/Workflows/pull/5321) · [W-1 result](https://github.com/stranske/Workflows/pull/5317#issuecomment-7214385701) · [Native run](https://github.com/stranske/Workflows/actions/runs/45971216048) · [Proposed retirements](https://github.com/stranske/Workflows/pull/5322)
+The consumer reports and Gate evidence repair merged. On the original W-1 PR head and evaluated merge, the repaired native compare reviewed 3/3 files with both providers and returned PASS. The comparison and terminal disposition artifacts matched their GitHub digests. The follow-up ledger recorded a no-op. [Consumer reports](https://github.com/stranske/Workflows/pull/5320) · [Gate evidence repair](https://github.com/stranske/Workflows/pull/5321) · [W-1 result](https://github.com/stranske/Workflows/pull/5317#issuecomment-7214385701) · [Native run](https://github.com/stranske/Workflows/actions/runs/45971216048)
+
+Workflows main retired three unused comment generators and their three dedicated tests. Default discovery went from 47,543 to 47,510 cases, and Gate-primary discovery from 17,193 to 17,160. The 33 removals belong to the three retired suites, and all retained case identities matched. No references to these generators remained in 17 current receiving default trees. [Merged retirement](https://github.com/stranske/Workflows/pull/5322) · [Installed commit](https://github.com/stranske/Workflows/commit/d77f486e72919ccca29f41909200c05e02299958)
+
+While the Mac was paused, hosted intake filed the approved W-2 design as #5324. The hosted opener reserved an experiment, with zero linked worker PRs at reservation readback. The Mac resumed and replayed all seven feedback calls. [Intake job](https://github.com/stranske/Workflows/actions/runs/45971818050/job/140413866774) · [Experiment reservation](https://github.com/stranske/Workflows/issues/5324#issuecomment-7214451600)
 
 The November 27 promotion removed **all 70 stale vendor files**. All 16 receiving PRs merged at the expected heads. Their default branches had zero extra and zero missing vendor files, and no stable sync PR remained open. Eight cutover paths matched on every receiver (128/128), and the catalog and verifier matched 16/16 apiece. The later verifier SDK retirement has reached Integration-Tests. All 16 fleet receivers still had its two SDK files at this readback. [Promoted merge ledger](https://github.com/stranske/Workflows/actions/runs/45948491276/artifacts/15176420353) · [Integration publication](https://github.com/stranske/Workflows/actions/runs/45955823635/job/140361939502)
 
@@ -244,12 +248,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 181/198 completed · 1 drainable now · 16 blocked · 17 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,566/2,901 | 110/220 | — |
-| 3 · Scripts, tools and packages | 373/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 911/1,540 | 128/177 | — |
+| 3 · Scripts, tools and packages | 376/752 | 34/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 914/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,075/5,554** | **298/487** | **181/198** |
+| **Total** | **3,081/5,554** | **298/487** | **181/198** |
 
-**Directory organization.** 2,863 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,869 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
