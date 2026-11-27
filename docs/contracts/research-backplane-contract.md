@@ -142,9 +142,11 @@ so staleness still cannot fail PR CI or the required `summary` check. The step
 runs under `always()`, so an `enforce_freshness=true` dispatch that fails
 validation still refreshes the tracker.
 
-- **Marker.** The issue body starts with `<!-- backplane-freshness-tracker:v1 -->`.
-  The publisher finds the tracker by this marker (search plus the `automated`
-  label listing), never by title, so a retitled tracker cannot be duplicated.
+- **Identity.** The publisher looks for `<!-- backplane-freshness-tracker:v1 -->`
+  on the first line of an issue created by `github-actions[bot]`. The
+  `repo-review-approved` label identifies design review issues even if their
+  bodies were overwritten. Search and the `automated` label listing both use
+  these checks and can find a retitled tracker.
 - **Input.** The body is rendered by `render_tracker()` in
   `scripts/validate_backplane_registry.py` from the same `registry-status.json`
   report uploaded in the `backplane-contract-integrity` artifact. Every count
