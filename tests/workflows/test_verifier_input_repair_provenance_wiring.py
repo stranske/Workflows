@@ -33,6 +33,7 @@ def test_provenance_runs_in_its_own_provider_free_job_and_suppresses_the_verifie
         "CODEX",
         "LANGSMITH",
         "models: ",
+        '"models":',  # A mapping key at any depth in the serialized job.
         "verifier-corpus-decision",
         "verifier-event-state",
         "createComment",
