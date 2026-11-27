@@ -7,6 +7,15 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27, 12:00 UTC review
+
+GitHub Actions filed Claude’s weekly design W-2 with the Mac paused. The hosted opener reserved it, both local experiment workers finished, and its [implementation merged](https://github.com/stranske/Workflows/pull/5332). Two subsequent Health 78 runs matched a marker quoted inside the specification, reopened the completed issue and overwrote its text. The original [design issue](https://github.com/stranske/Workflows/issues/5324) has its original body, four labels and completed state again. Health 78 acceptance is reopened. The [identity repair](https://github.com/stranske/Workflows/pull/5338) preserved the original issue on both captured replays. Production acceptance requires a dedicated tracker and a repeat run updating the same issue. [Hosted filing](https://github.com/stranske/Workflows/actions/runs/45971818050) · [Hosted reservation](https://github.com/stranske/Orchestrator/actions/runs/45971927723) · [Incorrect production write](https://github.com/stranske/Workflows/actions/runs/45995663642)
+
+Workflows main removed the single-file verifier lineage directory. All 17 deployment records retained their exact bytes, both readers resolve the new path, and all nine named checks passed in the successor default JavaScript job. Primary PR Gate jobs took 483 and 470 seconds. [Lineage relocation](https://github.com/stranske/Workflows/pull/5328) · [Default JavaScript results](https://github.com/stranske/Workflows/actions/runs/45995547423/job/140494167263)
+
+Seven managed verifier modules stay together for the documented standalone directory. Removing three preserved the tested event paths but broke the distributed offline reconciliation factory. No independent downstream factory caller was identified. Proposals remove unused child-issue builders, flatten two single-child sync module directories, and combine related test-suite moves. On their common base, 36 validator identities moved in all three discovery modes without losses and all 46 delegation-policy verdicts passed. [Decomposer](https://github.com/stranske/Workflows/pull/5336) · [Sync module](https://github.com/stranske/Workflows/pull/5337) · [Test ownership](https://github.com/stranske/Workflows/pull/5335)
+
+
 ### November 27, 11:01 UTC review
 
 Workflows main retired four managed correction helpers and preserved their canonical source APIs. Health 68 compared all sixteen receivers after the merge. Each still has the four obsolete copies and two earlier SDK files. The report recorded 96 obsolete positions, 64 other differences, zero missing files and zero comparison errors. The next normal Maint 68 plan and Maint 71 promotion must remove the copies from receiving defaults. The source Gate ran its primary Python jobs in 334 and 430 seconds against the 600-second checkpoint. [Source retirement](https://github.com/stranske/Workflows/pull/5329) · [Health 68 run and artifact](https://github.com/stranske/Workflows/actions/runs/45987696308) · [Pinned receiver and source comparison](https://github.com/stranske/Workflows/pull/5331#issuecomment-7216709890)
@@ -267,15 +276,15 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 181/198 completed · 1 drainable now · 16 blocked · 17 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 180/198 completed · 2 drainable now · 16 blocked · 18 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,566/2,901 | 110/220 | — |
+| 2 · Evidence and archives | 1,567/2,901 | 111/220 | — |
 | 3 · Scripts, tools and packages | 399/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 915/1,540 | 128/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 922/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,105/5,554** | **298/487** | **181/198** |
+| **Total** | **3,113/5,554** | **299/487** | **180/198** |
 
-**Directory organization.** 2,893 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,901 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
@@ -283,8 +292,8 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 |---|---:|
 | [Keep in current role](workflow-decisions.md#keep) | 127 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 11 |
-| [Other verified decisions](workflow-decisions.md#verified) | 43 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 5 |
+| [Other verified decisions](workflow-decisions.md#verified) | 42 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 6 |
 | [In review](workflow-decisions.md#review) | 0 |
 | [Proposed changes](workflow-decisions.md#proposed) | 12 |
 
