@@ -71,7 +71,7 @@ reach api.github.com. No tests were disabled or skipped. Ruff and
 and unusable credential error messages and diagnostic codes.
 
 Current connected PR metadata and the complete Portable-Alpha patch are in
-`campaign-reconciliation-round-3.json`. The consumer patch remains exactly one
+[`campaign-reconciliation-round-3.json`](README.md#round-3). The consumer patch remains exactly one
 addition and one deletion removing only `labeled`; no duplicate PR was created.
 Workflows#4503 and Portable-Alpha-Extension-Model#2390 remain open and ready.
 The previous full 14-PR reconciliation remains in the round-2 artifact; this
