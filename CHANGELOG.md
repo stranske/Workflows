@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.19](https://github.com/stranske/Workflows/compare/v1.52.18...v1.52.19) (2026-11-27)
+
+
+### Bug Fixes
+
+* **verifier:** capture bounded shell exit status artifacts ([#5351](https://github.com/stranske/Workflows/issues/5351)) ([dec4d30](https://github.com/stranske/Workflows/commit/dec4d30fc783a29cd5665a5481984205ebcc45b6))
+
 ## [1.52.18](https://github.com/stranske/Workflows/compare/v1.52.17...v1.52.18) (2026-11-27)
 
 
