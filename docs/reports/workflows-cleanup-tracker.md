@@ -7,6 +7,14 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27 · Package and feature ownership
+
+The Node package review ran 846 named outcomes across 33 suites. Moving those suites to a parallel test tree dropped all 33 from both native GitHub selectors. Updating the imports and selectors restored identical outcomes in 23. Retain 26 suites at their shared package owner, keeping the outstanding workflow retirements and concurrent fixture changes distinct. Seven shared implementations serve multiple accepted GitHub workflows. The Python comparison reconciled 2,244 case IDs across 64 single-owner suites in both local and Gate discovery. Retain 55. Six suites now move under metrics, LangChain and contracts in the source PR. One further proposed move has a historical lifecycle reference. Two overlapping suites require individual assertion comparisons.
+
+The structural PR also eliminates three duplicate contract mirrors and two directories, removes a Trend installer whose promised commands Workflows cannot install, and names a fourth domain's parser test after its actual agent metrics reader. All 388 materialized consumer files and 11 documented bootstrap downloads matched. The six feature relocations preserved 83 passing assertions and the full local and hosted rosters of 47,484 and 17,134 case IDs. The candidate changes and source merges are counted separately. [Structure change](https://github.com/stranske/Workflows/pull/5372)
+
+The reservation diagnostic merged on Workflows main. The source-delta canary stopped before writing a PR because all three prior PRs bind to an attempt that succeeded on the consumer jobs and failed on its summary. The successful retry had a different attempt number. The ordinary full canary then produced three reviewed receiving opportunities for the merged runner and dependency updates under the existing guards. The preceding 16-PR fleet promotion had zero actionable review findings. The six workflow definitions and six template copies waiting for a genuine sync-produced handoff stay at 0/5. The thirteenth workflow awaits the ordinary Maint 72 scheduled check. [Source diagnostic](https://github.com/stranske/Workflows/pull/5370) · [Scoped receipt refusal](https://github.com/stranske/Workflows/actions/runs/46072009601) · [Full canary](https://github.com/stranske/Workflows/actions/runs/46073358391) · [Receiving assessment](https://github.com/stranske/Workflows/actions/runs/46073558566)
+
 ### November 27 · Verified tool and fixture placement
 
 The [weekly queue cleanup](https://github.com/stranske/Workflows/pull/5368) reached Workflows main at `3198902b1f62`. For the November 26 trip-planner review, the diagnostic still returned three candidates and the final publisher still approved zero because the feedback was stale. All four outputs matched. The coordinator dropped three unnecessary reads totaling 40,189 bytes on this input. The installed repo-review suite passed 833 cases. [Gate](https://github.com/stranske/Workflows/actions/runs/46060452921)
@@ -376,12 +384,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 0 drainable now · 13 blocked · 13 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 450/752 | 37/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,006/1,540 | 135/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 201/334 | 26/47 | — |
-| **Total** | **3,629/5,554** | **316/487** | **185/198** |
+| 3 · Scripts, tools and packages | 486/752 | 37/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,064/1,540 | 135/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
+| **Total** | **3,725/5,554** | **316/487** | **185/198** |
 
-**Directory organization.** 3,417 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,513 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
