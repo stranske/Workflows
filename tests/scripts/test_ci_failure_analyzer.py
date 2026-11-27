@@ -1,8 +1,11 @@
-"""Tests for ci_failure_analyzer report formatting helpers."""
+"""Test CI failure log analysis, report formatting, and autofix fixtures."""
 
 import json
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
+import pytest
 from scripts.ci_failure_analyzer import (
     FLAKY_PATTERNS,
     INFRASTRUCTURE_PATTERNS,
@@ -76,6 +79,16 @@ class TestClassifyFailure:
         """Test that unrecognized errors are unknown."""
         result = classify_failure("Something completely different")
         assert result == "unknown"
+
+    def test_classify_flaky_connection(self) -> None:
+        """Test that connection errors are classified as flaky."""
+        result = classify_failure("Connection refused by server")
+        assert result == "flaky"
+
+    def test_classify_infrastructure_disk(self) -> None:
+        """Test that disk space errors are infrastructure."""
+        result = classify_failure("No disk space left on device")
+        assert result == "infrastructure"
 
 
 class TestAggregateFailures:
@@ -437,6 +450,32 @@ class TestLoadFailureLogs:
         assert load_failure_logs(str(log_file)) == [{"error": "timeout"}]
         assert parsed == ['{"error": "timeout"}']
 
+    def test_load_empty_file_with_path_fixture(self, tmp_path: Path) -> None:
+        """Test loading an empty log file."""
+        log_file = tmp_path / "failures.ndjson"
+        log_file.write_text("")
+
+        logs = load_failure_logs(str(log_file))
+        assert logs == []
+
+    def test_load_valid_ndjson_with_path_fixture(self, tmp_path: Path) -> None:
+        """Test loading valid NDJSON data."""
+        log_file = tmp_path / "failures.ndjson"
+        log_file.write_text('{"error": "timeout"}\n{"error": "assertion failed"}\n')
+
+        logs = load_failure_logs(str(log_file))
+        assert len(logs) == 2
+        assert logs[0]["error"] == "timeout"
+
+    def test_load_invalid_lines_with_path_fixture(self, tmp_path: Path) -> None:
+        """Test loading file with some invalid JSON lines."""
+        log_file = tmp_path / "failures.ndjson"
+        log_file.write_text('{"error": "valid"}\nnot valid json\n{"error": "also valid"}\n')
+
+        logs = load_failure_logs(str(log_file))
+        # Should skip invalid line and load valid ones
+        assert len(logs) == 2
+
 
 class TestGetRecentFailures:
     """Tests for get_recent_failures function - preserved behavior."""
@@ -504,6 +543,45 @@ class TestGetRecentFailures:
         assert len(recent) == 1
         assert recent[0]["error"] == "good"
 
+    def test_filter_recent_with_datetime_utc(self) -> None:
+        """Test filtering to recent failures only."""
+        now = datetime.now(UTC)
+        recent_ts = now.isoformat()
+        old_ts = "2020-01-01T00:00:00+00:00"
+
+        failures: list[dict[str, Any]] = [
+            {"error": "recent", "timestamp": recent_ts},
+            {"error": "old", "timestamp": old_ts},
+        ]
+
+        recent = get_recent_failures(failures, days=7)
+        assert len(recent) == 1
+        assert recent[0]["error"] == "recent"
+
+    def test_missing_timestamp_with_datetime_utc(self) -> None:
+        """Test handling records without timestamp."""
+        failures: list[dict[str, Any]] = [
+            {"error": "no timestamp"},
+            {"error": "with ts", "timestamp": datetime.now(UTC).isoformat()},
+        ]
+
+        recent = get_recent_failures(failures, days=7)
+        # Only the one with valid timestamp should be included
+        assert len(recent) == 1
+
+    def test_invalid_timestamp_with_datetime_utc(self) -> None:
+        """Test handling invalid timestamp values."""
+        now = datetime.now(UTC).isoformat()
+        failures: list[dict[str, Any]] = [
+            {"error": "bad format", "timestamp": "not-a-timestamp"},
+            {"error": "bad type", "timestamp": 123},
+            {"error": "good", "timestamp": now},
+        ]
+
+        recent = get_recent_failures(failures, days=7)
+        assert len(recent) == 1
+        assert recent[0]["error"] == "good"
+
 
 class TestPatternConstants:
     """Tests for pattern constants to ensure they remain unchanged."""
@@ -527,3 +605,27 @@ class TestPatternConstants:
         """Test that infrastructure patterns are strings."""
         for pattern in INFRASTRUCTURE_PATTERNS:
             assert isinstance(pattern, str)
+
+
+@pytest.mark.xfail(reason="Intentional autofix failure fixture")
+class TestIntentionalFailures:
+    """Tests with intentional failures to test autofix error handling."""
+
+    def test_assertion_failure(self) -> None:
+        """Test with intentional assertion failure - AUTOFIX CANNOT FIX."""
+        result = classify_failure("some error")
+        # Wrong assertion - this will fail
+        assert result == "this_is_wrong"
+
+    def test_attribute_error(self) -> None:
+        """Test with intentional attribute error - AUTOFIX CANNOT FIX."""
+        result = "a string"
+        # Strings don't have .nonexistent_method()
+        assert result.nonexistent_method() == "test"  # type: ignore[attr-defined]
+
+    def test_key_error(self) -> None:
+        """Test with intentional key error - AUTOFIX CANNOT FIX."""
+        data: dict[str, int] = {"a": 1, "b": 2}
+        # Key "missing" doesn't exist
+        value = data["missing"]
+        assert value == 1
