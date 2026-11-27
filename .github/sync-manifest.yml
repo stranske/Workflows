@@ -198,6 +198,14 @@ workflows:
 
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:
+  - target: .github/scripts/verifier_correction_seed.js
+    description: "Remove receiver-only duplicate; canonical Workflows checkout retains this correction helper and its offline API"
+  - target: .github/scripts/verifier_correction_profile.py
+    description: "Remove receiver-only duplicate; canonical Workflows checkout retains this correction helper and its offline API"
+  - target: .github/scripts/verifier_correction_collector.js
+    description: "Remove receiver-only duplicate; canonical Workflows checkout retains this correction helper and its offline API"
+  - target: .github/scripts/verifier_correction_runtime.js
+    description: "Remove receiver-only duplicate; canonical Workflows checkout retains this correction helper and its offline API"
   - target: .github/workflows/dependabot-automerge.yml
     description: "Remove the retired Dependabot auto-merge workflow - the fleet is on Renovate (platformAutomerge covers auto-merge); see renovate-presets/fleet.json."
   - target: .github/workflows/agents-63-issue-intake.yml
@@ -658,28 +666,12 @@ scripts:
     description: "Collects fresh native corrective ownership/assignment/inventory facts and reconciles exact immutable issue and continuation identities"
     delivery: copy
 
-  - source: .github/scripts/verifier_correction_runtime.js
-    description: "Wires native correction consumer/reconciliation and mandatory coding scope into existing lanes; missing classifier provenance, current qualification or explicit coding budget stays held"
-    delivery: copy
-
   - source: .github/scripts/verifier_correction_artifacts.js
     description: "Authenticates canonical correction run/attempt artifacts and exact checkpoint readback; uses the existing immutable follow-up NDJSON transport under authenticated PR concurrency"
     delivery: copy
 
-  - source: .github/scripts/verifier_correction_profile.py
-    description: "Literal-only bounded view of the existing reviewed Orchestrator role registry; never executes fetched code and preserves empty/unsupported source as UNKNOWN"
-    delivery: copy
-
-  - source: .github/scripts/verifier_correction_collector.js
-    description: "Collects original raw seeds plus bounded post-terminal requests and physical test hashes; absent genuine Core classification qualification stays owned UNKNOWN"
-    delivery: copy
-
   - source: .github/scripts/verifier_correction_decision.js
     description: "Checks complete source-bound risk/test decisions against independently loaded production profile qualification; security/authority/unknown never fall through ordinary autopilot"
-    delivery: copy
-
-  - source: .github/scripts/verifier_correction_seed.js
-    description: "Retains exact original NON_PASS raw finding/source/event seeds after native terminal publication; no future hold/test/owner authority is invented"
     delivery: copy
 
   - source: .github/scripts/verifier_correction_effects.js

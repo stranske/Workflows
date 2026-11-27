@@ -642,8 +642,8 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
     # scripts/langchain/response_content.py (#4434) adds one copy entry.
     # Autofix PR-head observation and completion validation add one copy entry.
     # The shared auto-pilot summary environment is shipped with its CLI callers.
-    # Retire both files from the disabled verifier correction effect job.
-    assert len(plan["entries"]) == 280
+    # Retire the disabled effect SDK and four runtime-only receiver helper copies.
+    assert len(plan["entries"]) == 276
     assert {
         "scripts/autopilot_summary_environment.py",
         ".github/scripts/autofix_metrics.js",
@@ -655,10 +655,7 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ".github/scripts/verifier_pending_execution.js",
         ".github/scripts/verifier_correction_consumer.js",
         ".github/scripts/verifier_correction_effects.js",
-        ".github/scripts/verifier_correction_seed.js",
         ".github/scripts/verifier_correction_artifacts.js",
-        ".github/scripts/verifier_correction_collector.js",
-        ".github/scripts/verifier_correction_profile.py",
         ".github/scripts/verifier_correction_decision.js",
         "docs/CI_FAILURE_PLAYBOOK.md",
         "docs/contracts/document-identity-conventions.md",
@@ -687,8 +684,12 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ("src/manager_mosaic/schemas/evidence-object-v1.schema.json", ("stranske/Manager-Mosaic",)),
     }
     removals = {entry["target"] for entry in plan["removals"]}
-    assert len(removals) == 19
+    assert len(removals) == 23
     assert {
+        ".github/scripts/verifier_correction_runtime.js",
+        ".github/scripts/verifier_correction_collector.js",
+        ".github/scripts/verifier_correction_profile.py",
+        ".github/scripts/verifier_correction_seed.js",
         ".github/scripts/verifier_correction_artifact_sdk/package.json",
         ".github/scripts/verifier_correction_artifact_sdk/package-lock.json",
     } <= removals
