@@ -1,1 +1,0 @@
-Six production YAML mutations: executed RED; byte-identical restoration GREEN.
