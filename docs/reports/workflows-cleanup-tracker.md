@@ -7,6 +7,12 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**Closed issue #4484.** The [installed cleanup](https://github.com/stranske/Workflows/commit/2c70670643e69372967a87b5050daae4fd969495) removed its one-use recovery script and retired 19 command-specific test cases. Its general schema check now runs in the maintained ledger suite. Each primary Gate report contained all 81 validator cases, and both grammar reports contained zero. The installed ledger still resolves the original 35 batches and their 3,652 terminal results.
+
+The companion evidence change groups ten October 30–31 JSON records in one directory. All ten original Git blobs and the recorded pilot and judge results were recovered in the placement trial. The archive file and folder decisions await a readback of the merged default tree.
+
+**AGY evaluation tools.** Keep both operator programs beside the judge-screen driver. A trial moved them to the hosted LLM scripts package and repointed their readers. The pilot then found zero of eight surviving real module/test pairs. Restoring its checkout-root calculation recovered all eight. Both layouts reproduced the four pilot score summaries and all eight judge observations. The move added a dependency from the hosted scripts back to the tool driver and removed no duplicate program. The two completed file decisions concern the programs. [Pilot and judge evidence](https://github.com/stranske/Workflows/tree/20414963aefd2a163097cab4a601fd874ee9b113/docs/evidence/judge-screen-20261017)
+
 **November 26, 23:12 UTC.** The final five workflow designs and three code changes are now on main. The installed Reusable 20 main resolver check materialized six files versus 435, the consolidated Integration checkout produced the same eight-file receiver change, and the corrected Maint 72/83 registry selected the right targets on ordinary and neighboring-setting inputs. Structural decisions cover 198/198 original workflows. Production acceptance is 161/198. [Installed change](https://github.com/stranske/Workflows/pull/5286) · [Gate, 378s and 535s](https://github.com/stranske/Workflows/actions/runs/45903432986)
 
 This change retires the one-time #4484 ledger correction from live scripts. Its operator record and 35-batch receipt now share an [issue evidence directory](../evidence/issue-4484/issue-4484-validation.md). The completed ledger still directs the belt to skip all nine tasks. Replaying the pinned correction reproduced the historical result. One general validation check moves to its maintained suite; the remaining issue-specific checks retire with their program. [Original correction](https://github.com/stranske/Workflows/pull/4559)
@@ -185,12 +191,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 37 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
-| 3 · Scripts, tools and packages | 366/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 909/1,540 | 128/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,039/5,554** | **296/487** | **161/198** |
+| 3 · Scripts, tools and packages | 369/752 | 34/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 910/1,540 | 128/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
+| **Total** | **3,045/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,827 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,833 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
