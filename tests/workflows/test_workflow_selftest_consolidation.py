@@ -141,13 +141,11 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
         ), f"Docs should mention the retirement of {wrapper}."
 
 
-def test_workflow_system_keepalive_autopilot_note() -> None:
-    """Workflow system guide should note the auto-pilot keepalive dispatch path."""
-
+def test_workflow_system_documents_shared_admission_and_keepalive_dispatch() -> None:
     system_text = _normalize(WORKFLOW_SYSTEM_DOC.read_text())
-    assert (
-        "Auto-pilot keepalive dispatch" in system_text
-    ), "Workflow system guide should call out auto-pilot keepalive dispatch behavior."
+    assert "[shared opener and closer](../ops/LOCAL_LANES.md#lanes-overview)" in system_text
+    assert "agents-keepalive-loop.yml" in system_text
+    assert "PR-meta submits worker commands directly" in system_text
 
 
 def test_selftest_runner_plan_status_highlights_completion() -> None:

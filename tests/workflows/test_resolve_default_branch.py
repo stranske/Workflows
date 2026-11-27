@@ -1,4 +1,3 @@
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -209,9 +208,21 @@ def test_resolve_default_branch_inline_workflow_copies_removed() -> None:
     ]
     assert offenders == []
 
-    uses_pattern = re.compile(r"^\s*uses:\s+.*resolve-default-branch(?:@.*)?$", re.MULTILINE)
-    action_uses = sum(len(uses_pattern.findall(text)) for text in texts.values())
-    assert action_uses >= 10
+    # Each surviving job needs its own resolver, including the independent
+    # provenance job in the verifier.
+    consumers = {
+        "reusable-18-autofix.yml": ["autofix"],
+        "reusable-20-pr-meta.yml": ["keepalive_dispatch"],
+        "maint-71-auto-fix-integration.yml": ["detect-and-fix"],
+        "reusable-agents-verifier.yml": ["verifier", "input-repair-provenance"],
+    }
+    for filename, jobs in consumers.items():
+        workflow = yaml.safe_load(texts[workflow_dirs[0] / filename])
+        for job in jobs:
+            assert any(
+                step.get("uses", "").split("@")[0].endswith("/actions/resolve-default-branch")
+                for step in workflow["jobs"][job]["steps"]
+            ), (filename, job)
 
 
 @pytest.mark.parametrize(

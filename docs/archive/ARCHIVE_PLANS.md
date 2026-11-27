@@ -221,10 +221,13 @@ To restore a document, copy the archived file to its former path and update this
 
 ## Superseded LLM installation handoff
 
-The February handoff recorded how to apply protected workflow edits. For today's
-cache and pinned dependencies, see [Auto-Pilot](../../.github/workflows/agents-auto-pilot.yml),
-[the issue optimizer](../../.github/workflows/agents-issue-optimizer.yml),
-and [the reusable verifier](../../.github/workflows/reusable-agents-verifier.yml).
+The February handoff recorded how to apply protected workflow edits in the
+[former Auto-Pilot workflow][archived-autopilot-installation]. The
+[issue optimizer](../../.github/workflows/agents-issue-optimizer.yml) and
+[reusable verifier](../../.github/workflows/reusable-agents-verifier.yml)
+document current cache and dependency installation.
+
+[archived-autopilot-installation]: https://github.com/stranske/Workflows/blob/a6cecc7a646df160526036053c806bfd634292ea/.github/workflows/agents-auto-pilot.yml
 
 The three original files are under `docs/workflow-updates/` at revision
 `fbb4e424d29f3f51058b247e2be390093dca299d`. On GitHub, browse
