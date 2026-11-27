@@ -39,7 +39,7 @@ def _valid_candidate(**overrides: object) -> dict[str, object]:
         "required_change": LONG_FIELD,
         "design_refs": ["docs/ops/REPO_REVIEW_ROUND1_SCHEMA.md#Evidence Rules"],
         "implementation_refs": ["scripts/repo_review_round1_schema.py:140-210"],
-        "test_refs": ["tests/scripts/test_repo_review_round1_schema.py"],
+        "test_refs": ["tests/scripts/repo_review/test_repo_review_round1_schema.py"],
         "acceptance_criteria": [
             "pytest covers valid and invalid candidate payloads.",
             "CI fails when repo-relative evidence refs are malformed.",

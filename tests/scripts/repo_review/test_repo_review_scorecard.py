@@ -21,7 +21,7 @@ from scripts.repo_review_scorecard import (
     scan_scorecard_repos,
 )
 
-FIXTURE_API = Path(__file__).parent / "fixtures" / "repo_review_scorecard" / "api_response.json"
+FIXTURE_API = Path(__file__).parents[1] / "fixtures" / "repo_review_scorecard" / "api_response.json"
 
 
 def _sample_scan(*, repo: str = "stranske/Workflows") -> dict[str, object]:
