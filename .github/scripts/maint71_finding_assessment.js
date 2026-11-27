@@ -367,11 +367,12 @@ function dispatchBudget(dispatches, proofReceipts, verificationUrl) {
   const runs = new Map();
   for (const receipt of proofReceipts || []) {
     if (receipt?.verification_url !== verificationUrl || !receipt.maint71_run_id) continue;
-    runs.set(receipt.maint71_run_id, receipt);
+    // A later step's receipt for an already-resolved thread never hides the resolution.
+    if (runs.get(receipt.maint71_run_id)?.outcome !== 'resolved') runs.set(receipt.maint71_run_id, receipt);
   }
   const total = (dispatches || []).length;
   const reasons = [...runs.values()].filter((item) => item.outcome === 'rejected')
-    .map((item) => `run ${item.maint71_run_id}: ${item.reason}`);
+    .map((item) => `run ${item.maint71_run_id}: ${String(item.reason || '').replace(/[<>`]/g, '')}`);
   return { spent: runs.size, total, unconfirmed: Math.max(0, total - runs.size), reasons };
 }
 

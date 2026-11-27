@@ -136,6 +136,13 @@ test('dispatch budget: only runs that wrote a proof receipt for this verificatio
     receipt(null)], url).spent, 0);
   // A receipt whose dispatch id was unknown (422 fallback) still counts.
   assert.equal(A.dispatchBudget([{ maint71_run_id: null }], [receipt(99)], url).spent, 1);
+  // A later step's rejection of an already-resolved thread does not hide the resolution.
+  const resolvedFirst = A.dispatchBudget(dispatches(1), [receipt(11, { outcome: 'resolved', reason: '' }),
+    receipt(11, { reason: 'thread_not_resolvable' })], url);
+  assert.deepEqual([resolvedFirst.spent, resolvedFirst.reasons], [1, []]);
+  // Reasons are quoted into a marker-bearing comment: delimiters are stripped.
+  assert.deepEqual(A.dispatchBudget(dispatches(1), [receipt(11, { reason: 'x <!-- y --> `z`' })], url).reasons,
+    ['run 11: x !-- y -- z']);
 });
 
 test('Maint 71 writes proof receipts from exactly one step per run', () => {
@@ -473,6 +480,26 @@ test('redispatch spends its budget only on Maint 71 runs that wrote a receipt fo
   assert.equal(exhausted.calls.dispatches.length, 0);
   assert.match(exhausted.calls.comments[0].body,
     /Maint 71 rejected the proof: run 9000: head_changed; run 9001: verification_changed_before_resolution/);
+});
+
+test('publish re-reads proof receipts written after discover', async () => {
+  const first = await replay({ fix: { kind: 'source', sha: SOURCE_FIX },
+    validation: { repository: 'workflows', command: 'node --test a.test.js' }, regression: PASSING_REGRESSION });
+  const [verification, receipt9000] = first.calls.comments;
+  const url = verification.html_url;
+  const second = { ...receipt9000, id: 7101, body: receipt9000.body.replace('"maint71_run_id":9000', '"maint71_run_id":9001') };
+  const comments = [verification, receipt9000, second, maint71Receipt(url, 9000)];
+  const { github, calls } = mockGithub({ comments, runIdBase: 9500 });
+  const h = harness();
+  const found = await discover({ github, context: h.context, core: h.core, now: AFTER_WINDOW,
+    env: { REGISTERED_REPOS: REPO, TRUSTED_SYNC_ACTORS: 'stranske' } });
+  assert.equal(found.redispatch.length, 1);
+  // Run 9001 writes its rejection while assess/regress run, before publish.
+  comments.push(maint71Receipt(url, 9001));
+  const outcomes = await publish({ github, context: h.context, core: h.core, now: AFTER_WINDOW,
+    env: { MATRIX_JSON: h.outputs.matrix, REDISPATCH_JSON: h.outputs.redispatch, DRY_RUN: 'false' } });
+  assert.deepEqual(outcomes.map((item) => item.outcome), ['handed_to_owner:maint71_did_not_resolve']);
+  assert.equal(calls.dispatches.length, 0);
 });
 
 test('redispatch hands off after four receipts whose runs cannot be confirmed', async () => {

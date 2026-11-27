@@ -147,9 +147,7 @@ async function discover({ github: rawGithub, context, core, env = process.env, n
           const receipts = prior.dispatches.filter(({ dispatch }) => dispatch.verification_url === latest.comment.html_url);
           prRedispatch.push({ candidate, comment_url: latest.comment.html_url,
             comment_created_at: latest.comment.created_at, record: latest.verification,
-            dispatches: receipts.map(({ dispatch }) => dispatch),
-            proof_receipts: prior.proofReceipts.map(({ receipt }) => receipt)
-              .filter((receipt) => receipt.verification_url === latest.comment.html_url) });
+            dispatches: receipts.map(({ dispatch }) => dispatch) });
           continue;
         }
         if (!closed) {
@@ -356,8 +354,20 @@ async function publish({ github: rawGithub, context, core, env = process.env, no
     const live = await liveCandidateState({ github, candidate, policy, profiles, now });
     if (!live.live) { outcomes.push({ key: A.findingKey(candidate), outcome: 'no_longer_assessable' }); continue; }
     // A Maint 71 run spends the budget only when it wrote a proof receipt for
-    // this verification (it evaluated the proof on this PR).
-    const budget = A.dispatchBudget(item.dispatches, item.proof_receipts, item.comment_url);
+    // this verification (it evaluated the proof on this PR). Re-read the
+    // receipts now: discover's snapshot can be up to the assess+regress jobs old.
+    let current;
+    try {
+      current = A.priorProducerRecords(await listDurableComments(github, context.repo.owner, context.repo.repo,
+        candidate.durable_issue_url, candidate.first_requested_at), candidate, trustedPublishers(policy));
+    } catch (error) {
+      core.warning(`${A.findingKey(candidate)}: durable issue unreadable (${error.status || error.message}); redispatch held`);
+      outcomes.push({ key: A.findingKey(candidate), outcome: 'redispatch_held' });
+      continue;
+    }
+    const budget = A.dispatchBudget(
+      current.dispatches.map(({ dispatch }) => dispatch).filter((dispatch) => dispatch.verification_url === item.comment_url),
+      current.proofReceipts.map(({ receipt }) => receipt), item.comment_url);
     const exhausted = budget.spent >= MAX_REDISPATCH_RUNS ? 'maint71_did_not_resolve'
       : budget.total >= MAX_DISPATCH_RECEIPTS ? 'maint71_runs_unconfirmed' : '';
     if (exhausted) {
