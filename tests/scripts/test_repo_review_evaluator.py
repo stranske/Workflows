@@ -1854,7 +1854,7 @@ def test_queue_regeneration_preserves_original_approval_and_hold(tmp_path: Path)
     import hashlib
     import json
 
-    from scripts import repo_review_approval_ledger as ledger
+    from scripts.repo_review_publication import approval_ledger as ledger
 
     state = _tiering_state(tmp_path)
     current_feedback = {
@@ -1962,7 +1962,7 @@ def test_explicit_unattended_opt_in_still_respects_high_stakes_gate(tmp_path: Pa
 
 
 def test_queue_writer_renders_conflict_resolution_approval_metadata(tmp_path, monkeypatch):
-    from scripts import repo_review_approval_ledger as ledger
+    from scripts.repo_review_publication import approval_ledger as ledger
 
     state = _tiering_state(tmp_path)
 

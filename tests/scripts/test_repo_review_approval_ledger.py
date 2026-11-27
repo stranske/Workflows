@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts import repo_review_approval_ledger as ledger
+from scripts.repo_review_publication import approval_ledger as ledger
 
 
 def make_ledger(tmp_path: Path) -> tuple[Path, list[dict]]:

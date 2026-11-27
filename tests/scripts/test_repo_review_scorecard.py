@@ -8,8 +8,8 @@ from pathlib import Path
 
 import yaml
 from scripts import repo_review_scorecard
-from scripts.repo_review_issue_quality import issue_body_quality_errors
 from scripts.repo_review_notify import format_scorecard_section
+from scripts.repo_review_publication.issue_quality import issue_body_quality_errors
 from scripts.repo_review_scorecard import (
     SCHEMA,
     approved_scorecard_issue_items,

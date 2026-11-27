@@ -24,14 +24,14 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from scripts.repo_review_issue_quality import (
+    from scripts.repo_review_publication.issue_quality import (
         ISSUE_BODY_REQUIRED_SECTIONS,
         issue_body_is_agent_ready,
         issue_body_quality_errors,
         review_evidence_trace_errors,
     )
 except ModuleNotFoundError:  # pragma: no cover - supports direct script execution.
-    from repo_review_issue_quality import (  # type: ignore[no-redef]
+    from repo_review_publication.issue_quality import (  # type: ignore[no-redef]
         ISSUE_BODY_REQUIRED_SECTIONS,
         issue_body_is_agent_ready,
         issue_body_quality_errors,
@@ -3324,9 +3324,9 @@ def write_approved_issue_queue(
     scorecard_scan = load_scorecard_scan(output_dir / "scorecard-scan.json")
     queue = build_approved_issue_queue(states, feedback_config, generated_on, scorecard_scan)
     try:
-        from scripts.repo_review_approval_ledger import merge_approval_ledger
+        from scripts.repo_review_publication.approval_ledger import merge_approval_ledger
     except ModuleNotFoundError:  # pragma: no cover - direct script execution
-        from repo_review_approval_ledger import merge_approval_ledger
+        from repo_review_publication.approval_ledger import merge_approval_ledger
 
     queue = merge_approval_ledger(
         queue,

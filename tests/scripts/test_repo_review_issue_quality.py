@@ -1,4 +1,4 @@
-from scripts.repo_review_issue_quality import (
+from scripts.repo_review_publication.issue_quality import (
     checklist_items,
     issue_body_is_agent_ready,
     issue_body_quality_errors,
