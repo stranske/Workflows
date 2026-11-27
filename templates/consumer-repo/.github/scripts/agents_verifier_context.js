@@ -35,6 +35,9 @@ const DEFAULT_EVIDENCE_ARTIFACT_CHARS = 60000;
 const SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
 const WORKFLOW_RUN_URL_RE = /\/actions\/runs\/(\d+)/g;
 const TEXT_ARTIFACT_ENTRY_RE = /\.(?:txt|md|markdown|log|json|jsonl|ndjson|xml|csv|tsv|patch|diff)$/i;
+const EXIT_CODE_ARTIFACT_ENTRY_RE = /^(?:[a-z0-9_][a-z0-9_.-]*\/)*[a-z0-9_][a-z0-9_.-]*\.exit_code$/i;
+const SHELL_EXIT_CODE_RE = /^(?:0|[1-9][0-9]{0,2})(?:\r?\n)?$/;
+const MAX_SHELL_EXIT_CODE_BYTES = 5;
 
 // Source-reviewed legacy receipts. These immutable first-party outputs predate
 // a target binding receipt: authenticated run/attempt + exact output ZIP digest
@@ -733,15 +736,17 @@ function positiveEvidenceLines(text) {
   return selected;
 }
 
-function safeArtifactEntries(listing) {
+function safeArtifactEntries(listing, selectedMembers) {
   const entries = [];
   const filteredPayloadEntries = [];
   const occurrences = [];
   for (const rawEntry of String(listing || '').split('\n')) {
     const entry = rawEntry.trim();
     if (!entry || entry.endsWith('/')) continue;
+    const knownExitCode = EXIT_CODE_ARTIFACT_ENTRY_RE.test(entry)
+      && (!selectedMembers || selectedMembers.includes(entry));
     const safe = entry === rawEntry && !entry.startsWith('-') && !/[\u0000-\u001f\u007f]/.test(entry)
-      && !/[*?\[\]\\]/.test(entry) && TEXT_ARTIFACT_ENTRY_RE.test(entry);
+      && !/[*?\[\]\\]/.test(entry) && (TEXT_ARTIFACT_ENTRY_RE.test(entry) || knownExitCode);
     occurrences.push({ name: rawEntry, occurrence: occurrences.length, safe });
     if (safe) entries.push(entry); else filteredPayloadEntries.push(entry);
   }
@@ -894,7 +899,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       maxBuffer: 1024 * 1024,
       ...unzipBound,
     });
-    const { entries, filteredPayloadEntries, occurrences } = safeArtifactEntries(listing);
+    const { entries, filteredPayloadEntries, occurrences } = safeArtifactEntries(listing, selectedMembers);
     const counts = new Map();
     for (const { name } of occurrences) counts.set(name, (counts.get(name) || 0) + 1);
     const eligibleEntries = selectedMembers ? entries.filter(name => selectedMembers.includes(name)) : entries;
@@ -985,8 +990,10 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         break;
       }
       try {
+        const exitCode = EXIT_CODE_ARTIFACT_ENTRY_RE.test(entry);
+        const extractionBound = captureDirectory ? remainingBytes : Math.min(contentBudget * 4 + 1, remainingBytes);
         const rawValue = Buffer.from(execFile('unzip', ['-p', archivePath, entry], {
-          maxBuffer: captureDirectory ? remainingBytes : Math.min(contentBudget * 4 + 1, remainingBytes),
+          maxBuffer: exitCode ? Math.min(extractionBound, MAX_SHELL_EXIT_CODE_BYTES) : extractionBound,
           ...unzipBound,
         }));
         if (rawValue.length > remainingBytes) throw Object.assign(new Error('decompressed byte bound exceeded'), {code: 'VERIFIER_EXTRACTION_BOUND'});
@@ -1005,6 +1012,14 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
           failures.push('utf8_decode_failed');
           truncated = true;
           break;
+        }
+        if (exitCode && (rawValue.length > MAX_SHELL_EXIT_CODE_BYTES
+            || !SHELL_EXIT_CODE_RE.test(value) || Number(value) > 255)) {
+          member.status = 'unsupported';
+          member.reason = 'invalid_shell_exit_code';
+          failures.push('unsupported_payload');
+          truncated = true;
+          continue;
         }
         // String.trim treats a UTF-8 BOM as whitespace. Retain a valid leading
         // BOM in rendered text; raw bytes/hash remain the authoritative identity.
