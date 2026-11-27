@@ -1461,7 +1461,7 @@ def run(args: argparse.Namespace) -> int:
     # The per-repo runners attest findings to their current source commit, but
     # another sync can advance a repository after its turn and before the
     # fleet packet is rendered. Validate every selected repository now, before
-    # any aggregate preview or evaluator output can be treated as current.
+    # any evaluator output can be treated as current.
     pre_evaluator_provenance = validate_fleet_provenance(
         output_dir=output_dir,
         repo_configs=aggregate_repo_configs,
@@ -1481,13 +1481,11 @@ def run(args: argparse.Namespace) -> int:
         )
         return 1
 
-    # 2b. Scorecard scan: surface low-scoring OpenSSF checks for human approval.
+    # 3. Scorecard scan: surface low-scoring OpenSSF checks for human approval.
     #     Same non-fatal pattern as backlog-scan -- failures are logged but don't
-    #     abort the cycle. Output is consumed by queue-builder preview, the final
-    #     evaluator, and notify.
+    #     abort the cycle. Output is consumed by the final evaluator and notify.
     scorecard_path = output_dir / "scorecard-scan.json"
     scorecard_config = workflows_steward_root / "config" / "source_of_truth_docs.yml"
-    scorecard_scan: dict[str, Any] | None = None
     if scorecard_config.is_file():
         scorecard_cmd = [
             sys.executable,
@@ -1511,49 +1509,9 @@ def run(args: argparse.Namespace) -> int:
                 f"[coordinator] scorecard-scan FAILED (non-fatal): {scorecard_result.notes}",
                 file=sys.stderr,
             )
-        try:
-            from scripts.repo_review_scorecard import load_scorecard_scan
-        except ModuleNotFoundError:
-            sys.path.insert(0, str(workflows_steward_root / "scripts"))
-            from repo_review_scorecard import load_scorecard_scan  # type: ignore[no-redef]
-        scorecard_scan = load_scorecard_scan(scorecard_path)
     else:
         print(
             f"[coordinator] scorecard-scan: skipping -- config not found at {scorecard_config}",
-            file=sys.stderr,
-        )
-
-    # 3. Queue-builder preview only (#2272: single queue producer).
-    #    The approved-issue-queue.json has ONE producer: the final evaluator
-    #    pass in step 4 (evaluator.write_approved_issue_queue). queue_builder
-    #    used to write the artifact here and the evaluator silently overwrote it
-    #    with divergent approve/revise + meta + cycle-binding semantics, so the
-    #    file on disk depended on a race. The coordinator now only *computes* a
-    #    queue_builder preview for the log (counts), and must NOT write the
-    #    artifact. The cron still does NOT auto-upload — that requires --apply on
-    #    the upload helper, which the human runs after reviewing the packet.
-    feedback_path = workflows_steward_root / "config" / "repo_review_feedback.json"
-    queue_out = output_dir / "approved-issue-queue.json"
-    if feedback_path.is_file():
-        try:
-            from scripts.repo_review_queue_builder import (
-                build_queue,  # type: ignore[import-not-found]
-            )
-        except ModuleNotFoundError:
-            sys.path.insert(0, str(workflows_steward_root / "scripts"))
-            from repo_review_queue_builder import build_queue  # type: ignore[no-redef]
-        try:
-            queue_data = build_queue(output_dir / "round2", feedback_path, scorecard_scan)
-            n = len(queue_data["issues"])
-            print(
-                f"[coordinator] queue-builder preview: {n} issue(s) "
-                f"(not written — evaluator step 4 is the sole writer of {queue_out.name})"
-            )
-        except Exception as exc:  # pragma: no cover - never blocks the cycle
-            print(f"[coordinator] queue-builder preview FAILED (non-fatal): {exc}", file=sys.stderr)
-    else:
-        print(
-            f"[coordinator] queue-builder preview: skipping — feedback file absent at {feedback_path}",
             file=sys.stderr,
         )
 

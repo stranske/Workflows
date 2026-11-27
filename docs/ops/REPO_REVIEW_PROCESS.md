@@ -236,7 +236,7 @@ Outputs are written to `docs/reports/repo-review/`:
   `quarantined_aggregate_outputs` are preserved under `failed-runs/`.
 - `human-decision-packet.md`: one review queue across active repos.
 - `repo-review-summary.json`: machine-readable summary.
-- `approved-issue-queue.json`: machine-readable queue of approved, prioritized, agent-formatted issue bodies. Written by exactly one producer — the final evaluator pass (`repo_review_evaluator.write_approved_issue_queue`), which applies the priority-tiering and cycle-binding guards (#2272). The coordinator's step-3 queue-builder is a log-only preview and does **not** write this file. Scorecard findings enter this queue only after explicit human approval in `config/repo_review_feedback.json`.
+- `approved-issue-queue.json`: machine-readable queue of approved, prioritized, agent-formatted issue bodies. Written by exactly one producer — the final evaluator pass (`repo_review_evaluator.write_approved_issue_queue`), which applies the priority-tiering and cycle-binding guards (#2272). The approved count is recorded as `approved_issue_count` in `logs/coordinator/final-evaluator.log`. Scorecard findings enter this queue only after explicit human approval in `config/repo_review_feedback.json`.
 - `approved-issue-queue.md`: human-readable rendering of the approved issue queue, deeper-review items, and dropped candidates.
 - `scorecard-scan.json`: machine-readable OpenSSF Scorecard scan output for configured repos. Low-scoring checks are surfaced in the notify desktop reminder; they do not become queue issues until a human sets `decisions.<repo>.scorecard.decision = "approve"` and lists explicit `approved_findings` IDs, then reruns the evaluator.
 - `repos/<owner>__<repo>/decision-brief.md`: human-facing progress, readiness, issue-set, and feedback brief.
@@ -244,6 +244,11 @@ Outputs are written to `docs/reports/repo-review/`:
 - `repos/<owner>__<repo>/design-review.md`: standardized review worksheet for that repo.
 - `repos/<owner>__<repo>/state.md`: repo state, sources, implementation areas, and local signals.
 - `repos/<owner>__<repo>/issue-drafts.md`: existing draft inputs and archive-derived candidate inputs.
+
+For a standalone diagnostic of feedback and candidate-body eligibility, run
+`python scripts/repo_review_queue_builder.py --help`. Write the preview to a
+scratch path. The preview uses its own eligibility rules, so its count can differ
+from the evaluator's cycle-bound approved count.
 
 The `docs/reports/repo-review/` directory is ephemeral output and is ignored by git.
 
