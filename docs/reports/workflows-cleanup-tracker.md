@@ -7,6 +7,10 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+The November 27 promotion removed **all 70 stale vendor files**. All 16 receiving PRs merged at the expected heads. Their default branches had zero extra and zero missing vendor files, and no stable sync PR remained open. Eight cutover paths matched on every receiver (128/128), and the catalog and verifier matched 16/16 apiece. The later verifier SDK retirement has reached Integration-Tests. All 16 fleet receivers still had its two SDK files at this readback. [Promoted merge ledger](https://github.com/stranske/Workflows/actions/runs/45948491276/artifacts/15176420353) · [Integration publication](https://github.com/stranske/Workflows/actions/runs/45955823635/job/140361939502)
+
+Keep the dedicated Integration publisher for that receiver outside the fleet. Its native sync completed in 21 seconds and receiver CI passed in 54 seconds. Reopen the guarded-retry check on an actual overlapping write. Keep the managed issue optimizer. Its installed receiver App posted [suggestions on weekly design TP-1](https://github.com/stranske/trip-planner/issues/2072#issuecomment-7213264144) in 80 seconds. Applying the whole set would broaden data access and weaken a regression criterion. The receiving Apply check reopens on an in-scope proposal. The [hosted intake fix](https://github.com/stranske/Workflows/pull/5314) and [W-1 implementation](https://github.com/stranske/Workflows/pull/5317) both merged. The W-1 [post-merge comparison](https://github.com/stranske/Workflows/pull/5317#issuecomment-7212893369) reviewed zero files after finding a prior-head Gate link.
+
 **November 27, Chicago.** GitHub Actions opened [weekly design W-1 as #5315](https://github.com/stranske/Workflows/issues/5315) during a Mac pause.
 
 The [hosted job](https://github.com/stranske/Workflows/actions/runs/45950201755/job/140344047371) used the [intake fix](https://github.com/stranske/Workflows/pull/5314). The Mac later started [implementation PR #5317](https://github.com/stranske/Workflows/pull/5317). [Verifier retirement #5313](https://github.com/stranske/Workflows/pull/5313) removed the disabled correction job in both copies and four private SDK files. Consumer removal and a genuine continuation are still open.
@@ -229,26 +233,26 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 177/198 completed · 1 drainable now · 20 blocked · 21 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 179/198 completed · 1 drainable now · 18 blocked · 19 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,566/2,901 | 110/220 | — |
-| 3 · Scripts, tools and packages | 372/752 | 34/43 | — |
+| 3 · Scripts, tools and packages | 373/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 911/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,074/5,554** | **298/487** | **177/198** |
+| **Total** | **3,075/5,554** | **298/487** | **179/198** |
 
-**Directory organization.** 2,862 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,863 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 123 |
+| [Keep in current role](workflow-decisions.md#keep) | 125 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 11 |
 | [Other verified decisions](workflow-decisions.md#verified) | 43 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 8 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 7 |
 | [In review](workflow-decisions.md#review) | 0 |
-| [Proposed changes](workflow-decisions.md#proposed) | 13 |
+| [Proposed changes](workflow-decisions.md#proposed) | 12 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
 
