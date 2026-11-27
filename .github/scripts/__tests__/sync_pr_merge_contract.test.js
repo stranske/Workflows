@@ -4039,7 +4039,7 @@ test('Markdown report retains the refused Gate forced-restage drain receipt', ()
   assert.match(markdown, /seal: stranske\/Ready#12 rerun refused; forced restage requested run=5000/);
 });
 
-const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
+const { findingPacket, changeProof } = require('./helpers/sync_finding_disposition');
 const { evaluateSyncFindingDispositions } = require('../sync_pr_merge_contract');
 
 test('pre-seal rejects an internally valid unrelated packet replayed onto another delivery', () => {

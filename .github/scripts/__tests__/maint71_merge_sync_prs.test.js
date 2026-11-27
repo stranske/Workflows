@@ -33,7 +33,7 @@ const {
   missingCanaryDrains,
 } = require('../maint71_merge_sync_prs');
 const { classifySyncPrChecks } = require('../sync_pr_merge_contract');
-const { findingPacket, changeProof } = require('./fixtures/sync_finding_disposition');
+const { findingPacket, changeProof } = require('./helpers/sync_finding_disposition');
 const { confirmExactHeadSyncFindingGate } = require('../maint71_merge_sync_prs');
 const { syncMergeFailureDisposition } = require('../maint71_merge_sync_prs');
 const { classifyGeneratedPr, evaluateSyncFindingDispositions, validateCanaryEvidence } = require('../sync_pr_merge_contract');
@@ -3143,7 +3143,7 @@ test('a Sync job that failed only at Create sync PR is an infrastructure failure
 });
 
 test('recorded canary run 43114630584 permits a retry after the PR creation rate limit', () => {
-  const { run, candidates } = require('./fixtures/canary-pr-creation-failure-43114630584.json');
+  const { run, candidates } = require('./fixtures/maint71-canary-refresh.json').creationFailure;
   const state = canaryRefreshDecision({ runs: [run], sha: run.head_sha, candidates,
     now: Date.parse(run.updated_at) + 60000 });
   assert.deepEqual(canaryRefreshDiagnostics(state).failure_classification, [
@@ -4035,7 +4035,7 @@ test('a complete current canary set remains deduplicated without dispatch', asyn
 });
 
 test('retained three-canary partial delivery does not become a full-set success receipt', async t => {
-  const fixture = require('./fixtures/partial_canary_refresh_20261026.json');
+  const fixture = require('./fixtures/maint71-canary-refresh.json').partialRefresh;
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
   const candidates = Object.keys(fixture.records).sort();
   const bodies = Object.fromEntries(candidates.map(repo => [repo,

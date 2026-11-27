@@ -220,7 +220,7 @@ def slot_registry(request, monkeypatch, tmp_path):
     """Exercise provider validation in source, template, and the observed consumer head."""
     if request.param == "canonical":
         return llm_registry
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     if request.param == "consumer-template":
         path = root / "templates/consumer-repo/tools/llm_registry.py"
     else:

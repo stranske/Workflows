@@ -183,7 +183,7 @@ def _exec_topic_splitter_with_scripts_stub() -> types.ModuleType:
     execution exercises the same path behaviorally, but in-process reload is
     required for pytest-cov to attribute those lines.
     """
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     module_path = repo_root / "scripts" / "langchain" / "topic_splitter.py"
     probe_name = "scripts.langchain.topic_splitter_import_fallback_probe"
     langchain_dir = str(module_path.parent)
