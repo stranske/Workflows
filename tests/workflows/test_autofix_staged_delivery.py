@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
 import subprocess
+import sys
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 import yaml
@@ -98,6 +102,100 @@ def test_vendor_only_churn_is_not_deliverable(repository: Path, vendor: str, cle
     assert git(repository, "diff", "--cached", "--name-only") == ""
     assert git(repository, "rev-parse", "HEAD") == before
     assert (repository / vendor).read_text() == "installed dependency\n"
+
+
+@pytest.mark.parametrize("archive_entry", ["history.json", "ci/autofix/history.json"])
+def test_consumer_residual_receipt(
+    repository: Path, monkeypatch: pytest.MonkeyPatch, archive_entry: str
+) -> None:
+    """Run the history and trend steps and comment builder without consumer copies."""
+    checkout_name = "Checkout Workflows for PR comment and residual history"
+    update_name = "Update residual history (same-repo)"
+    trend_name = "Generate trend sparkline (same-repo)"
+    steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["autofix"]["steps"]
+    by_name = {item.get("name"): item for item in steps}
+    checkout = by_name[checkout_name]
+    build = by_name["Build consolidated PR comment"]
+    assert steps.index(checkout) < steps.index(by_name[update_name])
+    assert steps.index(checkout) < steps.index(by_name[trend_name]) < steps.index(build)
+    assert re.fullmatch(r"actions/checkout@[0-9a-f]{40}", checkout["uses"])
+    assert checkout["with"].get("persist-credentials") is False
+    assert checkout["with"]["sparse-checkout-cone-mode"] is False
+
+    source = WORKFLOW.parents[2]
+    checkout_dir = repository / checkout["with"]["path"]
+    for pattern in checkout["with"]["sparse-checkout"].splitlines():
+        relative_path = pattern.strip("/")
+        original = source / relative_path
+        target = checkout_dir / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if original.is_dir():
+            shutil.copytree(original, target)
+        else:
+            shutil.copyfile(original, target)
+
+    # The binary name in the workflow should resolve to the selected test interpreter.
+    python = repository.parent / "python"
+    python.symlink_to(sys.executable)
+    monkeypatch.setenv("PATH", str(python.parent) + os.pathsep + os.environ["PATH"])
+    shutil.copyfile(
+        source / "docs/archive/autofix_report_enriched.json",
+        repository / "autofix_report_enriched.json",
+    )
+    env = {"WORKFLOWS_SCRIPTS_PATH": str(checkout_dir)}
+    update = run_step(repository, update_name, extra_env=env)
+    assert update.returncode == 0, update.stderr
+    assert "Prepared updated history.json (artifact-only mode)" in update.stdout, update.stderr
+    upload = by_name["Upload autofix history artifact (same-repo)"]
+    assert upload["with"]["path"] == "ci/autofix/history.json"
+    history_path = repository / upload["with"]["path"]
+    history = json.loads(history_path.read_text())
+    assert len(history) == 1 and history[0]["remaining"] == history[0]["new"] == 0
+
+    # Replay the extraction after artifact download, with no API calls.
+    download = repository.parent / "download"
+    download.mkdir()
+    with ZipFile(download / "artifact.zip", "w") as archive:
+        archive.write(history_path, arcname=archive_entry)
+    history_path.unlink()
+    restore = by_name["Restore prior autofix history artifact (same-repo)"]["run"]
+    extraction = restore[restore.index('target_tmp="$tmpdir/history.json"') :]
+    subprocess.run(
+        ["bash", "-e", "-c", 'tmpdir="$1"; artifact_id=42\n' + extraction, "--", str(download)],
+        cwd=repository,
+        check=True,
+    )
+    assert json.loads(history_path.read_text()) == history
+    next_update = run_step(repository, update_name, extra_env=env)
+    assert next_update.returncode == 0, next_update.stderr
+    assert json.loads(history_path.read_text())[:1] == history
+
+    trend = run_step(repository, trend_name, extra_env=env)
+    assert trend.returncode == 0, trend.stderr
+    assert "trend remaining=0 new=0" in trend.stdout, trend.stderr
+
+    comment = repository / "autofix_pr_comment.md"
+    subprocess.run(
+        [
+            str(python),
+            str(repository / build["with"]["scripts-path"] / "build_autofix_pr_comment.py"),
+            "--report",
+            "autofix_report_enriched.json",
+            "--history",
+            upload["with"]["path"],
+            "--trend",
+            "ci/autofix/trend.json",
+            "--out",
+            str(comment),
+        ],
+        cwd=repository,
+        check=True,
+    )
+    body = comment.read_text()
+    assert "History points | 2" in body
+    assert "Remaining | 0" in body
+    assert "New | 0" in body
+    assert git(repository, "diff", "HEAD", "--name-only") == ""
 
 
 @pytest.mark.parametrize(

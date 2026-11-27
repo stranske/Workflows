@@ -83,12 +83,14 @@ The initial unchanged-source run passed: **636 passed in 56.31s**. The added
 regression run passed: **644 passed in 55.21s**. Both used the acceptance
 command above against the recorded source plus this PR's test changes.
 
-`tests/fixtures/agents_guard_3898_canary_publisher.json` retains the actual
-publisher condition, token selection and script fetched from the supplied
-immutable canary head. The complete upstream workflow SHA-256 was
+The [canary publisher fixture](../../tests/workflows/fixtures/agents_guard_3898/canary_publisher.json)
+retains the actual publisher condition, token selection and script fetched
+from the supplied immutable canary head. Its complete upstream workflow SHA-256 was
 `9d8e46532ce4d49f7c88087e4e314ebff7be4985731bd9a358ef069395e561dc`.
 Retrieve that exact file with the GitHub contents API at the head recorded in
 the fixture; no moving branch or latest canary is substituted.
+The [review-commit publisher fixture](../../tests/workflows/fixtures/agents_guard_3898/review_commit_publisher.json)
+retains the publisher from the separate review-anchor head.
 
 The new test executes the real inline JavaScript behind its actual condition.
 The status stub counts attempts **before** rejecting with HTTP 403; successful

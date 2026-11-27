@@ -7,6 +7,16 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27 · Managed sync helpers and suite-owned fixtures
+
+The managed tracker now lives beside its callers. Workflows removed 395 lines of unused child-issue builders across source and template, along with two duplicate prompt tests. On the installed revision, issue #4792 produced the same six suggestions, both optimizer examples reproduced their prior results, and the sync replay preserved its output. The change removed 18,649 tracked bytes. Its primary Gate jobs took 469 and 517 seconds. [Source change](https://github.com/stranske/Workflows/pull/5337) · [Gate](https://github.com/stranske/Workflows/actions/runs/46013251981)
+
+Three real canary PRs carry the module rename and decomposition change. Maint 71 saw three sealed heads awaiting checks. The canary's reporting job hit an installation API rate limit after all three PRs opened. Fleet installation remains open. [Canary](https://github.com/stranske/Workflows/actions/runs/46052724742) · [Promotion check](https://github.com/stranske/Workflows/actions/runs/46053007165) · [Portable Alpha](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2544) · [trip-planner](https://github.com/stranske/trip-planner/pull/2077) · [Travel Plan Permission](https://github.com/stranske/Travel-Plan-Permission/pull/1778)
+
+The Health 75 change groups four diagnostic inputs into one file and preserves its separate expected alert text. All 11 named cases passed, including restoration after a deliberately incorrect alert. The Agents Guard change moves two historical publisher samples beside their owning workflow suite. Both original Git objects, the guide links, 545 case identities and 40 recorded outputs were checked. These fixture moves await protected-branch delivery.
+
+The dashboard sample moves from general fixtures to its only metrics suite and the developer guide follows it. Both dashboard modes preserved all 11 generated files after normalizing the output directory and generation time. Two other general fixtures have verified reasons to stay. Moving the routing sample broke the exact operator command in issue #3840. Restoring it returned the same Gemini selection. A common prompt sample serves seven tests across four suites. Withholding it broke the shared fixture and restoring it passed all seven.
+
 ### November 27, installed script and test organization
 
 The repository-review publication helpers now live in one package. The external evaluator, scorecard and uploader retained their command names. On the installed source, all three commands reproduced the original reconciliation: three already-filed issues suppressed and zero repeat filings. The checksum and missing-scope controls rejected the altered inputs. The cadence command also reproduced all four original reports. [Publication package](https://github.com/stranske/Workflows/pull/5358) · [Cadence fixtures and guides](https://github.com/stranske/Workflows/pull/5342)
@@ -343,12 +353,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 0 drainable now · 13 blocked · 13 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,944/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 429/752 | 36/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 980/1,540 | 132/177 | — |
+| 3 · Scripts, tools and packages | 432/752 | 36/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 983/1,540 | 132/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 201/334 | 26/47 | — |
-| **Total** | **3,581/5,554** | **312/487** | **185/198** |
+| **Total** | **3,587/5,554** | **312/487** | **185/198** |
 
-**Directory organization.** 3,369 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,375 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 

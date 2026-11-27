@@ -6,10 +6,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const rateResponse = require('./fixtures/api-rate-limit-response.json');
-const summaryFixture = require('./fixtures/api-rate-summary.json');
-const consumerActivity = require('./fixtures/api-rate-consumer-activity.json');
-const runsFixture = require('./fixtures/api-rate-runs.json');
+const {
+  rate_limit_response: rateResponse,
+  summary: summaryFixture,
+  consumer_activity: consumerActivity,
+  runs: runsFixture,
+} = require('./fixtures/api-rate-diagnostic-inputs.json');
 const issueBodies = require('./fixtures/api-rate-issue-bodies.json');
 
 const {
