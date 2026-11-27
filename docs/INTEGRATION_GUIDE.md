@@ -899,7 +899,7 @@ backward compatibility, but new manual setup should prefer the current defaults.
 | `SERVICE_BOT_PAT` | Bot account for comments/labels (stranske-automation-bot); fallback credential for cross-repository label sync | agents, autofix, Maint 69 label sync |
 | `ACTIONS_BOT_PAT` | Workflow dispatch triggers | event-hub/follow-up automation (`agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`); legacy orchestrator/pr-meta only when intentionally retained |
 | `OWNER_PR_PAT` | Create PRs on behalf of user; required owner-scoped credential for generated-delivery mutations | issue-intake, Maint 69 label sync, Maint 71 sync reconciliation |
-| `CROSS_REPO_TOKEN` | Read access to a dependency repository for cross-repo smoke | `cross-repo-smoke.yml` when `CROSS_REPO_SMOKE_ENABLED=true` |
+| `CROSS_REPO_TOKEN` | Read access to the dependency checkout | Cross-repo smoke with a private dependency in another repository |
 
 ### Cross-Repo Smoke (opt-in)
 
@@ -910,9 +910,10 @@ Its job skips before runner allocation unless the three variables below select i
 Pull requests whose head repository is a fork also skip.
 GitHub can still require approval before it evaluates the job.
 
-Configure the `CROSS_REPO_TOKEN` repository secret with read access to the dependency
-before enabling the caller. The secret is used at checkout. Only the repository
-variables control opt-in.
+For a public dependency, the checkout uses the read-only `GITHUB_TOKEN` supplied by GitHub.
+For a private dependency in another repository, configure `CROSS_REPO_TOKEN` with read access
+to that repository. A configured `CROSS_REPO_TOKEN` takes precedence for either checkout.
+The repository variables below control which runs select the job.
 
 Required repository variables when enabling:
 
