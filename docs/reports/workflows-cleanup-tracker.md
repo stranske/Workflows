@@ -7,6 +7,16 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27, script publication and test ownership
+
+The cadence operator reproduced the original reports on the committed fixture and the recorded #5301 timeline. Its single fixture now sits directly under tests/scripts/fixtures; two historical guides and two archived outputs share the issue-3989 folder. Twelve repo-review command and schema placements were confirmed against real callers. The open publication change moves two internal modules while preserving the external commands. Its original approval queue and output hashes matched and its two rejection controls held. [Installed cadence change](https://github.com/stranske/Workflows/pull/5342) · [Publication proposal](https://github.com/stranske/Workflows/pull/5358)
+
+A trial move of the Gate-summary tests left all 47,488 local cases discoverable, but dropped exactly 46 cases from the 161-case hosted selector. Five workflow-helper test files stay with that selector. A separate verifier test proposal initially lost two safeguards. The corrected consolidation makes the owning Python suite reject each prohibited dependency. The three existing wiring cases remain in the default and Gate core selections, all Python case IDs match, and the Node behavior suite retains every case other than the transferred static check.
+
+The normal pilot promotion merged 16 unique receiving PRs and installed all 64 expected objects on their default branches. No sync-created corrective issue was due in this campaign. The five-start requirement still protects the belt, Auto-Pilot and Decompose. The original checklist remains at 26 passed, one qualified no-demand result, and one open corrective lock write. [Native campaign](https://github.com/stranske/Workflows/actions/runs/46040358033)
+
+Workflows main removed 127 spent runtime-4550 files, a net reduction of 3,367,067 bytes in their evidence folder. All forty retained files matched their previous objects and nine independent group samples recovered from the indexed Git revisions. [Installed archive](https://github.com/stranske/Workflows/pull/5357)
+
 ### November 27, installed issue-3743 archive and compact runtime index
 
 Protected default at 306362f1dc089d2c57867b8f3e691dbfe7ac9290 removed 59 tracked files and eliminated two original folders. The net reduction in the issue-3743 evidence tree, including the revised navigation, was 355,161 bytes. Both historical guides and the old serial dispatcher resolve at their original revision, and the new source landing page preserves the route. [Installed archive](https://github.com/stranske/Workflows/pull/5350) The compact runtime-4550 proposal has nine producer groups and two permanent Git trees. It preserves the 55 original navigation links and all 245 named regression cases, while reducing the checkout by a proposed 3,367,067 bytes. [Compact archive proposal](https://github.com/stranske/Workflows/pull/5357)
@@ -318,13 +328,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 0 drainable now · 13 blocked · 13 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,813/2,901 | 117/220 | — |
-| 3 · Scripts, tools and packages | 408/752 | 35/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 938/1,540 | 130/177 | — |
+| 2 · Evidence and archives | 1,944/2,901 | 118/220 | — |
+| 3 · Scripts, tools and packages | 423/752 | 35/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 959/1,540 | 131/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 201/334 | 26/47 | — |
-| **Total** | **3,387/5,554** | **308/487** | **185/198** |
+| **Total** | **3,554/5,554** | **310/487** | **185/198** |
 
-**Directory organization.** 3,175 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,342 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 

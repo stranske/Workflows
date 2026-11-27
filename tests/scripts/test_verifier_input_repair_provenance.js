@@ -350,20 +350,6 @@ test('the real workflow step rejects mixed operations, expanded evidence and an 
   }
 });
 
-test('workflow wiring keeps provenance off the verifier execution path and out of provider capability', () => {
-  const callerInput = /verification_provenance:\n(?: {8}.*\n)+?/;
-  assert.match(workflow, /\n {2}verifier:\n {4}name: Run post-merge verifier\n(?: {4}#.*\n)+ {4}if: inputs\.verification_provenance == ''\n/);
-  assert.match(jobText, /\n {4}if: inputs\.verification_provenance != ''\n/);
-  assert.doesNotMatch(jobText, /secrets\.|OPENAI|CLAUDE|CODEX|models: |LANGSMITH/);
-  assert.doesNotMatch(jobText, /verifier-event-state|verifier-corpus-decision|createComment/);
-  const inputs = ['.github/workflows/agents-verifier.yml', 'templates/consumer-repo/.github/workflows/agents-verifier.yml'].map(file => fs.readFileSync(path.join(ROOT, file), 'utf8'));
-  const description = text => text.match(/\n {6}verification_provenance:\n {8}description: (.*)\n/)[1];
-  for (const text of inputs) {
-    assert.match(text, callerInput);
-    assert.ok(text.includes("      verification_provenance: ${{ inputs.verification_provenance || '' }}\n"));
-    assert.equal(description(text), description(workflow));
-  }
-});
 
 
 for (const [name, base] of [
