@@ -55,7 +55,7 @@ Ruff passes for both changed Python files; git diff --check passes.
 The direct authenticated gh api read of Travel-Plan-Permission's Gate also
 failed to connect, so post-campaign authenticated readback remains incomplete.
 
-Fresh campaign evidence is retained in campaign-reconciliation-round-2.json:
+Fresh campaign evidence is retained in [`campaign-reconciliation-round-2.json`](README.md#round-2):
 14 current heads and paginated changed-file inventories; each diff has one
 addition and one deletion, exactly removing labeled from the Gate types line.
 Thirteen merged, one open/ready. No final campaign merge can be declared.

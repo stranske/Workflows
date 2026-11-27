@@ -53,7 +53,7 @@ Portable-Alpha-Extension-Model#2390 remains open, ready and unmerged at
 exactly one line in the sole file `.github/workflows/pr-00-gate.yml`, removing
 only `labeled`. Workflows#4503 is open and ready at
 `16d543e7c7fd641df8f5dc75276a1f451d17cb10`. Current read metadata and the consumer
-patch are retained in `campaign-reconciliation-round-4.json`; earlier complete
+patch are retained in [`campaign-reconciliation-round-4.json`](README.md#round-4); earlier complete
 campaign reconciliation remains separate. No duplicate campaign PR was made.
 
 Remaining acceptance: reconcile and complete the final campaign disposition,
