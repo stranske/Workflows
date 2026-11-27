@@ -340,18 +340,23 @@ matrix and next steps.
 
 ## Measuring Run Count Impact
 
-Use the run count comparison script to record before/after totals when
-debouncing is deployed:
+Compare equal windows on the same workflow, branch and event. Choose windows immediately before and after the concurrency change, then attach the counts and deployment revision to its issue or pull request. Traffic volume can also change between windows.
+
+Run this from the repository root. This example uses two complete three-hour windows of Selftest main pushes. It produces nine runs before and eleven after.
 
 ```bash
-gh api repos/<owner>/<repo>/actions/runs -f per_page=100 --paginate > runs-before.json
-gh api repos/<owner>/<repo>/actions/runs -f per_page=100 --paginate > runs-after.json
-python scripts/workflow_run_counts.py --before runs-before.json --after runs-after.json \
-  --output docs/ops/debouncing-run-counts.txt
+snapshot() {
+  gh api --method GET --paginate --slurp \
+    repos/stranske/Workflows/actions/workflows/selftest-ci.yml/runs \
+    -f branch=main -f event=push -f created="$1" -F per_page=100 \
+    --jq 'if ([.[].workflow_runs[]] | length) == .[0].total_count then [.[].workflow_runs[]] else error("Incomplete window; shorten the interval") end'
+}
+snapshot '2026-11-22T00:00:00Z..2026-11-22T02:59:59Z' > runs-before.json &&
+snapshot '2026-11-22T03:00:00Z..2026-11-22T05:59:59Z' > runs-after.json &&
+python scripts/workflow_run_counts.py --before runs-before.json --after runs-after.json
 ```
 
-**Needs-human:** capturing the before/after snapshots requires API access and
-should be recorded after concurrency updates land.
+To interpret the results, run `python -m scripts.workflow_concurrency_audit --format json` and inspect the workflow's current group and cancellation policy. Check whether an in-progress run must finish delivering work before enabling cancellation.
 
 ## Creating GitHub Apps
 
@@ -390,4 +395,3 @@ should be recorded after concurrency updates land.
 - [INTEGRATION_GUIDE.md](../INTEGRATION_GUIDE.md) - Consumer repo setup
 - [SYNC_WORKFLOW.md](../SYNC_WORKFLOW.md) - Template sync process
 - [keepalive/](../keepalive/) - Keepalive workflow details
-- [debouncing-run-counts.md](debouncing-run-counts.md) - Run count measurement log
