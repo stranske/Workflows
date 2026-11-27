@@ -7,6 +7,18 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**November 26, 10:04 p.m. Chicago. Stage 1A has 173/198 dispositions; 25 functional checks remain.** The connector moderator, the create-only cross-repository smoke caller and the manual rollback preparer stay available. Each has an observed useful control and a specific production effect that has yet to occur.
+
+| Workflow | Retention evidence | What reopens its production check |
+|---|---|---|
+| Connector moderator | Four more hosted jobs preserved substantive comments. None of 452 sampled evaluations selected deletion. The author policy differs from the general comment router. [Native keep](https://github.com/stranske/Workflows/actions/runs/45933669399/job/140291839122) | A genuinely eligible short comment or an incorrect deletion. Bind the deleted ID and check that a control comment survives. |
+| Generic receiving smoke caller | Zero of 15 sampled installations configured the generic job. On the same real pair the receiver’s own Gate succeeded in 63 seconds and the shared-workflow trial in 21 seconds. The original job skipped. The configurable caller still serves receivers that need a different pair and command. [Receiving Gate](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45932071576/job/140286801936) · [Original job](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45932071576/job/140286745488) | A receiving project wants that check or its configured job is selected. Trace the original caller, pinned revisions and real verdict. |
+| Maint 86 rollback preparer | The normal operator rejected an unevaluated staging packet with exit 2 and skipped publication. Zero proposals in the one retained run. This is the reviewed rollback route when evaluation warrants it. [Native refusal](https://github.com/stranske/Workflows/actions/runs/45715494327/job/139560369019) | An approved report shows an active-model failure with a failed gate and exactly one eligible predecessor. Trace the generated registry-change PR. |
+
+**Maint 70 has a changed decision.** Retire the hosted direct-push formatter and retain its Black/Ruff behavior in the existing local operator. Its reviewed mode reproduced a real one-file repair byte for byte and left 46 files unchanged on current receiver main. Both default and hosted discovery retained 63 cases, with eight moving to the script’s suite. The source placement has reopened pending review and installed verification. [Retirement PR](https://github.com/stranske/Workflows/pull/5310)
+
+The completed #4082 Gate cancellation study no longer needs a live collector. On installed main the offline recount returned zero qualifying duplicate cancellations among 401 runs, with 21 total cancellations. Both discovery profiles retained the same 171 named cases after the collector’s 45 dedicated cases retired. The neighboring suites passed all 284 cases. The two primary Gate jobs took 396s and 550s. A separate proposal groups six archival round receipts beside their existing readers. [Installed retirement](https://github.com/stranske/Workflows/pull/5307) · [Archive proposal](https://github.com/stranske/Workflows/pull/5311)
+
 **November 27, verifier coverage evidence.** Nine historical records from two consecutive PR-verifier coverage runs now share one offline archive. On the installed tree all nine hashes and modes matched the originals, a corrupted snapshot failed its checksum, and all 198 named regression outcomes matched the baseline. The consolidation removed eight tracked paths and 94,779 uncompressed bytes. [Installed archive](https://github.com/stranske/Workflows/pull/5305) · [Offline recovery](../evidence/issue-4426/gate-check.md#recover-the-verifier-chunk-mutation-records)
 
 The existing coverage reconciliation command also compares the two six-target inventories with `--compare-checkouts`. Its log report and cross-revision comparison reproduced the original JSON byte-for-byte. Keeping the executable under `scripts/` preserves ordinary code CI and coverage measurement. The historical inputs and the original commands remain recoverable with the evidence. [Current comparison command](../evidence/issue-4426/gate-check.md#provisioned-baseline-comparison-and-ranked-remainder-completion-2026-11-12)
@@ -28,7 +40,7 @@ This change retires the one-time #4484 ledger correction from live scripts. Its 
 The follow-up to the fleet recovery changes has reproduced both hosted failures and the exact reviewer feedback case. Scoped promotion still selects just the two named receivers in replay. The general assessor for an open PR remains under development. [Fleet review and release](https://github.com/stranske/Workflows/pull/5287#issuecomment-7205240036)
 **Stage 1B is complete.** All 27 original root files have final placements. Trip-planner’s required Ubuntu job installs checksum-pinned actionlint 1.7.10, rejects an invalid copy of its smoke workflow and accepts the checked-in workflow. The ordinary main run took 122 seconds. Workflows subsequently removed the 5,759,160-byte root executable and its exemption from the root allowlist. The root check found zero stray files among 16 tracked files. The removal Gate passed in 580 seconds, with the two primary Python jobs at 334 and 495 seconds. [Receiving Ubuntu job](https://github.com/stranske/trip-planner/actions/runs/45912825084/job/140224974778) · [Source retirement](https://github.com/stranske/Workflows/pull/5292) · [Removal Gate](https://github.com/stranske/Workflows/actions/runs/45913120809)
 
-**Stage 1A, November 26 at 9:15 p.m. Chicago.** All 198 original workflows have a design decision. Of those, 170 have a recorded functional disposition and 28 have open checks. Five receiving workflows produced native results. Three additional keeps have a documented limit on what production demand allowed us to verify. The ten former December 7 checks now use the following functional criteria.
+**Earlier Stage 1A checkpoint, November 26 at 9:15 p.m. Chicago.** All 198 original workflows have a design decision. Of those, 170 have a recorded functional disposition and 28 have open checks. Five receiving workflows produced native results. Three additional keeps have a documented limit on what production demand allowed us to verify. The ten former December 7 checks now use the following functional criteria.
 
 | Workflow | What satisfies the check | Observed result |
 |---|---|---|
@@ -41,7 +53,7 @@ The follow-up to the fleet recovery changes has reproduced both hosted failures 
 | Receiving fork Gate status | Match a genuine fork Gate to a status on its exact head, or record the measured lack of opportunity and controls. | Qualified keep. Zero eligible in 186 receiving PRs. The same-repo control and fork-policy replay are recorded. Native fork publication reopens on the first qualifying fork. [Control input](https://github.com/stranske/Workflows/pull/4852) |
 | Maint 84 stub pruning | Publish a reviewed deletion for eligible markers, or reconcile an empty scheduled and write-enabled operator scan with the positive selection replay. | Qualified keep. Zero tracked markers, two ordinary empty scans, and a 35-marker positive replay. Reopen the production deletion check on the next eligible marker. [Operator job](https://github.com/stranske/Workflows/actions/runs/45931323207/job/140284384183) |
 | Dependency lock backstop | On a genuine dependency-bot PR, run regeneration against its head and verify the resulting write or already-correct lock. | Open. The bot produced a branch changing all three lock inputs and the lock. Normal PR creation was requested for this group. Verify native regeneration, author and receiving head. [Renovate dashboard](https://github.com/stranske/Workflows/issues/2390) |
-| Generic receiving smoke caller | Select the installed variables-based caller with real dependency, command and suitable read credential. | Open. All 15 installed callers lack both the opt-in variables and named credential. The unchanged job skipped. The receiver’s own pilot proved a read-only job token works for this public pair. A one-run interface would let a receiver opt in without enabling concurrent push and PR jobs. [Unchanged job](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45932071576/job/140286745488) |
+| Generic receiving smoke caller | Select the installed variables-based caller with real dependency, command and suitable read credential. | Qualified keep at the subsequent paired comparison above. All 15 sampled installed callers lacked both the opt-in variables and named credential. The unchanged job skipped. The receiver’s own pilot proved a read-only job token works for this public pair. A one-run interface would let a receiver opt in without enabling concurrent push and PR jobs. [Unchanged job](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45932071576/job/140286745488) |
 
 The twelve proposed legacy retirements also use functional release criteria. The hosted seat must show five attributable starts, one claim during overlap, a start with the Mac offline, restart without duplication, returned feedback, and a guarded close through receiving sync. The measured overlap observation remains required. At this check the count was 0/5. Auto-Pilot and the belt remain operational. [Hosted migration](#hosted-orchestration-migration)
 
@@ -205,25 +217,25 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 170/198 completed · 2 drainable now · 26 blocked · 28 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 173/198 completed · 1 drainable now · 24 blocked · 25 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,560/2,901 | 110/220 | — |
-| 3 · Scripts, tools and packages | 371/752 | 34/43 | — |
+| 3 · Scripts, tools and packages | 372/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 910/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,066/5,554** | **298/487** | **170/198** |
+| **Total** | **3,067/5,554** | **298/487** | **173/198** |
 
-**Directory organization.** 2,854 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,855 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 117 |
+| [Keep in current role](workflow-decisions.md#keep) | 120 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 10 |
 | [Other verified decisions](workflow-decisions.md#verified) | 43 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 13 |
-| [In review](workflow-decisions.md#review) | 2 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 11 |
+| [In review](workflow-decisions.md#review) | 1 |
 | [Proposed changes](workflow-decisions.md#proposed) | 13 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
