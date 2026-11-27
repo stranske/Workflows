@@ -229,9 +229,10 @@ Option 6 (batching) is not a separate project: its number is units per item, bat
 reported by pilots 3 and 5.
 
 **Third pilot run (2026-10-30): no pass number was measured.**
-Evidence: `docs/evidence/agy-pilots-20261030/` (`judge-replay-agy.json`, `judge-replay-claude.json`,
-`run-record.json`). This is a run record, not replay or seeded-defect evidence: no backend returned a
-scored answer.
+The [run record](../../evidence/agy-pilots/2026-10-30-run-record.json),
+[agy replay](../../evidence/agy-pilots/2026-10-30-judge-replay-agy.json), and
+[Claude replay](../../evidence/agy-pilots/2026-10-30-judge-replay-claude.json) document why no backend
+returned a scored answer.
 
 | Pilot | Planned work | Pass number | agy result | Claude yardstick | Met? |
 | --- | --- | --- | --- | --- | --- |
@@ -258,8 +259,15 @@ scored answer.
   Claude CLI logged in first.
 
 **Fourth pilot run (2026-10-31): replay passed; Flash audits as well as Claude but writes weaker tests.**
-Evidence: `docs/evidence/agy-pilots-20261031/`. Evidence class: fixture checks (archived experiments and
-seeded defects), not production use. Same 10 modules and 28 validated defects as the third run.
+This run used fixtures. The [agy](../../evidence/agy-pilots/2026-10-31-judge-replay-agy.json) and
+[Claude](../../evidence/agy-pilots/2026-10-31-judge-replay-claude.json) replays used archived experiments.
+The [Flash-medium pilot](../../evidence/agy-pilots/2026-10-31-pilot-flash.json),
+[Flash-high and Claude pilot](../../evidence/agy-pilots/2026-10-31-pilot-mid-tier.json),
+[Flash-high batched rerun](../../evidence/agy-pilots/2026-10-31-pilot-flash-high-testgen-batched-rerun.json),
+and [Claude batched rerun](../../evidence/agy-pilots/2026-10-31-pilot-claude-testgen-batched-1200s.json)
+used the same 10 modules and 28 validated seeded defects as the third run.
+The [original Git tree](https://github.com/stranske/Workflows/tree/3e17bd340a2ab712e807f20e63cd9a62bfdec316/docs/evidence)
+retains both runs at the paths cited in the original PR.
 
 | Pilot | agy model | agy result | Claude yardstick | Pass condition | Met? |
 | --- | --- | --- | --- | --- | --- |
@@ -273,8 +281,8 @@ seeded defects), not production use. Same 10 modules and 28 validated defects as
   and its 8-minute print timeout, so most batches return nothing. Flash-medium batched did better (kill
   0.61, clean 0.70) but is still below Sonnet.
 - **Argon audit and testgen were not measured:** the Argon run resumed at 20:09 UTC with the quota
-  spent, and 7 to 10 of 10 items per cell came back unusable. Its numbers in `pilot-audit-testgen.json`
-  are not a model result.
+  spent, and 7 to 10 of 10 items per cell came back unusable. The
+  [Argon pilot record](../../evidence/agy-pilots/2026-10-31-pilot-audit-testgen.json) documents the quota-limited attempts.
 - **Decision taken from this (owner, 2026-10-31):** test generation stays off Flash. Triage moved to
   a live Flash-vs-Argon trial (Orchestrator#1037), because a fixture cannot settle production fitness.
 

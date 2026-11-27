@@ -7,6 +7,10 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+The companion evidence change groups ten October 30–31 JSON records in one directory. All ten original Git blobs and the recorded pilot and judge results were recovered in the placement trial. The archive file and folder decisions await a readback of the merged default tree.
+
+**AGY evaluation tools.** Keep both operator programs beside the judge-screen driver. A trial moved them to the hosted LLM scripts package and repointed their readers. The pilot then found zero of eight surviving real module/test pairs. Restoring its checkout-root calculation recovered all eight. Both layouts reproduced the four pilot score summaries and all eight judge observations. The move added a dependency from the hosted scripts back to the tool driver and removed no duplicate program. The two completed file decisions concern the programs. [Pilot and judge evidence](https://github.com/stranske/Workflows/tree/20414963aefd2a163097cab4a601fd874ee9b113/docs/evidence/judge-screen-20261017)
+
 **Stage 1B is complete.** All 27 original root files have final placements. Trip-planner’s required Ubuntu job installs checksum-pinned actionlint 1.7.10, rejects an invalid copy of its smoke workflow and accepts the checked-in workflow. The ordinary main run took 122 seconds. Workflows subsequently removed the 5,759,160-byte root executable and its exemption from the root allowlist. The root check found zero stray files among 16 tracked files. The removal Gate passed in 580 seconds, with the two primary Python jobs at 334 and 495 seconds. [Receiving Ubuntu job](https://github.com/stranske/trip-planner/actions/runs/45912825084/job/140224974778) · [Source retirement](https://github.com/stranske/Workflows/pull/5292) · [Removal Gate](https://github.com/stranske/Workflows/actions/runs/45913120809)
 
 **How Stage 1A can finish.** All 198 original workflows have a design decision. Of the 37 open acceptance checks, 23 have a keep decision, 13 a retirement decision and one a consolidation decision. The dates below are the recorded next checks. A checkpoint can close a low-demand keep with its stated qualification. The hosted migration still requires actual handoffs.
@@ -180,12 +184,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 161/198 completed · 1 drainable now · 36 blocked · 37 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,541/2,901 | 108/220 | — |
-| 3 · Scripts, tools and packages | 366/752 | 34/43 | — |
+| 3 · Scripts, tools and packages | 368/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 909/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 196/334 | 26/47 | — |
-| **Total** | **3,039/5,554** | **296/487** | **161/198** |
+| **Total** | **3,041/5,554** | **296/487** | **161/198** |
 
-**Directory organization.** 2,827 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,829 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
