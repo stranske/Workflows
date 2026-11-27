@@ -1652,7 +1652,6 @@ def test_langchain_workflows_do_not_depend_on_optional_extra_declarations():
     workflows = (
         "agents-auto-label.yml",
         "agents-capability-check.yml",
-        "agents-decompose.yml",
         "agents-dedup.yml",
     )
     roots = (WORKFLOWS_DIR, Path("templates/consumer-repo/.github/workflows"))

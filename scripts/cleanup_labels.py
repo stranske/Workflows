@@ -109,7 +109,6 @@ FUNCTIONAL_LABELS = {
     "coverage",
     "follow-up",
     # Phase 3 labels
-    "agents:decompose",
     "needs-formatting",
     # CI/Integration markers
     "ci-failure",

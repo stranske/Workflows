@@ -47,7 +47,6 @@ PACKAGING_GUARD = re.compile(
 EXPECTED_INSTALL_SITES = {
     "agents-auto-label.yml",
     "agents-capability-check.yml",
-    "agents-decompose.yml",
     "agents-dedup.yml",
     "backplane-conformance.yml",
 }
@@ -55,17 +54,14 @@ EXPECTED_INSTALL_SITES = {
 LANGCHAIN_WORKFLOWS = (
     ".github/workflows/agents-auto-label.yml",
     ".github/workflows/agents-capability-check.yml",
-    ".github/workflows/agents-decompose.yml",
     ".github/workflows/agents-dedup.yml",
     "templates/consumer-repo/.github/workflows/agents-auto-label.yml",
     "templates/consumer-repo/.github/workflows/agents-capability-check.yml",
-    "templates/consumer-repo/.github/workflows/agents-decompose.yml",
     "templates/consumer-repo/.github/workflows/agents-dedup.yml",
 )
 
 ROOT_SPARSE_LANGCHAIN_WORKFLOWS = (
     ".github/workflows/agents-capability-check.yml",
-    ".github/workflows/agents-decompose.yml",
     ".github/workflows/agents-dedup.yml",
 )
 
