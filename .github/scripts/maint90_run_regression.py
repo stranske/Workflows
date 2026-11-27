@@ -26,7 +26,7 @@ TAIL = 4000
 
 
 def now() -> str:
-    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def run(argv: list[str], cwd: Path, timeout: int = TIMEOUT_SECONDS) -> dict:

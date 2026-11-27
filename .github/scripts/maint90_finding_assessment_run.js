@@ -13,6 +13,7 @@ const {
 const { validateReviewResolutionProof } = require('./maint71_merge_sync_prs');
 const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
 const A = require('./maint71_finding_assessment');
+const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 const ACTIVE = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
@@ -67,7 +68,8 @@ async function liveCandidateState({ github, candidate, policy, profiles, now }) 
   return { state, record, live, consumerSync: A.consumerSyncMarker(state.body || '') };
 }
 
-async function discover({ github, context, core, env = process.env, now = Date.now() }) {
+async function discover({ github: rawGithub, context, core, env = process.env, now = Date.now() }) {
+  const github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
   const { policy, profiles } = loadPolicy();
   const trusted = trustedPublishers(policy);
   const syncActors = String(env.TRUSTED_SYNC_ACTORS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -214,7 +216,8 @@ async function postComment({ github, context, issueUrl, body, dryRun, core }) {
   return data;
 }
 
-async function publish({ github, context, core, env = process.env, now = Date.now() }) {
+async function publish({ github: rawGithub, context, core, env = process.env, now = Date.now() }) {
+  const github = await ensureRateLimitWrapped({ github: rawGithub, core, env });
   const { policy, profiles } = loadPolicy();
   const dryRun = env.DRY_RUN === 'true';
   const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
