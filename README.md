@@ -79,11 +79,21 @@ See [the supported context and evidence contract](docs/ops/EXPECTED_CHECK_RECEIP
 Consumer delivery is coalesced into one stable PR per repository and lane:
 configured canaries use `sync/workflows-candidate`, while promoted consumers use
 `sync/workflows-delivery`. Maint 68 updates those ready-for-review PRs in place;
-Maint 71 alone advances them from labeled staging through bounded reviewer settlement to an
-exact-head seal and merge. Review capacity cannot require all configured bots:
-one response is sufficient after the quiet period, and a bounded timeout keeps
-an unavailable reviewer from making delivery immortal. Explicit review-skip,
-not-reviewed, and capacity statuses do not count as the one response.
+Maint 71 is the sole merger of sync PRs and advances them from labeled staging to an
+exact-head seal and merge. The active review path is set by `generated_delivery_review`
+in [`config/consumer_sync_review_policy.json`](config/consumer_sync_review_policy.json),
+currently `integration-only`: Maint 71 sends the immutable generated payload straight
+to consumer CI and Gate checks without requesting another general review or waiting
+through a synthetic review interval, and records `integration_checks_required` rather
+than a reviewer PASS. Required CI and Gate checks still pass on the exact head, every
+active review finding still needs an explicit owner disposition, and the merge stays
+bound to the exact head, source, and plan.
+
+The legacy bounded-reviewer-settlement path applies only when `generated_delivery_review`
+is absent. In that mode review capacity cannot require all configured bots: one response
+is sufficient after the quiet period, and a bounded timeout keeps an unavailable reviewer
+from making delivery immortal. Explicit review-skip, not-reviewed, and capacity statuses
+do not count as the one response.
 
 ## Auto-Pilot Pipeline
 

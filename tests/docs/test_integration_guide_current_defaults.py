@@ -1,3 +1,5 @@
+import json
+import re
 from pathlib import Path
 
 GUIDE = Path("docs/INTEGRATION_GUIDE.md")
@@ -80,3 +82,42 @@ def test_integration_guide_migration_table_marks_legacy_replacements() -> None:
     assert "Legacy workflow files may still exist during migrations" in section
     assert "| `agents-pr-meta.yml` | `agents-80-pr-event-hub.yml` |" in section
     assert "| `agents-keepalive-loop.yml` | `agents-81-gate-followups.yml` |" in section
+
+
+def _section(path: str, start_heading: str, end_heading: str) -> str:
+    content = Path(path).read_text(encoding="utf-8")
+    start = content.index(start_heading)
+    end = content.index(end_heading, start)
+    return content[start:end]
+
+
+def test_delivery_entry_points_match_generated_delivery_review_policy() -> None:
+    policy = json.loads(
+        Path("config/consumer_sync_review_policy.json").read_text(encoding="utf-8")
+    )
+    active_mode = policy.get("generated_delivery_review")
+    sections = {
+        "README.md": _section("README.md", "### First-party Consumers", "## Auto-Pilot Pipeline"),
+        "docs/INTEGRATION_GUIDE.md": _section(
+            str(GUIDE), "### Method 2: Template Workflows", "### Method 3: Hybrid Approach"
+        ),
+    }
+    active_claim = re.compile(r"(?:currently|active value is) `([^`]+)`")
+    legacy_active_claims = [
+        "through bounded reviewer settlement",
+        "after bounded reviewer settlement",
+    ]
+
+    for name, section in sections.items():
+        flat = " ".join(section.split())
+        documented = active_claim.findall(flat)
+        assert documented == [active_mode], (
+            f"{name} documents active delivery review {documented}, "
+            f"policy generated_delivery_review is {active_mode!r}"
+        )
+        assert "Maint 71 is the sole merger" in flat, name
+        assert "`generated_delivery_review` is absent" in flat, name
+        for claim in legacy_active_claims:
+            assert claim not in flat, f"{name} still claims {claim!r} is active"
+        for preserved in ("CI", "Gate", "owner disposition", "exact head, source, and plan"):
+            assert preserved in flat, f"{name} dropped {preserved!r}"
