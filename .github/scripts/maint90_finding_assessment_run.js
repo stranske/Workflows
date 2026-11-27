@@ -18,8 +18,8 @@ const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
 const ROOT = path.join(__dirname, '..', '..');
 const ACTIVE = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 const MAX_ASSESSMENTS_PER_RUN = 3;
-// After this many completed Maint 71 runs that Maint 90 dispatched with this
-// finding's proof, without the thread resolving, hand the finding to its owner.
+// After this many Maint 71 runs that evaluated this finding's proof (each wrote a
+// maint71-proof-receipt:v1) without the thread resolving, hand it to its owner.
 const MAX_REDISPATCH_RUNS = 2;
 // Dispatches whose runs cannot be confirmed still end in a hand-off after this
 // many receipts, so the budget drains even when run ids are unreadable.
@@ -147,7 +147,9 @@ async function discover({ github: rawGithub, context, core, env = process.env, n
           const receipts = prior.dispatches.filter(({ dispatch }) => dispatch.verification_url === latest.comment.html_url);
           prRedispatch.push({ candidate, comment_url: latest.comment.html_url,
             comment_created_at: latest.comment.created_at, record: latest.verification,
-            dispatches: receipts.map(({ dispatch }) => dispatch) });
+            dispatches: receipts.map(({ dispatch }) => dispatch),
+            proof_receipts: prior.proofReceipts.map(({ receipt }) => receipt)
+              .filter((receipt) => receipt.verification_url === latest.comment.html_url) });
           continue;
         }
         if (!closed) {
@@ -353,28 +355,15 @@ async function publish({ github: rawGithub, context, core, env = process.env, no
     const { candidate, record } = item;
     const live = await liveCandidateState({ github, candidate, policy, profiles, now });
     if (!live.live) { outcomes.push({ key: A.findingKey(candidate), outcome: 'no_longer_assessable' }); continue; }
-    // Only Maint 71 runs Maint 90 dispatched with this proof spend the budget,
-    // each read directly by its id.
-    // A run counts only if it executed a proof-processing step; any read error
-    // leaves it unconfirmed rather than stopping the sweep.
-    const runProcessed = new Map();
-    for (const dispatch of item.dispatches || []) {
-      if (!dispatch.maint71_run_id) continue;
-      try {
-        const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: dispatch.maint71_run_id });
-        const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
-          ...context.repo, run_id: dispatch.maint71_run_id, per_page: 100 });
-        runProcessed.set(dispatch.maint71_run_id, A.runProcessedProof(run, jobs.jobs));
-      } catch (error) {
-        core.warning(`Maint 71 run ${dispatch.maint71_run_id} unreadable (${error.status || error.message}); left unconfirmed`);
-      }
-    }
-    const budget = A.dispatchBudget(item.dispatches, runProcessed);
+    // A Maint 71 run spends the budget only when it wrote a proof receipt for
+    // this verification (it evaluated the proof on this PR).
+    const budget = A.dispatchBudget(item.dispatches, item.proof_receipts, item.comment_url);
     const exhausted = budget.spent >= MAX_REDISPATCH_RUNS ? 'maint71_did_not_resolve'
       : budget.total >= MAX_DISPATCH_RECEIPTS ? 'maint71_runs_unconfirmed' : '';
     if (exhausted) {
       await postComment({ github, context, core, dryRun, issueUrl: candidate.durable_issue_url,
-        body: A.renderAttemptComment(candidate, { verdict: 'PASS', reason: exhausted, runUrl }) });
+        body: A.renderAttemptComment(candidate, { verdict: 'PASS', reason: exhausted, runUrl,
+          rationale: budget.reasons.length ? `Maint 71 rejected the proof: ${budget.reasons.join('; ')}` : '' }) });
       outcomes.push({ key: A.findingKey(candidate), outcome: `handed_to_owner:${exhausted}` });
       continue;
     }

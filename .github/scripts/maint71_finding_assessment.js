@@ -13,7 +13,7 @@
 // builds the review-resolution proof Maint 71 needs to resolve the thread.
 // Maint 71 stays the only resolver and merger; nothing here resolves a thread.
 
-const { sha256, isStockFindingReceipt } = require('./maint71_finding_verification');
+const { sha256, isStockFindingReceipt, readProofReceipt } = require('./maint71_finding_verification');
 
 const VERIFICATION_SCHEMA = 'workflows-sync-finding-verification/v1';
 const ATTEMPT_MARKER = 'maint71-finding-assessment-attempt:v1';
@@ -138,6 +138,7 @@ function priorProducerRecords(comments, candidate, trusted) {
   const verifications = [];
   const attempts = [];
   const dispatches = [];
+  const proofReceipts = [];
   for (const comment of comments || []) {
     if (!trusted.includes(comment?.user?.login)) continue;
     const verification = singleMarker(comment.body, VERIFICATION_RE);
@@ -155,8 +156,13 @@ function priorProducerRecords(comments, candidate, trusted) {
       && dispatch.repository === candidate.repository && dispatch.pr === candidate.pr) {
       dispatches.push({ comment, dispatch });
     }
+    const receipt = readProofReceipt(comment.body);
+    if (receipt?.thread_id === candidate.thread_id && receipt.head_sha === candidate.head_sha
+      && receipt.repository === candidate.repository && receipt.pr === candidate.pr) {
+      proofReceipts.push({ comment, receipt });
+    }
   }
-  return { verifications, attempts, dispatches };
+  return { verifications, attempts, dispatches, proofReceipts };
 }
 
 function buildAssessmentPrompt(candidate, { baseRef, receiverPulls = [] } = {}) {
@@ -350,33 +356,23 @@ function renderDispatchReceipt(candidate, { runId, commentUrl, dispatchedAt, run
   ].filter(Boolean).join('\n');
 }
 
-// Maint 71 steps that read REVIEW_RESOLUTION_JSON (candidate and campaign lanes).
-const MAINT71_PROOF_STEPS = [
-  'Apply proof-bound candidate review resolutions',
-  'Collect and validate canary evidence before merge',
-  'Check and merge sync PRs',
-];
-
 /**
- * Whether a completed Maint 71 run executed a step that processes the proof.
- * A run cancelled or failed before those steps did not attempt the resolution.
+ * Redispatch budget for one verification. A Maint 71 run is spent only when it
+ * wrote a `maint71-proof-receipt:v1` for this exact verification, i.e. it
+ * evaluated the proof on this PR; runs that never reached the PR are not
+ * attempts. `total` counts Maint 90's own dispatch receipts so the budget still
+ * drains when no receipt ever appears.
  */
-function runProcessedProof(run, jobs) {
-  if (run?.status !== 'completed') return false;
-  return (jobs || []).some((job) => (job.steps || []).some((step) =>
-    MAINT71_PROOF_STEPS.includes(step.name) && ['success', 'failure'].includes(step.conclusion)));
-}
-
-/**
- * Redispatch budget from receipts and what each named Maint 71 run did
- * (runProcessed: run id -> true when it executed a proof step; absent when
- * unreadable). Only those runs are spent; anything else is unconfirmed.
- */
-function dispatchBudget(dispatches, runProcessed) {
-  const receipts = dispatches || [];
-  const spent = receipts.filter((dispatch) => dispatch.maint71_run_id
-    && runProcessed.get(dispatch.maint71_run_id) === true);
-  return { spent: spent.length, total: receipts.length, unconfirmed: receipts.length - spent.length };
+function dispatchBudget(dispatches, proofReceipts, verificationUrl) {
+  const runs = new Map();
+  for (const receipt of proofReceipts || []) {
+    if (receipt?.verification_url !== verificationUrl || !receipt.maint71_run_id) continue;
+    runs.set(receipt.maint71_run_id, receipt);
+  }
+  const total = (dispatches || []).length;
+  const reasons = [...runs.values()].filter((item) => item.outcome === 'rejected')
+    .map((item) => `run ${item.maint71_run_id}: ${item.reason}`);
+  return { spent: runs.size, total, unconfirmed: Math.max(0, total - runs.size), reasons };
 }
 
 function buildResolutionProof({ record, commentUrl }) {
@@ -431,7 +427,7 @@ function simulatedVerificationArgs({ candidate, record, proof, state, recordBind
 
 module.exports = {
   ATTEMPT_MARKER, DISPATCH_MARKER, COMMAND_RE, TEST_FAILED_EXIT, VERIFICATION_TTL_MS, markerJson,
-  renderDispatchReceipt, dispatchBudget, runProcessedProof, MAINT71_PROOF_STEPS,
+  renderDispatchReceipt, dispatchBudget,
   consumerSyncMarker, laneForSyncPhase, findingKey, selectAssessableFindings, priorProducerRecords,
   buildAssessmentPrompt, parseAssessment, commandArgv, regressionEstablished, buildVerificationRecord,
   renderVerificationComment, renderAttemptComment, buildResolutionProof, buildMaint71Dispatch,

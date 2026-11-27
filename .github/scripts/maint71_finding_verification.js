@@ -596,7 +596,54 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
   return { complete: true, nodes };
 }
 
+// Maint 71 writes one receipt per Maint 90 proof it evaluated, on the durable
+// issue that holds the verification. Maint 90 spends its redispatch budget only
+// on runs with a receipt, so a run that never reached the PR (refresh failure,
+// review window, another lane) is not an attempt. Absence stays unconfirmed and
+// is bounded by Maint 90's dispatch-receipt cap.
+const PROOF_RECEIPT_MARKER = 'maint71-proof-receipt:v1';
+const PROOF_RECEIPT_RE = /<!-- maint71-proof-receipt:v1 ([\s\S]*?) -->/g;
+const VERIFICATION_COMMENT_URL_RE =
+  /^https:\/\/github\.com\/(stranske)\/(Workflows)\/issues\/([1-9]\d*)#issuecomment-[1-9]\d*$/;
+
+/**
+ * Receipts for independent-verification proofs this run evaluated: resolved, or
+ * rejected with Maint 71's own reason. Proofs the run did not evaluate get none.
+ */
+function proofReceipts({ proofs, resolved, errors, headSha, runId, runAttempt, processedAt }) {
+  const receipts = [];
+  for (const proof of proofs || []) {
+    if (proof?.acceptance_mode !== 'independent-verification') continue;
+    const location = String(proof.reviewer_acceptance_url || '').match(VERIFICATION_COMMENT_URL_RE);
+    if (!location || !proof.thread_id) continue;
+    const prefix = `${proof.thread_id}:`;
+    const error = (errors || []).find((item) => String(item).startsWith(prefix));
+    const outcome = (resolved || []).includes(proof.thread_id) ? 'resolved' : error ? 'rejected' : '';
+    if (!outcome) continue;
+    const receipt = {
+      schema: 'maint71-proof-receipt/v1', repository: proof.repository, pr: Number(proof.pr),
+      head_sha: headSha, thread_id: proof.thread_id, verification_url: proof.reviewer_acceptance_url,
+      maint71_run_id: Number(runId) || null, run_attempt: Number(runAttempt) || 1,
+      outcome, reason: outcome === 'rejected' ? String(error).slice(prefix.length, prefix.length + 300) : '',
+      processed_at: processedAt,
+    };
+    const json = JSON.stringify(receipt).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+    receipts.push({
+      owner: location[1], repo: location[2], issue_number: Number(location[3]), receipt,
+      body: [
+        `Maint 71 run ${receipt.maint71_run_id ?? 'unknown'} ${outcome} the Maint 90 proof for ${proof.repository}#${proof.pr} thread \`${proof.thread_id}\`${receipt.reason ? ` (${receipt.reason.replace(/[<>`]/g, '')})` : ''}.`,
+        '',
+        `<!-- ${PROOF_RECEIPT_MARKER} ${json} -->`,
+      ].join('\n'),
+    });
+  }
+  return receipts;
+}
+
+const readProofReceipt = (body) => readSingleMarker(body, PROOF_RECEIPT_RE);
+
 module.exports = { sha256, nativeAnswerLines, validateIndependentFindingVerification, validateNativeConversationDisposition,
   collectFindingReviewState, collectOriginatingCompletions, collectAuthenticatedInlineStockCompletion,
   collectBoundInlineStockCompletion, validateIndependentFindingFromNative, isStockFindingReceipt,
-  receiverFixIdentity, isReceiverFindingPull, readReceiverFix, receiverFixPrecedesHead };
+  receiverFixIdentity, isReceiverFindingPull, readReceiverFix, receiverFixPrecedesHead,
+  PROOF_RECEIPT_MARKER, proofReceipts, readProofReceipt };

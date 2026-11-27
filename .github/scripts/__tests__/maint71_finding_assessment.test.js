@@ -9,7 +9,7 @@ const path = require('node:path');
 const A = require('../maint71_finding_assessment');
 const { discover, publish } = require('../maint90_finding_assessment_run');
 const { validateReviewResolutionProof } = require('../maint71_merge_sync_prs');
-const { isStockFindingReceipt } = require('../maint71_finding_verification');
+const { isStockFindingReceipt, proofReceipts } = require('../maint71_finding_verification');
 
 const policy = require('../../../config/consumer_sync_review_policy.json');
 const timeline = require('./fixtures/maint71-trend-6250-review-timeline.json');
@@ -121,26 +121,32 @@ test('marker JSON escapes comment delimiters and round-trips', () => {
   assert.deepEqual(JSON.parse(json), value);
 });
 
-test('dispatch receipts: only runs that executed a proof step spend the budget', () => {
-  const processed = new Map([[11, true], [12, false]]);
-  const budget = (receipts) => A.dispatchBudget(receipts.map((id) => ({ maint71_run_id: id })), processed);
-  assert.deepEqual(budget([11]), { spent: 1, total: 1, unconfirmed: 0 });
-  assert.deepEqual(budget([12]), { spent: 0, total: 1, unconfirmed: 1 });
-  // An unidentified or unreadable run is unconfirmed, never a run that processed the proof.
-  assert.deepEqual(budget([null, 13]), { spent: 0, total: 2, unconfirmed: 2 });
-  const step = (name, conclusion) => [{ steps: [{ name, conclusion }] }];
-  assert.equal(A.runProcessedProof({ status: 'completed' }, step('Check and merge sync PRs', 'failure')), true);
-  assert.equal(A.runProcessedProof({ status: 'completed' }, step('Apply proof-bound candidate review resolutions', 'success')), true);
-  // Cancelled before the proof step, or the proof step skipped: not an attempt.
-  assert.equal(A.runProcessedProof({ status: 'completed', conclusion: 'cancelled' }, step('Checkout', 'success')), false);
-  assert.equal(A.runProcessedProof({ status: 'completed' }, step('Check and merge sync PRs', 'skipped')), false);
-  assert.equal(A.runProcessedProof({ status: 'completed' }, step('Check and merge sync PRs', 'cancelled')), false);
-  assert.equal(A.runProcessedProof({ status: 'in_progress' }, step('Check and merge sync PRs', 'success')), false);
+test('dispatch budget: only runs that wrote a proof receipt for this verification are spent', () => {
+  const url = 'https://github.com/stranske/Workflows/issues/1836#issuecomment-7000';
+  const dispatches = (n) => Array.from({ length: n }, (_, i) => ({ maint71_run_id: 11 + i }));
+  const receipt = (id, extra = {}) => ({ maint71_run_id: id, verification_url: url, outcome: 'rejected',
+    reason: 'head_changed', ...extra });
+  assert.deepEqual(A.dispatchBudget(dispatches(2), [], url), { spent: 0, total: 2, unconfirmed: 2, reasons: [] });
+  assert.deepEqual(A.dispatchBudget(dispatches(2), [receipt(11)], url),
+    { spent: 1, total: 2, unconfirmed: 1, reasons: ['run 11: head_changed'] });
+  // A rerun attempt writing a second receipt is still one run.
+  assert.equal(A.dispatchBudget(dispatches(1), [receipt(11), receipt(11, { run_attempt: 2 })], url).spent, 1);
+  // A receipt for an older verification, or without a run id, is not this proof's attempt.
+  assert.equal(A.dispatchBudget(dispatches(1), [receipt(11, { verification_url: `${url}0` }),
+    receipt(null)], url).spent, 0);
+  // A receipt whose dispatch id was unknown (422 fallback) still counts.
+  assert.equal(A.dispatchBudget([{ maint71_run_id: null }], [receipt(99)], url).spent, 1);
 });
 
-test('the proof steps Maint 90 looks for exist in Maint 71', () => {
+test('Maint 71 writes proof receipts from exactly one step per run', () => {
   const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-71-merge-sync-prs.yml'), 'utf8');
-  for (const name of A.MAINT71_PROOF_STEPS) assert.ok(workflow.includes(`- name: ${name}\n`), name);
+  const step = (name) => workflow.slice(workflow.indexOf(`- name: ${name}\n`),
+    workflow.indexOf('- name: ', workflow.indexOf(`- name: ${name}\n`) + 10));
+  assert.match(step('Apply proof-bound candidate review resolutions'), /EMIT_PROOF_RECEIPTS_INPUT: "true"/);
+  assert.match(step('Check and merge sync PRs'),
+    /EMIT_PROOF_RECEIPTS_INPUT: \$\{\{ steps\.candidate_review_resolution\.outcome != 'success' \}\}/);
+  assert.doesNotMatch(step('Collect and validate canary evidence before merge'), /EMIT_PROOF_RECEIPTS_INPUT/);
+  assert.equal(workflow.match(/EMIT_PROOF_RECEIPTS_INPUT/g).length, 2);
 });
 
 test('a request bound to an older head does not authorize an assessment of the current head', () => {
@@ -251,20 +257,6 @@ function mockGithub({ comments = [], runs = [], runIdBase = 9000, answerFromGrap
     repos: { compareCommitsWithBasehead: async () => ({ data: { status: 'ahead', behind_by: 0, ahead_by: 3 } }) },
     actions: {
       listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
-      getWorkflowRun: async ({ run_id: id }) => {
-        const run = runs.find((item) => item.id === id);
-        if (!run) throw Object.assign(new Error('Not Found'), { status: 404 });
-        if (run.readError) throw Object.assign(new Error('Server Error'), { status: run.readError });
-        return { data: run };
-      },
-      listJobsForWorkflowRun: async ({ run_id: id }) => {
-        const run = runs.find((item) => item.id === id);
-        const processed = run.status === 'completed' && run.conclusion !== 'cancelled';
-        return { data: { jobs: [{ name: 'merge_sync_prs', steps: [
-          { name: 'Checkout', conclusion: 'success' },
-          { name: 'Check and merge sync PRs', conclusion: processed ? 'success' : 'skipped' },
-        ] }] } };
-      },
       createWorkflowDispatch: async (params) => {
         calls.dispatches.push(params);
         return { data: { workflow_run_id: runIdBase + calls.dispatches.length - 1 } };
@@ -426,10 +418,25 @@ test('replay: a negative control that passes without the fix is not evidence', a
   assert.equal(calls.dispatches.length, 0);
 });
 
-test('redispatch spends its budget only on Maint 71 runs that carried this proof', async () => {
+// Maint 71's own receipt, rendered by the function Maint 71 calls.
+function maint71Receipt(verificationUrl, runId, { outcome = 'rejected', reason = 'head_changed', login = 'stranske', head = HEAD } = {}) {
+  const thread = THREAD;
+  const [rendered] = proofReceipts({
+    proofs: [{ acceptance_mode: 'independent-verification', repository: REPO, pr: 6250, thread_id: thread,
+      reviewer_acceptance_url: verificationUrl }],
+    resolved: outcome === 'resolved' ? [thread] : [], errors: outcome === 'rejected' ? [`${thread}:${reason}`] : [],
+    headSha: head, runId, runAttempt: '1', processedAt: '2026-11-26T17:50:00Z',
+  });
+  assert.equal(rendered.issue_number, 1836);
+  return { id: 8000 + runId, body: rendered.body, created_at: '2026-11-26T17:50:00Z', user: { login },
+    html_url: `https://github.com/stranske/Workflows/issues/1836#issuecomment-${8000 + runId}` };
+}
+
+test('redispatch spends its budget only on Maint 71 runs that wrote a receipt for this proof', async () => {
   const first = await replay({ fix: { kind: 'source', sha: SOURCE_FIX },
     validation: { repository: 'workflows', command: 'node --test a.test.js' }, regression: PASSING_REGRESSION });
   const [verification, receipt9000] = first.calls.comments;
+  const url = verification.html_url;
   const sweep = async (comments, runs, runIdBase) => {
     const { github, calls } = mockGithub({ comments, runs, runIdBase });
     const h = harness();
@@ -443,27 +450,29 @@ test('redispatch spends its budget only on Maint 71 runs that carried this proof
   };
   const busy = await sweep([verification, receipt9000], [{ id: 9000, status: 'in_progress', created_at: '2026-11-26T17:39:30Z' }], 9100);
   assert.deepEqual(busy.outcomes.map((item) => item.outcome), ['redispatch_held']);
-  // Two unrelated Maint 71 runs complete and our run 9000 is unreadable: nothing is spent.
-  const unrelated = await sweep([verification, receipt9000], [
-    { id: 2, status: 'completed', created_at: '2026-11-26T17:45:00Z' },
+  // Run 9000 completed but never reached the PR (no receipt), and unrelated runs completed: nothing spent.
+  const skipped = await sweep([verification, receipt9000], [
+    { id: 9000, status: 'completed', conclusion: 'success', created_at: '2026-11-26T17:41:00Z' },
     { id: 3, status: 'completed', created_at: '2026-11-26T18:15:00Z' },
   ], 9001);
-  assert.deepEqual(unrelated.outcomes.map((item) => item.outcome), ['redispatched']);
-  assert.equal(unrelated.calls.dispatches.length, 1);
-  const receipt9001 = unrelated.calls.comments[0];
+  assert.deepEqual(skipped.outcomes.map((item) => item.outcome), ['redispatched']);
+  const receipt9001 = skipped.calls.comments[0];
   assert.match(receipt9001.body, /"maint71_run_id":9001/);
-  // Our runs were cancelled before the proof step, or cannot be read: still unspent.
-  const cancelled = await sweep([verification, receipt9000, receipt9001], [
-    { id: 9000, status: 'completed', conclusion: 'cancelled', created_at: '2026-11-26T17:41:00Z' },
-    { id: 9001, status: 'completed', readError: 502, created_at: '2026-11-26T18:20:00Z' },
-  ], 9300);
-  assert.deepEqual(cancelled.outcomes.map((item) => item.outcome), ['redispatched']);
-  // Both runs that carried the proof completed without resolving: hand off.
-  const exhausted = await sweep([verification, receipt9000, receipt9001], [
-    { id: 9000, status: 'completed', created_at: '2026-11-26T17:41:00Z' },
-    { id: 9001, status: 'completed', created_at: '2026-11-26T18:20:00Z' },
-  ], 9200);
+  // Receipts that are not this proof's attempt: untrusted author, another head, an older verification.
+  const foreign = await sweep([verification, receipt9000, receipt9001,
+    maint71Receipt(url, 9000, { login: 'someone-else' }), maint71Receipt(url, 9001, { head: 'e'.repeat(40) }),
+    maint71Receipt(`${url}0`, 9001)], [], 9300);
+  assert.deepEqual(foreign.outcomes.map((item) => item.outcome), ['redispatched']);
+  // One run evaluated and rejected the proof: one spent, still under the budget.
+  const once = await sweep([verification, receipt9000, receipt9001, maint71Receipt(url, 9000)], [], 9400);
+  assert.deepEqual(once.outcomes.map((item) => item.outcome), ['redispatched']);
+  // Both runs evaluated the proof without resolving: hand off with Maint 71's reasons.
+  const exhausted = await sweep([verification, receipt9000, receipt9001, maint71Receipt(url, 9000),
+    maint71Receipt(url, 9001, { reason: 'verification_changed_before_resolution' })], [], 9200);
   assert.deepEqual(exhausted.outcomes.map((item) => item.outcome), ['handed_to_owner:maint71_did_not_resolve']);
+  assert.equal(exhausted.calls.dispatches.length, 0);
+  assert.match(exhausted.calls.comments[0].body,
+    /Maint 71 rejected the proof: run 9000: head_changed; run 9001: verification_changed_before_resolution/);
 });
 
 test('redispatch hands off after four receipts whose runs cannot be confirmed', async () => {
