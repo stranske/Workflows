@@ -345,11 +345,12 @@ Compare equal windows on the same workflow, branch and event. Choose windows imm
 Run this from the repository root. This example uses two complete three-hour windows of Selftest main pushes. It produces nine runs before and eleven after.
 
 ```bash
+set -o pipefail
 snapshot() {
   gh api --method GET --paginate --slurp \
     repos/stranske/Workflows/actions/workflows/selftest-ci.yml/runs \
-    -f branch=main -f event=push -f created="$1" -F per_page=100 \
-    --jq 'if ([.[].workflow_runs[]] | length) == .[0].total_count then [.[].workflow_runs[]] else error("Incomplete window; shorten the interval") end'
+    -f branch=main -f event=push -f created="$1" -F per_page=100 |
+    jq -e 'if ([.[].workflow_runs[]] | length) == .[0].total_count then [.[].workflow_runs[]] else error("Incomplete window; shorten the interval") end'
 }
 snapshot '2026-11-22T00:00:00Z..2026-11-22T02:59:59Z' > runs-before.json &&
 snapshot '2026-11-22T03:00:00Z..2026-11-22T05:59:59Z' > runs-after.json &&
