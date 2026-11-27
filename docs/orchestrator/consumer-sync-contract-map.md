@@ -63,6 +63,13 @@ python -m pytest tests/workflows/test_sync_manifest_delivery.py -v
 | Custom repo skips | Hardcoded `custom_gate_repos` list matches manifest skip_repos | Inconsistent skipping between workflow and manifest | `grep -n "custom_gate_repos" .github/workflows/maint-68-sync-consumer-repos.yml` |
 | Runtime fetched exclusion | `runtime_fetched` section MUST NOT be processed | Files double-delivered via both copy and runtime | `grep -c "runtime_fetched" .github/workflows/maint-68-sync-consumer-repos.yml` (should be 0) |
 
+Maint 68 loads tracker state from the frozen delivery checkout. Its CommonJS
+import resolves both the older directory index and the current sibling
+`sync_tracker_state.js` file. The scheduled full plan delivers the sibling and
+retires the old index through canary and promotion. Both Maint 69 jobs load
+tracker state from their respective Workflows checkouts, and the integration
+manifest subset skips the receiver-local copy.
+
 **Validation**:
 ```bash
 # Check workflow references manifest

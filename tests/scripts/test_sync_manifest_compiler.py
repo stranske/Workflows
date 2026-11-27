@@ -684,8 +684,9 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ("src/manager_mosaic/schemas/evidence-object-v1.schema.json", ("stranske/Manager-Mosaic",)),
     }
     removals = {entry["target"] for entry in plan["removals"]}
-    assert len(removals) == 23
+    assert len(removals) == 24
     assert {
+        ".github/scripts/sync_tracker_state/index.js",
         ".github/scripts/verifier_correction_runtime.js",
         ".github/scripts/verifier_correction_collector.js",
         ".github/scripts/verifier_correction_profile.py",

@@ -243,6 +243,12 @@ def test_real_manifest_delivers_every_script_the_gate_hub_requires(manifest: dic
     assert sorted(needed - delivered) == []
 
 
+def test_real_manifest_leaves_tracker_helper_on_the_workflows_checkout(manifest: dict) -> None:
+    tracker = ".github/scripts/sync_tracker_state.js"
+    assert tracker in subset.select_copy_sources(manifest, "stranske/Template")
+    assert tracker not in subset.select_copy_sources(manifest, WIT)
+
+
 def test_real_manifest_removes_the_retired_autofix_loop(manifest: dict) -> None:
     assert ".github/workflows/agents-autofix-loop.yml" in subset.select_removals(manifest)
 

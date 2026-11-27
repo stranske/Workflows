@@ -328,7 +328,7 @@ jobs:
               extractDurableTrackerHeader,
               findOrCreateTracker,
               updateTrackerBody,
-            } = require('./workflows/.github/scripts/sync_tracker_state');
+            } = require('./workflows/.github/scripts/sync_tracker_state.js');
             const alert = await findOrCreateTracker({
               github: api,
               context,
@@ -417,7 +417,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
-            .github/scripts/sync_tracker_state
+            .github/scripts/sync_tracker_state.js
           sparse-checkout-cone-mode: false
 
       - name: Create or update failure issue
@@ -437,7 +437,7 @@ jobs:
               markStuckWindowBody,
               parseStuckWindow,
               updateTrackerBody,
-            } = require('./.github/scripts/sync_tracker_state');
+            } = require('./.github/scripts/sync_tracker_state.js');
             const title = '🚨 Integration-Tests Sync Failed - Action Required';
             const now = new Date().toISOString();
             const baseBody = `## 🚨 Integration-Tests Sync Failed

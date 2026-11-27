@@ -14,7 +14,7 @@ const {
   parseStuckWindow,
   preserveDurableTrackerHeader,
   updateTrackerBody,
-} = require('../sync_tracker_state');
+} = require('../sync_tracker_state.js');
 
 function mockGithub({ issues = [], issueDetails = null, pulls = [] } = {}) {
   const calls = {

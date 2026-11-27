@@ -106,7 +106,7 @@ def test_integration_sync_sparse_tree_includes_recovery_helpers(tmp_path: Path) 
         ".github/scripts/error_classifier.js",
         ".github/scripts/github-api-with-retry.js",
         ".github/scripts/github-rate-limited-wrapper.js",
-        ".github/scripts/sync_tracker_state/index.js",
+        ".github/scripts/sync_tracker_state.js",
         ".github/scripts/token_load_balancer.js",
         ".github/scripts/package.json",
     )
