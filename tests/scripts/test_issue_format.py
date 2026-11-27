@@ -1102,12 +1102,19 @@ def test_issue_5296_report_keeps_findings_and_points_to_installed_guide(tmp_path
     consumer_report = _validator().validate(body, repo_root=consumer)
 
     assert source_report.problems == consumer_report.problems == expected_problems
-    assert source_report.advisories == consumer_report.advisories == [
-        "1 cited path(s) do not exist yet: `pr_body.md` — expected when a task creates them; "
-        "check for typos otherwise."
-    ]
+    assert (
+        source_report.advisories
+        == consumer_report.advisories
+        == [
+            "1 cited path(s) do not exist yet: `pr_body.md` — expected when a task creates them; "
+            "check for typos otherwise."
+        ]
+    )
     assert "`templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md`" in source_report.as_markdown()
     assert "`docs/AGENT_ISSUE_FORMAT.md`" in consumer_report.as_markdown()
+    for report in (source_report, consumer_report):
+        instructions = _validator().rewrite_prompt(body, report).split("<validator_report>", 1)[0]
+        assert f"contract ({report.guide_path})" in instructions
 
 
 def test_valid_report_uses_the_installed_source_or_consumer_guide(tmp_path: Path) -> None:
