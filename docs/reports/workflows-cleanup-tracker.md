@@ -7,6 +7,17 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27, 10:02 UTC review
+
+GitHub Actions filed Claude’s approved Health 78 design while the Codex, Claude and launchd Mac seats were paused. The hosted opener reserved the issue. The Mac resumed and replayed all seven hosted feedback calls. The shared opener ledger now records an experiment that needs a local workflow-file edit. GitHub shows the issue in progress with zero linked implementation PRs. [Filed issue](https://github.com/stranske/Workflows/issues/5324) · [Hosted intake](https://github.com/stranske/Workflows/actions/runs/45971818050) · [Opener reservation](https://github.com/stranske/Workflows/issues/5324#issuecomment-7214451600)
+
+The verifier’s sparse checkout loads eight helpers from Workflows. Moving an import to the top-level tools directory broke that checkout. The thirteen JavaScript suites and one Python suite keep their current homes. Moving one JavaScript suite preserved seven direct passes but lost those seven cases from ordinary discovery. All 205 JavaScript names and 33 Python names passed in both the default and pull-request runs. The receiver copies have separate ownership. Sixteen receiving heads import the source collector, and all sixteen carry a different local artifact-helper blob. [Source checkout](https://github.com/stranske/Workflows/blob/d77f486e72919ccca29f41909200c05e02299958/.github/workflows/agents-verify-to-new-pr.yml#L1286) · [Default run](https://github.com/stranske/Workflows/actions/runs/45973265023) · [Gate](https://github.com/stranske/Workflows/actions/runs/45976614754)
+
+Keep the narrow label-guide publisher. It delivered one changed guide directly in about two seconds. Protected delivery of the same blob through the managed PR took ten hours and ten minutes. The tested alternative also published an unrelated verifier helper and resolved 19 packages. [Direct write](https://github.com/stranske/Workflows-Integration-Tests/commit/3f0df7dd586b1a043ac48b4efd2870847564e147) · [Protected receipt](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2541)
+
+Two proposed consolidations preserve the validator’s 42 test cases in one suite and move the verifier deployment receipt up one level, removing a single-file directory. The 17 tracked lineage entries retain their hash. Three ordinary human PRs exercised the dependency labeler’s skip route. Its bot-positive check remains open. [Validator changes](https://github.com/stranske/Workflows/pull/5327) · [Evidence move](https://github.com/stranske/Workflows/pull/5328)
+
+
 ### November 27, 09:01 UTC review
 
 Two qualified keeps bring Stage 1A to 181 of 198. Retain the hosted verifier continuation. Its historical selected run created #3383 and led to merged worker PR #3385. Both post-cleanup authored copies reproduced one issue creation and reuse on repeat in a local replay. The native post-cleanup result remains open. The managed receiver still needs ordinary fleet installation and one selected continuation. Integration-Tests received its separate SDK cleanup. [Original continuation](https://github.com/stranske/Workflows/actions/runs/33929656672) · [Worker PR](https://github.com/stranske/Workflows/pull/3385) · [SDK retirement](https://github.com/stranske/Workflows/pull/5313)
@@ -248,12 +259,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 181/198 completed · 1 drainable now · 16 blocked · 17 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,566/2,901 | 110/220 | — |
-| 3 · Scripts, tools and packages | 376/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 914/1,540 | 128/177 | — |
+| 3 · Scripts, tools and packages | 398/752 | 34/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 915/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,081/5,554** | **298/487** | **181/198** |
+| **Total** | **3,104/5,554** | **298/487** | **181/198** |
 
-**Directory organization.** 2,869 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 2,892 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
