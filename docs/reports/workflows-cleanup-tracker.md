@@ -15,6 +15,10 @@ The structural PR also eliminates three duplicate contract mirrors and two direc
 
 The reservation diagnostic merged on Workflows main. The source-delta canary stopped before writing a PR because all three prior PRs bind to an attempt that succeeded on the consumer jobs and failed on its summary. The successful retry had a different attempt number. The ordinary full canary then produced three reviewed receiving opportunities for the merged runner and dependency updates under the existing guards. The preceding 16-PR fleet promotion had zero actionable review findings. The six workflow definitions and six template copies waiting for a genuine sync-produced handoff stay at 0/5. The thirteenth workflow awaits the ordinary Maint 72 scheduled check. [Source diagnostic](https://github.com/stranske/Workflows/pull/5370) · [Scoped receipt refusal](https://github.com/stranske/Workflows/actions/runs/46072009601) · [Full canary](https://github.com/stranske/Workflows/actions/runs/46073358391) · [Receiving assessment](https://github.com/stranske/Workflows/actions/runs/46073558566)
 
+The guarded fixture consolidation is installed on main at 900ad6a8dbfd. Four original JSON values and the shared Opus capture matched, both single-file fixture directories are gone, and the checkout passed the same 320 Node cases and 72 Python cases. The change removed three tracked files net. This closes six original file placements and two folders. The PR Gate's primary jobs took 330 and 552 seconds. The complete Gate took 643 seconds, above the 600-second target; the preceding diagnostic PR's primary jobs took 384 and 566 seconds and its complete Gate took 654 seconds. [Installed fixture consolidation](https://github.com/stranske/Workflows/pull/5369)
+
+All three fresh canary PRs were sealed. Maint 71 found zero unresolved threads at its first check and returned the three exact heads to native CI. The hosted handoff will have an eligible issue only if the normal assessment produces a genuine correction. [Travel #1779](https://github.com/stranske/Travel-Plan-Permission/pull/1779) · [trip-planner #2078](https://github.com/stranske/trip-planner/pull/2078) · [Portable Alpha #2545](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2545)
+
 ### November 27 · Verified tool and fixture placement
 
 The [weekly queue cleanup](https://github.com/stranske/Workflows/pull/5368) reached Workflows main at `3198902b1f62`. For the November 26 trip-planner review, the diagnostic still returned three candidates and the final publisher still approved zero because the feedback was stale. All four outputs matched. The coordinator dropped three unnecessary reads totaling 40,189 bytes on this input. The installed repo-review suite passed 833 cases. [Gate](https://github.com/stranske/Workflows/actions/runs/46060452921)
@@ -384,12 +388,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 0 drainable now · 13 blocked · 13 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 486/752 | 37/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,064/1,540 | 135/177 | — |
+| 3 · Scripts, tools and packages | 490/752 | 37/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,066/1,540 | 137/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
-| **Total** | **3,725/5,554** | **316/487** | **185/198** |
+| **Total** | **3,731/5,554** | **318/487** | **185/198** |
 
-**Directory organization.** 3,513 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,519 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
