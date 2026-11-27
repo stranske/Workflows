@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -9,6 +10,7 @@ SHIM = Path(".github/workflows/agents-model-profile-trial.yml")
 RUNNER = Path(".github/workflows/reusable-model-profile-trial.yml")
 REGISTRY = Path(".github/agents/registry.yml")
 TEMPLATE_REGISTRY = Path("templates/consumer-repo/.github/agents/registry.yml")
+TRIAL_CLI_ROOT = Path(".github/actions/trial-codex-cli")
 
 
 def _workflow(path: Path):
@@ -60,9 +62,8 @@ def test_reusable_runner_is_read_only_exact_cli_and_has_no_write_lane():
     job = workflow["jobs"]["run-single-arm"]
     assert job["permissions"] == {"contents": "read"}
     source = RUNNER.read_text(encoding="utf-8")
-    assert (
-        "npm ci --prefix runner-src/.github/actions/verifier-codex-cli --ignore-scripts" in source
-    )
+    assert "npm ci --prefix runner-src/.github/actions/trial-codex-cli --ignore-scripts" in source
+    assert "runner-src/.github/actions/trial-codex-cli/node_modules/.bin/codex" in source
     assert "--sandbox read-only" in source
     assert 'model_reasoning_effort="high"' in source
     assert "--ignore-user-config" in source
@@ -142,6 +143,11 @@ def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
         == "github-actions-api/workflows-read-only-trial-artifact/v2"
     )
     assert trial["cli_version"] == "0.153.2"
+    trial_package = json.loads((TRIAL_CLI_ROOT / "package.json").read_text(encoding="utf-8"))
+    assert trial_package["dependencies"]["@openai/codex"] == trial["cli_version"]
+    trial_lock = json.loads((TRIAL_CLI_ROOT / "package-lock.json").read_text(encoding="utf-8"))
+    assert trial_lock["packages"][""]["dependencies"]["@openai/codex"] == trial["cli_version"]
+    assert trial_lock["packages"]["node_modules/@openai/codex"]["version"] == trial["cli_version"]
     assert trial["runtime_fallback_allowed"] is False
     assert trial["auxiliary_evaluator_allowed"] is False
     for profile_id in (
