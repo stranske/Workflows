@@ -102,15 +102,14 @@ const { resolveDefaultBranch } = require('./.github/actions/resolve-default-bran
 
 @skip_if_no_node
 def test_integration_formatters_require_token_aware_retry(tmp_path) -> None:
-    for workflow in ("maint-70-fix-integration-formatting", "maint-71-auto-fix-integration"):
-        definition = yaml.safe_load(
-            (REPO_ROOT / ".github/workflows" / f"{workflow}.yml").read_text()
-        )
-        job = next(iter(definition["jobs"].values()))
-        lookup = next(step for step in job["steps"] if step.get("id") == "integration_ref")
-        assert lookup["uses"] == "./.github/actions/resolve-default-branch"
-        assert lookup["with"]["repo"] == "Workflows-Integration-Tests"
-        assert lookup["with"]["require_retry_helper"] == "true"
+    definition = yaml.safe_load(
+        (REPO_ROOT / ".github/workflows/maint-71-auto-fix-integration.yml").read_text()
+    )
+    job = next(iter(definition["jobs"].values()))
+    lookup = next(step for step in job["steps"] if step.get("id") == "integration_ref")
+    assert lookup["uses"] == "./.github/actions/resolve-default-branch"
+    assert lookup["with"]["repo"] == "Workflows-Integration-Tests"
+    assert lookup["with"]["require_retry_helper"] == "true"
 
     # Simulate an incomplete checkout. Ordinary partial-checkout callers can still resolve.
     script = r"""

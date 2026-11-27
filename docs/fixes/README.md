@@ -11,22 +11,12 @@ This folder consolidates fix summaries and supporting materials.
 
 The integration consumer exposed three distinct problems. Early runs failed on Black and Ruff formatting. Maint 70 provided a manual formatting path and Maint 71 added automated repair. A later dependency conflict required regenerating the lockfile after a Ruff pin changed. Runs 60 and 61 exposed a failure parsing the run ID and a validation script that had drifted from its template. [Formatting repair](https://github.com/stranske/Workflows/pull/594) · [Dependency repair](https://github.com/stranske/Workflows/pull/672) · [Template repair](https://github.com/stranske/Workflows/pull/841)
 
-For a current incident, inspect the [integration sync source](../../.github/workflows/maint-69-sync-integration-repo.yml) and the [workflow catalog](../WORKFLOW_GUIDE.md). The [manual formatter](../../.github/workflows/maint-70-fix-integration-formatting.yml), [automated fixer](../../.github/workflows/maint-71-auto-fix-integration.yml) and [local formatting script](../../scripts/fix-integration-tests-formatting.sh) show the supported entry points.
+For a current incident, inspect the [integration sync source](../../.github/workflows/maint-69-sync-integration-repo.yml) and the [workflow catalog](../WORKFLOW_GUIDE.md). Use the [automated fixer](../../.github/workflows/maint-71-auto-fix-integration.yml) for a concrete failed integration run. Use the [local formatter](../../scripts/fix-integration-tests-formatting.sh) for proactive Black and Ruff repairs.
 
 To sync the integration repository immediately, run this command with an authenticated GitHub CLI. It dispatches Maint 69 on `main` and returns status 1 if the request fails. [Sync runs](https://github.com/stranske/Workflows/actions/workflows/maint-69-sync-integration-repo.yml)
 
 ```sh
 (gh workflow run maint-69-sync-integration-repo.yml --repo stranske/Workflows --ref main || exit 1)
-```
-
-To request a formatting repair, use Maint 70 on the default branch. Set `format_subject` in your shell to supply a custom commit message. The command returns the GitHub CLI status. Follow the [formatting run](https://github.com/stranske/Workflows/actions/workflows/maint-70-fix-integration-formatting.yml) and check [integration CI](https://github.com/stranske/Workflows-Integration-Tests/actions) for the result.
-
-```sh
-(
-  command -v gh >/dev/null || { echo "GitHub CLI (gh) is required." >&2; exit 1; }
-  gh workflow run maint-70-fix-integration-formatting.yml --repo stranske/Workflows \
-    -f "commit_message=${format_subject:-fix: Auto-format files to meet lint standards}"
-)
 ```
 
 To run the local script from Workflows, pass the path to the Workflows-Integration-Tests checkout.
@@ -43,6 +33,24 @@ python3 -m venv /path/to/Workflows-Integration-Tests/.venv
 . /path/to/Workflows-Integration-Tests/.venv/bin/activate
 python -m pip install -e '/path/to/Workflows-Integration-Tests[dev]'
 ```
+
+For a proactive repair, start from a clean branch based on the
+[Integration-Tests default](https://github.com/stranske/Workflows-Integration-Tests).
+Run the guarded Black and Ruff mode and review the resulting diff.
+
+```sh
+bash scripts/fix-integration-tests-formatting.sh --reviewed /path/to/Workflows-Integration-Tests
+```
+
+This mode runs Black and Ruff with the receiver's project configuration,
+honors Git ignore rules and excludes `.workflows-lib`. It exits on Black
+errors and on incomplete Ruff runs, including configuration, syntax and
+file-reading errors. An ordinary
+remaining lint diagnostic is reported by rule code. If the command fails,
+discard its partial diff. If it succeeds with a change, open a normal receiver
+PR with a descriptive commit subject and let its Gate check the exact head.
+For files managed by integration sync, put the correction in the owning
+Workflows template so a later sync preserves it.
 
 The default formats only the two incident files with Black. To format the whole
 checkout with Black and Ruff, run

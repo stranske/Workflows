@@ -50,7 +50,7 @@ Portable-Alpha-Extension-Model#2390 remains open, ready and unmerged at
 `09298cf6b2e719b90ad661ea62553f4504d5dd96`; its complete paginated patch contains
 only `.github/workflows/pr-00-gate.yml`, with exactly one addition/deletion
 removing only `labeled`. Workflows#4503 remains open and ready. Current metadata
-and consumer patch are in `campaign-reconciliation-round-5.json`. No duplicate
+and consumer patch are in [`campaign-reconciliation-round-5.json`](README.md#round-5). No duplicate
 campaign PR was created. `~/.codex/bin/handoff.sh` is absent, so the handoff roster
 cannot be independently inspected here.
 

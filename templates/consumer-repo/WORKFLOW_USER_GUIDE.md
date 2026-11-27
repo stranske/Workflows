@@ -1156,21 +1156,6 @@ that workflow actually exists in the consumer checkout.
 
 ---
 
-### `maint-70-fix-integration-formatting.yml` - Fix Integration Repo Formatting
-**Purpose:** Auto-fixes formatting in integration repo
-
-**Trigger:** After integration sync
-
-**What It Does:**
-- Runs formatters on integration repo
-- Fixes common lint issues
-- Commits fixes
-- Ensures clean state for testing
-
-**Use When:** Automatic after sync
-
----
-
 ### `maint-71-auto-fix-integration.yml` - Auto-Fix Integration Issues
 **Purpose:** Applies autofixes to integration repo
 

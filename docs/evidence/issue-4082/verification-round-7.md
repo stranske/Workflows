@@ -46,7 +46,7 @@ repos_input=$(python3 scripts/list_registered_consumer_repos.py --separator=,)
 timeout 110s python3 scripts/check_consumer_sync_drift.py --repos "$repos_input" --summary /tmp/issue-4082-round7/summary.md --report-json /tmp/issue-4082-round7/drift.json
 ```
 
-Evidence: `docs/evidence/issue-4082/campaign-reconciliation-round-7.json` and [observation-evidence-round-7.json](https://github.com/stranske/Workflows/blob/6324a78d924ce06eb56f1e8af3c2a7261aed0b6b/docs/evidence/issue-4082/observation-evidence-round-7.json) retain current campaign dispositions, file readback and real before/after diagnostic results, exact runner commands and unknown outcomes.
+Evidence: [`campaign-reconciliation-round-7.json`](README.md#round-7) and [observation-evidence-round-7.json](https://github.com/stranske/Workflows/blob/6324a78d924ce06eb56f1e8af3c2a7261aed0b6b/docs/evidence/issue-4082/observation-evidence-round-7.json) retain current campaign dispositions, file readback and real before/after diagnostic results, exact runner commands and unknown outcomes.
 
 The final campaign merge timestamp and its plus-48-hour completion time remain undetermined while PAEM#2390 is open. Numerator, denominator and percentage are uncollected, not zero. No live acceptance or observation task is complete. Required follow-up is PAEM's review/merge disposition, successful authenticated runner readback, and full paginated observation after the verified final merge.
 

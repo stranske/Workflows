@@ -205,12 +205,23 @@ function stockReviewedCommit(body, profile) {
   return /^`([0-9a-f]{10,40})`$/.exec(reference.slice(prefix.length))?.[1] || null;
 }
 
+// The connector rotates the cheer after the fixed summary prefix ("Hooray!" on
+// Trend#6250, "Another round soon, please!" on Portable-Alpha-Extension-Model#2536).
+// Matching only one cheer let the other count as a substantive answer and disable
+// the unanswered fallback. Known cheers are listed in the policy; a pattern cannot
+// tell a cheer from a verdict ("Still broken."), so an unlisted summary stays an answer
+// and Maint 90 reports it as `unknown_stock_summary` instead of holding silently.
+function isStockSummary(summary, stock) {
+  return summary === stock.summary
+    || (Array.isArray(stock.summary_variants) && stock.summary_variants.includes(summary));
+}
+
 function isStockFindingReceipt(body, profile) {
   const stock = profile.inline_targeted_stock_completion;
   if (!stock?.marker || !stock.summary || !Array.isArray(stock.details)
     || stockReviewedCommit(body, profile) === null) return false;
   const [, , summary, , , gap, ...details] = String(body).trimEnd().split(/\r?\n/);
-  return summary === stock.summary
+  return isStockSummary(summary, stock)
     && gap === ''
     && details.join('\n') === stock.details.join('\n');
 }
@@ -587,5 +598,5 @@ async function collectOriginatingCompletions({ owner, repo, number, head, profil
 
 module.exports = { sha256, nativeAnswerLines, validateIndependentFindingVerification, validateNativeConversationDisposition,
   collectFindingReviewState, collectOriginatingCompletions, collectAuthenticatedInlineStockCompletion,
-  collectBoundInlineStockCompletion, validateIndependentFindingFromNative,
+  collectBoundInlineStockCompletion, validateIndependentFindingFromNative, isStockFindingReceipt,
   receiverFixIdentity, isReceiverFindingPull, readReceiverFix, receiverFixPrecedesHead };

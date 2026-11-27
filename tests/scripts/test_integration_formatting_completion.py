@@ -5,12 +5,8 @@ import sys
 from pathlib import Path
 
 import pytest
-import yaml
 
-WORKFLOW = (
-    Path(__file__).resolve().parents[2]
-    / ".github/workflows/maint-70-fix-integration-formatting.yml"
-)
+FORMATTER = Path(__file__).resolve().parents[2] / "scripts/fix-integration-tests-formatting.sh"
 
 
 @pytest.mark.parametrize(
@@ -29,26 +25,40 @@ WORKFLOW = (
 def test_formatting_requires_working_tools(
     tmp_path, black_status, ruff_status, diagnostics, expected
 ):
-    workflow = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
-    steps = {step["name"]: step for step in workflow["jobs"]["fix-formatting"]["steps"]}
     integration = tmp_path / "integration-tests"
-    integration.mkdir()
+    subprocess.run(["git", "init", "-q", str(integration)], check=True)
+    for relative_path in (
+        ".github/workflows/notify-workflows.yml",
+        "pyproject.toml",
+        "scripts/validate_dependency_test_setup.py",
+        "tests/test_dependency_version_alignment.py",
+    ):
+        path = integration / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     (bin_dir / "python3").symlink_to(sys.executable)
 
     commands = {
-        "black": "#!/bin/sh\nprintf '%s\\n' formatted > changed.py\nexit \"$BLACK_STATUS\"\n",
-        "ruff": '#!/bin/sh\nprintf \'%s\\n\' "$RUFF_DIAGNOSTICS"\nexit "$RUFF_STATUS"\n',
+        "black": r"""#!/bin/sh
+printf '%s\n' "$@" > black-arguments.txt
+printf '%s\n' formatted > changed.py
+exit "$BLACK_STATUS"
+""",
+        "ruff": r"""#!/bin/sh
+touch ruff-ran
+printf '%s\n' "$RUFF_DIAGNOSTICS"
+exit "$RUFF_STATUS"
+""",
     }
     for name, command in commands.items():
         executable = bin_dir / name
         executable.write_text(command, encoding="utf-8")
         executable.chmod(0o755)
 
-    step = steps["Apply formatting fixes"]
     result = subprocess.run(
-        ["bash", "-eo", "pipefail", "-c", step["run"]],
+        ["bash", str(FORMATTER), "--reviewed", str(integration)],
         cwd=tmp_path,
         env={
             **os.environ,
@@ -62,12 +72,14 @@ def test_formatting_requires_working_tools(
         check=False,
     )
     assert (integration / "changed.py").is_file()
+    assert (integration / "black-arguments.txt").read_text().splitlines() == [
+        "--extend-exclude",
+        r"\.workflows-lib",
+        ".",
+    ]
     assert result.returncode == expected, result.stdout + result.stderr
+    assert (integration / "ruff-ran").is_file() == (black_status == 0)
+    assert ("Review the changes before committing" in result.stdout) == (expected == 0)
     if expected == 0 and ruff_status == 1:
         assert json.loads(diagnostics)[0]["code"] in result.stdout
         assert "remaining lint diagnostics" in result.stdout
-
-    assert steps["Commit and push changes"]["if"] == "steps.changes.outputs.has_changes == 'true'"
-    summary = steps["Summarize incomplete formatting"]
-    assert summary["if"] == "failure() && steps.formatting.outcome == 'failure'"
-    assert "No changes were pushed" in summary["run"]

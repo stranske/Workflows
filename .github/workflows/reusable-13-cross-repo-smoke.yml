@@ -38,8 +38,8 @@ on:
         type: string
     secrets:
       CROSS_REPO_TOKEN:
-        description: Token with read access to the dependency repository.
-        required: true
+        description: Read token for a private dependency. Public checkout can use the job token.
+        required: false
 
 jobs:
   cross-repo-smoke:
@@ -75,7 +75,7 @@ jobs:
           repository: ${{ inputs.dependency_repo }}
           ref: ${{ inputs.dependency_ref }}
           path: ${{ steps.dependency_path.outputs.path }}
-          token: ${{ secrets.CROSS_REPO_TOKEN }}
+          token: ${{ secrets.CROSS_REPO_TOKEN || secrets.GITHUB_TOKEN }}
           # Caller-provided install/smoke commands later run against this checkout;
           # do not leave the dependency-repo token configured for git operations.
           persist-credentials: false

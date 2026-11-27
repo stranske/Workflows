@@ -21,7 +21,7 @@ read through connected GitHub's default-branch file API: their Gate activity
 lists currently match, including Manager-Database and PAEM. This does not settle
 PAEM#2390's disposition or establish the requested Health 68 command's result.
 The current roster was obtained with `scripts/list_registered_consumer_repos.py`;
-`~/.codex/bin/handoff.sh` is absent. See `campaign-reconciliation-round-6.json`.
+`~/.codex/bin/handoff.sh` is absent. See [`campaign-reconciliation-round-6.json`](README.md#round-6).
 
 Before edits, recorded one real-input Health 68 attempt at
 2026-11-07T01:08:58.099113Z, with a 110-second stop rule and no network retries.
