@@ -303,7 +303,7 @@ patterns across reviews into 11 shipped systemic fixes:
    `should_dispatch`, `record_completion`) consolidating Codex/Claude
    dispatch out of inline workflow YAML.
 5. **sync-tracker-state** —
-   [`.github/scripts/sync_tracker_state/`](../.github/scripts/sync_tracker_state/)
+   [`.github/scripts/sync_tracker_state.js`](../.github/scripts/sync_tracker_state.js)
    for find-or-create tracker, body update, and consumer-PR detection,
    with graceful 401/403 fallback so workflows still function without
    PAT/App token access.

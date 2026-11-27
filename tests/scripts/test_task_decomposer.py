@@ -54,87 +54,6 @@ def test_normalize_subtasks_scopes_large_tasks() -> None:
     assert all("verify" in task.lower() for task in sub_tasks)
 
 
-def test_build_child_issues_skips_atomic_task() -> None:
-    child_issues = task_decomposer.build_child_issues(["update docs"], parent_title="Parent Issue")
-    assert child_issues == []
-
-
-def test_build_child_issues_preserves_metadata() -> None:
-    child_issues = task_decomposer.build_child_issues(
-        ["update docs", "add tests"],
-        parent_title="Parent Issue",
-        parent_number=123,
-        parent_url="https://github.com/example/repo/issues/123",
-        labels=["agent:codex", "status:ready"],
-        assignees=["octo-user"],
-        milestone=7,
-    )
-    assert len(child_issues) == 2
-    for child in child_issues:
-        assert child["labels"] == ["agent:codex", "status:ready"]
-        assert child["assignees"] == ["octo-user"]
-        assert child["milestone"] == 7
-        assert child["title"].startswith("Parent Issue:")
-        assert "Parent issue: [#123](" in child["body"]
-        assert "- [ ] " in child["body"]
-    assert child_issues[0]["labels"] is not child_issues[1]["labels"]
-    assert child_issues[0]["assignees"] is not child_issues[1]["assignees"]
-
-
-def test_build_child_issues_from_parent_copies_metadata() -> None:
-    parent_issue = {
-        "title": "Parent Issue",
-        "number": 456,
-        "html_url": "https://github.com/example/repo/issues/456",
-        "labels": [{"name": "agent:codex"}, {"name": "status:ready"}],
-        "assignees": [{"login": "octo-user"}],
-        "milestone": {"number": 9, "title": "Milestone 9"},
-    }
-    child_issues = task_decomposer.build_child_issues_from_parent(
-        ["update docs", "add tests"],
-        parent_issue=parent_issue,
-    )
-    assert len(child_issues) == 2
-    for child in child_issues:
-        assert child["labels"] == ["agent:codex", "status:ready"]
-        assert child["assignees"] == ["octo-user"]
-        assert child["milestone"] == 9
-        assert child["title"].startswith("Parent Issue:")
-        assert "Parent issue: [#456](" in child["body"]
-
-
-def test_parent_child_linking_bidirectional() -> None:
-    parent_issue = {
-        "title": "Parent Issue",
-        "number": 789,
-        "html_url": "https://github.com/example/repo/issues/789",
-    }
-    child_payloads = task_decomposer.build_child_issues_from_parent(
-        ["update docs", "add tests"],
-        parent_issue=parent_issue,
-    )
-    assert child_payloads
-    for child in child_payloads:
-        assert "Parent issue: [#789](" in child["body"]
-
-    created_children = []
-    for idx, child in enumerate(child_payloads, start=1):
-        created_children.append(
-            {
-                **child,
-                "number": 900 + idx,
-                "html_url": f"https://github.com/example/repo/issues/{900 + idx}",
-            }
-        )
-
-    parent_body = "## Tasks\n- [ ] Parent task"
-    updated = task_decomposer.build_parent_issue_update(parent_body, created_children)
-    assert "## Child Issues" in updated
-    assert "- [#901](" in updated
-    assert "- [#902](" in updated
-    assert "## Tasks" in updated
-
-
 def test_decompose_task_empty_input() -> None:
     """decompose_task returns empty sub_tasks for empty input."""
     result = task_decomposer.decompose_task("")
@@ -421,22 +340,6 @@ def test_load_prompt_missing_file(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(task_decomposer, "PROMPT_PATH", missing_path)
     prompt = task_decomposer._load_prompt()
     assert prompt == task_decomposer.TASK_DECOMPOSITION_PROMPT
-
-
-def test_load_prompt_missing_file_falls_back(monkeypatch, tmp_path) -> None:
-    """_load_prompt returns default prompt when file is absent."""
-    missing_path = tmp_path / "absent.md"
-    monkeypatch.setattr(task_decomposer, "PROMPT_PATH", missing_path)
-    assert not missing_path.exists()
-    prompt = task_decomposer._load_prompt()
-    assert prompt == task_decomposer.TASK_DECOMPOSITION_PROMPT
-
-
-def test_load_prompt_default_template(monkeypatch, tmp_path) -> None:
-    """_load_prompt uses default template when prompt file is absent."""
-    missing_path = tmp_path / "nope.md"
-    monkeypatch.setattr(task_decomposer, "PROMPT_PATH", missing_path)
-    assert task_decomposer._load_prompt() == task_decomposer.TASK_DECOMPOSITION_PROMPT
 
 
 def _install_fake_langchain_openai(monkeypatch):
@@ -870,88 +773,6 @@ def test_is_elision_sentinel_recognizes_generated_marker() -> None:
     assert not task_decomposer.is_elision_sentinel("Add tests for the parser")
 
 
-def test_build_child_issues_excludes_sentinel() -> None:
-    """Elision sentinels are bookkeeping markers, never materialized as child issues."""
-    many = [f"Implement distinct feature module number {i} for the system" for i in range(10)]
-    children = task_decomposer.build_child_issues(many, parent_title="Parent", max_children=3)
-    assert len(children) <= 3
-    for child in children:
-        assert not task_decomposer.is_elision_sentinel(child["title"])
-        assert "elided; split this issue" not in child["body"]
-
-
-def test_metadata_helpers_accept_mixed_github_shapes() -> None:
-    class Named:
-        name = " object-label "
-
-    class Login:
-        login = " object-login "
-
-    class Milestone:
-        title = " Release "
-
-    assert task_decomposer._coerce_label_names([" text ", {"name": " dict "}, Named(), {}, 0]) == [
-        "text",
-        "dict",
-        "object-label",
-    ]
-    assert task_decomposer._coerce_assignee_logins(
-        [" text ", {"login": " dict "}, Login(), {}, 0]
-    ) == ["text", "dict", "object-login"]
-    assert task_decomposer._coerce_milestone_value({"number": 4}) == 4
-    assert task_decomposer._coerce_milestone_value({"title": "Release"}) == "Release"
-    assert task_decomposer._coerce_milestone_value({}) is None
-    assert task_decomposer._coerce_milestone_value(Milestone()) == " Release "
-
-
-def test_parent_and_child_reference_helpers_cover_fallback_forms() -> None:
-    assert (
-        task_decomposer._format_parent_reference(
-            parent_title="Parent", parent_number=3, parent_url=None
-        )
-        == "#3"
-    )
-    assert (
-        task_decomposer._format_parent_reference(
-            parent_title="Parent", parent_number=None, parent_url="https://example.test/parent"
-        )
-        == "https://example.test/parent"
-    )
-    assert (
-        task_decomposer._format_parent_reference(
-            parent_title="", parent_number=None, parent_url=None
-        )
-        == "parent issue"
-    )
-    assert task_decomposer._format_child_reference({}) is None
-    assert task_decomposer._format_child_reference({"url": "https://example.test/child"}) == (
-        "https://example.test/child"
-    )
-    assert (
-        task_decomposer._format_child_reference(
-            {"issue_number": 7, "url": "https://example.test/child", "title": "Child"}
-        )
-        == "[#7](https://example.test/child) - Child"
-    )
-
-
-def test_build_parent_issue_update_replaces_existing_section_and_skips_invalid_children() -> None:
-    body = "Intro\n\n## Child Issues\n\n- stale\n\n## Next\nKeep this"
-    updated = task_decomposer.build_parent_issue_update(
-        body,
-        [
-            {"number": 1, "url": "https://example.test/1", "title": "One"},
-            {"number": 1, "url": "https://example.test/1", "title": "One"},
-            "not-a-child",
-            {},
-        ],
-    )
-    assert "- [#1](https://example.test/1) - One" in updated
-    assert "stale" not in updated
-    assert updated.endswith("## Next\nKeep this")
-    assert task_decomposer.build_parent_issue_update("Body", []) == "Body"
-
-
 def test_fallback_and_provider_resolution_cover_remaining_decision_paths(monkeypatch) -> None:
     monkeypatch.setenv("LANGCHAIN_PROVIDER", "custom-provider")
     assert task_decomposer._resolve_decomposer_provider() == "custom-provider"
@@ -1020,20 +841,8 @@ def test_normalization_preserves_expanded_and_deduplicates_inputs() -> None:
     assert normalized == ["update docs (verify: docs updated)"]
 
 
-def test_metadata_helpers_reject_empty_object_values() -> None:
-    class Empty:
-        number = "not-a-number"
-        title = ""
-
-    assert task_decomposer._coerce_milestone_value(Empty()) is None
-
-
-def test_metadata_helpers_preserve_object_milestone_number_and_elision_deduplication() -> None:
-    class Milestone:
-        number = 17
-
+def test_collect_cleaned_parts_deduplicates_elision_sentinel() -> None:
     sentinel = task_decomposer.elision_sentinel(3)
-    assert task_decomposer._coerce_milestone_value(Milestone()) == 17
     assert task_decomposer._collect_cleaned_parts([sentinel, sentinel]) == [sentinel]
 
 

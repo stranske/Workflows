@@ -209,7 +209,7 @@ jobs:
               appendTrackerComment,
               findOrCreateTracker,
               updateTrackerBody,
-            } = require('./.github/scripts/sync_tracker_state');
+            } = require('./.github/scripts/sync_tracker_state.js');
             const retryHelperPath = './.github/scripts/github-api-with-retry.js';
             const retryHelpers = fs.existsSync(retryHelperPath)
               ? require(retryHelperPath)
@@ -363,7 +363,7 @@ jobs:
             const {
               appendTrackerComment,
               findOrCreateTracker,
-            } = require('./.github/scripts/sync_tracker_state');
+            } = require('./.github/scripts/sync_tracker_state.js');
             const { createTokenAwareRetry } = require(
               './.github/scripts/github-api-with-retry.js'
             );

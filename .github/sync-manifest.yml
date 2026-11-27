@@ -198,6 +198,8 @@ workflows:
 
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:
+  - target: .github/scripts/sync_tracker_state/index.js
+    description: "Remove the old tracker helper leaf when the full plan delivers its sibling JavaScript file"
   - target: .github/scripts/verifier_correction_seed.js
     description: "Remove receiver-only duplicate; canonical Workflows checkout retains this correction helper and its offline API"
   - target: .github/scripts/verifier_correction_profile.py
@@ -568,9 +570,11 @@ scripts:
   - source: .github/scripts/github-api-with-retry.js
     description: "GitHub API retry wrapper with exponential backoff and pagination support - required by agents-auto-pilot.yml"
 
-  - source: .github/scripts/sync_tracker_state/
-    is_directory: true
+  - source: .github/scripts/sync_tracker_state.js
     description: "Shared durable tracker and open PR state helpers for consumer sync workflows"
+    skip_repos:
+      - repo: stranske/Workflows-Integration-Tests
+        reason: "Maint 69 loads this helper from its Workflows checkout. Integration-Tests has no receiver-local reader."
 
   - source: .github/scripts/github-rate-limited-wrapper.js
     description: "Transparent rate-limit proxy - wraps all github.rest.* calls with automatic retry and token switching"
@@ -1377,6 +1381,8 @@ runtime_fetched:
 
 excluded:
 
+  - path: .github/scripts/sync_tracker_state
+    reason: "The full plan removes the former managed index.js leaf. The old directory stays outside sync ownership so receiver-owned siblings are preserved."
   - path: .gitignore
     reason: "Repo-specific ignore patterns; the managed Workflows status-file block is propagated by scripts/sync_status_file_ignores.py instead of generic sync targets"
   - path: README.md
