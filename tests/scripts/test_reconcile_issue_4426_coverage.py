@@ -14,7 +14,6 @@ import zipfile
 from copy import deepcopy
 
 import pytest
-from scripts import compare_gate_coverage as compare
 from scripts import reconcile_issue_4426_coverage as reconcile
 
 
@@ -584,7 +583,7 @@ def test_source_mapping_tracks_shifted_lines_and_negative_function_exits():
         missing_lines=[3], executed_lines=[1, 2], missing_branches=[(2, 3), (2, -1)]
     )
     after = _inventory(executed_lines=[2, 3, 4], executed_branches=[(3, 4), (3, -2)])
-    result = compare.compare_target(
+    result = reconcile.compare_target(
         before,
         after,
         "def f():\n    if ready:\n        return 1\n",
@@ -602,7 +601,7 @@ def test_source_mapping_does_not_credit_changed_removed_or_excluded_units():
     source = "if ready:\n    run()\nfinish()\n"
     before = _inventory(missing_lines=[2, 3], missing_branches=[(1, 2), (1, 3)])
     after = _inventory(executed_lines=[2], executed_branches=[(1, 2)])
-    result = compare.compare_target(before, after, source, source.replace("run()", "stop()"))
+    result = reconcile.compare_target(before, after, source, source.replace("run()", "stop()"))
     assert result["observed_newly_covered_units"] == 0
     assert result["lines"]["unmatched_baseline_missing"] == [2, 3]
     assert result["lines"]["unmatched_final"] == [2]
@@ -624,7 +623,7 @@ def test_source_mapping_keeps_regressions_separate_from_gains():
         executed_branches=[(1, 2)],
         missing_branches=[(1, -1)],
     )
-    result = compare.compare_target(
+    result = reconcile.compare_target(
         before, after, "if ready:\n    run()\n", "if ready:\n    run()\n"
     )
     assert result["observed_newly_covered_units"] == result["observed_newly_missing_units"] == 2
@@ -661,7 +660,7 @@ def test_source_mapping_rejects_incomplete_or_mistyped_summary(side, field, corr
     else:
         summary[field] = float(summary[field])
     with pytest.raises(ValueError, match=f"inventory disagrees with summary: {field}"):
-        compare.compare_target(before, after, "if ready:\n    run()\n", "if ready:\n    run()\n")
+        reconcile.compare_target(before, after, "if ready:\n    run()\n", "if ready:\n    run()\n")
 
 
 def test_source_mapping_accounts_for_missing_units_without_crediting_removed_code():
@@ -679,7 +678,7 @@ def test_source_mapping_accounts_for_missing_units_without_crediting_removed_cod
         missing_branches=[(1, 3)],
         executed_branches=[(1, 2), (1, 4)],
     )
-    result = compare.compare_target(before, after, before_source, after_source)
+    result = reconcile.compare_target(before, after, before_source, after_source)
     assert result["missing_unit_accounting"] == {
         "baseline_missing_units": 4,
         "final_missing_units": 2,
@@ -693,7 +692,7 @@ def test_source_mapping_accounts_for_missing_units_without_crediting_removed_cod
     }
     assert result["attributable_round_reduction"] is None
 
-    reverse = compare.compare_target(after, before, after_source, before_source)
+    reverse = reconcile.compare_target(after, before, after_source, before_source)
     counts = reverse["missing_unit_accounting"]
     assert counts["unmatched_final_missing"] == 2
     assert counts["snapshot_difference"] == -2
@@ -710,7 +709,7 @@ def test_source_mapping_accepts_complete_retained_gate_inventories():
             gzip.decompress((reconcile.EVIDENCE / f"{label}-gate.coverage.json.gz").read_bytes())
         )
         for path in reconcile.TARGETS:
-            lines, arcs, missing_lines, missing_arcs = compare._units(coverage["files"][path])
+            lines, arcs, missing_lines, missing_arcs = reconcile._units(coverage["files"][path])
             summary = coverage["files"][path]["summary"]
             assert len(lines) + len(arcs) == summary["num_statements"] + summary["num_branches"]
             assert len(missing_lines) + len(missing_arcs) == (
@@ -736,7 +735,7 @@ def test_source_mapping_rejects_invalid_units(side, corruption):
     else:
         row.update(_inventory(missing_branches=[(1, -2)]))
     with pytest.raises(ValueError, match="invalid|overlap|source length"):
-        compare.compare_target(before, after, "run()\n", "run()\n")
+        reconcile.compare_target(before, after, "run()\n", "run()\n")
 
 
 def test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout(
@@ -772,8 +771,9 @@ def test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout(
             stdout=b"run()\n" if revision == baseline else b"# inserted\nrun()\n"
         )
 
-    monkeypatch.setattr(compare.subprocess, "run", git)
+    monkeypatch.setattr(reconcile.subprocess, "run", git)
     argv = [
+        "--compare-checkouts",
         str(coverages[0][0]),
         str(coverages[1][0]),
         "--baseline-checkout",
@@ -785,7 +785,7 @@ def test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout(
         "--ranking",
         str(ranking),
     ]
-    assert compare.main(argv) == 0
+    assert reconcile.main(argv) == 0
     result = json.loads(capsys.readouterr().out)
     assert list(result["targets"]) == list(reversed(reconcile.TARGETS))
     assert result["source_checkouts"] == {"baseline": baseline, "final": final}
@@ -795,11 +795,22 @@ def test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout(
     assert result["execution_configuration_verified"] is False
     assert result["attributable_round_reduction"] is None
 
+    for invalid_argv, message in (
+        ([*argv, "--reports-only"], "cannot be combined with archive or report mode"),
+        (argv[:3], "requires --baseline-checkout and --final-checkout"),
+    ):
+        with pytest.raises(SystemExit) as error:
+            reconcile.main(invalid_argv)
+        assert error.value.code == 2
+        output = capsys.readouterr()
+        assert output.out == ""
+        assert message in output.err
+
     unbranched = json.loads(coverages[0][0].read_text())
     unbranched["meta"]["branch_coverage"] = False
     coverages[0][0].write_text(json.dumps(unbranched))
     with pytest.raises(SystemExit) as error:
-        compare.main(argv)
+        reconcile.main(argv)
     assert error.value.code == 1
     output = capsys.readouterr()
     assert output.out == ""
@@ -807,7 +818,7 @@ def test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout(
 
     ranking.write_text(json.dumps({"historical_issue_order": list(reconcile.TARGETS[:-1])}))
     with pytest.raises(SystemExit) as error:
-        compare.main(argv)
+        reconcile.main(argv)
     assert error.value.code == 1
     output = capsys.readouterr()
     assert output.out == ""
@@ -822,12 +833,12 @@ def test_source_comparison_bounds_plain_and_expanded_coverage(tmp_path, monkeypa
     data = b" " * 1001
     coverage = tmp_path / "coverage.json"
     coverage.write_bytes(gzip.compress(data) if compressed else data)
-    monkeypatch.setattr(compare, "MAX_BYTES", 1000)
+    monkeypatch.setattr(reconcile, "MAX_BYTES", 1000)
     monkeypatch.setattr(
-        compare.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(stdout=b"a" * 40)
+        reconcile.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(stdout=b"a" * 40)
     )
     with pytest.raises(ValueError, match="coverage.json exceeds byte limit"):
-        compare.compare_checkouts(
+        reconcile.compare_checkouts(
             tmp_path, "HEAD", "HEAD", coverage, coverage, reconcile.EVIDENCE / "ranking.json"
         )
 
@@ -837,8 +848,9 @@ def test_source_comparison_reports_damaged_gzip_deflate(tmp_path, capsys):
     # Valid gzip header followed by a deflate block with reserved BTYPE=3.
     coverage.write_bytes(bytes.fromhex("1f8b08000000000002ff07") + b"\x00" * 8)
     with pytest.raises(SystemExit) as error:
-        compare.main(
+        reconcile.main(
             [
+                "--compare-checkouts",
                 str(coverage),
                 str(coverage),
                 "--baseline-checkout",
@@ -858,10 +870,11 @@ def test_provisioned_baseline_and_final_gate_comparison_runs_offline_in_empty_re
     tmp_path, monkeypatch, capsys
 ):
     monkeypatch.delenv("GIT_ALTERNATE_OBJECT_DIRECTORIES", raising=False)
-    compare.subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    reconcile.subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     baseline_rev = "682c12c02f24e2b8ee8d69da0d54dae28a87977d"
     final_rev = "4f2ad36497222425d6bea2135358f9c82a2f752d"
     argv = [
+        "--compare-checkouts",
         str(reconcile.EVIDENCE / "baseline.coverage.json"),
         str(reconcile.EVIDENCE / "final.coverage.json"),
         "--baseline-checkout",
@@ -871,7 +884,7 @@ def test_provisioned_baseline_and_final_gate_comparison_runs_offline_in_empty_re
         "--repository",
         str(tmp_path),
     ]
-    assert compare.main(argv) == 0
+    assert reconcile.main(argv) == 0
     result = json.loads(capsys.readouterr().out)
     measurement = json.loads((reconcile.EVIDENCE / "coverage-measurement.json").read_text())
     controlled = measurement["controlled_whole_gate_comparison"]

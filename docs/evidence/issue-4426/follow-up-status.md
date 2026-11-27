@@ -176,6 +176,9 @@ retrieval still fails with URLError, so attribution remains null and Tasks 1,
 PR-body correction was rejected because approval is unavailable in this run;
 remote checkboxes still overstate completion. No new task is marked complete.
 
+The reconciler also accepts `--compare-checkouts` for the separate
+[offline source mapping](gate-check.md#provisioned-baseline-comparison-and-ranked-remainder-completion-2026-11-12).
+
 
 Diagnostic/trace follow-up, 2026-11-07: three behavioral tests in the ranked
 remainder file protect changed-request rejection before diagnostic generation,

@@ -4,8 +4,9 @@
 
 Offline Git objects for baseline checkout `682c12c02f24e2b8ee8d69da0d54dae28a87977d`
 and final tested checkout `4f2ad36497222425d6bea2135358f9c82a2f752d` are provisioned
-in `docs/evidence/issue-4426/git-objects/pack/`, and `scripts/compare_gate_coverage.py`
-wires `docs/evidence/issue-4426/git-objects` into `GIT_ALTERNATE_OBJECT_DIRECTORIES`.
+in `docs/evidence/issue-4426/git-objects/pack/`. The `--compare-checkouts` operation in
+`scripts/reconcile_issue_4426_coverage.py` adds `docs/evidence/issue-4426/git-objects`
+to `GIT_ALTERNATE_OBJECT_DIRECTORIES`.
 Pre-extracted coverage inventories are provisioned in
 `docs/evidence/issue-4426/baseline.coverage.json` (expanded SHA-256
 `eb235a22328d442e757214b86daffd1f335571e2c169e40518e552c99275f4cc`, controlled
@@ -19,7 +20,7 @@ from run `43089486751`, job `130763450843`, artifact `13888347102`, raw ZIP SHA-
 Running:
 
 ```bash
-python -m scripts.compare_gate_coverage \
+python scripts/reconcile_issue_4426_coverage.py --compare-checkouts \
   docs/evidence/issue-4426/baseline.coverage.json \
   docs/evidence/issue-4426/final.coverage.json \
   --baseline-checkout 682c12c02f24e2b8ee8d69da0d54dae28a87977d \
@@ -34,9 +35,9 @@ and top-level fields):
 
 The 136-byte optional reverse index
 `git-objects/pack/pack-3da11b8eefb5914f6de030f28f2cd7eabb28fe69.rev`
-was removed. The actual reader is `scripts/compare_gate_coverage.py`: it supplies
-the containing `git-objects` directory as an alternate object directory; no
-source, test, or documentation reader names the `.rev` sidecar. With the sidecar
+was removed. The `--compare-checkouts` operation supplies the containing
+`git-objects` directory as an alternate object directory. No source, test, or
+documentation reader names the `.rev` sidecar. With the sidecar
 absent, both published commits (`682c12c02f24e2b8ee8d69da0d54dae28a87977d` and
 `4f2ad36497222425d6bea2135358f9c82a2f752d`) remained readable, `git verify-pack`
 reported all 21 packed objects, and the exact comparison command above completed
@@ -102,7 +103,7 @@ into an isolated object cache fails GitHub DNS resolution. The active `.git`
 mount is read-only. `/opt/anaconda3/bin/python3` is absent; local checks use
 Python 3.14.10. All acceptance checkboxes remain unchecked.
 
-`python -m scripts.compare_gate_coverage BASELINE.coverage.json FINAL.coverage.json
+`python scripts/reconcile_issue_4426_coverage.py --compare-checkouts BASELINE.coverage.json FINAL.coverage.json
 --baseline-checkout 682c12c02f24e2b8ee8d69da0d54dae28a87977d
 --final-checkout FINAL_TESTED_CHECKOUT` maps the six ranking paths using source
 from the specified Git revisions. Plain and gzip coverage inputs are accepted.
