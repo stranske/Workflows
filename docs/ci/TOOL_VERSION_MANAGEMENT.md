@@ -16,6 +16,13 @@ weekly intake window, conservative branch/PR budgets, release-age and update-bra
 gates, a grouped trusted GitHub Actions lane, and Dependency Dashboard approval for
 majors. Vulnerability alerts bypass the routine window and age gate.
 
+The Workflows repository opens its `non-major updates` group when Renovate
+creates or refreshes the branch. This lets the pull-request Gate run even when
+a busy main branch requires Renovate to rebase in the same job. The group still
+uses the weekly window, the three-day release-age filter and the required
+GitHub Gate before merge. In the Workflows Dependency Dashboard, the checkbox
+for this one group requests an off-schedule run with release-age filtering.
+
 Run the same validation used by `scripts/dev_check.sh` after editing either Renovate
 entrypoint or the shared preset:
 
