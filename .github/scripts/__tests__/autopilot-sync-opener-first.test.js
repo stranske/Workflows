@@ -12,7 +12,7 @@ const current = '.github/workflows/agents-auto-pilot.yml';
 const pilot = 'sync:opener-first';
 const autopilot = 'agents:auto-pilot';
 const issuer = { id: 23046322 };
-const body = '<!-- sync-core opener-first/v1 -->\n<!-- sync-core/v1 handoff fp=abc123def456 -->\n## Why\n';
+const body = '<!-- sync-core opener-first/v1 -->\n<!-- sync-core/v1 handoff fp=b50b00ace19e26c4 -->\n## Why\n';
 const event = (action, label, labels) => ({
   action,
   label: { name: label },
@@ -44,6 +44,10 @@ for (const relative of [current, `templates/consumer-repo/${current}`]) {
     };
     const first = event('labeled', autopilot, [autopilot, pilot, 'sync', 'automated']);
     assert.equal(admitted(first), false, 'enrolled producer receives the first opportunity');
+    assert.equal(admitted({ ...first, issue: { ...first.issue, body: body.replace('b50b00ace19e26c4', 'abc123def456') } }),
+      false, 'structural finding fingerprints also qualify');
+    assert.equal(admitted({ ...first, issue: { ...first.issue, body: body.replace('b50b00ace19e26c4', 'wrong') } }),
+      true, 'a malformed fingerprint does not reserve an issue');
     assert.equal(admitted(first, ''), true, 'a receiver outside the pilot keeps its legacy trigger');
     assert.equal(admitted({ ...first, issue: { ...first.issue, user: { id: 99 } } }), true, 'copied markers cannot opt in');
     assert.equal(admitted({ ...first, sender: { id: 99 } }), true, 'ordinary operator label activity retains legacy behavior');

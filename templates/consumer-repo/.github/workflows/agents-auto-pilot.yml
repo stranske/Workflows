@@ -121,7 +121,7 @@ jobs:
             const enrolled = /^[1-9][0-9]*$/.test(issuer || '') &&
               String(issue?.user?.id) === issuer && String(sender?.id) === issuer &&
               issue?.state === 'open' &&
-              /^<!-- sync-core opener-first\/v1 -->\r?\n<!-- sync-core\/v1 handoff fp=[0-9a-f]{12} -->\r?\n/.test(issue.body || '') &&
+              /^<!-- sync-core opener-first\/v1 -->\r?\n<!-- sync-core\/v1 handoff fp=[0-9a-f]{12}(?:[0-9a-f]{4})? -->\r?\n/.test(issue.body || '') &&
               ['sync', 'automated', 'agents:auto-pilot'].every(name => labels.has(name));
 
             if (action === 'unlabeled' && label?.name === pilot) {
@@ -428,7 +428,7 @@ jobs:
             if (issue.state === 'open' && issuer && String(issue.user?.id) === issuer &&
                 labels.includes('sync:opener-first') && labels.includes('agents:auto-pilot') &&
                 labels.includes('sync') && labels.includes('automated') &&
-                /^<!-- sync-core opener-first\/v1 -->\r?\n<!-- sync-core\/v1 handoff fp=[0-9a-f]{12} -->\r?\n/.test(issue.body || '')) {
+                /^<!-- sync-core opener-first\/v1 -->\r?\n<!-- sync-core\/v1 handoff fp=[0-9a-f]{12}(?:[0-9a-f]{4})? -->\r?\n/.test(issue.body || '')) {
               core.setOutput('should_continue', 'false');
               core.setOutput('reason', 'sync-opener-first');
               return;
