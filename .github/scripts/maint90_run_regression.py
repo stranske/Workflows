@@ -15,10 +15,11 @@ failure of some other test is not a negative control. That pair is the
 `failed-before-fix` evidence Maint 71 requires.
 
 Runs in a job with no secrets; the command must match the allowlist and is
-executed without a shell. With --run-as, dependency installs and test runs use
-that unprivileged user and a copy of each tree in its home; git and the evidence
-file stay with the supervisor, so test code cannot fake the revert or write the
-evidence.
+executed without a shell. With --run-as BASE, each tree is installed and tested
+by its own unprivileged user (BASE-fixed, BASE-reverted) from a copy in that
+user's home; the user's processes are killed before its report is read. Git and
+the evidence file stay with the supervisor, so test code cannot fake the revert,
+reach the other run, or write the evidence.
 """
 
 from __future__ import annotations
@@ -32,8 +33,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml import ElementTree as DefusedET
+from defusedxml.common import DefusedXmlException
 
 COMMAND_RE = re.compile(
     r"^(?:python -m pytest|pytest|node --test|npm test --)(?: [A-Za-z0-9_./:=,@+\-\[\]]+)+$"
@@ -44,6 +47,11 @@ TEST_FAILED_EXIT = 1
 TEST_SUFFIXES = (".py", ".js", ".mjs", ".cjs", ".ts")
 MAX_RESULTS_BYTES = 5_000_000
 RUN_AS: str | None = None
+INSTALL = True
+
+
+def user_for(tree: str) -> str | None:
+    return f"{RUN_AS}-{tree}" if RUN_AS else None
 
 
 def now() -> str:
@@ -70,25 +78,27 @@ def supervise(argv: list[str], cwd: Path, timeout: int = TIMEOUT_SECONDS) -> dic
     return _exec(argv, cwd, env, timeout)
 
 
-def sandbox_home() -> str:
-    return f"/home/{RUN_AS}" if RUN_AS else os.environ.get("HOME", "/tmp")
+def sandbox_home(tree: str) -> str:
+    user = user_for(tree)
+    return f"/home/{user}" if user else os.environ.get("HOME", "/tmp")
 
 
 def sandboxed(argv: list[str], cwd: Path, tree: str, timeout: int = TIMEOUT_SECONDS) -> dict:
-    """Code under test: as the unprivileged user, with that tree's own venv."""
+    """Code under test: as that tree's own unprivileged user, with its own venv."""
+    user = user_for(tree)
     path = os.environ.get("PATH", "")
-    if RUN_AS:
-        path = f"{sandbox_home()}/venv-{tree}/bin:{path}"
+    if user:
+        path = f"{sandbox_home(tree)}/venv/bin:{path}"
     env = {
         "PATH": path,
-        "HOME": sandbox_home(),
+        "HOME": sandbox_home(tree),
         "LANG": "C.UTF-8",
         "CI": "true",
         "PYTHONDONTWRITEBYTECODE": "1",
     }
-    if RUN_AS:
+    if user:
         argv = (
-            ["sudo", "-n", "-u", RUN_AS, "--", "env", "-i"]
+            ["sudo", "-n", "-u", user, "--", "env", "-i"]
             + [f"{key}={value}" for key, value in env.items()]
             + argv
         )
@@ -98,11 +108,13 @@ def sandboxed(argv: list[str], cwd: Path, tree: str, timeout: int = TIMEOUT_SECO
 def install_dependencies(command: str, repo: Path, tree: str) -> list[dict]:
     """Best effort; a failed install shows up as a failing with-fix run."""
     steps: list[list[str]] = []
+    if not INSTALL:
+        return []
     if command.startswith(("python", "pytest")):
         python = sys.executable
-        if RUN_AS:
-            steps.append([sys.executable, "-m", "venv", f"{sandbox_home()}/venv-{tree}"])
-            python = f"{sandbox_home()}/venv-{tree}/bin/python"
+        if user_for(tree):
+            steps.append([sys.executable, "-m", "venv", f"{sandbox_home(tree)}/venv"])
+            python = f"{sandbox_home(tree)}/venv/bin/python"
         steps.append([python, "-m", "pip", "install", "--quiet", "pytest"])
         for name in ("requirements-dev.txt", "requirements.txt"):
             if (repo / name).is_file():
@@ -151,8 +163,8 @@ def read_results(path: Path) -> dict | None:
     try:
         if not path.is_file() or path.stat().st_size > MAX_RESULTS_BYTES:
             return None
-        root = ET.parse(path).getroot()
-    except (OSError, ET.ParseError):
+        root = DefusedET.parse(path).getroot()
+    except (OSError, DefusedET.ParseError, DefusedXmlException):
         return None
     outcome: dict[str, list[str]] = {"passed": [], "failed": [], "errors": [], "skipped": []}
     for case in root.iter("testcase"):
@@ -193,22 +205,31 @@ def prepare_reverted(tree: Path, sha: str, paths: list[str]) -> dict:
 
 
 def place(tree: Path, name: str) -> Path:
-    """Hand a supervisor-prepared tree to the unprivileged user (a copy in its home)."""
-    if not RUN_AS:
+    """Hand a supervisor-prepared tree to that tree's own user (a copy in its home)."""
+    user = user_for(name)
+    if not user:
         return tree
-    dest = Path(sandbox_home()) / name
+    dest = Path(sandbox_home(name)) / "tree"
     supervise(["sudo", "-n", "rm", "-rf", str(dest)], tree.parent)
     copied = supervise(["sudo", "-n", "cp", "-a", str(tree), str(dest)], tree.parent)
-    owned = supervise(["sudo", "-n", "chown", "-R", f"{RUN_AS}:{RUN_AS}", str(dest)], tree.parent)
+    owned = supervise(["sudo", "-n", "chown", "-R", f"{user}:{user}", str(dest)], tree.parent)
     if copied["exit_code"] != 0 or owned["exit_code"] != 0:
         raise RuntimeError(f"cannot place {name} tree: {copied['tail']}{owned['tail']}")
     return dest
 
 
+def stop_user(name: str, cwd: Path) -> None:
+    """Kill every process the tree's user left behind, before its report is read."""
+    user = user_for(name)
+    if user:
+        supervise(["sudo", "-n", "pkill", "-KILL", "-u", user], cwd)
+
+
 def run_tree(command: str, argv: list[str], tree: Path, name: str, scratch: Path) -> dict:
-    results = (Path(sandbox_home()) if RUN_AS else scratch) / f"results-{name}.xml"
+    results = (Path(sandbox_home(name)) if user_for(name) else scratch) / f"results-{name}.xml"
     install = install_dependencies(command, tree, name)
     run = sandboxed(with_results(argv, results) or argv, tree, name)
+    stop_user(name, scratch)
     parsed = read_results(results)
     return {**run, "tests": counts(parsed), "_results": parsed, "install": install}
 
@@ -220,10 +241,16 @@ def main() -> int:
     parser.add_argument("--receiver", required=True)
     parser.add_argument("--workflows", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--run-as", default=None, help="unprivileged user for the code under test")
+    parser.add_argument(
+        "--run-as", default=None, help="user prefix; BASE-fixed and BASE-reverted run the tests"
+    )
+    parser.add_argument(
+        "--no-install", action="store_true", help="use the current environment (tests only)"
+    )
     args = parser.parse_args()
-    global RUN_AS
+    global RUN_AS, INSTALL
     RUN_AS = args.run_as
+    INSTALL = not args.no_install
 
     out = Path(args.output)
     try:

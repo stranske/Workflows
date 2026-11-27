@@ -355,17 +355,21 @@ async function publish({ github: rawGithub, context, core, env = process.env, no
     if (!live.live) { outcomes.push({ key: A.findingKey(candidate), outcome: 'no_longer_assessable' }); continue; }
     // Only Maint 71 runs Maint 90 dispatched with this proof spend the budget,
     // each read directly by its id.
-    const runStatus = new Map();
+    // A run counts only if it executed a proof-processing step; any read error
+    // leaves it unconfirmed rather than stopping the sweep.
+    const runProcessed = new Map();
     for (const dispatch of item.dispatches || []) {
       if (!dispatch.maint71_run_id) continue;
       try {
         const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: dispatch.maint71_run_id });
-        runStatus.set(dispatch.maint71_run_id, run.status);
+        const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+          ...context.repo, run_id: dispatch.maint71_run_id, per_page: 100 });
+        runProcessed.set(dispatch.maint71_run_id, A.runProcessedProof(run, jobs.jobs));
       } catch (error) {
-        if (error.status !== 404) throw error;
+        core.warning(`Maint 71 run ${dispatch.maint71_run_id} unreadable (${error.status || error.message}); left unconfirmed`);
       }
     }
-    const budget = A.dispatchBudget(item.dispatches, runStatus);
+    const budget = A.dispatchBudget(item.dispatches, runProcessed);
     const exhausted = budget.spent >= MAX_REDISPATCH_RUNS ? 'maint71_did_not_resolve'
       : budget.total >= MAX_DISPATCH_RECEIPTS ? 'maint71_runs_unconfirmed' : '';
     if (exhausted) {

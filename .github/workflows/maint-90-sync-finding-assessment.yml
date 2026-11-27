@@ -194,15 +194,20 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "22"
-      - name: Create the unprivileged test user
+      - name: Create the unprivileged test users
         # The runner prepares both trees with trusted git as the runner user,
-        # then hands copies to this user, which runs installs and tests only.
-        # It cannot write the trees' sources or out/regression.json.
+        # then hands each copy to its own user (fixed, reverted), which runs
+        # installs and tests only. Neither user can write the other's tree or
+        # report, the trees' sources, or out/regression.json.
         run: |
           set -euo pipefail
-          sudo useradd --create-home --shell /bin/bash maint90-test
-          sudo chmod 755 /home/maint90-test
+          for tree in fixed reverted; do
+            sudo useradd --create-home --shell /bin/bash "maint90-${tree}"
+            sudo chmod 755 "/home/maint90-${tree}"
+          done
           mkdir -p out in
+      - name: Install the report parser
+        run: python -m pip install --quiet "defusedxml==0.7.1"
       - name: Run the regression with and without the fix
         env:
           ITEM_JSON: ${{ toJSON(matrix.item) }}
@@ -211,10 +216,12 @@ jobs:
           python .github/scripts/maint90_run_regression.py \
             --assessment in/assessment.json --item out/item.json \
             --receiver case/receiver --workflows case/workflows \
-            --run-as maint90-test --output out/regression.json
+            --run-as maint90 --output out/regression.json
       - name: Stop the code under test
         if: always()
-        run: sudo pkill -KILL -u maint90-test || true
+        run: |
+          sudo pkill -KILL -u maint90-fixed || true
+          sudo pkill -KILL -u maint90-reverted || true
       - name: Upload regression
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:

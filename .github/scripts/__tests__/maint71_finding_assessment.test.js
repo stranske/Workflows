@@ -121,13 +121,26 @@ test('marker JSON escapes comment delimiters and round-trips', () => {
   assert.deepEqual(JSON.parse(json), value);
 });
 
-test('dispatch receipts: only named runs read as completed spend the budget', () => {
-  const status = new Map([[11, 'completed'], [12, 'in_progress']]);
-  const budget = (receipts) => A.dispatchBudget(receipts.map((id) => ({ maint71_run_id: id })), status);
+test('dispatch receipts: only runs that executed a proof step spend the budget', () => {
+  const processed = new Map([[11, true], [12, false]]);
+  const budget = (receipts) => A.dispatchBudget(receipts.map((id) => ({ maint71_run_id: id })), processed);
   assert.deepEqual(budget([11]), { spent: 1, total: 1, unconfirmed: 0 });
   assert.deepEqual(budget([12]), { spent: 0, total: 1, unconfirmed: 1 });
   // An unidentified or unreadable run is unconfirmed, never a run that processed the proof.
   assert.deepEqual(budget([null, 13]), { spent: 0, total: 2, unconfirmed: 2 });
+  const step = (name, conclusion) => [{ steps: [{ name, conclusion }] }];
+  assert.equal(A.runProcessedProof({ status: 'completed' }, step('Check and merge sync PRs', 'failure')), true);
+  assert.equal(A.runProcessedProof({ status: 'completed' }, step('Apply proof-bound candidate review resolutions', 'success')), true);
+  // Cancelled before the proof step, or the proof step skipped: not an attempt.
+  assert.equal(A.runProcessedProof({ status: 'completed', conclusion: 'cancelled' }, step('Checkout', 'success')), false);
+  assert.equal(A.runProcessedProof({ status: 'completed' }, step('Check and merge sync PRs', 'skipped')), false);
+  assert.equal(A.runProcessedProof({ status: 'completed' }, step('Check and merge sync PRs', 'cancelled')), false);
+  assert.equal(A.runProcessedProof({ status: 'in_progress' }, step('Check and merge sync PRs', 'success')), false);
+});
+
+test('the proof steps Maint 90 looks for exist in Maint 71', () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-71-merge-sync-prs.yml'), 'utf8');
+  for (const name of A.MAINT71_PROOF_STEPS) assert.ok(workflow.includes(`- name: ${name}\n`), name);
 });
 
 test('a request bound to an older head does not authorize an assessment of the current head', () => {
@@ -241,7 +254,16 @@ function mockGithub({ comments = [], runs = [], runIdBase = 9000, answerFromGrap
       getWorkflowRun: async ({ run_id: id }) => {
         const run = runs.find((item) => item.id === id);
         if (!run) throw Object.assign(new Error('Not Found'), { status: 404 });
+        if (run.readError) throw Object.assign(new Error('Server Error'), { status: run.readError });
         return { data: run };
+      },
+      listJobsForWorkflowRun: async ({ run_id: id }) => {
+        const run = runs.find((item) => item.id === id);
+        const processed = run.status === 'completed' && run.conclusion !== 'cancelled';
+        return { data: { jobs: [{ name: 'merge_sync_prs', steps: [
+          { name: 'Checkout', conclusion: 'success' },
+          { name: 'Check and merge sync PRs', conclusion: processed ? 'success' : 'skipped' },
+        ] }] } };
       },
       createWorkflowDispatch: async (params) => {
         calls.dispatches.push(params);
@@ -430,6 +452,12 @@ test('redispatch spends its budget only on Maint 71 runs that carried this proof
   assert.equal(unrelated.calls.dispatches.length, 1);
   const receipt9001 = unrelated.calls.comments[0];
   assert.match(receipt9001.body, /"maint71_run_id":9001/);
+  // Our runs were cancelled before the proof step, or cannot be read: still unspent.
+  const cancelled = await sweep([verification, receipt9000, receipt9001], [
+    { id: 9000, status: 'completed', conclusion: 'cancelled', created_at: '2026-11-26T17:41:00Z' },
+    { id: 9001, status: 'completed', readError: 502, created_at: '2026-11-26T18:20:00Z' },
+  ], 9300);
+  assert.deepEqual(cancelled.outcomes.map((item) => item.outcome), ['redispatched']);
   // Both runs that carried the proof completed without resolving: hand off.
   const exhausted = await sweep([verification, receipt9000, receipt9001], [
     { id: 9000, status: 'completed', created_at: '2026-11-26T17:41:00Z' },

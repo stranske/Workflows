@@ -350,16 +350,32 @@ function renderDispatchReceipt(candidate, { runId, commentUrl, dispatchedAt, run
   ].filter(Boolean).join('\n');
 }
 
+// Maint 71 steps that read REVIEW_RESOLUTION_JSON (candidate and campaign lanes).
+const MAINT71_PROOF_STEPS = [
+  'Apply proof-bound candidate review resolutions',
+  'Collect and validate canary evidence before merge',
+  'Check and merge sync PRs',
+];
+
 /**
- * Redispatch budget from receipts and the directly read status of each named
- * Maint 71 run (runStatus: run id -> status, absent when unreadable). Only a
- * named run that completed is spent; a receipt with no readable run is
- * unconfirmed and never counted as a run that processed the proof.
+ * Whether a completed Maint 71 run executed a step that processes the proof.
+ * A run cancelled or failed before those steps did not attempt the resolution.
  */
-function dispatchBudget(dispatches, runStatus) {
+function runProcessedProof(run, jobs) {
+  if (run?.status !== 'completed') return false;
+  return (jobs || []).some((job) => (job.steps || []).some((step) =>
+    MAINT71_PROOF_STEPS.includes(step.name) && ['success', 'failure'].includes(step.conclusion)));
+}
+
+/**
+ * Redispatch budget from receipts and what each named Maint 71 run did
+ * (runProcessed: run id -> true when it executed a proof step; absent when
+ * unreadable). Only those runs are spent; anything else is unconfirmed.
+ */
+function dispatchBudget(dispatches, runProcessed) {
   const receipts = dispatches || [];
   const spent = receipts.filter((dispatch) => dispatch.maint71_run_id
-    && runStatus.get(dispatch.maint71_run_id) === 'completed');
+    && runProcessed.get(dispatch.maint71_run_id) === true);
   return { spent: spent.length, total: receipts.length, unconfirmed: receipts.length - spent.length };
 }
 
@@ -415,7 +431,7 @@ function simulatedVerificationArgs({ candidate, record, proof, state, recordBind
 
 module.exports = {
   ATTEMPT_MARKER, DISPATCH_MARKER, COMMAND_RE, TEST_FAILED_EXIT, VERIFICATION_TTL_MS, markerJson,
-  renderDispatchReceipt, dispatchBudget,
+  renderDispatchReceipt, dispatchBudget, runProcessedProof, MAINT71_PROOF_STEPS,
   consumerSyncMarker, laneForSyncPhase, findingKey, selectAssessableFindings, priorProducerRecords,
   buildAssessmentPrompt, parseAssessment, commandArgv, regressionEstablished, buildVerificationRecord,
   renderVerificationComment, renderAttemptComment, buildResolutionProof, buildMaint71Dispatch,

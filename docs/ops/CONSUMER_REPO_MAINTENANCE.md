@@ -2421,8 +2421,9 @@ fixed run must pass cleanly; the reverted run must exit 1 with no collection or
 setup errors, and a test that passed with the fix must fail without it. The
 named test files are restored from the fixed tree after the revert, so a fix
 that adds its own test still runs it. The runner prepares both trees with
-trusted git before any code under test runs; installs and tests run as an
-unprivileged user that cannot alter the trees' preparation or write the
+trusted git before any code under test runs; each tree is installed and tested
+by its own unprivileged user, whose processes are killed before its report is
+read, so neither run can reach the other, the trees' preparation or the
 evidence file. `npm test --` commands give no per-test results and are handed
 to the owner. Commands are
 limited to `python -m pytest`, `pytest`, `node --test` and `npm test --` and run
@@ -2434,8 +2435,9 @@ proof becomes one `maint71-finding-assessment-attempt:v1` hand-off comment for
 that finding and head; a new head gets a new assessment. A published
 verification is re-dispatched while Maint 71 is busy and handed off after two
 completed Maint 71 runs that carried its proof and left the thread open; each
-dispatch leaves a `maint90-maint71-dispatch:v1` receipt naming its run, each
-run is read by its id, and unrelated or unreadable runs never spend that budget.
+dispatch leaves a `maint90-maint71-dispatch:v1` receipt naming its run, and a
+run spends that budget only if it executed a Maint 71 step that processes the
+proof (a cancelled, unrelated or unreadable run never does).
 After four receipts whose runs cannot be confirmed, the finding is handed off
 as `maint71_runs_unconfirmed`. The Codex connector rotates
 the cheer after its stock summary, so the known cheers are listed in
