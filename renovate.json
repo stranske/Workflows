@@ -39,6 +39,7 @@
     }
   ],
   "ignorePaths": [
-    "config/verify_paired/**"
+    "config/verify_paired/**",
+    ".github/actions/trial-codex-cli/**"
   ]
 }

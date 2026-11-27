@@ -5,12 +5,14 @@ import re
 from pathlib import Path
 
 import yaml
+from scripts import model_profile_trial_contract
 
 SHIM = Path(".github/workflows/agents-model-profile-trial.yml")
 RUNNER = Path(".github/workflows/reusable-model-profile-trial.yml")
 REGISTRY = Path(".github/agents/registry.yml")
 TEMPLATE_REGISTRY = Path("templates/consumer-repo/.github/agents/registry.yml")
 TRIAL_CLI_ROOT = Path(".github/actions/trial-codex-cli")
+RENOVATE_CONFIG = Path("renovate.json")
 
 
 def _workflow(path: Path):
@@ -132,6 +134,28 @@ def test_runner_uses_separate_pinned_helper_checkout_and_full_action_shas():
     assert "runner-src/scripts/model_profile_trial_contract.py" in source[auth_offset:]
 
 
+def _assert_renovate_freezes_trial_codex_cli() -> None:
+    renovate = json.loads(RENOVATE_CONFIG.read_text(encoding="utf-8"))
+    trial_glob = f"{TRIAL_CLI_ROOT.as_posix()}/**"
+    assert trial_glob in renovate.get("ignorePaths", [])
+    package_rules = renovate.get("packageRules", [])
+    disabling_indices = [
+        idx
+        for idx, rule in enumerate(package_rules)
+        if trial_glob in rule.get("matchFileNames", []) and rule.get("enabled") is False
+    ]
+    assert disabling_indices, f"renovate.json must disable updates for {trial_glob}"
+    for idx in disabling_indices:
+        rule = package_rules[idx]
+        # A narrowing matcher would leave other trial-cli updates enabled.
+        assert set(rule) <= {"description", "matchFileNames", "enabled"}
+    first_disable_idx = disabling_indices[0]
+    for later_rule in package_rules[first_disable_idx + 1 :]:
+        matched_files = later_rule.get("matchFileNames", [])
+        if any(TRIAL_CLI_ROOT.as_posix() in str(pattern) for pattern in matched_files):
+            assert later_rule.get("enabled") is False
+
+
 def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
     registry = yaml.safe_load(REGISTRY.read_text(encoding="utf-8"))
     trial = registry["model_profile_trial_contract"]
@@ -143,11 +167,19 @@ def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
         == "github-actions-api/workflows-read-only-trial-artifact/v2"
     )
     assert trial["cli_version"] == "0.153.2"
+    assert trial["cli_version"] == model_profile_trial_contract.EXPECTED_CLI_VERSION
     trial_package = json.loads((TRIAL_CLI_ROOT / "package.json").read_text(encoding="utf-8"))
     assert trial_package["dependencies"]["@openai/codex"] == trial["cli_version"]
     trial_lock = json.loads((TRIAL_CLI_ROOT / "package-lock.json").read_text(encoding="utf-8"))
     assert trial_lock["packages"][""]["dependencies"]["@openai/codex"] == trial["cli_version"]
-    assert trial_lock["packages"]["node_modules/@openai/codex"]["version"] == trial["cli_version"]
+    root_codex = trial_lock["packages"]["node_modules/@openai/codex"]
+    assert root_codex["version"] == trial["cli_version"]
+    for opt_spec in root_codex.get("optionalDependencies", {}).values():
+        assert opt_spec.startswith(f"npm:@openai/codex@{trial['cli_version']}-")
+    for pkg_path, pkg_meta in trial_lock["packages"].items():
+        if pkg_path.startswith("node_modules/@openai/codex-"):
+            assert pkg_meta["version"].startswith(f"{trial['cli_version']}-")
+    _assert_renovate_freezes_trial_codex_cli()
     assert trial["runtime_fallback_allowed"] is False
     assert trial["auxiliary_evaluator_allowed"] is False
     for profile_id in (
@@ -166,17 +198,7 @@ def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
 
 
 def test_renovate_does_not_bump_pinned_trial_codex_cli():
-    renovate = json.loads(Path("renovate.json").read_text(encoding="utf-8"))
-    trial_glob = f"{TRIAL_CLI_ROOT.as_posix()}/**"
-    disabling_rules = [
-        rule
-        for rule in renovate.get("packageRules", [])
-        if trial_glob in rule.get("matchFileNames", []) and rule.get("enabled") is False
-    ]
-    assert disabling_rules, f"renovate.json must disable updates for {trial_glob}"
-    for rule in disabling_rules:
-        # A narrowing matcher would leave other trial-cli updates enabled.
-        assert set(rule) <= {"description", "matchFileNames", "enabled"}
+    _assert_renovate_freezes_trial_codex_cli()
 
 
 def test_consumer_template_registry_matches_authoritative_registry():

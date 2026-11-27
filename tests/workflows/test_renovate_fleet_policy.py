@@ -102,5 +102,12 @@ def test_workflows_and_consumer_entrypoints_share_the_bounded_fleet_policy() -> 
 def test_workflows_dependency_updates_preserve_reviewed_runtime_and_packets() -> None:
     config = json.loads((REPO_ROOT / "renovate.json").read_text())
     assert "config/verify_paired/**" in config["ignorePaths"]
+    assert ".github/actions/trial-codex-cli/**" in config["ignorePaths"]
+    trial_freeze = _rule(
+        config,
+        matchFileNames=[".github/actions/trial-codex-cli/**"],
+        enabled=False,
+    )
+    assert set(trial_freeze) <= {"description", "matchFileNames", "enabled"}
     runtime = _rule(config, matchManagers=["github-actions"], matchPackageNames=["python"])
     assert runtime["allowedVersions"] == "<3.15"

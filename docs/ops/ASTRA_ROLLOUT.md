@@ -8,7 +8,10 @@ autofix callers explicitly use `gpt-5.6-terra` at medium effort. Explicit
 for difficult judgment or design work. The Codex checkbox verifier remains on
 Astra at medium effort because a false PASS is consequential. Codex CLI is
 pinned to 0.160.0 for active worker profiles. The isolated trial runner remains
-pinned to 0.153.2 so its historical arms remain comparable.
+pinned to 0.153.2 so its historical arms remain comparable, and
+`.github/actions/trial-codex-cli/**` is excluded from Renovate updates in
+`renovate.json` so automated dependency bumps cannot drift from the frozen trial
+contract.
 The active role table and dispatch contract are in [CODEX_ROLE_ROUTING.md](CODEX_ROLE_ROUTING.md).
 
 Astra is also available as a read-only profile-trial arm. The runner remains
