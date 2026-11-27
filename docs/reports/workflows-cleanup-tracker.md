@@ -9,19 +9,22 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ### November 27 · Retiring standalone Decompose, Auto-Pilot and the Codex belt
 
-The five-repeat requirement has been removed from all twelve retirement records. The hosted opener started Workflows #5352 and Manager-Mosaic #172 and both produced merged PRs. The closer ran three hosted apply passes with the Mac paused. The shared closer performed the two protected merges on the Mac. These observations establish which seat did each job. The number of sync defects is irrelevant to the retirement decision.
+The six legacy workflow duties and their six receiving template records have separate installation checks. Two ordinary hosted starts produced the linked Workflows #5354 and Manager-Mosaic #173 PRs, and the Mac closer merged them. Three hosted closer/sync passes ran with the Mac paused and all 56 feedback calls replayed. No further sync issue or repeated handoff is required.
 
-[Standalone Decompose retirement](https://github.com/stranske/Workflows/pull/5377) removes both definitions and their provisioning. Issue Optimizer produced identical task splitting for Workflows #4792, and all 16 receiving default trees passed the local removal rehearsal. The four belt definitions and Auto-Pilot must come out together because real Auto-Pilot calls target the belt worker. [Verify follow-up migration](https://github.com/stranske/Workflows/pull/5378) and [sync producer migration](https://github.com/stranske/lanes/pull/2) move the two live producers onto the shared opener. Historical dedup reuses the original issue and claim. A genuine transient staging failure on Orchestrator #1518 cleared on the same head. Actual source removal and delivery to receiving defaults are counted separately.
+| Duty | Workflows source | Receiving defaults verified without the old definition |
+|---|---|---:|
+| Standalone Decompose | [Retired at 5720c908](https://github.com/stranske/Workflows/pull/5377). Issue Optimizer preserved the exact output on #4792. | 16/16 |
+| Belt dispatcher, worker dispatch, worker, conveyor, and Auto-Pilot | The exact source change is in [#5379](https://github.com/stranske/Workflows/pull/5379). Its dependency hold is released. The standalone manual conveyor wrapper also retires. | 0/16 for all five |
 
-Maint 72 is accepted. Its [protected receiving PR](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540) removed the 23,072-byte file while retaining the ignore rule, and the [post-merge native preview](https://github.com/stranske/Workflows/actions/runs/46028294563) correctly made zero writes. The [prior scheduled event](https://github.com/stranske/Workflows/actions/runs/44979239080) used the unchanged cron. Running both input forms through the current implementation against the same 16 receiver heads produced identical selection and byte-identical diagnoses. The next calendar occurrence adds no distinct functional check.
+The verifier now publishes an ordinary follow-up and the shared opener assigns work. Both installed copies matched and 34 post-merge cases passed. New sync findings use the same opener on the Mac and hosted seats. Both installations matched all seven reviewed blobs. A check across 17 repositories found zero active legacy runs or unclaimed legacy issues. The source-only retry helper remains available to old receiving installations. [Verifier producer](https://github.com/stranske/Workflows/pull/5378) · [Sync producer](https://github.com/stranske/lanes/pull/2) · [Hosted source record](https://github.com/stranske/lanes/blob/fbc8362b29f3367d9a47988bbe1b825ba2822e6d/SOURCE.json)
 
-[The combined belt and Auto-Pilot retirement](https://github.com/stranske/Workflows/pull/5379) removes the five remaining source definitions, their five template copies, the additional source-only manual conveyor dispatch wrapper and the three managed Python helpers. The protected receiving plan applied to the actual Manager-Mosaic tree produced eight removals; pairing the reviewed verifier change eliminated the last dispatch to Auto-Pilot. Its live source is held for the producer cutovers and a guide correction. Historical dashboard discovery uses the stable workflow ID, and the remote helper used by older receiving copies stays available through delivery. [Release conditions](https://github.com/stranske/Workflows/pull/5379#issuecomment-7229586816)
+The first exact-base belt change caught three stale contracts on both Python versions. The repair preserved the historical archive link, named all five surviving resolver jobs, and checked the shared opener and keepalive route. The three failures reproduced locally and all passed after the repair. [Native Gate for the three repairs](https://github.com/stranske/Workflows/actions/runs/46080372957). Five operator-guide findings were also corrected, including the distinction between live keepalive recovery and historical Auto-Pilot instructions. All 187 guide-dependent tests passed. [Final operator-guide Gate](https://github.com/stranske/Workflows/actions/runs/46081766949)
 
-The sync producer is installed on both seats. [Lanes #2](https://github.com/stranske/lanes/pull/2) merged at 7c21ebc3986d. The compatible Mac opener 12be8a8b7fc7 installed first. The Mac producer a590fa803b78 then installed, and the [published hosted snapshot](https://github.com/stranske/lanes/blob/fbc8362b29f3367d9a47988bbe1b825ba2822e6d/SOURCE.json) identifies the same two revisions. All seven reviewed source blobs match. New genuine sync findings now go directly to the shared opener. Prior claims retain their owner. No further sync issue is needed to release this dependency.
+Maint 72 is accepted. [Portable Alpha #2540](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540) removed the 23,072-byte file and preserved the ignore rule. The [native post-merge preview](https://github.com/stranske/Workflows/actions/runs/46028294563) verified the correction. The unchanged cron had fired previously, and both input forms yielded byte-identical diagnoses for all 16 current receivers.
 
-[Decompose is retired on Workflows main](https://github.com/stranske/Workflows/commit/5720c9083d5d74faeb9c5165d4c51ec01fb33a89). The installed tree matched the guarded merge exactly. The source and template YAMLs are absent, and Issue Optimizer remains present. The native primary Gate jobs took 315 and 572 seconds. The full Gate took 804 seconds against the 600-second goal. The template's receiving delivery remains a separate acceptance.
+The [Decompose canary](https://github.com/stranske/Workflows/actions/runs/46078983774) created [Travel #1780](https://github.com/stranske/Travel-Plan-Permission/pull/1780), [trip-planner #2079](https://github.com/stranske/trip-planner/pull/2079) and [Portable Alpha #2546](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2546). All three candidate trees removed the old workflow and retained the optimizer assets. Once all signed heads passed native checks, [Maint 71](https://github.com/stranske/Workflows/actions/runs/46079208701/attempts/2) advanced the [full promotion](https://github.com/stranske/Workflows/actions/runs/46079880309). The table counts only immutable receiving defaults.
 
-[The normal Decompose canary](https://github.com/stranske/Workflows/actions/runs/46078983774) is running on exact source 5720c908 with full plan 642fc4ec. The post-merge readback confirmed the source definition is absent and all 16 receiving defaults still retained it at dispatch. The control verifier was present on all 17 exact trees.
+[All sixteen protected Decompose merges](https://github.com/stranske/Workflows/actions/runs/46081915537) completed. Every receiving default retained the optimizer workflow, helper and prompt.
 
 Stage 3 and 4 delivery. [#5372](https://github.com/stranske/Workflows/pull/5372) removed the obsolete installer, moved seven suites under their tested owners, and eliminated three contract mirrors on main. All 97 affected cases passed after merge. The primary Gate jobs took 392 and 507 seconds. The whole run took 652 seconds against a 600-second target. Three contract placements await signed receiver publication. [#5374](https://github.com/stranske/Workflows/pull/5374) consolidates the raw optimizer bootstrap. [#5375](https://github.com/stranske/Workflows/pull/5375) groups fifteen loose test files by owner, merges nine authentication tests into the existing suite, and consolidates two duplicate fixture pairs. All 501 focused cases passed on both trees. The original checklist has 26 verified live outcomes and two replay-verified no-demand dispositions.
 
@@ -403,26 +406,26 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 187/198 completed · 6 drainable now · 5 blocked · 11 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 188/198 completed · 5 drainable now · 5 blocked · 10 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
 | 3 · Scripts, tools and packages | 506/752 | 37/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,081/1,540 | 137/177 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,082/1,540 | 137/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
-| **Total** | **3,762/5,554** | **318/487** | **187/198** |
+| **Total** | **3,763/5,554** | **318/487** | **188/198** |
 
-**Directory organization.** 3,550 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,551 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
 | [Keep in current role](workflow-decisions.md#keep) | 128 |
-| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 14 |
+| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 15 |
 | [Other verified decisions](workflow-decisions.md#verified) | 45 |
 | [Awaiting verification](workflow-decisions.md#waiting) | 0 |
 | [In review](workflow-decisions.md#review) | 0 |
-| [Proposed changes](workflow-decisions.md#proposed) | 11 |
+| [Proposed changes](workflow-decisions.md#proposed) | 10 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
 
