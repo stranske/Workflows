@@ -1789,6 +1789,8 @@ function deliveryRefreshDecision({ report = {}, expectedCanaries = [] } = {}) {
     errors,
     plan_id: validation.plan_id || '',
     evidence: firstEvidence,
+    registeredRepositories: report.inputs?.registered_repos,
+    priorNoChangeEvidence: requests[0].campaign_no_change_evidence_json || '',
     repositories: requests
       .map((result) => `${result.owner || ''}/${result.repo || ''}`.replace(/^\//, ''))
       .filter(Boolean)

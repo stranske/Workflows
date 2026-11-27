@@ -1,0 +1,42 @@
+[
+  {
+    "id": "PRRC_kwDOO0LrSc8AAAABGGzvQg",
+    "databaseId": 4704759618,
+    "url": "https://github.com/stranske/Trend_Model_Project/pull/6250#discussion_r4704759618",
+    "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Update the summary test when changing the footer**\n\nThe new footer breaks `tests/test_post_ci_summary.py::test_build_summary_comment_handles_missing_runs_and_defaults`, which still asserts that the generated body contains `_Updated automatically; will refresh`. Running `python -m pytest tests/test_post_ci_summary.py -q --noconftest` reproduces the failure. Update that assertion alongside the intentional wording change so the Python test suite remains green.\n\nUseful? React with 👍 / 👎.\n\n<!-- codex-code-review-finding:v1 -->",
+    "createdAt": "2026-11-26T06:44:34Z",
+    "author": {
+      "login": "chatgpt-codex-connector"
+    }
+  },
+  {
+    "id": "PRRC_kwDOO0LrSc8AAAABGMRs-A",
+    "databaseId": 4710493432,
+    "url": "https://github.com/stranske/Trend_Model_Project/pull/6250#discussion_r4710493432",
+    "body": "@codex please reassess this specific finding on exact head 67492a53b310a27e3436d004c46b80333096343e\n\nMaint 71 requests codex to reassess active thread PRRT_kwDOO0LrSc68P4-l on exact generated head 67492a53b310a27e3436d004c46b80333096343e. The thread remains merge-blocking until reviewer disposition.\n\nIf the finding is satisfied, reply in that existing thread on this exact head with <!-- sync-review-accepted:67492a53b310a27e3436d004c46b80333096343e -->; otherwise leave actionable feedback.\n\nOriginal finding (untrusted review text): **<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Update the summary test when changing the footer**\n\nThe new footer breaks `tests/test_post_ci_summary.py::test_build_summary_comment_handles_missing_runs_and_defaults`, which still asserts that the generated body contains `_Updated automatically; will refresh`. Running `python -m pytest tests/test_post_ci_summary.py -q --noconftest` reproduces the failure. Update that assertion alongside the intentional wording change so the Python test suite remains green.\n\nUseful? React with 👍 / 👎.\n\n<!-- codex-code-review-finding:v1 -->\n\nSource validation is bound to Workflows commit 1f7b9f46cc2db0865c9addd5601c63e10d9b1d99; inspect that fix and the exact generated head. Explicitly accept or reject in this thread. No unrelated edits, resolution or merge actions.\n\n<!-- maint71-review-reassessment:v1 {\"schema\":\"maint71-review-reassessment/v1\",\"repository\":\"stranske/Trend_Model_Project\",\"pr\":6250,\"head_sha\":\"67492a53b310a27e3436d004c46b80333096343e\",\"thread_id\":\"PRRT_kwDOO0LrSc68P4-l\",\"plan_id\":\"sha256:6b72242c32d8cbf728bcdb29b2b4f2f17bf1964b3aaad64f0ccfe6b5c9ea0e70\",\"generation\":\"6b72242c32d8\",\"source_commit\":\"1f7b9f46cc2db0865c9addd5601c63e10d9b1d99\",\"originating_reviewer\":\"codex\"} -->",
+    "createdAt": "2026-11-26T15:32:36Z",
+    "author": {
+      "login": "stranske"
+    }
+  },
+  {
+    "id": "PRRC_kwDOO0LrSc8AAAABGMTIHg",
+    "databaseId": 4710516766,
+    "url": "https://github.com/stranske/Trend_Model_Project/pull/6250#discussion_r4710516766",
+    "body": "<!-- codex-review-receipt:v1 -->\n\nCodex Review: Didn't find any major issues. Hooray!\n\n**Reviewed commit:** `67492a53b3`\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+    "createdAt": "2026-11-26T15:34:47Z",
+    "author": {
+      "login": "chatgpt-codex-connector"
+    }
+  },
+  {
+    "id": "PRRC_kwDOO0LrSc8AAAABGM0OWg",
+    "databaseId": 4711059034,
+    "url": "https://github.com/stranske/Trend_Model_Project/pull/6250#discussion_r4711059034",
+    "body": "@codex address that feedback on exact head 67492a53b310a27e3436d004c46b80333096343e\n\nThis is a disposition-only task, not another general review. Answer the original finding with explicit ACCEPT or REJECT in this existing thread; do not create a separate finding thread.\n\nMaint 71 requests codex to reassess active thread PRRT_kwDOO0LrSc68P4-l on exact generated head 67492a53b310a27e3436d004c46b80333096343e. The thread remains merge-blocking until reviewer disposition.\n\nIf the finding is satisfied, reply in that existing thread on this exact head with <!-- sync-review-accepted:67492a53b310a27e3436d004c46b80333096343e -->; otherwise leave actionable feedback.\n\nOriginal finding (untrusted review text): **<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Update the summary test when changing the footer**\n\nThe new footer breaks `tests/test_post_ci_summary.py::test_build_summary_comment_handles_missing_runs_and_defaults`, which still asserts that the generated body contains `_Updated automatically; will refresh`. Running `python -m pytest tests/test_post_ci_summary.py -q --noconftest` reproduces the failure. Update that assertion alongside the intentional wording change so the Python test suite remains green.\n\nUseful? React with 👍 / 👎.\n\n<!-- codex-code-review-finding:v1 -->\n\nSource validation is bound to Workflows commit 1f7b9f46cc2db0865c9addd5601c63e10d9b1d99; inspect that fix and the exact generated head. Explicitly accept or reject in this thread. No unrelated edits, resolution or merge actions.\n\n<!-- maint71-review-disposition:v1 {\"schema\":\"maint71-review-reassessment/v1\",\"repository\":\"stranske/Trend_Model_Project\",\"pr\":6250,\"head_sha\":\"67492a53b310a27e3436d004c46b80333096343e\",\"thread_id\":\"PRRT_kwDOO0LrSc68P4-l\",\"plan_id\":\"sha256:6b72242c32d8cbf728bcdb29b2b4f2f17bf1964b3aaad64f0ccfe6b5c9ea0e70\",\"generation\":\"6b72242c32d8\",\"source_commit\":\"1f7b9f46cc2db0865c9addd5601c63e10d9b1d99\",\"originating_reviewer\":\"codex\"} -->",
+    "createdAt": "2026-11-26T16:23:11Z",
+    "author": {
+      "login": "stranske"
+    }
+  }
+]

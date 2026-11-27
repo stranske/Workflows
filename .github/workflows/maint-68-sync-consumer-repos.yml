@@ -1,6 +1,7 @@
 name: Maint 68 Sync Consumer Repos
 run-name: >-
   Maint 68 ${{ inputs.phase || 'canary' }} ${{ inputs.delivery_scope || 'auto' }}
+  ${{ inputs.phase == 'promote' && inputs.repos && format('repos={0}', inputs.repos) || '' }}
   ${{ inputs.phase == 'promote' && (fromJSON(inputs.canary_evidence_json || '{"results":[]}').results[0].plan_id || fromJSON(inputs.canary_evidence_json || '{"results":[]}')[0].plan_id) || '' }}
   ${{ inputs.phase == 'promote' && (fromJSON(inputs.canary_evidence_json || '{"results":[]}').results[0].source_commit || fromJSON(inputs.canary_evidence_json || '{"results":[]}')[0].source_commit) || format('source={0} candidates={1} dry={2}', inputs.scope_head_sha || github.sha, inputs.repos || '*', inputs.dry_run || false) }}
   ${{ inputs.phase != 'promote' && inputs.refresh_key && format('drift={0}', inputs.refresh_key) || '' }}
@@ -52,6 +53,10 @@ on:
         default: canary
       canary_evidence_json:
         description: 'Maint 71 canary evidence JSON for the exact plan ID (required to promote)'
+        type: string
+        required: false
+      prior_campaign_no_change_evidence_json:
+        description: 'Exact no-change evidence for untouched repos during a named promotion refresh'
         type: string
         required: false
       delivery_scope:
@@ -2180,6 +2185,8 @@ jobs:
           SCOPE_BASE_SHA: ${{ needs.prepare.outputs.scope_base_sha }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
           CANARY_EVIDENCE_JSON: ${{ inputs.canary_evidence_json || '' }}
+          PRIOR_CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: ${{ inputs.prior_campaign_no_change_evidence_json || '' }}
+          REFRESH_MATRIX: ${{ needs.prepare.outputs.repos }}
         run: |
           node <<'NODE'
           const fs = require('fs');
@@ -2245,11 +2252,22 @@ jobs:
               );
             }
             const rawCanaryEvidence = JSON.parse(process.env.CANARY_EVIDENCE_JSON || '{}');
-            const canaryRows = (rawCanaryEvidence.results || []).filter(
+            const canaryRows = (Array.isArray(rawCanaryEvidence) ? rawCanaryEvidence : rawCanaryEvidence.results || []).filter(
               (row) => row.evidence_source === 'no-change-canary',
             );
+            let carried = [];
+            if (process.env.PRIOR_CAMPAIGN_NO_CHANGE_EVIDENCE_JSON) {
+              const prior = JSON.parse(process.env.PRIOR_CAMPAIGN_NO_CHANGE_EVIDENCE_JSON);
+              if (prior.schema !== campaignEvidence.schema || prior.version !== campaignEvidence.version
+                || !Array.isArray(prior.results)) throw new Error('Unsupported prior no-change evidence');
+              const refreshed = new Set(JSON.parse(process.env.REFRESH_MATRIX).repo);
+              // Newly inspected targets must use this run's result. Maint 71
+              // revalidates the plan and live heads of the carried rows.
+              carried = prior.results.filter((row) =>
+                nonAdminRepos.includes(row.repo) && !refreshed.has(row.repo));
+            }
             campaignEvidence = mergeCampaignNoChangeEvidence(
-              canaryRows,
+              [...carried, ...canaryRows],
               deliveryBaseline.evidence,
             );
           }
