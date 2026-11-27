@@ -7,6 +7,10 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+**November 27, Chicago.** GitHub Actions opened [weekly design W-1 as #5315](https://github.com/stranske/Workflows/issues/5315) during a Mac pause. The [hosted job](https://github.com/stranske/Workflows/actions/runs/45950201755/job/140344047371) used the [intake fix](https://github.com/stranske/Workflows/pull/5314). The Mac later started [implementation PR #5317](https://github.com/stranske/Workflows/pull/5317). [Verifier retirement #5313](https://github.com/stranske/Workflows/pull/5313) removed the disabled correction job in both copies and four private SDK files. Consumer removal and a genuine continuation are still open.
+
+Keep Health 44 for the complete PR snapshot it published on two events where the scheduler skipped protection. Keep Reusable 20 for receiver PR-body updates and keepalive admission. Its eligible hold and retry are still open. The standalone dependency labeler is gone. The replacement skipped all 25 post-install openings, none of which came from an eligible dependency bot. The original positive lockfile check remains separate. [Health 44 snapshot](https://github.com/stranske/Workflows/actions/runs/45941077995/job/140315339652) · [Receiver cap decision](https://github.com/stranske/Manager-Mosaic/actions/runs/45947611132/job/140335943771) · [Labeler consolidation](https://github.com/stranske/Workflows/pull/5283)
+
 **Two source changes verified on main.** The direct-push Maint 70 workflow retired. The installed local operator produced the exact historical one-file Black/Ruff patch and left the current receiver clean. Both discovery profiles retained 63 cases, with eight following the script to its owning suite. The two primary Gate jobs took 395s and 586s against the 600s checkpoint. Six loose #4082 round receipts now share an indexed archive. Installed recovery matched every original, reproduced the trigger change and the unknown round-seven counts, and rejected a one-byte mutation. [Formatter retirement](https://github.com/stranske/Workflows/pull/5310) · [Archive](https://github.com/stranske/Workflows/pull/5311)
 
 **November 27 UTC.** Maint 45 stays available to apply a narrowly authorized test repair from an original JUnit report. Its native clean and runtime-refusal paths both suppressed PR publication. In 68 digest-verified reports across 23 ordinary runs, none of the 56 failure occurrences qualified. Black/Ruff formatting does not provide this guarded test-repair function. Reopen the positive-publication check on the first eligible original report. [Clean run](https://github.com/stranske/Workflows/actions/runs/45742682797) · [Native refusal](https://github.com/stranske/Workflows/actions/runs/45621655864)
@@ -223,13 +227,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 175/198 completed · 1 drainable now · 22 blocked · 23 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 177/198 completed · 1 drainable now · 20 blocked · 21 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,566/2,901 | 110/220 | — |
 | 3 · Scripts, tools and packages | 372/752 | 34/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 911/1,540 | 128/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 198/334 | 26/47 | — |
-| **Total** | **3,074/5,554** | **298/487** | **175/198** |
+| **Total** | **3,074/5,554** | **298/487** | **177/198** |
 
 **Directory organization.** 2,862 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
@@ -237,11 +241,11 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 121 |
+| [Keep in current role](workflow-decisions.md#keep) | 123 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 11 |
 | [Other verified decisions](workflow-decisions.md#verified) | 43 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 9 |
-| [In review](workflow-decisions.md#review) | 1 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 8 |
+| [In review](workflow-decisions.md#review) | 0 |
 | [Proposed changes](workflow-decisions.md#proposed) | 13 |
 
 Completed changes include retiring four archived definitions and moving Health 43’s failure-signature check into Gate and Selftest. Other verified decisions cover retained workflows, corrections and efficiency changes.
