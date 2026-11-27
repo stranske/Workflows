@@ -15,7 +15,7 @@ Renovate opened [#5349](https://github.com/stranske/Workflows/pull/5349) after [
 
 Three archive changes removed 182 loose historical files from Workflows main, for 179 net paths and 2,466,101 tracked bytes. Of these, 148 recover in Git history through their indexed original runs and 34 share one checked-in offline package. Five current operator or test files from runtime 4548 remain together. Two further issue 3743 validation runs have a reviewed proposal to move all 59 records to their existing Git tree. [Runtime diagnostics](https://github.com/stranske/Workflows/pull/5345) · [Offline package](https://github.com/stranske/Workflows/pull/5344) · [Seven historical groups](https://github.com/stranske/Workflows/pull/5346) · [Issue 3743](https://github.com/stranske/Workflows/pull/5350)
 
-The normal canary produced three reviewed receiver PRs. The central queue recovered three denied best-effort notifications and advanced fleet promotion through authorization for all 16 exact heads. Their 96 proposed removals require receiving-default receipts. The first commit attempt stopped on a shared API limit; its [ordinary continuation](https://github.com/stranske/Workflows/actions/runs/46028206470) resumed after GitHub reopened capacity. A genuine trip-planner comparison uncovered a two-byte shell exit-code file that made an otherwise valid artifact unreadable. The proposed repair retains the original evidence selectors. [Canary](https://github.com/stranske/Workflows/actions/runs/46019527702) · [Fleet promotion](https://github.com/stranske/Workflows/actions/runs/46021514751) · [Comparison](https://github.com/stranske/trip-planner/pull/2068#issuecomment-7221887535) · [Repair](https://github.com/stranske/Workflows/pull/5351)
+The ordinary promotion merged all 16 reviewed receiving PRs. An independent read of their default branches found all 32 obsolete SDK files and 64 redundant helpers removed, all 112 retained companion files present, and the expected verifier workflow installed in every repository. The central queue recovered the three denied best-effort canary notifications and the shared GitHub API rate-limit interruption. [Canary](https://github.com/stranske/Workflows/actions/runs/46019527702) · [Final promotion and native report](https://github.com/stranske/Workflows/actions/runs/46028206470)
 
 The regular hosted seat now includes the shared opener. The two early scheduled passes used all three configured lanes and correctly skipped apply while the Mac stamp was fresh. Its five genuine sync-originated handoffs still require issue-specific starts. Auto-Pilot, Decompose and the belt continue serving existing work. Portable Alpha's protected main has removed its 23,072-byte pr_body.md and retained the original ignore rule. A new normal preview reported the corrected receiver and made zero writes. The independent weekly diagnosis remains outstanding. [Hosted enrollment](https://github.com/stranske/Orchestrator/pull/1509) · [Receiver route](https://github.com/stranske/Workflows/pull/5348) · [Portable Alpha](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540) · [Post-merge preview](https://github.com/stranske/Workflows/actions/runs/46028294563/job/140605331171)
 
@@ -310,11 +310,11 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,754/2,901 | 115/220 | — |
 | 3 · Scripts, tools and packages | 406/752 | 34/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 930/1,540 | 128/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 199/334 | 26/47 | — |
-| **Total** | **3,316/5,554** | **303/487** | **184/198** |
+| 4 · Workflow source trees, templates, tests and configuration | 937/1,540 | 129/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 200/334 | 26/47 | — |
+| **Total** | **3,324/5,554** | **304/487** | **184/198** |
 
-**Directory organization.** 3,104 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,112 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
