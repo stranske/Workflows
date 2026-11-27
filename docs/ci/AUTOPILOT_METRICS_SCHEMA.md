@@ -166,10 +166,11 @@ Example:
 
 ## Keepalive Dispatch Token Handling
 
-Keepalive dispatch uses the same token priority as the main keepalive instruction
-author. If no dedicated dispatch token is provided, the runner falls back to the
-instruction author token to avoid silent dispatch failures. This behavior is
-validated in the keepalive runner unit tests.
+The [dispatch handler](../../.github/workflows/agents-keepalive-dispatch-handler.yml)
+selects its GitHub token in the workflow. By default it tries the Workflows App
+installation token, then `ACTIONS_BOT_PAT`, `SERVICE_BOT_PAT`, and `GITHUB_TOKEN`.
+PAT compatibility mode prefers `ACTIONS_BOT_PAT` when it is available. The
+token-selection step logs the selected source for troubleshooting.
 
 ## Interpreting Metrics
 

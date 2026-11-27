@@ -39,11 +39,3 @@ def test_evaluate_steps_export_every_provider_flag_the_loop_reads() -> None:
             f"{workflow_path.relative_to(REPO_ROOT)} is missing provider flags: "
             f"{sorted(required_flags - exported_flags)}"
         )
-
-
-# First line of the keepalive instruction from .github/codex/prompts/keepalive_next_task.md
-# The full instruction is multi-line; tests check that the instruction starts correctly.
-DEFAULT_COMMAND_PREFIX = (
-    "@codex Your objective is to satisfy the **Acceptance Criteria** by completing each "
-    "**Task** within the defined **Scope**."
-)
