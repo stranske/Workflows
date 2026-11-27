@@ -13,6 +13,8 @@ The five-repeat requirement has been removed from all twelve retirement records.
 
 [Standalone Decompose retirement](https://github.com/stranske/Workflows/pull/5377) removes both definitions and their provisioning. Issue Optimizer produced identical task splitting for Workflows #4792, and all 16 receiving default trees passed the local removal rehearsal. The four belt definitions and Auto-Pilot must come out together because real Auto-Pilot calls target the belt worker. [Verify follow-up migration](https://github.com/stranske/Workflows/pull/5378) and [sync producer migration](https://github.com/stranske/lanes/pull/2) move the two live producers onto the shared opener. Historical dedup reuses the original issue and claim. A genuine transient staging failure on Orchestrator #1518 cleared on the same head. Actual source removal and delivery to receiving defaults are counted separately.
 
+Maint 72 is accepted. Its [protected receiving PR](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2540) removed the 23,072-byte file while retaining the ignore rule, and the [post-merge native preview](https://github.com/stranske/Workflows/actions/runs/46028294563) correctly made zero writes. The [prior scheduled event](https://github.com/stranske/Workflows/actions/runs/44979239080) used the unchanged cron. Running both input forms through the current implementation against the same 16 receiver heads produced identical selection and byte-identical diagnoses. The next calendar occurrence adds no distinct functional check.
+
 Stage 3 and 4 delivery. [#5372](https://github.com/stranske/Workflows/pull/5372) removed the obsolete installer, moved seven suites under their tested owners, and eliminated three contract mirrors on main. All 97 affected cases passed after merge. The primary Gate jobs took 392 and 507 seconds. The whole run took 652 seconds against a 600-second target. Three contract placements await signed receiver publication. [#5374](https://github.com/stranske/Workflows/pull/5374) consolidates the raw optimizer bootstrap. [#5375](https://github.com/stranske/Workflows/pull/5375) groups fifteen loose test files by owner, merges nine authentication tests into the existing suite, and consolidates two duplicate fixture pairs. All 501 focused cases passed on both trees. The original checklist has 26 verified live outcomes and two replay-verified no-demand dispositions.
 
 ### November 27 · Package and feature ownership
@@ -393,13 +395,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 
 | Stage | Completed files | Completed folders | Completed workflows |
 |---|---:|---:|---:|
-| 1A · Workflow purpose and efficiency | — | — | 185/198 completed · 12 drainable now · 1 blocked · 13 pending checks have a recorded structural decision |
+| 1A · Workflow purpose and efficiency | — | — | 186/198 completed · 12 drainable now · 0 blocked · 12 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
 | 3 · Scripts, tools and packages | 506/752 | 37/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 1,080/1,540 | 137/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
-| **Total** | **3,761/5,554** | **318/487** | **185/198** |
+| **Total** | **3,761/5,554** | **318/487** | **186/198** |
 
 **Directory organization.** 3,549 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
@@ -409,8 +411,8 @@ Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a fo
 |---|---:|
 | [Keep in current role](workflow-decisions.md#keep) | 128 |
 | [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 13 |
-| [Other verified decisions](workflow-decisions.md#verified) | 44 |
-| [Awaiting verification](workflow-decisions.md#waiting) | 1 |
+| [Other verified decisions](workflow-decisions.md#verified) | 45 |
+| [Awaiting verification](workflow-decisions.md#waiting) | 0 |
 | [In review](workflow-decisions.md#review) | 0 |
 | [Proposed changes](workflow-decisions.md#proposed) | 12 |
 
