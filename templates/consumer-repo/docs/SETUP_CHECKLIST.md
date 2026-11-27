@@ -44,6 +44,32 @@ Before starting, ensure you have:
   ```
   Use `--private` if appropriate. `stranske/Template` is a GitHub *template* repo, so `--template` copies its full scaffold in one step.
 
+For the preferred Workflows scaffold route, copy the starter and install the
+canonical optimizer files from the same Workflows commit. This makes the optimizer
+available to Auto-Pilot and local commands before the first managed sync. Run this
+from Bash or Zsh with the paths set to your local Workflows checkout and the new
+consumer repository:
+
+```bash
+WORKFLOWS_SOURCE=/path/to/Workflows
+CONSUMER_ROOT=/path/to/new-consumer
+(
+  set -e -o pipefail
+  revision=$(git -C "$WORKFLOWS_SOURCE" rev-parse HEAD)
+  git -C "$WORKFLOWS_SOURCE" archive "$revision:templates/consumer-repo" |
+    tar -xf - -C "$CONSUMER_ROOT"
+  git -C "$WORKFLOWS_SOURCE" archive "$revision" -- \
+    scripts/langchain/{_llm_client,injection_guard,issue_optimizer,issue_pr_context,structured_output,task_decomposer,task_validator}.py \
+    scripts/langchain/prompts/{analyze_issue,apply_suggestions,decompose_task,format_issue,refine_tasks}.md |
+    tar -xf - -C "$CONSUMER_ROOT"
+)
+```
+
+The GitHub template route above already supplies these files. For a local
+optimizer check from the new repository, install `tools/requirements-llm.txt`
+into the repository's Python environment and run
+`PYTHONPATH=. python scripts/langchain/issue_optimizer.py --input-file /path/to/issue.md --json --no-llm`.
+
 ### 1.2 Clone and Verify Structure
 
 ```bash
