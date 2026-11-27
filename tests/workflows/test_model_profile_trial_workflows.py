@@ -165,5 +165,19 @@ def test_registry_trial_profiles_share_exact_pinned_read_only_contract():
         assert profile["safety"] == "read-only"
 
 
+def test_renovate_does_not_bump_pinned_trial_codex_cli():
+    renovate = json.loads(Path("renovate.json").read_text(encoding="utf-8"))
+    trial_glob = f"{TRIAL_CLI_ROOT.as_posix()}/**"
+    disabling_rules = [
+        rule
+        for rule in renovate.get("packageRules", [])
+        if trial_glob in rule.get("matchFileNames", []) and rule.get("enabled") is False
+    ]
+    assert disabling_rules, f"renovate.json must disable updates for {trial_glob}"
+    for rule in disabling_rules:
+        # A narrowing matcher would leave other trial-cli updates enabled.
+        assert set(rule) <= {"description", "matchFileNames", "enabled"}
+
+
 def test_consumer_template_registry_matches_authoritative_registry():
     assert TEMPLATE_REGISTRY.read_text(encoding="utf-8") == REGISTRY.read_text(encoding="utf-8")
