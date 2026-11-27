@@ -49,7 +49,7 @@ if [[ "$format_mode" == --reviewed ]]; then
     done
     echo "Running black on Python files (using pyproject.toml config)..."
     # Black will use line-length=100 from pyproject.toml
-    black --exclude '\.workflows-lib' .
+    black --extend-exclude '\.workflows-lib' .
 
     echo "Running ruff fixes..."
     diagnostics=$(mktemp)

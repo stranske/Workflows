@@ -41,7 +41,11 @@ def test_formatting_requires_working_tools(
     (bin_dir / "python3").symlink_to(sys.executable)
 
     commands = {
-        "black": "#!/bin/sh\nprintf '%s\\n' formatted > changed.py\nexit \"$BLACK_STATUS\"\n",
+        "black": r"""#!/bin/sh
+printf '%s\n' "$@" > black-arguments.txt
+printf '%s\n' formatted > changed.py
+exit "$BLACK_STATUS"
+""",
         "ruff": r"""#!/bin/sh
 touch ruff-ran
 printf '%s\n' "$RUFF_DIAGNOSTICS"
@@ -68,6 +72,11 @@ exit "$RUFF_STATUS"
         check=False,
     )
     assert (integration / "changed.py").is_file()
+    assert (integration / "black-arguments.txt").read_text().splitlines() == [
+        "--extend-exclude",
+        r"\.workflows-lib",
+        ".",
+    ]
     assert result.returncode == expected, result.stdout + result.stderr
     assert (integration / "ruff-ran").is_file() == (black_status == 0)
     assert ("Review the changes before committing" in result.stdout) == (expected == 0)

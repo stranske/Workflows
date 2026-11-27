@@ -42,9 +42,10 @@ Run the guarded Black and Ruff mode and review the resulting diff.
 bash scripts/fix-integration-tests-formatting.sh --reviewed /path/to/Workflows-Integration-Tests
 ```
 
-This mode runs Black and Ruff with the receiver's project configuration and
-excludes `.workflows-lib`. It exits on Black errors and on incomplete Ruff
-runs, including configuration, syntax and file-reading errors. An ordinary
+This mode runs Black and Ruff with the receiver's project configuration,
+honors Git ignore rules and excludes `.workflows-lib`. It exits on Black
+errors and on incomplete Ruff runs, including configuration, syntax and
+file-reading errors. An ordinary
 remaining lint diagnostic is reported by rule code. If the command fails,
 discard its partial diff. If it succeeds with a change, open a normal receiver
 PR with a descriptive commit subject and let its Gate check the exact head.
