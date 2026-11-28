@@ -10,6 +10,10 @@ on:
     paths:
       - ".github/labels-core.yml"
       - ".github/agents/belt-labels.json"
+  schedule:
+    # Daily drain for a consumer label that went missing. Maint 68 only checks that its sync
+    # labels exist, so this run is what clears a missing-label failure there.
+    - cron: '17 4 * * *'
   workflow_dispatch:
     inputs:
       repos:

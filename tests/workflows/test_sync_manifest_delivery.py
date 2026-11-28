@@ -356,7 +356,13 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     assert "--draft" not in source
     assert "sync:delivery-staging" in source
     assert "sync:delivery-ready" in source
-    assert "workflow:source-sync|PR source is a sync or maintenance campaign|1d76db" in source
+    # Maint 68 only checks that its sync labels exist; labels-core.yml is their definition.
+    assert '"workflow:source-sync"' in source
+    labels_core = Path(".github/labels-core.yml").read_text(encoding="utf-8")
+    assert (
+        '- name: workflow:source-sync\n  color: "1d76db"\n'
+        "  description: PR source is a sync or maintenance campaign"
+    ) in labels_core
     assert "<!-- workflow-source:sync_campaign -->" in source
     assert '--add-label "sync,automated,workflow:source-sync"' in source
     assert '--label "sync,automated,workflow:source-sync"' in source

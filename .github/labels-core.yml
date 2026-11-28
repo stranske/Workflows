@@ -125,6 +125,20 @@
 - name: workflow:source-sync
   color: "1d76db"
   description: PR source is a sync or maintenance campaign
+# Sync delivery labels. Maint 68 applies these to its consumer PRs and only checks that they
+# exist; this file is their single definition (written by Maint 69 Sync Labels and Maint 83).
+- name: sync
+  color: "0e8a16"
+  description: Automated sync from Workflows
+- name: automated
+  color: "0e8a16"
+  description: Automated sync from Workflows
+- name: sync:delivery-staging
+  color: "d93f0b"
+  description: Generated delivery is mutable and must not merge
+- name: sync:delivery-ready
+  color: "0e8a16"
+  description: Generated delivery is sealed to its exact reviewed head
 - name: workflow:source-dependabot
   color: "0366d6"
   description: PR source is Dependabot or dependency automation
@@ -190,3 +204,17 @@
 - name: tracker:durable
   color: 'c5def5'
   description: Permanently-open tracker; excluded from open-issue backlog counts
+
+# Issue formatting labels (agents:format workflow and its optimizer)
+- name: agents:format
+  color: "0E8A16"
+  description: Triggers direct issue formatting to AGENT_ISSUE_TEMPLATE
+- name: agents:formatted
+  color: "1D76DB"
+  description: Issue has been formatted to AGENT_ISSUE_TEMPLATE
+- name: agents:optimize
+  color: "FBCA04"
+  description: Triggers issue analysis with optimization suggestions
+- name: agents:apply-suggestions
+  color: "0E8A16"
+  description: Applies optimization suggestions from agents:optimize
