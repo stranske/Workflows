@@ -554,10 +554,10 @@ jobs:
           node-version: "24"
 
       - name: Install uv
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          # The next step caches ~/.cache/uv; keep setup-uv from setting UV_CACHE_DIR.
+          enable-cache: false
 
       - name: Cache uv artifacts
         if: ${{ inputs.cache }}
@@ -958,10 +958,10 @@ jobs:
           node-version: "24"
 
       - name: Install uv
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          # The next step caches ~/.cache/uv; keep setup-uv from setting UV_CACHE_DIR.
+          enable-cache: false
 
       - name: Cache uv artifacts
         if: ${{ inputs.cache }}
@@ -1356,10 +1356,10 @@ jobs:
           node-version: "24"
 
       - name: Install uv
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          # The next step caches ~/.cache/uv; keep setup-uv from setting UV_CACHE_DIR.
+          enable-cache: false
 
       - name: Cache uv artifacts
         if: ${{ inputs.cache }}
@@ -1790,10 +1790,10 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Install uv
-        shell: bash
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          # The next step caches ~/.cache/uv; keep setup-uv from setting UV_CACHE_DIR.
+          enable-cache: false
 
       - name: Cache uv artifacts
         id: resource-uv-cache

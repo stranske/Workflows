@@ -63,7 +63,10 @@ def _capture_body(repo, steps, tmp_path):
     render = steps["Write pull request body"]
     publish = steps["Create pull request"]
     assert render["if"] == publish["if"]
-    assert publish["uses"] == "peter-evans/create-pull-request@v8"
+    assert (
+        publish["uses"]
+        == "peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1"
+    )
     assert "body" not in publish["with"]
     body_path = publish["with"]["body-path"].replace("${{ runner.temp }}", str(tmp_path))
     _shell(repo, render, RUNNER_TEMP=str(tmp_path))

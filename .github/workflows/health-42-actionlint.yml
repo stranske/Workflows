@@ -24,6 +24,9 @@ jobs:
     env:
       # ACTIONLINT_VERSION comes from .github/config/workflow-linters.env (one pin, B16).
       REVIEWDOG_VERSION: '0.21.0'
+      # sha256 of reviewdog_${REVIEWDOG_VERSION}_Linux_x86_64.tar.gz from that release's
+      # checksums.txt. Change both lines together.
+      REVIEWDOG_SHA256: 'ad5ce7d5ffa52aaa7ec8710a8fa764181b6cecaab843cc791e1cce1680381569'
     steps:
       - name: Compute REPORTER value
         id: set-reporter
@@ -89,7 +92,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/reviewdog
-          key: reviewdog-${{ runner.os }}-${{ env.REVIEWDOG_VERSION }}
+          key: reviewdog-${{ runner.os }}-${{ env.REVIEWDOG_VERSION }}-${{ env.REVIEWDOG_SHA256 }}
 
       - name: Install reviewdog
         if: steps.reviewdog-cache.outputs.cache-hit != 'true'
@@ -97,10 +100,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.cache/reviewdog"
-          reviewdog_prefix="https://raw.githubusercontent.com/reviewdog/reviewdog"
+          reviewdog_prefix="https://github.com/reviewdog/reviewdog/releases/download"
           reviewdog_base="${reviewdog_prefix}/v${REVIEWDOG_VERSION}"
-          reviewdog_url="${reviewdog_base}/install.sh"
-          curl -sSL "$reviewdog_url" | sh -s -- -b "$HOME/.cache/reviewdog" "v${REVIEWDOG_VERSION}"
+          reviewdog_archive="$RUNNER_TEMP/reviewdog.tar.gz"
+          curl -sSLf -o "$reviewdog_archive" \
+            "${reviewdog_base}/reviewdog_${REVIEWDOG_VERSION}_Linux_x86_64.tar.gz"
+          echo "${REVIEWDOG_SHA256}  ${reviewdog_archive}" | sha256sum --check --strict -
+          tar -xzf "$reviewdog_archive" -C "$HOME/.cache/reviewdog" reviewdog
 
       - name: Add linters to PATH
         shell: bash
