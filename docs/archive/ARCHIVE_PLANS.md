@@ -316,6 +316,8 @@ Use the current owner documents for decisions.
 | [Black 26 alignment plan][historical-black-plan] | [Consumer maintenance](../ops/CONSUMER_REPO_MAINTENANCE.md) |
 | [Multi-agent toolkit plan][historical-toolkit-plan] | [Multi-agent routing](../keepalive/MULTI_AGENT_ROUTING.md) |
 | [February 2026 health review][historical-health-review] | [Workflow catalog](../ci/WORKFLOWS.md) |
+| [January 2026 workflow architecture evaluation][historical-workflow-architecture] | [Workflow system guide](../ci/WORKFLOW_SYSTEM.md) |
+| [January 2026 workflow bug report and proposals][historical-workflow-bugs] | [Workflow system guide](../ci/WORKFLOW_SYSTEM.md) and [validation overview](../validation/overview.md) |
 
 To recover an original into an empty directory, run `git show <revision>:<path>`
 or `git archive <revision> -- <path> | tar -xf -` using the revision in its link.
@@ -324,3 +326,5 @@ or `git archive <revision> -- <path> | tar -xf -` using the revision in its link
 [historical-black-plan]: https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/plans/black-26-upgrade.md
 [historical-toolkit-plan]: https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/plans/multi-agent-toolkit.md
 [historical-health-review]: https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/workflow-updates/health-workflow-review-2026-02-22.md
+[historical-workflow-architecture]: https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/workflows/SystemEvaluation.md
+[historical-workflow-bugs]: https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/workflows/WorkflowSystemBugReport.md

@@ -11,5 +11,5 @@ This directory holds notes for two cross-workflow checks.
 - [Silent API failure triage](silent-api-failure-triage.md)
 
 Use the [workflow documentation template](../templates/WORKFLOW_TEMPLATE.md) for a
-new workflow-specific guide. The [archive ledger](../archive/ARCHIVE_PLANS.md)
+new workflow-specific guide. The [archive ledger](../archive/ARCHIVE_PLANS.md#historical-model-toolkit-and-workflow-reviews)
 lists historical materials.
