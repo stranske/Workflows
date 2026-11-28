@@ -32,7 +32,9 @@ def test_consumer_gate_followups_keeps_the_automerge_write_and_its_reader():
     assert "apply_automerge_label" not in _summary_inputs(workflow)  # default true
     jobs = yaml.safe_load(workflow.read_text())["jobs"]
     step = next(
-        s for s in jobs["guarded-merge"]["steps"] if s.get("name") == "Merge labelled agent PRs (guarded)"
+        s
+        for s in jobs["guarded-merge"]["steps"]
+        if s.get("name") == "Merge labelled agent PRs (guarded)"
     )
     script = step["with"]["script"]
     assert "const label = 'automerge';" in script

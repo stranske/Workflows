@@ -195,12 +195,11 @@ jobs:
               .write();
             let agent = defaultAgent;
 
-            // One list of non-agent labels (agents:formatted, agent:auto, ...) and one list of
-            // intake holds, both in agent_registry.js and shared with the root intake and the
-            // reusable bridge. A control label must not become the agent or override agent:codex.
-            const { agentKeyFromLabel, findIntakeHoldLabels } = require(registryPath);
-
             if (eventName === 'issues') {
+              // One list of non-agent labels (agents:formatted, agent:auto, ...) and one list of
+              // intake holds, both in agent_registry.js and shared with the root intake and the
+              // reusable bridge. A control label must not become the agent or override agent:codex.
+              const { agentKeyFromLabel, findIntakeHoldLabels } = require(registryPath);
               const issue = context.payload.issue;
               issueNumber = String(issue.number);
               const labels = issue.labels.map(l => l.name);

@@ -62,7 +62,10 @@ def test_intake_routes_the_labelled_agent_not_codex(tmp_path):
     assert _run(tmp_path, ["agents:formatted", "agent:cursor"])["bridge_agent"] == ""
     assert _run(tmp_path, ["bug"])["bridge_agent"] == ""  # preflight resolves the default
     # An explicit dispatch input still wins.
-    assert _run(tmp_path, ["agent:codex"], {"INPUT_BRIDGE_AGENT": "Cursor"})["bridge_agent"] == "cursor"
+    assert (
+        _run(tmp_path, ["agent:codex"], {"INPUT_BRIDGE_AGENT": "Cursor"})["bridge_agent"]
+        == "cursor"
+    )
     jobs = yaml.safe_load(INTAKE.read_text())["jobs"]
     agent_input = jobs["agent_bridge"]["with"]["agent"]
     assert "needs.normalize_inputs.outputs.bridge_agent" in agent_input

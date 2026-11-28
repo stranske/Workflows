@@ -56,14 +56,15 @@ new AsyncFunction('require', 'github', 'context', 'core', input.script)(localReq
 
 def _step_script(workflow: Path, job: str, *, step_id: str = "", step_name: str = "") -> str:
     steps = yaml.safe_load(workflow.read_text())["jobs"][job]["steps"]
-    step = next(s for s in steps if (step_id and s.get("id") == step_id) or s.get("name") == step_name)
+    step = next(
+        s for s in steps if (step_id and s.get("id") == step_id) or s.get("name") == step_name
+    )
     return step["with"]["script"]
 
 
 def _run(script: str, labels: list[str], *, env: dict | None = None, event: str = "issues") -> dict:
-    script = (
-        script.replace("${{ inputs.issue_number }}", "")
-        .replace("${{ steps.ctx.outputs.issue }}", "7")
+    script = script.replace("${{ inputs.issue_number }}", "").replace(
+        "${{ steps.ctx.outputs.issue }}", "7"
     )
     result = subprocess.run(
         [NODE, "-e", HARNESS],
