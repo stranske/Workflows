@@ -1549,39 +1549,6 @@ jobs:
               }
             }
 
-      - name: Dispatch autofix notification
-        if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) == 'failure' }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        with:
-          github-token: ${{ steps.app_token.outputs.token || github.token }}
-          script: |
-            // # best-effort: dispatch only requests a later autofix evaluation; the
-            // failed Gate result remains authoritative if this notification fails.
-            const prNumber = context.payload.pull_request?.number;
-            if (!prNumber) {
-              core.info('No pull request context; skipping autofix dispatch.');
-              return;
-            }
-            const gateRunId = process.env.GITHUB_RUN_ID;
-            const headSha = context.payload.pull_request?.head?.sha ?? context.sha;
-            const headRef = context.payload.pull_request?.head?.ref ?? context.ref;
-            try {
-              await github.request('POST /repos/{owner}/{repo}/dispatches', {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                event_type: 'autofix_gate_failure',
-                client_payload: {
-                  gate_run_id: gateRunId,
-                  pr_number: prNumber,
-                  head_sha: headSha,
-                  head_ref: headRef,
-                },
-              });
-              core.info(`Queued autofix dispatch for PR #${prNumber} (run ${gateRunId}).`);
-            } catch (error) {
-              core.warning(`Failed to dispatch autofix event: ${error.message}`);
-            }
-
       - name: Enforce explicit Gate success
         if: ${{ (steps.summarize.outputs.state || steps.docs_only.outputs.state) != 'success' }}
         env:

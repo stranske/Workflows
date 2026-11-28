@@ -163,9 +163,10 @@ The automated formatting/hygiene repair loop. Applying the `autofix` label (or
 a summary. There is also a **Gate-driven** repair path: when Gate fails,
 `agents-81-gate-followups.yml` (via `workflow_run`) routes the failure to
 `agents-autofix-loop.yml`, which handles larger fix-ups (pyproject sync, scripted
-rewrites, merge-conflict handling). `agents-autofix-dispatcher.yml` is now only a
-compatibility bridge for the legacy `autofix_gate_failure` `repository_dispatch`
-signal.
+rewrites, merge-conflict handling). In Workflows itself the loop starts once from
+Gate's `workflow_run`. Gate no longer sends the legacy `autofix_gate_failure`
+`repository_dispatch`, so `agents-autofix-dispatcher.yml` has no sender and is
+awaiting removal.
 
 ---
 
