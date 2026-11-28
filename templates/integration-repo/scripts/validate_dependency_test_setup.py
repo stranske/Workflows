@@ -1,13 +1,90 @@
 #!/usr/bin/env python3
 """Check the integration project's lock and direct dependency-version assertions."""
 
+from __future__ import annotations
+
 import ast
 import re
 import shlex
 import tomllib
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from packaging.markers import Marker
 
 VERSION_MODULES = {"importlib.metadata", "importlib_metadata"}
+CI_PYTHON_VERSIONS = ("3.13", "3.14")
+CI_RUNNER_MARKERS = {
+    "implementation_name": "cpython",
+    "os_name": "posix",
+    "platform_machine": "x86_64",
+    "platform_python_implementation": "CPython",
+    "platform_release": "",
+    "platform_system": "Linux",
+    "platform_version": "",
+    "sys_platform": "linux",
+}
+PATCH_MARKERS = {"python_full_version", "implementation_version"}
+UNFIXED_RUNNER_MARKERS = {"platform_release", "platform_version"}
+MARKER_COMPARISON = re.compile(
+    r'("[^"]*"|[a-z_]+) (===|~=|==|!=|<=|>=|<|>|not in|in) ("[^"]*"|[a-z_]+)'
+)
+UNFIXED_COMPARISON = 'platform_release == "unknown-marker-true"'
+
+
+def lock_marker_partitions(
+    markers: set[Marker],
+) -> tuple[dict[str, set[int]], dict[Marker, Marker]]:
+    """Partition each floating CI minor line at the version thresholds in the lock."""
+    from packaging.markers import Marker
+    from packaging.version import InvalidVersion, Version
+
+    patches = {version: {0} for version in CI_PYTHON_VERSIONS}
+    projected = {}
+
+    def add_boundary(match: re.Match[str]) -> str:
+        left, operator, right = match.groups()
+        if left in UNFIXED_RUNNER_MARKERS or right in UNFIXED_RUNNER_MARKERS:
+            return UNFIXED_COMPARISON
+        if left not in PATCH_MARKERS and right not in PATCH_MARKERS:
+            return match[0]
+        literal = right if left in PATCH_MARKERS else left
+        if operator in {"in", "not in"} or not literal.startswith('"'):
+            return UNFIXED_COMPARISON
+        try:
+            release = Version(literal.strip('"').removesuffix(".*")).release
+        except InvalidVersion:
+            return UNFIXED_COMPARISON
+        major, minor, patch = (*release, 0, 0)[:3]
+        python_version = f"{major}.{minor}"
+        if python_version in patches:
+            # Exact matches and strict inequalities can change on either side of a patch.
+            patches[python_version].update((patch, patch + 1))
+        return match[0]
+
+    for marker in markers:
+        expression = str(marker)
+        projection = MARKER_COMPARISON.sub(add_boundary, expression)
+        if projection != expression:
+            projected[marker] = Marker(projection)
+    return patches, projected
+
+
+def marker_applies(
+    marker: Marker | None, environment: dict[str, str], projected: dict[Marker, Marker]
+) -> bool:
+    if marker is None:
+        return True
+    if marker not in projected:
+        return marker.evaluate(environment)
+    # A relevant comparison with an unknown runner value cannot certify the selected pin.
+    projection = projected[marker]
+    lowest = projection.evaluate(environment)
+    highest = projection.evaluate({**environment, "platform_release": "unknown-marker-true"})
+    if lowest != highest:
+        raise ValueError(f"cannot verify marker {marker} on Python {environment['python_version']}")
+    return lowest
 
 
 def check_lock_file() -> list[str]:
@@ -44,7 +121,7 @@ def check_lock_file() -> list[str]:
             for group in sorted(groups.keys() - extras)
         )
 
-    pins: dict[str, set[str]] = {}
+    pins: dict[str, list[tuple[str, Marker | None]]] = {}
     for line in lines:
         if not line.strip() or line.lstrip().startswith(("#", "-")):
             continue
@@ -54,22 +131,54 @@ def check_lock_file() -> list[str]:
             return [f"requirements.lock contains an invalid requirement: {line.strip()}"]
         for specifier in requirement.specifier:
             if specifier.operator == "==" and "*" not in specifier.version:
-                pins.setdefault(canonicalize_name(requirement.name), set()).add(specifier.version)
+                pins.setdefault(canonicalize_name(requirement.name), []).append(
+                    (specifier.version, requirement.marker)
+                )
 
     declared = set(project.get("dependencies", []))
     for requirements in groups.values():
         declared.update(requirements)
-    for entry in sorted(declared):
-        requirement = Requirement(entry)
-        versions = pins.get(canonicalize_name(requirement.name), set())
-        if not versions:
-            issues.append(f"requirements.lock has no pin for {requirement.name}")
-        elif not any(
-            requirement.specifier.contains(version, prereleases=True) for version in versions
-        ):
-            issues.append(
-                f"requirements.lock pins {', '.join(sorted(versions))} for {requirement.name}, incompatible with {entry}"
+    requirements = [(entry, Requirement(entry)) for entry in sorted(declared)]
+    markers = {requirement.marker for _, requirement in requirements if requirement.marker}
+    for _, requirement in requirements:
+        markers.update(
+            marker for _, marker in pins.get(canonicalize_name(requirement.name), []) if marker
+        )
+    patches, projected = lock_marker_partitions(markers)
+    for python_version, patch in (
+        (version, patch) for version, boundaries in patches.items() for patch in sorted(boundaries)
+    ):
+        full_version = f"{python_version}.{patch}"
+        environment = {
+            **CI_RUNNER_MARKERS,
+            "python_version": python_version,
+            "python_full_version": full_version,
+            "implementation_version": full_version,
+        }
+        target = full_version if len(patches[python_version]) > 1 else python_version
+        for entry, requirement in requirements:
+            if not marker_applies(requirement.marker, environment, projected):
+                continue
+            versions = {
+                version
+                for version, marker in pins.get(canonicalize_name(requirement.name), [])
+                if marker_applies(marker, environment, projected)
+            }
+            if not versions:
+                issues.append(
+                    f"requirements.lock has no pin for {requirement.name} on Python {target}"
+                )
+                continue
+            incompatible = sorted(
+                version
+                for version in versions
+                if not requirement.specifier.contains(version, prereleases=True)
             )
+            if incompatible:
+                issues.append(
+                    f"requirements.lock pins {', '.join(incompatible)} for {requirement.name}, "
+                    f"incompatible with {entry} on Python {target}"
+                )
     return issues
 
 

@@ -39,6 +39,7 @@ version pins. [Maint 69 delivery workflow](https://github.com/stranske/Workflows
 In the existing integration checkout, install the tracked requirements and run
 `python scripts/validate_dependency_test_setup.py` from the project root. The command
 checks that the lock's compile header includes the project's extras and that its direct
-dependencies have compatible pins. It also flags direct test assertions that compare a
-package's `__version__` or an imported package metadata version lookup to a fixed version.
+dependencies have compatible pins across the Linux CPython versions in integration CI,
+including ranges selected by patch-level markers. It also flags direct test assertions that
+compare a package's `__version__` or an imported package metadata version lookup to a fixed version.
 A freshly rendered fixture has no lock, so the command runs its assertion check alone.

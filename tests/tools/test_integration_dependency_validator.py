@@ -1,10 +1,12 @@
 """Exercise the delivered integration validator through its documented CLI."""
 
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from tools.integration_repo import render_integration_repo
 
 
@@ -55,6 +57,12 @@ def test_direct_version_assertions_fail(rendered_repo: Path, assertion: str) -> 
         ("--extra app --extra dev --extra=test", "pytest==9.2.0", ""),
         ("--extra app --extra dev", "pytest==9.2.0", "header is missing --extra test"),
         ("--all-extras", "", "has no pin for pytest"),
+        (
+            "--all-extras",
+            'pytest==9.2.0 ; python_version < "3.14"',
+            "has no pin for pytest on Python 3.14",
+        ),
+        ("--all-extras", "pytest==broken!", "contains an invalid requirement: pytest==broken!"),
         ("--all-extras", "pytest==7.3.0", "incompatible with pytest>=7.4"),
     ],
 )
@@ -69,6 +77,73 @@ def test_lock_covers_declared_extras_and_constraints(
     assert result.returncode == (1 if diagnostic else 0), result.stdout
     if diagnostic:
         assert diagnostic in result.stdout
+
+
+def test_universal_lock_checks_each_ci_python_version(rendered_repo: Path) -> None:
+    ci = yaml.safe_load((rendered_repo / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    versions = {
+        version
+        for job in ci["jobs"].values()
+        for version in json.loads(job.get("with", {}).get("python-versions", "[]"))
+    }
+    assert versions
+    lock = rendered_repo / "requirements.lock"
+    for version in sorted(versions):
+        lock.write_text(
+            "#    uv pip compile pyproject.toml --all-extras --universal\n"
+            f'pytest==9.2.0 ; python_version != "{version}"\n'
+            f'pytest==7.3.0 ; python_version == "{version}"\n',
+            encoding="utf-8",
+        )
+        result = run_validator(rendered_repo)
+        assert result.returncode == 1, result.stdout
+        assert f"incompatible with pytest>=7.4 on Python {version}" in result.stdout
+
+
+def test_universal_lock_respects_disjoint_markers(rendered_repo: Path) -> None:
+    project = rendered_repo / "pyproject.toml"
+    project.write_text(
+        project.read_text(encoding="utf-8").replace(
+            '"pytest>=7.4"',
+            "\"pytest>=7.4 ; python_version < '3.14'\",\n"
+            "    \"pytest==7.3.0 ; python_version >= '3.14'\"",
+        ),
+        encoding="utf-8",
+    )
+    (rendered_repo / "requirements.lock").write_text(
+        "#    uv pip compile pyproject.toml --all-extras --universal\n"
+        'pytest==9.2.0 ; python_version < "3.14"\n'
+        'pytest==7.3.0 ; python_version >= "3.14"\n'
+        'pytest==1.0.0 ; python_version >= "3.15" or sys_platform == "win32"\n',
+        encoding="utf-8",
+    )
+    result = run_validator(rendered_repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize("version_marker", ["python_full_version", "implementation_version"])
+def test_universal_lock_checks_patch_boundaries(rendered_repo: Path, version_marker: str) -> None:
+    (rendered_repo / "requirements.lock").write_text(
+        "#    uv pip compile pyproject.toml --all-extras --universal\n"
+        f'pytest==9.2.0 ; {version_marker} < "3.14.1"\n'
+        f'pytest==7.3.0 ; {version_marker} >= "3.14.1"\n',
+        encoding="utf-8",
+    )
+    result = run_validator(rendered_repo)
+    assert result.returncode == 1, result.stdout
+    assert "incompatible with pytest>=7.4 on Python 3.14.1" in result.stdout
+
+
+def test_universal_lock_accepts_compatible_patch_partitions(rendered_repo: Path) -> None:
+    (rendered_repo / "requirements.lock").write_text(
+        "#    uv pip compile pyproject.toml --all-extras --universal\n"
+        'pytest==9.2.0 ; python_full_version < "3.14.1"\n'
+        'pytest==7.4.0 ; python_full_version >= "3.14.1"\n'
+        'pytest==1.0.0 ; python_full_version >= "3.15" or sys_platform == "win32"\n',
+        encoding="utf-8",
+    )
+    result = run_validator(rendered_repo)
+    assert result.returncode == 0, result.stdout
 
 
 def test_existing_receiver_needs_its_lock(rendered_repo: Path) -> None:
