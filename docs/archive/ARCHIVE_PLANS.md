@@ -303,3 +303,24 @@ Omit the final pipe to read the document.
 [intake-315-follow-up]: https://github.com/stranske/Workflows/blob/35add4d1ebf1d62ad5ece9d5d2dbc871cb6f8d6d/docs/ops/INV_MAN_INTAKE_PR315_REVIEW_THREADS.md
 [intake-315-source]: https://github.com/stranske/Workflows/pull/1956
 [intake-315-receiver]: https://github.com/stranske/Inv-Man-Intake/pull/315
+
+## Historical model, toolkit and workflow reviews
+
+These point-in-time documents have no current in-repository readers; historical
+change lists mention them. The pinned originals preserve their full content.
+Use the current owner documents for decisions.
+
+| Historical original | Current owner |
+|---|---|
+| [February model evaluation][historical-model-eval] | [Model selection policy](../MODEL_SELECTION_POLICY.md) |
+| [Black 26 alignment plan][historical-black-plan] | [Consumer maintenance](../ops/CONSUMER_REPO_MAINTENANCE.md) |
+| [Multi-agent toolkit plan][historical-toolkit-plan] | [Multi-agent routing](../keepalive/MULTI_AGENT_ROUTING.md) |
+| [February 2026 health review][historical-health-review] | [Workflow catalog](../ci/WORKFLOWS.md) |
+
+To recover an original into an empty directory, run `git show <revision>:<path>`
+or `git archive <revision> -- <path> | tar -xf -` using the revision in its link.
+
+[historical-model-eval]: https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/LLM_MODEL_EVALUATION.md
+[historical-black-plan]: https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/plans/black-26-upgrade.md
+[historical-toolkit-plan]: https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/plans/multi-agent-toolkit.md
+[historical-health-review]: https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/workflow-updates/health-workflow-review-2026-02-22.md
