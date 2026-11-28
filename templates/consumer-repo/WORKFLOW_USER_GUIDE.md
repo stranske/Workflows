@@ -1,10 +1,8 @@
 # Workflow User Guide
 
-**Version:** 1.0  
-**Last Updated:** January 11, 2026  
 **Source:** [Workflows Repository](https://github.com/stranske/Workflows)
 
-This guide explains how to use the automated workflows in your repository. All workflows are managed by the central Workflows repository and synced automatically.
+This guide explains how to use the automated workflows in your repository. The central Workflows repository distributes shared workflows. Each consumer also owns its repository-specific configuration.
 
 ---
 
@@ -639,713 +637,83 @@ If concerns → Add verify:create-issue → New issue auto-created
 
 ---
 
-# Workflows Repository Maintenance
-
-*This section is for maintainers of the Workflows repository and consumer repo administrators.*
-
-The Workflows repository includes maintenance workflows that handle sync, updates, health checks, and repo management. These run from the Workflows repository itself and require appropriate permissions.
-
----
-
-## Sync & Distribution
-
-### `maint-68-sync-consumer-repos.yml` - Sync Workflows to Consumer Repos
-**Purpose:** Pushes workflow updates from template to all consumer repos
-
-**Trigger:** Manual dispatch or on push to main
-
-**What It Does:**
-1. Reads `config/sync-manifest.json` for file list
-2. For each consumer repo:
-   - Creates branch `sync/workflows-update`
-   - Copies files from `templates/consumer-repo/`
-   - Opens PR with changes
-3. Assigns reviewers and labels
-
-**Use When:** New workflow version ready to deploy
-
-**Files Synced:** All files listed in sync manifest (workflows, docs, configs)
-
----
-
-### `maint-69-sync-integration-repo.yml` - Sync to Integration Test Repo
-**Purpose:** Deploys workflows to integration test repo for E2E testing
-
-**Trigger:** Manual dispatch or scheduled (nightly)
-
-**What It Does:**
-- Syncs workflows to dedicated integration repo
-- Creates test issues and PRs
-- Validates workflow execution
-- Reports test results
-
-**Use When:** Before production sync, after major changes
-
----
-
-### `maint-71-merge-sync-prs.yml` - Auto-Merge Sync PRs
-**Purpose:** Automatically merges sync PRs after validation
-
-**Trigger:** On sync PR status checks completion
-
-**Conditions:**
-- All status checks pass
-- No merge conflicts
-- Labeled `automation` and `workflows-sync`
-- Approved or auto-approved
-
-**Safety:** Only merges if CI fully green
-
----
-
-### `maint-62-integration-consumer.yml` - Integration Testing
-**Purpose:** Runs end-to-end tests in integration environment
-
-**Trigger:** After sync to integration repo
-
-**Tests:**
-- Agent creation flows
-- Keepalive loops
-- Autofix operations
-- Verification workflows
-- Label automation
-
-**Use When:** Validating new features before production
-
----
-
-## Version Management
-
-### `maint-60-release.yml` - Create Release
-**Purpose:** Creates GitHub release with version tag
-
-**Trigger:** Manual dispatch with version number
-
-**What It Does:**
-1. Validates semantic version format (v1.2.3)
-2. Creates git tag
-3. Generates release notes from PRs
-4. Publishes GitHub release
-5. Triggers changelog update
-
-**Use When:** Ready to cut new version
-
-**Input:** Version number (e.g., `v1.5.0`)
-
----
-
-### `maint-52-sync-dev-versions.yml` - Sync Dev Versions
-**Purpose:** Central Workflows propagation workflow; it has no consumer-template counterpart.
-
-**Trigger:** Runs only in the central Workflows repository after a settled source commit
-
-**What It Does:**
-- Uses the central `autofix-versions.env` pin set
-- Opens at most one propagation PR per consumer repository
-- Records the settled canonical source commit in each delivery marker
-
-**Use When:** Observe central propagation; do not copy or configure this workflow in a consumer repo
-
----
-
-### `maint-sync-action-versions.yml` - Update Action Versions
-**Purpose:** Updates GitHub Action versions in workflows
-
-**Trigger:** Weekly scheduled or manual
-
-**What It Does:**
-1. Scans all workflow files
-2. Finds action usages (e.g., `actions/checkout@v3`)
-3. Checks for latest versions
-4. Updates to newest stable versions
-5. Opens PR with updates
-
-**Use When:** Keeping actions up to date
-
----
-
-## Dependency Management
-
-### Renovate dependency and lockfile updates
-
-Registered consumers inherit the [fleet Renovate preset](https://github.com/stranske/Workflows/blob/main/renovate-presets/fleet.json).
-It opens dependency proposals and refreshes supported `requirements.lock`
-files through its weekly lockfile maintenance policy. Workflows owns central
-dev-tool pins through the separate source-proposal and sync workflows below.
-Repository-owned maintenance workflows can have different schedules and
-inputs. For a local dry preview, use the project's lockfile command in a
-disposable checkout and inspect the proposed pin changes.
-[Preview and archived standalone recipe](https://github.com/stranske/Workflows/blob/main/templates/README.md#dependency-lock-preview)
-
----
-
-### `maint-auto-update-pypi-versions.yml` - Auto-Update PyPI Packages
-**Purpose:** Central Workflows source-proposal workflow; it has no consumer-template counterpart.
-
-**Trigger:** Monday 03:00 UTC or an explicit central security override
-
-**What It Does:**
-- Checks PyPI for the central dev-tool pin set
-- Batches routine changes into one mutable weekly source PR
-- Runs source validation before the consumer propagation lane can start
-
-**Safety:** Consumer repos must not create partial copies of the central pin update
-
----
-
-### Dependency PR labels and lock refresh
-
-In Workflows, `maint-auto-lock-deps.yml` labels a PR opened by Dependabot or Renovate with `agents:allow-change`. Its checkout-free label job runs independently of the lock refresh. On eligible same-repository bot PRs that change a lock input, the refresh job regenerates `requirements.lock` with its recorded compile command. A separate job commits a changed lock to the exact PR head.
-
-Consumer repositories use the fleet Renovate preset to refresh their locks.
-
----
-
-### Shared development-tool pins
-
-Workflows maintains the canonical `autofix-versions.env` pins. Maint 52
-proposes receiving changes after the canonical version update merges. The manual
-source-repair workflow runs in Workflows on a maintainer-selected topic branch.
-Review the receiving PR for this repository's dependency changes.
-
----
-## Health & Quality
-
-### `health-40-repo-selfcheck.yml` - Repository Self-Check
-**Purpose:** Validates repository health and configuration
-
-**Trigger:** Daily scheduled or manual
-
-**Checks:**
-- All required files present
-- Workflow syntax valid
-- Labels configured correctly
-- Branch protection active
-- Required secrets exist
-- Documentation up to date
-
-**Result:** Issue created if problems found
-
----
-
-### `health-42-actionlint.yml` - Workflow Linting
-**Purpose:** Validates workflow YAML syntax and best practices
-
-**Trigger:** On workflow file changes
-
-**What It Does:**
-- Runs `actionlint` on all workflow files
-- Checks for syntax errors
-- Validates action versions exist
-- Checks for common mistakes
-- Reports errors in PR
-
-**Use When:** Automatic on PR, also available manually
-
----
-
-### CI signature fixtures in Workflows
-
-Workflows tests its own static jobs JSON and expected hash through its Gate
-scripts job and main Selftest. See the [Workflows signature fixture check](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOWS.md#ci-signature-guard-fixtures).
-Consumer Gate and branch rules govern pull requests in this repository.
-
----
-
-### `health-44-gate-branch-protection.yml` - Branch Protection Validation
-**Purpose:** Verifies branch protection rules are active
-
-**Trigger:** Daily check
-
-**Validates:**
-- Main branch protected
-- Required status checks configured
-- Code review required
-- Dismiss stale reviews enabled
-- Force push disabled
-
-**Result:** Alert if protection weakened
-
----
-
-### `health-50-security-scan.yml` - Security Scanning
-**Purpose:** Scans for security vulnerabilities
-
-**Trigger:** Weekly scheduled and on push
-
-**Scans:**
-- Dependency vulnerabilities (GitHub Advisory)
-- Code security issues (CodeQL)
-- Secret leaks
-- Known CVEs in dependencies
-
-**Result:** Security report and alerts
-
----
-
-### `health-67-integration-sync-check.yml` - Integration Sync Status
-**Purpose:** Verifies integration repo is in sync
-
-**Trigger:** After sync operations
-
-**Checks:**
-- Workflow files match source
-- Versions are current
-- No drift from template
-- Integration tests passing
-
-**Result:** Warning if out of sync
-
----
-
-### `health-70-validate-sync-manifest.yml` - Sync Manifest Validation
-**Purpose:** Ensures sync manifest is correct
-
-**Trigger:** On manifest changes
-
-**Validates:**
-- All listed files exist
-- File paths are valid
-- No duplicate entries
-- Required files included
-- Manifest JSON is valid
-
-**Result:** Blocks PR if invalid
-
----
-
-### `health-codex-auth-check.yml` - Codex Authentication Test
-**Purpose:** Validates Codex API credentials
-
-**Trigger:** Daily scheduled
-
-**Tests:**
-- API key valid
-- Authentication successful
-- Rate limits okay
-- Model access available
-
-**Result:** Alert if auth fails
-
----
-
-### `health-keepalive-e2e.yml` - Keepalive End-to-End Test
-**Purpose:** Tests keepalive system with real scenario
-
-**Trigger:** Weekly scheduled
-
-**Test Steps:**
-1. Create test issue
-2. Assign agent
-3. Monitor keepalive operation
-4. Verify progression
-5. Cleanup test artifacts
-
-**Result:** Report on keepalive health
-
----
-
-## Maintenance Operations
-
-### `maint-39-test-llm-providers.yml` - Test LLM Providers
-**Purpose:** Smoke-test the configured OpenAI credential with one task-completion analysis.
-
-**Trigger:** Manual dispatch with `all` or `openai`. Both options run the OpenAI smoke test when a key is configured.
-
-**Availability:** The job logs which built-in providers are locally available. This check makes no API requests.
-
-**Result:** The job summary reports whether the OpenAI test passed, skipped, failed, or was cancelled. A missing OpenAI key skips the network test and leaves the job successful if all other steps succeed.
-
----
-
-### `maint-45-cosmetic-repair.yml` - Cosmetic Code Repairs
-**Purpose:** Fixes cosmetic code issues across repo
-
-**Trigger:** Manual dispatch
-
-**Fixes:**
-- Trailing whitespace
-- Missing final newlines
-- Inconsistent line endings
-- Spacing around operators
-- Import organization
-
-**Use When:** Spring cleaning or before release
-
----
-
-### `maint-46-post-ci.yml` - Post-CI Cleanup
-**Purpose:** Cleanup tasks after CI runs
-
-**Trigger:** After CI completion
-
-**Tasks:**
-- Archive test artifacts
-- Clean build directories
-- Update coverage reports
-- Post status comments
-- Upload logs
-
-**Use When:** Automatic
-
----
-
-<a id="maint-47-disable-legacy-workflowsyml---disable-deprecated-workflows"></a>
-
-### Review registered workflows after retirement
-
-From the consumer checkout, list the paths and states registered in Actions.
-
-```sh
-gh api --paginate 'repos/{owner}/{repo}/actions/workflows' --jq '.workflows[] | [.path, .state] | @tsv'
-```
-
-Compare a path with the default branch and its run history before changing the workflow’s state.
-
----
-
-### Tool version freshness report (central only)
-**Purpose:** Central read-only freshness audit; it has no consumer-template counterpart.
-
-**Where:** The "Tool version report" step of `maint-auto-update-pypi-versions.yml`
-in the central Workflows repository, weekly. Until 2026-11-28 this was the separate
-`maint-50-tool-version-check.yml`, which is retired.
-
-**Checks:**
-- PyPI freshness for the central developer-tool pin set (`black`, `ruff`, `mypy`, `pytest`, related tooling)
-- Canonical pin alignment evidence only (no runtime/CLI/Action version inventory)
-
-**Result:** Freshness evidence only; it never creates a competing update issue or PR
-
-**Consumer note:** This report is not synced into consumer repositories. Any
-`maint-50-tool-version-check.yml` reference in consumer-local documentation is
-historical.
-
----
-
-### `maint-52-validate-workflows.yml` - Workflow Validation
-**Purpose:** Comprehensive workflow validation
-
-**Trigger:** On workflow changes or manual
-
-**Validates:**
-- YAML syntax
-- Schema compliance
-- Action versions valid
-- Secrets referenced correctly
-- Permissions appropriate
-- Trigger events valid
-
-**Result:** Validation report
-
----
-
-### Label guide delivery (no dedicated workflow)
-**Purpose:** Keeps consumer `docs/LABELS.md` equal to the canonical consumer label guide
-
-**How:** `templates/consumer-repo/docs/LABELS.md` is a Maint 68 manifest entry, so it reaches
-each consumer through the reviewed Maint 68 sync PR. Workflows-Integration-Tests receives it
-through the Maint 69 apply step. The older direct-push Maint 65 sync was retired on 2026-11-28.
-
-**Use When:** After updating the consumer label guide, wait for the next Maint 68 sync PR
-
----
-
-### `maint-66-monthly-audit.yml` - Monthly Repository Audit
-**Purpose:** Comprehensive monthly review
-
-**Trigger:** First of each month
-
-**Audits:**
-- All workflows functioning
-- No orphaned branches
-- Issues/PRs properly labeled
-- Documentation current
-- Dependency security
-- Access controls
-- Backup status
-
-**Result:** Detailed audit report issue
-
----
-
-### `maint-71-auto-fix-integration.yml` - Auto-Fix Integration Issues
-**Purpose:** Applies autofixes to integration repo
-
-**Trigger:** After integration CI fails
-
-**What It Does:**
-- Identifies fixable issues
-- Applies automatic corrections
-- Re-runs CI
-- Reports remaining issues
-
-**Use When:** Integration CI has auto-fixable errors
-
----
-
-### `maint-72-fix-pr-body-conflicts.yml` - Fix PR Body Conflicts
-**Purpose:** Resolves conflicts in PR descriptions
-
-**Trigger:** When PR body has merge conflict markers
-
-**What It Does:**
-- Detects conflict markers in PR body
-- Resolves using recent version
-- Updates PR description
-- Comments with resolution
-
-**Use When:** Sync PRs with conflicting descriptions
-
----
-
-### `maint-coverage-guard.yml` - Coverage Threshold Check
-**Purpose:** Enforces code coverage requirements
-
-**Trigger:** On PR or manual
-
-**Checks:**
-- Overall coverage meets threshold (80%)
-- No file below minimum (60%)
-- Coverage not decreased
-- All critical paths covered
-
-**Result:** Blocks merge if coverage drops
-
----
-
-## Workflow Monitoring & Debugging
-
-### Using Workflow Logs
-
-**To debug workflow issues:**
-1. Go to Actions tab in repository
-2. Select failed workflow run
-3. Click on failed job
-4. Expand step that failed
-5. Review error messages and logs
-
-**Common Issues:**
-- **Permission errors:** Check repository secrets
-- **API rate limits:** Wait for limit reset
-- **Syntax errors:** Run actionlint locally
-- **Missing files:** Verify sync manifest
-
----
-
-### Testing Workflows Locally
-
-**For workflow development:**
-
-```bash
-# Install act (local GitHub Actions runner)
-brew install act  # or: curl ... | bash
-
-# Run workflow locally
-act -j <job-name> -s GITHUB_TOKEN=<token>
-
-# Dry run to see what would execute
-act -n
-```
-
-**Limitations:** Some GitHub-specific features won't work locally
-
----
-
-### Manual Workflow Dispatch
-
-**To trigger manually:**
-1. Go to Actions tab
-2. Select workflow on left
-3. Click "Run workflow" dropdown
-4. Fill in any required inputs
-5. Click "Run workflow"
-
-**Available Inputs:** See workflow file `workflow_dispatch` section
-
----
-
-## Maintenance Best Practices
-
-### Before Syncing to Consumer Repos
-
-✅ **Checklist:**
-1. All CI checks passing on main
-2. Integration tests pass
-3. Documentation updated
-4. CHANGELOG.md updated
-5. Version bumped (if applicable)
-6. Reviewed by second maintainer
-7. Tested on integration repo
-
----
-
-### After Major Changes
-
-**Recommended sequence:**
-1. Merge to main
-2. Run integration sync
-3. Monitor integration tests (24 hours)
-4. Create release (if stable)
-5. Sync to 1-2 test consumer repos
-6. Monitor for issues (48 hours)
-7. Sync to all consumer repos
-8. Post announcement
-
----
-
-### Regular Maintenance Schedule
-
-**Daily:**
-- Review failed workflows
-- Check security alerts
-- Monitor integration health
-
-**Weekly:**
-- Review open PRs
-- Check dependency updates
-- Run health checks
-- Review audit results
-
-**Monthly:**
-- Full repository audit
-- Label cleanup
-- Documentation review
-- Version planning
-- Consumer repo sync
-
----
-
-### Emergency Rollback
-
-**If sync causes breaking issues:**
-
-```bash
-# In consumer repo:
-git checkout <previous-working-commit>
-git push -f origin main  # If really necessary
-
-# Better: Revert specific files
-git checkout <commit> .github/workflows/<broken-file>.yml
-git commit -m "Revert workflow to stable version"
-git push
-```
-
-**Then fix in Workflows repo and re-sync**
-
----
-
-## Sync Manifest Management
-
-The sync manifest (`config/sync-manifest.json`) controls what gets synced:
-
-```json
-{
-  "files": [
-    {
-      "source": "templates/consumer-repo/WORKFLOW_USER_GUIDE.md",
-      "dest": "docs/WORKFLOW_USER_GUIDE.md"
-    }
-  ]
-}
-```
-
-**To add new file to sync:**
-1. Add entry to manifest
-2. Validate with `health-70-validate-sync-manifest`
-3. Test sync to integration repo
-4. Sync to consumer repos
-
-**To remove file:**
-1. Remove from manifest
-2. Sync will not delete (manual cleanup needed)
-3. Document removal in CHANGELOG
-
----
-
-## Required Secrets & Configuration
-
-### Repository Secrets (Workflows Repo)
-
-| Secret | Purpose | Used By |
-|--------|---------|---------|
-| `OWNER_PR_PAT` | Owner PAT for cross-repo sync operations | Sync workflows |
-| `OPENAI_API_KEY` | OpenAI API access | Agent workflows |
-| `ANTHROPIC_API_KEY` | Anthropic API access | Agent workflows |
-| `GH_APP_PRIVATE_KEY` | GitHub App authentication | Integration workflows |
-
-### Repository Variables
-
-| Variable | Value | Purpose |
-|----------|-------|---------|
-| `INTEGRATION_REPO` | `stranske/integration-test` | Integration testing target |
-| `CONSUMER_REPOS` | JSON array | List of consumer repos for sync |
-| `SYNC_ENABLED` | `true`/`false` | Enable/disable auto-sync |
-
----
-
-## Troubleshooting Maintenance Workflows
-
-### Sync Not Creating PRs
-
-**Check:**
-1. `OWNER_PR_PAT` or `SERVICE_BOT_PAT` token valid and has repo permissions
-2. Consumer repo exists and accessible
-3. Sync manifest valid (run validation workflow)
-4. No existing open sync PR (closes old ones first)
-
----
-
-### Integration Tests Failing
-
-**Check:**
-1. Integration repo has same secrets as consumer repos
-2. Workflows synced correctly (no file permission issues)
-3. Integration repo clean (no stale test artifacts)
-4. API rate limits not exceeded
-
----
-
-### Auto-Merge Not Working
-
-**Check:**
-1. Required status checks all green
-2. PR has correct labels (`automation`, `workflows-sync`)
-3. No merge conflicts
-4. Branch protection rules allow auto-merge
-5. Actor has merge permissions
-
----
-
-### Dependabot PRs Not Auto-Labeled
-
-**Check:**
-1. PR opened by `dependabot[bot]`
-2. Workflow has `pull_request: [opened]` trigger
-3. Workflow has write permissions on PRs
-4. Label exists in repository
-
----
-
-## Contact & Support
-
-**For workflow issues:**
-- Create issue in Workflows repository
-- Tag with `maintenance` and `bug`
-- Include workflow name and run ID
-
-**For sync issues:**
-- Check integration test results first
-- Review sync PR in consumer repo
-- Check diff for unexpected changes
-
-**For access/permissions:**
-- Contact repository administrator
-- Verify in repository settings > Collaborators
-
----
-
-**Version History:**
-- 1.0 (January 11, 2026): Initial comprehensive guide
-
-**Maintained by:** [Workflows Repository](https://github.com/stranske/Workflows)
+## Workflows Repository Maintenance
+
+Workflows maintainers operate the shared jobs in the central repository. Use these references when a change affects your receiving repository.
+
+<a name="sync--distribution"></a>
+<a name="maint-68-sync-consumer-reposyml---sync-workflows-to-consumer-repos"></a>
+<a name="maint-69-sync-integration-repoyml---sync-to-integration-test-repo"></a>
+<a name="maint-71-merge-sync-prsyml---auto-merge-sync-prs"></a>
+<a name="maint-62-integration-consumeryml---integration-testing"></a>
+<a name="sync-manifest-management"></a>
+
+### Consumer sync and manifest changes
+
+Workflows owns the manifest and stages updates in consumer pull requests. Follow the canary and promotion procedure for the affected repositories. [Consumer maintenance and sync](https://github.com/stranske/Workflows/blob/main/docs/ops/CONSUMER_REPO_MAINTENANCE.md#sync-workflow-details).
+
+<a name="version-management"></a>
+<a name="maint-60-releaseyml---create-release"></a>
+<a name="maint-52-sync-dev-versionsyml---sync-dev-versions"></a>
+<a name="maint-sync-action-versionsyml---update-action-versions"></a>
+<a name="dependency-management"></a>
+<a name="renovate-dependency-and-lockfile-updates"></a>
+<a name="maint-auto-update-pypi-versionsyml---auto-update-pypi-packages"></a>
+<a name="dependency-pr-labels-and-lock-refresh"></a>
+<a name="shared-development-tool-pins"></a>
+<a name="maintenance-operations"></a>
+<a name="maint-39-test-llm-providersyml---test-llm-providers"></a>
+<a name="maint-45-cosmetic-repairyml---cosmetic-code-repairs"></a>
+<a name="maint-46-post-ciyml---post-ci-cleanup"></a>
+<a name="maint-47-disable-legacy-workflowsyml---disable-deprecated-workflows"></a>
+<a name="review-registered-workflows-after-retirement"></a>
+<a name="tool-version-freshness-report-central-only"></a>
+<a name="maint-52-validate-workflowsyml---workflow-validation"></a>
+<a name="label-guide-delivery-no-dedicated-workflow"></a>
+<a name="maint-66-monthly-audityml---monthly-repository-audit"></a>
+<a name="maint-71-auto-fix-integrationyml---auto-fix-integration-issues"></a>
+<a name="maint-72-fix-pr-body-conflictsyml---fix-pr-body-conflicts"></a>
+<a name="maint-coverage-guardyml---coverage-threshold-check"></a>
+
+### Versions, dependencies and maintenance jobs
+
+Check the central workflow catalog for the current job name and trigger. The integration guide explains how version selection works for reusable workflows and templates. [Workflow catalog](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOWS.md#autofix--maintenance). [Version selection](https://github.com/stranske/Workflows/blob/main/docs/INTEGRATION_GUIDE.md#versioning-strategy).
+
+<a name="health--quality"></a>
+<a name="health-40-repo-selfcheckyml---repository-self-check"></a>
+<a name="health-42-actionlintyml---workflow-linting"></a>
+<a name="ci-signature-fixtures-in-workflows"></a>
+<a name="health-44-gate-branch-protectionyml---branch-protection-validation"></a>
+<a name="health-50-security-scanyml---security-scanning"></a>
+<a name="health-67-integration-sync-checkyml---integration-sync-status"></a>
+<a name="health-70-validate-sync-manifestyml---sync-manifest-validation"></a>
+<a name="health-codex-auth-checkyml---codex-authentication-test"></a>
+<a name="health-keepalive-e2eyml---keepalive-end-to-end-test"></a>
+<a name="health-41-repo-healthyml---comprehensive-health-check"></a>
+<a name="workflow-monitoring--debugging"></a>
+<a name="using-workflow-logs"></a>
+<a name="testing-workflows-locally"></a>
+<a name="manual-workflow-dispatch"></a>
+<a name="troubleshooting-maintenance-workflows"></a>
+<a name="sync-not-creating-prs"></a>
+<a name="integration-tests-failing"></a>
+<a name="auto-merge-not-working"></a>
+<a name="dependabot-prs-not-auto-labeled"></a>
+
+### Health checks and troubleshooting
+
+Start with the affected run in the receiver’s Actions tab. For centrally managed checks, use the health inventory and the sync verification checklist. [Repository health checks](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOWS.md#repository-health-checks). [Sync verification checklist](https://github.com/stranske/Workflows/blob/main/docs/ops/CONSUMER_REPO_MAINTENANCE.md#verification-checklist).
+
+<a name="maintenance-best-practices"></a>
+<a name="before-syncing-to-consumer-repos"></a>
+<a name="after-major-changes"></a>
+<a name="regular-maintenance-schedule"></a>
+<a name="emergency-rollback"></a>
+<a name="required-secrets--configuration"></a>
+<a name="repository-secrets-workflows-repo"></a>
+<a name="repository-variables"></a>
+<a name="contact--support"></a>
+
+### Receiver setup and recovery
+
+Use the setup guide for receiver permissions and secrets. To reverse a delivered change, use a reviewed revert through the owning repository and check its receiving head. [Integration and required setup](https://github.com/stranske/Workflows/blob/main/docs/INTEGRATION_GUIDE.md#required-setup).
