@@ -344,7 +344,7 @@ def test_no_duplicate_unchanged_verification(store, monkeypatch):
     # Exercise the real Workflows collector over offline, complete REST pages.
     from scripts import check_checks_reported as producer
 
-    from tests.test_check_checks_reported import fixture_transport
+    from tests.scripts.test_check_checks_reported import fixture_transport
 
     monkeypatch.setattr(producer, "native_gh_pages", fixture_transport())
     spec = dataclasses.replace(
@@ -390,7 +390,7 @@ def test_no_duplicate_unchanged_verification(store, monkeypatch):
 def test_local_verification_receipt_cache(store, monkeypatch):
     from scripts import check_checks_reported as producer
 
-    from tests.test_check_checks_reported import fixture_transport
+    from tests.scripts.test_check_checks_reported import fixture_transport
 
     monkeypatch.setattr(producer, "native_gh_pages", fixture_transport())
     spec = dataclasses.replace(

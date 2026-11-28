@@ -127,7 +127,7 @@ or filesystem execution is not a security-isolated principal.
 ```bash
 python3 -m pytest tests/scripts/test_closer_runtime.py \
   tests/scripts/test_closer_portable_boundaries.py \
-  tests/test_check_checks_reported.py -q
+  tests/scripts/test_check_checks_reported.py -q
 ```
 
 Tests use fake native HTTP and complete REST fixtures, including 409/422, 403,

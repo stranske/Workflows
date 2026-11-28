@@ -44,7 +44,7 @@ The issue's `docs/AGENT_ISSUE_FORMAT.md` citation is absent in this checkout.
 `.github/scripts/issue_format.py` is the implemented work-order validator:
 Tasks must name concrete targets and Acceptance Criteria must name verification
 gates. That formatting contract does not establish check completeness. Reporter
-behavior belongs in the adapter and `tests/test_check_checks_reported.py`, with
+behavior belongs in the adapter and `tests/scripts/test_check_checks_reported.py`, with
 this document and `README.md` defining its supported invocation.
 
 This is a local lane tool, not a consumer workflow or copy-managed template.
@@ -256,7 +256,7 @@ child jobs never supply the expected topology.
 
 ## Regression gate
 
-Run `python3 -m pytest -q tests/test_check_checks_reported.py -m "not slow"`. The suite contains
+Run `python3 -m pytest -q tests/scripts/test_check_checks_reported.py -m "not slow"`. The suite contains
 the four issue-required controls: missing required check, legitimate label-only
 absence (Orchestrator #461's auto-pilot shape), cancelled attempt replaced by
 success, and zero-job startup failure. It also checks pagination, truncation,
@@ -266,7 +266,7 @@ regression controls so they cannot produce a legitimate absence or a PASS.
 
 For a deliberate-break control, temporarily omit `missing` from the FAIL decision
 in `adjudicate()` and run
-`python3 -m pytest -q tests/test_check_checks_reported.py::test_missing_required_check_is_fail`.
+`python3 -m pytest -q tests/scripts/test_check_checks_reported.py::test_missing_required_check_is_fail`.
 The test must fail. Restore the implementation and rerun the entire focused suite;
 retain both command outputs beside the live receipts. Do not commit the mutation.
 

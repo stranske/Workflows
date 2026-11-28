@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-GUIDANCE_PATH = Path(__file__).resolve().parents[1] / ".github/workflows/autofix-versions.env"
+GUIDANCE_PATH = Path(__file__).resolve().parents[2] / ".github/workflows/autofix-versions.env"
 
 
 def test_canonical_runtime_example_excludes_hypothesis() -> None:
@@ -84,7 +84,7 @@ def test_regression_discriminates_original_and_fixed_guidance(
     test_path = tmp_path / Path(__file__).name
     source = Path(__file__).read_text(encoding="utf-8")
     canonical_path_assignment = (
-        "GUIDANCE_PATH = Path(__file__).resolve().parents[1] / "
+        "GUIDANCE_PATH = Path(__file__).resolve().parents[2] / "
         '".github/workflows/autofix-versions.env"'
     )
     assert canonical_path_assignment in source

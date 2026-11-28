@@ -13,7 +13,7 @@ from unittest.mock import Mock
 import pytest
 from scripts import validate_backplane_registry as vbr
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 VALIDATION_TIME = datetime(2026, 9, 14, tzinfo=UTC)
 
 

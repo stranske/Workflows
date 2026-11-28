@@ -453,7 +453,7 @@ def test_schema_and_store_boundaries_reject_malformed_records(tmp_path, corrupt)
 
 
 def test_native_gh_complete_page_transport_and_cli(monkeypatch, tmp_path):
-    from tests.test_check_checks_reported import fixture_transport
+    from tests.scripts.test_check_checks_reported import fixture_transport
 
     calls = []
 
@@ -597,7 +597,7 @@ s.write_cas(key,r,expected_revision=1,authority=cr.WriteAuthority("owner_update"
 
 
 def test_bounded_reconciliation_ignores_caller_fabricated_success(tmp_path, monkeypatch):
-    from tests.test_check_checks_reported import fixture_transport
+    from tests.scripts.test_check_checks_reported import fixture_transport
 
     store = cr.LocalOperationStore(tmp_path)
     spec = dataclasses.replace(
@@ -671,7 +671,7 @@ def test_merge_reconciliation_reads_bound_actual_result(monkeypatch):
 
 
 def test_topology_fail_is_not_cached_and_context_change_is_not_reused(tmp_path, monkeypatch):
-    from tests.test_check_checks_reported import fixture_transport
+    from tests.scripts.test_check_checks_reported import fixture_transport
 
     store = cr.LocalOperationStore(tmp_path)
     spec = dataclasses.replace(
