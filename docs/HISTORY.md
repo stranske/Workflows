@@ -649,7 +649,7 @@ As of 2026-05-07 (HEAD `969b8381`):
   systematic review.
 - [`README.md`](../README.md) — current capability advertisement (note: the
   consumer count and verifier metrics tables are stale as of HEAD).
-- [`COMPATIBILITY.md`](../COMPATIBILITY.md) — versioning and deprecation
+- [`COMPATIBILITY.md`](COMPATIBILITY.md) — versioning and deprecation
   policy adopted in Phase 2.
 - [`docs/WORKFLOW_GUIDE.md`](WORKFLOW_GUIDE.md) — full inventory of current
   workflows and what each does.

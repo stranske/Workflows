@@ -845,7 +845,10 @@ For repositories that want full CI + agent automation (Codex keepalive, autofix,
 
 Prefer the managed consumer sync workflow for registered repos. For manual
 bootstrap, copy the current default entry points from `templates/consumer-repo/`
-and keep the root agent guidance files aligned with the same template source:
+and keep the root agent guidance files aligned with the same template source.
+Use the [consumer setup checklist](../templates/consumer-repo/docs/SETUP_CHECKLIST.md)
+for the GitHub Apps, agent credentials and repository-local helpers. The commands
+below copy the entry points and guidance.
 
 ```bash
 # Current default workflow surface
@@ -855,6 +858,8 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-issue-intake.yml -o .github/workflows/agents-issue-intake.yml
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml -o .github/workflows/agents-80-pr-event-hub.yml
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml -o .github/workflows/agents-81-gate-followups.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml -o .github/workflows/agents-keepalive-sweep.yml
+curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml -o .github/workflows/agents-keepalive-loop-reporter.yml
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/agents-verifier.yml -o .github/workflows/agents-verifier.yml
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix.yml -o .github/workflows/autofix.yml
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/pr-00-gate.yml -o .github/workflows/pr-00-gate.yml
@@ -880,8 +885,10 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 |----------|---------|----------|
 | `ci.yml` | Python CI (lint, format, tests, typecheck) | push, PR |
 | `agents-issue-intake.yml` | Routes issues to registry-backed agents or runs ChatGPT topic sync | `issues` (`opened`, `reopened`, `labeled`, `unlabeled` with `agent:*`/`agents:*`), `workflow_dispatch` |
-| `agents-80-pr-event-hub.yml` | Handles PR event routing, keepalive metadata, bot comments, and verification follow-ups | PR events and comments |
-| `agents-81-gate-followups.yml` | Coordinates Gate follow-ups, keepalive/autofix recovery, and generated-delivery wakeups | Gate completion and follow-up events |
+| `agents-80-pr-event-hub.yml` | Routes PR metadata, bot comments, and verification follow-ups | PR events and comments |
+| `agents-81-gate-followups.yml` | Coordinates keepalive, autofix recovery and generated-delivery wakeups | Gate completion, base-side PR events or manual dispatch |
+| `agents-keepalive-sweep.yml` | Dispatches an evaluation for opted-in, open non-draft PRs | Hourly, manual |
+| `agents-keepalive-loop-reporter.yml` | Reconciles attributed failed or cancelled Gate Followups attempts | Gate Followups completion, manual |
 | `agents-verifier.yml` | Runs label-driven post-merge verification | manual dispatch, `verify:*` labels |
 | `autofix.yml` | Auto-fixes lint/format issues | `workflow_run` (`Gate`/`CI`/`Python CI` completed), `pull_request_target` (`autofix` / `autofix:clean` label) |
 | `pr-00-gate.yml` | Required PR gate and summary status | PR |
@@ -953,16 +960,12 @@ to the smoke command environment so scripts can reference the sibling checkout.
 
 ### Dual Checkout Architecture
 
-Consumer repo workflows use the **dual checkout pattern**:
-
-1. **Consumer repo** is checked out for your code
-2. **Workflows repo** is checked out (sparse) for scripts
-
-This means:
-- ✅ Consumer repos still provide CI helper scripts in `scripts/` and `tools/`
-- ✅ Automation scripts under `.github/scripts/` stay **up-to-date** from Workflows
-- ✅ **No sync required** when Workflows scripts change
-- ✅ Only **thin caller workflows** (~50-100 lines each) in your repo
+Reusable CI checks out the consumer code and fetches shared helpers from
+Workflows. Inspect the reusable workflow's helper checkout for ref selection.
+Managed consumer workflows also use repository-local files. For example, Gate
+Followups loads `.github/scripts/keepalive_loop.js` from the receiving checkout
+and the [sync manifest](../.github/sync-manifest.yml) delivers that helper.
+The consumer's own CI entry point and helper scripts follow its local policy.
 
 ### Drift Guardrails
 
@@ -975,34 +978,32 @@ Health 67.
 
 #### `agents-80-pr-event-hub.yml` (Critical for PR Events)
 
-This is the current PR-event hub for Codex keepalive metadata, bot comments,
-and verification follow-ups. When Codex completes a round of work, it posts a
-comment with a keepalive marker. This workflow:
-
-1. Detects the keepalive marker in PR comments
-2. Validates the comment is from an authorized user
-3. Dispatches the follow-up path that can continue work
-4. Updates PR body with status sections
-
-Without this workflow, Codex PRs will stall after the first round.
+The [consumer PR Event Hub](../templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml)
+resolves PR context, updates metadata and routes bot-comment and verification
+follow-ups. The managed consumer's hosted keepalive rounds are evaluated in
+Gate Followups.
 
 #### `agents-81-gate-followups.yml`
 
-This is the current Gate follow-up hub. It coordinates keepalive continuation,
-autofix recovery, and post-Gate actions after `pr-00-gate.yml` completes. A Gate
-completion on a stable consumer-sync or dev-tool-sync branch also dispatches the
-matching central Maint 71 lane; it never merges the generated PR locally.
+[Gate Followups](../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml)
+coordinates keepalive continuation, autofix recovery and post-Gate actions.
+Set `USE_CONSOLIDATED_WORKFLOWS=true` for automatic keepalive evaluation on Gate
+completion and eligible label events. The
+[consumer hourly sweep](../templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml)
+dispatches a manual recheck in both consumer modes. The
+[keepalive reporter](../templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml)
+handles failed or cancelled attempts when the normal feedback path is unavailable.
+
+A Gate completion on a stable consumer-sync or dev-tool-sync branch also
+dispatches the matching central Maint 71 lane for generated delivery.
 
 #### `autofix.yml`
 
-When a PR has lint/format issues:
-
-1. Autofix runs Black and Ruff with `--fix`
-2. Commits fixes directly to the PR branch
-3. Labels PR with `autofix:applied`
-4. Posts a summary comment
-
-This eliminates manual formatting work and ensures consistent style.
+The consumer caller admits eligible lint and format fixes and invokes
+[Reusable 18 Autofix](../.github/workflows/reusable-18-autofix.yml). It runs
+Black and Ruff, then uses the authorized push path for same-repository changes
+or uploads a patch for the fallback path. Review the workflow summary and any
+`autofix:applied` label for the actual delivery outcome.
 
 ##### Dynamic Target Detection
 
@@ -1048,143 +1049,29 @@ Each line specifies a directory to exclude. This file is optional - if not prese
 
 ## CI Failure Routing
 
-The keepalive system intelligently routes CI failures to the appropriate fix mechanism:
+The [keepalive evaluator](../.github/scripts/keepalive_loop.js) looks for
+a Gate result bound to the PR head. Its failure classifier considers failed
+job names and prioritizes tests, type checks, then lint or formatting.
+A classified failure or an unclassified failing job can select a bounded
+`fix` round with the selected agent. Tests, mypy and lint can therefore produce
+`fix-test`, `fix-mypy` and `fix-lint`. A pending Gate normally waits for a recheck.
 
-### Decision Flow
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                     Gate Workflow Result                         │
-└──────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │  Gate Passed?   │
-                    └─────────────────┘
-                              │
-              ┌───────────────┴───────────────┐
-              │ Yes                           │ No
-              ▼                               ▼
-    ┌─────────────────┐  ┌─────────────────┐
-    │  Normal Work    │  │ Classify Failure│
-    │  (run action)   │  └─────────────────┘
-    │                 │           │
-    │  Prompt:        │     ┌─────┴─────┐
-    │  keepalive_     │     │           │
-    │  next_task.md   │     ▼           ▼
-    └─────────────────┘  ┌───────┐  ┌──────────────┐
-                         │ Lint/ │  │ Tests/Mypy/  │
-                         │Format │  │ Unknown      │
-                         └───┬───┘  └──────┬───────┘
-                             │             │
-                             ▼             ▼
-                     ┌────────────┐  ┌─────────────────┐
-                     │  Autofix   │  │   Fix Mode      │
-                     │  Workflow  │  │  (fix action)   │
-                     │            │  │                 │
-                     │  Black +   │  │  Prompt:        │
-                     │  Ruff      │  │  fix_ci_        │
-                     └────────────┘  │  failures.md    │
-                                     └─────────────────┘
-```
-
-### How It Works
-
-1. **Gate Evaluation**: When the keepalive loop evaluates, it checks the gate workflow status
-
-2. **Failure Classification**: If the gate failed, the system inspects which jobs failed:
-   - **Test failures**: Jobs with names containing `test`, `pytest`, `unittest`
-   - **Mypy failures**: Jobs with names containing `mypy`, `type`, `typecheck`
-   - **Lint failures**: Jobs with names containing `lint`, `ruff`, `black`, `format`
-
-3. **Routing Decision**:
-   - **Lint/Format failures** → Route to **Autofix** (Black + Ruff can fix these automatically)
-   - **Test/Mypy failures** → Route to **Codex with fix_ci_failures.md prompt** (requires code changes)
-   - **Unknown failures** → Route to **Codex with fix_ci_failures.md prompt** (needs investigation)
-
-### Prompt Files
-
-| Prompt | Purpose | When Used |
-|--------|---------|-----------|
-| `keepalive_next_task.md` | Normal task work | Gate passed, tasks remaining |
-| `fix_ci_failures.md` | Focus on fixing CI | Test/mypy failures detected |
-
-### Output Variables
-
-The `evaluate` job outputs these new fields:
-
-| Output | Description | Values |
-|--------|-------------|--------|
-| `prompt_mode` | Which prompt mode to use | `normal`, `fix_ci` |
-| `prompt_file` | Full path to prompt file | Path to `.md` file |
-| `reason` | Why this action was chosen | `fix-test`, `fix-mypy`, `fix-unknown`, etc. |
-
-### Action Types
-
-| Action | Description | Triggers |
-|--------|-------------|----------|
-| `run` | Normal Codex run | Gate passed, tasks remaining |
-| `fix` | CI fix mode | Test/mypy failure detected |
-| `wait` | Wait for gate | Gate pending or lint failure (autofix handles) |
-| `stop` | Stop iteration | Tasks complete or max iterations |
-| `skip` | Skip entirely | Keepalive disabled |
-
-### Example Scenarios
-
-**Scenario 1: Tests Failing**
-```
-Gate Status: failure
-Failed Jobs: [test (3.13), test (3.14)]
-Classification: test failure
-Action: fix
-Reason: fix-test
-Prompt: fix_ci_failures.md
-```
-
-**Scenario 2: Mypy Errors**
-```
-Gate Status: failure
-Failed Jobs: [mypy]
-Classification: mypy failure
-Action: fix
-Reason: fix-mypy
-Prompt: fix_ci_failures.md
-```
-
-**Scenario 3: Black Formatting**
-```
-Gate Status: failure
-Failed Jobs: [lint (black)]
-Classification: lint failure
-Action: wait
-Reason: gate-not-success
-→ Autofix workflow handles this separately
-```
-
-**Scenario 4: All Passing**
-```
-Gate Status: success
-Action: run
-Reason: ready
-Prompt: keepalive_next_task.md
-```
-
-### Consumer Setup
-
-No additional configuration needed. The CI failure routing is built into the keepalive system and works automatically when you have:
-
-1. `agents-81-gate-followups.yml` workflow (or `agents-keepalive-loop.yml` in Workflows / non-consolidated setups)
-2. `pr-00-gate.yml` workflow (for gate status)
-3. `fix_ci_failures.md` prompt (in `.github/codex/prompts/`)
-
-Ensure `fix_ci_failures.md` exists in `.github/codex/prompts/` for fix mode to work properly.
+Read `action`, `reason`, `prompt_mode` and `prompt_file` on the `evaluate` job.
+[Prompt routing](../.github/scripts/keepalive_prompt_routing.js) selects normal
+implementation, CI repair or acceptance verification. The
+[Autofix workflow](../templates/consumer-repo/.github/workflows/autofix.yml)
+also has its own lint and formatting route. See
+[formatting and agent repairs](ci/WORKFLOWS.md#autofix-routes) and
+[Keepalive troubleshooting](keepalive/KEEPALIVE_TROUBLESHOOTING.md) to identify
+which job was admitted on the exact head.
 
 ### Python CI default migration
 
 Omitting both reusable Python runtime inputs selects Python 3.13 and 3.14 in
 parallel. An explicit `python-version` remains a single-runtime override; a nonempty `python-versions` array still takes precedence. The primary artifact
 runtime defaults to shared `CI_PYTHON_VERSION` when selected, otherwise the first
-selected runtime. Gate requests coverage on 3.14 only through
+selected runtime. Workflows Gate and the new consumer Gate template request
+coverage on 3.14 only through
 `coverage-python-version`; both runtimes retain identical test selection. Consumers should set
 `coverage-python-version` equal to `primary-python-version`, and `COVERAGE_REFERENCE_RUNTIME` in the Gate
 coverage stats step must match that same runtime. The non-reference leg (for example Python 3.13 when
@@ -1192,7 +1079,9 @@ coverage stats step must match that same runtime. The non-reference leg (for exa
 Workflows repo (748 tests, four workers, 2026-10-25), enabling branch coverage on a second runtime added
 36% wall time on Python 3.13 and 0% on 3.14 versus single-runtime coverage. `pytest-workers` accepts `auto`
 (the backward-compatible reusable default) or a positive integer; the first-party
-Gate and new Gate template request `4`.
+Gate and new Gate template request `4`. The Workflows Gate passes a 70%
+coverage floor. The consumer Gate template leaves the floor empty for
+receiving-repository policy, and the starter consumer `ci.yml` sets 80%.
 
 The supported Python standard is 3.14 first and 3.13 as backup (owner decision 2026-10-28);
 the package minimum is `>=3.13`, and Python 3.12 is retired. The universal lock compiles

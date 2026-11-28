@@ -2,6 +2,12 @@
 
 Fork pull requests run required workflows with a read-only token. `Gate` and Health 45 Agents Guard therefore cannot publish their required PR-head statuses directly. Their default-branch `workflow_run` publishers publish those statuses without executing or checking out pull-request code.
 
+The [Gate status workflow](../../.github/workflows/pr-00-gate-fork-status.yml)
+calls [`publishGateForkStatus`](../../.github/scripts/gate-fork-status-publication.js).
+The [Health 45 status workflow](../../.github/workflows/agents-guard-fork-status.yml)
+calls [`publishGuardForkStatus`](../../.github/scripts/agents-guard-fork-status-publication.js).
+Both are distributed through the [sync manifest](../../.github/sync-manifest.yml).
+
 ## Trust and exact-head contract
 
 The publisher re-fetches the workflow run and pull request through the API and
@@ -59,7 +65,7 @@ change. Repositories visibly requiring the status were
 `learning-management-system`. Workflows branch protection lists `summary`; the
 publisher also accepts a lone `gate-summary` job when that is the Gate rollup
 name (for example legacy consumer aliases);
-Trend Model Project and Collab Admin expose disabled rulesets. The remaining
+Trend Model Project exposed disabled rulesets. The remaining
 registered consumers returned no visible required status contexts. This is a
 point-in-time API audit, not an assertion that hidden or future protection rules
 cannot change.
@@ -80,15 +86,17 @@ URL in the rollout issue. For a live negative rehearsal, force-push after a Gate
 run or change a protected control path; capture the blocking error status and
 prove no stale success was written.
 
-Roll out `create_only`, one repository at a time, in this order:
+The sync manifest keeps Gate publication `create_only`, with an explicit
+overwrite for `Template` and an exception for the custom Gate in
+`Manager-Database`. The initial rollout plan recorded this order:
 
 1. `Template`, `Travel-Plan-Permission`, `trip-planner`, `Pension-Data`;
 2. `Inv-Man-Intake`, `Ready`, `learning-management-system`,
    `Portable-Alpha-Extension-Model`;
 3. `Trend_Model_Project`, `Counter_Risk`, `Fine-Art-Archive`, `Orchestrator`;
-4. `Doc-Lineage`, `Deliverable-Render`, `Manager-Mosaic`, `Collab-Admin`.
+4. `Doc-Lineage`, `Deliverable-Render`, `Manager-Mosaic`.
 
-`Manager-Database` remains excluded with its custom Gate workflow. At each phase,
+`Manager-Database` remains excluded with its custom Gate workflow. When validating an installation,
 record the current required contexts, one exact-head positive rehearsal, and one
 stale-head/control-surface negative rehearsal before continuing. Roll back by
 disabling or removing `pr-00-gate-fork-status.yml`; do not weaken branch

@@ -13,13 +13,15 @@ The keepalive system routes work to different agents based on the `agent:*` labe
 
 | Label | Agent | Workflow |
 |-------|-------|----------|
-| `agent:codex` | Codex CLI (gpt-5.6-terra; fallback gpt-5.5) | `reusable-codex-run.yml` |
+| `agent:codex` | Codex CLI | `reusable-codex-run.yml` |
 | `agent:claude` | Claude CLI | `reusable-claude-run.yml` |
 | `agent:cursor` | Cursor | `reusable-cursor-run.yml` |
 | `agent:muse` | Muse | `reusable-muse-run.yml` |
 | `agent:gemini` | Gemini | `reusable-gemini-run.yml` |
 
-The authoritative list lives in `.github/agents/registry.yml`; update that registry and the matching runner workflow before adding labels to this table.
+The [agent registry](../../.github/agents/registry.yml) declares runner
+capabilities, credentials and execution profiles. Look up the selected Codex
+profile there for its requested model, fallback and reasoning effort.
 
 The Muse runner sets both Git author and committer to `muse
 <muse@users.noreply.github.com>` in the `Run Muse` environment so CLI-created
@@ -35,97 +37,36 @@ precedence over repository defaults; they do not establish a native Muse run.
 
 ## How It Works
 
-```
-PR with agent:<name> label
-    ↓
-Gate CI passes
-    ↓
-agents-keepalive-loop.yml triggers
-    ↓
-Evaluate step extracts:
-  - agentType = "<name>" (from agent:<name> label)
-  - taskAppendix = extracted Scope/Tasks/Acceptance
-    ↓
-Routes through the registry-backed runner for agentType
-    ↓
-The selected agent receives prompt + task appendix:
-  "Your objective is to satisfy the Acceptance Criteria...
-   ---
-   ## PR Tasks and Acceptance Criteria
-   **Progress:** 3/10 tasks complete, 7 remaining
-   ### Tasks
-   - [ ] First unchecked task ← Work on this
-   ..."
-    ↓
-Agent works, commits, pushes
-    ↓
-Summary updated with agent-specific output
-```
-
----
+1. A Gate, label, manual or [sweep](GoalsAndPlumbing.md#periodic-re-evaluation-keepalive-sweep)
+   wake reaches the Workflows keepalive loop or the consumer's Gate Followups.
+2. [`evaluateKeepaliveLoop`](../../.github/scripts/keepalive_loop.js) evaluates
+   the PR and uses its concrete `agent:<name>` label. With `agent:auto`, the
+   [delegation policy](../../.github/scripts/agent_delegation_policy.js)
+   also evaluates capacity, provider backoff and possible rotation.
+3. The evaluator extracts the Scope, Tasks, Acceptance Criteria and current
+   progress. The hosted jobs supply the task appendix to the worker as an
+   artifact. See the [prompt delivery contract](GoalsAndPlumbing.md#6-instruction-prompt-contract).
+4. The selected provider's worker runs after admission and credential checks.
+   `finish` reconciles state and records the observed worker outcome.
 
 ## Key Components
 
-### 1. Agent Label Extraction (`keepalive_loop.js`)
+### Runner jobs
 
-```javascript
-// Extract agent type from agent:* labels
-const agentLabel = labels.find((label) => label.startsWith('agent:'));
-const agentType = agentLabel ? agentLabel.replace('agent:', '') : '';
-```
+The [Workflows loop](../../.github/workflows/agents-keepalive-loop.yml) and
+[consumer Gate Followups](../../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml)
+declare one guarded job each for `run-codex`, `run-claude`, `run-cursor`,
+`run-muse` and `run-gemini`. Each job checks the evaluator's selected
+`agent_type` and calls its matching reusable workflow. The
+[`keepalive_prompt_routing.js`](../../.github/scripts/keepalive_prompt_routing.js)
+helper selects the work, fix or verification prompt.
 
-The `evaluateKeepaliveLoop` function returns:
-- `agentType` - The agent identifier (e.g., "codex", "claude")
-- `taskAppendix` - Formatted tasks for injection into the prompt
-- `hasAgentLabel` - Whether any `agent:*` label exists
+### Agent-Agnostic Prompt
 
-### 2. Task Appendix Builder (`keepalive_loop.js`)
-
-```javascript
-function buildTaskAppendix(sections, checkboxCounts) {
-  // Builds structured task context:
-  // - Progress summary (X/Y complete)
-  // - Scope section (if present)
-  // - Tasks with checkboxes
-  // - Acceptance criteria
-}
-```
-
-The appendix is injected directly into the agent prompt so tasks are explicit, not implied.
-
-### 3. Registry-Backed Routing (`agents-keepalive-loop.yml`)
-
-```yaml
-run-selected-agent:
-  # Conceptual example: the live workflow resolves runner metadata from
-  # .github/agents/registry.yml and dispatches the matching reusable runner.
-  if: needs.evaluate.outputs.agent_type != ''
-  with:
-    appendix: ${{ needs.evaluate.outputs.task_appendix }}
-    agent_type: ${{ needs.evaluate.outputs.agent_type }}
-    ...
-```
-
-### 4. Agent-Agnostic Prompt (`keepalive_next_task.md`)
-
-The prompt is written to be agent-agnostic:
-
-```markdown
-# Keepalive Next Task
-
-Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.
-
-**This round you MUST:**
-1. Implement actual code or test changes that advance at least one incomplete task
-2. Commit meaningful source code—not just status/docs updates
-3. Mark a task checkbox complete ONLY after verifying the implementation works
-4. Focus on the FIRST unchecked task unless blocked
-
-**The Tasks and Acceptance Criteria are provided in the appendix below.**
-```
-
-No `@codex` or agent-specific mentions—the routing determines which agent receives it.
-
+The [implementation prompt](../../.github/codex/prompts/keepalive_next_task.md)
+uses the appended scope and checklist. It asks the selected worker to advance
+the first unchecked task it can complete and verify. Agent mentions can
+trigger the separate comment-command path.
 ---
 
 ## Adding Another Agent
@@ -134,7 +75,7 @@ The high-level work for another agent is:
 
 1. Add a registry entry in `.github/agents/registry.yml`.
 2. Add a reusable runner workflow modeled after the Codex and Claude runners.
-3. Wire any new runner outputs through the keepalive summary step.
+3. Wire a `run-<agent>` job into both hosted entry points and pass the runner outputs to `finish`.
 4. Document the new label, required secrets, and readiness/preflight ownership.
 
 ---
@@ -178,7 +119,7 @@ This makes the agent's objective unambiguous and measurable.
 
 ## Observability
 
-The keepalive summary comment displays:
+The Automated Status Summary can display:
 - **Agent name**: Shows which agent is working (e.g., "Codex", "Claude")
 - **Last run details**: Exit code, files changed, commit SHA
 - **Agent output**: First 300 chars of agent response
@@ -193,19 +134,7 @@ Example summary header:
 
 ## Testing
 
-Tests for multi-agent routing are in `.github/scripts/__tests__/keepalive-loop.test.js`:
-
-```javascript
-test('evaluateKeepaliveLoop extracts agent type from agent:* labels', async () => {
-  // PR with agent:claude label
-  const result = await evaluateKeepaliveLoop({ ... });
-  assert.equal(result.agentType, 'claude');
-  assert.equal(result.hasAgentLabel, true);
-});
-
-test('buildTaskAppendix formats scope, tasks, and acceptance criteria', () => {
-  const appendix = buildTaskAppendix(sections, checkboxCounts);
-  assert.ok(appendix.includes('## PR Tasks and Acceptance Criteria'));
-  assert.ok(appendix.includes('**Progress:** 1/4 tasks complete'));
-});
-```
+- [Evaluator and task appendix tests](../../.github/scripts/__tests__/keepalive-loop.test.js)
+- [Prompt routing tests](../../.github/scripts/__tests__/keepalive-prompt-routing.test.js)
+- [Root and consumer job shape tests](../../tests/workflows/test_keepalive_job_shape.py)
+- [Registry and model profile tests](../../.github/scripts/__tests__/keepalive-model-profile-contract.test.js)

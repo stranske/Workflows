@@ -11,16 +11,18 @@ described below. Legacy consumer shims (`agents-61-consumer-compat.yml`,
 `agents-62-consumer.yml`) and the standalone ChatGPT wrapper
 (`agents-63-chatgpt-issue-sync.yml`) are retired and must not be reintroduced.
 
-In the current topology, issue intake flows through
-[`.github/workflows/agents-63-issue-intake.yml`](../.github/workflows/agents-63-issue-intake.yml),
-authored Gate-completion and hourly keepalive sweeps live in
-[`.github/workflows/agents-keepalive-loop.yml`](../.github/workflows/agents-keepalive-loop.yml)
-and [`.github/workflows/agents-keepalive-sweep.yml`](../.github/workflows/agents-keepalive-sweep.yml),
-the [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) own issue-to-PR claims and guarded promotion,
-PR-meta keepalive commands dispatch workers directly
-([#5162](https://github.com/stranske/Workflows/pull/5162)),
-and measured worker capacity is enforced at dispatch
-([#5163](https://github.com/stranske/Workflows/pull/5163)).
+[Agents 63 Issue Intake](../.github/workflows/agents-63-issue-intake.yml)
+handles manual intake and ChatGPT import in Workflows.
+[Agents Issue Intake](../templates/consumer-repo/.github/workflows/agents-issue-intake.yml)
+is the corresponding consumer workflow. The
+[shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) own ordinary
+issue-to-PR claims and guarded promotion.
+
+Gate completion and hourly sweep dispatches reach the
+[Workflows keepalive loop](../.github/workflows/agents-keepalive-loop.yml)
+or [consumer Gate Followups](../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml).
+The [Workflows PR-meta comment path](keepalive/Observability_Contract.md#comment-activation)
+checks dispatch occupancy and submits a separate remediation command.
 
 ## Covered files
 
@@ -45,7 +47,8 @@ may be removed only in consumer repositories (not in `stranske/Workflows`):
 - `.github/workflows/agents-orchestrator.yml`
 
 In consumers, `agents-80-pr-event-hub.yml` and `agents-81-gate-followups.yml`
-replace those workflows. The guard allows deletion of the retired Agents 70 dispatcher in Workflows and in consumers. Other protected workflow deletions retain their existing rules. Former consumer wrappers (`agents-61-consumer-compat.yml`,
+replace those workflows. The guard evaluates other protected workflow deletions
+against its executable allowlists. Former consumer wrappers (`agents-61-consumer-compat.yml`,
 `agents-62-consumer.yml`) and `agents-63-chatgpt-issue-sync.yml` must not be
 reintroduced.
 
@@ -69,9 +72,9 @@ cutover is unchanged by this retirement.
   the [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) own issue-to-PR claims and exact-head promotion;
   ad-hoc issue verification uses
   [`.github/workflows/agents-64-verify-agent-assignment.yml`](../.github/workflows/agents-64-verify-agent-assignment.yml).
-- **PR-meta dispatch (#5162).** `agents-pr-meta-v4.yml` submits keepalive worker
-  commands directly rather than routing through the retired orchestrator init/main
-  pair; measured worker capacity at dispatch ships with
+- **PR-meta dispatch (#5162).** `agents-pr-meta-v4.yml` submits the
+  `codex-pr-comment-command` event to the Workflows dispatch handler.
+  The comment admission path measures worker occupancy as documented in
   [#5163](https://github.com/stranske/Workflows/pull/5163).
 - **Agent PR promotion.** The [shared closer](ops/LOCAL_LANES.md#lanes-overview) checks the current PR head, required checks, and review clearance before merging.
 
@@ -107,7 +110,9 @@ cutover is unchanged by this retirement.
 
 - **Gate** runs the CI matrix or docs checks and aggregates their results in
   the required `summary` job. The same job publishes the compatibility commit
-  status `Gate / gate`.
+  status `Gate / gate` on same-repository PRs. The
+  [trusted Gate fork publisher](../.github/workflows/pr-00-gate-fork-status.yml)
+  publishes the exact-head status for eligible fork PRs.
 - **Health 45 Agents Guard** evaluates protected-file changes on eligible pull
   requests. It publishes the separate commit status
   `Health 45 Agents Guard / guard` for eligible agent-labelled PRs. For forks,
@@ -232,11 +237,10 @@ When one of these scenarios applies:
 - **Ruleset rejection on push.** Confirm you are operating on a maintainer-owned
   branch or request a maintainer to apply a temporary bypass while they assist
   with the change.
-- **Troubleshooting a Gate or repository event.** Inspect the shared
-  `agents-keepalive-loop.yml` for Gate completions and
-  `agents-keepalive-sweep.yml` for scheduled recovery. PR-meta keepalive commands
-  dispatch the measured worker path directly ([#5162](https://github.com/stranske/Workflows/pull/5162),
-  [#5163](https://github.com/stranske/Workflows/pull/5163)).
+- **Troubleshooting a Gate or repository event.** Inspect
+  `agents-keepalive-loop.yml` in Workflows or `agents-81-gate-followups.yml` in
+  a consumer. Use the [sweep path for that repository](keepalive/GoalsAndPlumbing.md#periodic-re-evaluation-keepalive-sweep)
+  to trace a scheduled recheck.
 
 ## Verification checklist
 

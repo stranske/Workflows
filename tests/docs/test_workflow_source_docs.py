@@ -170,7 +170,7 @@ def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
         doc,
     )
     assert "gate --> autofixDispatch" not in doc
-    assert 'gate -- "workflow_run (failed)" --> autofixLoop["Agents Autofix Loop' in doc
+    assert 'gate -- "workflow_run (failed)" --> autofixLoop["Agents 67 Autofix Loop' in doc
 
 
 def test_workflows_doc_explains_coverage_guard_tolerance_and_recovery() -> None:

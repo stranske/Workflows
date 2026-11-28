@@ -10,8 +10,8 @@ Automation agents touching **any** keepalive code path must consult the followin
 ## Required Reading
 
 1. **[`GoalsAndPlumbing.md`](GoalsAndPlumbing.md)** — Canonical contract covering:
-   - Activation prerequisites (labels, human kickoff, Gate status)
-   - Instruction comment formatting and required hidden markers
+   - Activation prerequisites (labels, Gate status, and task state)
+   - Task appendix delivery to the agent worker
    - Dispatch, acknowledgement, and branch-sync responsibilities
    - Pause/resume labels and run-cap enforcement
    - The full lifecycle sequence
@@ -23,9 +23,9 @@ Automation agents touching **any** keepalive code path must consult the followin
    - Why explicit task injection matters
 
 3. **[`Observability_Contract.md`](Observability_Contract.md)** — Required observability:
-   - Mandatory one-line summaries
-   - Marker formats for instruction comments
-   - Decision point visibility
+   - Source workflow and job for each decision
+   - Durable summary, worker receipts and failed-run recovery
+   - Workflows comment-command dispatch evidence
 
 4. **[`../analysis/autopilot-40pr-evaluation-feb-2026.md`](../analysis/autopilot-40pr-evaluation-feb-2026.md)** — Auto-pilot pipeline evaluation:
    - 40-PR sample analysis (Workflows + TMP repos)
@@ -70,7 +70,7 @@ On an eligible stalled PR carrying `agent:auto`, the [delegation policy](../../.
 
 Keepalive is event-driven via Gate `workflow_run` completion. The root loop accepts Gate runs whose source event was `pull_request` or `workflow_dispatch`, so push-to-default-branch Gate runs are rejected at the job condition before a runner is allocated without suppressing operator reruns. A PR or manual Gate whose `pull_requests` association is empty remains eligible and is resolved by head SHA inside `evaluateKeepaliveLoop`.
 
-Every non-transient run/fix failure records automation-owned recovery state and explicitly dispatches a bounded retry through the active workflow (`agents-keepalive-loop.yml` in the root lane or `agents-81-gate-followups.yml` in consolidated consumers). A failed direct dispatch defers that durable lease for the hourly sweep instead of adding a sticky `agent:retry` label; after 3 failures, the current strategy pauses for the same hourly recovery sweep. It does not infer that a human is required. Each hourly sweep wakeup bypasses state debounce so current state is re-evaluated, while ordinary wakeups retain completed-runner debounce. A possible authority boundary enters an independent scheduled challenge whose durable fingerprint is derived only from the routed agent's registry-backed required credentials, shared registry authority credentials, finite permission targets, and HTTP 401/403; arbitrary runner text is never copied or persisted. Both the root and consolidated consumer lanes require a dedicated keepalive or Workflows App token before marking an agent running or writing the final summary, so every mutation of App-owned state uses the same trusted writer class. Every keepalive reader selects durable state only from a marked summary comment owned by `stranske-keepalive[bot]`, `agents-workflows-bot[bot]`, the identity-checked PAT fallbacks `stranske` and `stranske-automation-bot`, or the migration-only legacy `github-actions[bot]` writer; arbitrary users cannot override an earlier trusted state marker. When the selected App encounters a summary from the known legacy writer or the other dedicated App, it preserves the parsed state in a new comment owned by that App because editing the old comment would retain its original author. The hourly sweep signs a v2 claim binding repository, PR, current ledger generation, boundary fingerprint, due time, expiry, head, nonce, and exact sweep run/attempt. The claim grants a debounce bypass only after a conditional single-use receipt is written to the PR-wide authority ledger on `keepalive-authority-state`. A generic retry, replayed claim, or another workflow sharing `github-actions[bot]` cannot grant or confirm the challenge; the owning downstream attempt must present its receipt and actual worker execution evidence. Missing signing material fails closed to an ordinary non-forced recheck. A matching second failure may record the projected human action and apply `needs-human`. A different auth failure stays automation-owned and is challenged again on the next sweep.
+Every non-transient run/fix failure records automation-owned recovery state and explicitly dispatches a bounded retry through the active workflow (`agents-keepalive-loop.yml` in the root lane or `agents-81-gate-followups.yml` in consumers). A failed direct dispatch defers that durable lease for the hourly sweep instead of adding a sticky `agent:retry` label; after 3 failures, the current strategy pauses for the same hourly recovery sweep. It does not infer that a human is required. Each hourly sweep wakeup bypasses state debounce so current state is re-evaluated, while ordinary wakeups retain completed-runner debounce. A possible authority boundary enters an independent scheduled challenge whose durable fingerprint is derived only from the routed agent's registry-backed required credentials, shared registry authority credentials, finite permission targets, and HTTP 401/403; arbitrary runner text is never copied or persisted. Both the root and consolidated consumer lanes require a dedicated keepalive or Workflows App token before marking an agent running or writing the final summary, so every mutation of App-owned state uses the same trusted writer class. Every keepalive reader selects durable state only from a marked summary comment owned by `stranske-keepalive[bot]`, `agents-workflows-bot[bot]`, the identity-checked PAT fallbacks `stranske` and `stranske-automation-bot`, or the migration-only legacy `github-actions[bot]` writer; arbitrary users cannot override an earlier trusted state marker. When the selected App encounters a summary from the known legacy writer or the other dedicated App, it preserves the parsed state in a new comment owned by that App because editing the old comment would retain its original author. The hourly sweep signs a v2 claim binding repository, PR, current ledger generation, boundary fingerprint, due time, expiry, head, nonce, and exact sweep run/attempt. The claim grants a debounce bypass only after a conditional single-use receipt is written to the PR-wide authority ledger on `keepalive-authority-state`. A generic retry, replayed claim, or another workflow sharing `github-actions[bot]` cannot grant or confirm the challenge; the owning downstream attempt must present its receipt and actual worker execution evidence. Missing signing material fails closed to an ordinary non-forced recheck. A matching second failure may record the projected human action and apply `needs-human`. A different auth failure stays automation-owned and is challenged again on the next sweep.
 
 ### Repository playbook
 
@@ -175,7 +175,13 @@ If there is no stored auth session, run commands with an explicit token (for exa
 
 ## Keepalive Implementations
 
-The repository supports two keepalive implementations. The **registry-selected CLI keepalive** is the current, canonical flow. The **legacy UI connector-bot** flow is retained for historical context and compatibility.
+The registry-selected CLI flow advances opted-in PRs. The Workflows
+[keepalive loop](../../.github/workflows/agents-keepalive-loop.yml) and consumer
+[Gate Followups](../../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml)
+use the same evaluator and reusable agent workflows. The
+[comment-command path](Observability_Contract.md#comment-activation) has its own
+admission and dispatch feedback. Legacy UI connector behavior is documented as
+historical context.
 
 See [`Keepalive_Approaches.md`](Keepalive_Approaches.md) for the current routing references and historical comparison.
 

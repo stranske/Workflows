@@ -86,7 +86,7 @@ python -m pytest tests/workflows/test_sync_manifest_delivery.py::test_no_entry_i
 
 ### 3. Template Source (`./templates/consumer-repo/`)
 
-**Source Path**: [`templates/consumer-repo/`](templates/consumer-repo/)  
+**Source Path**: [`templates/consumer-repo/`](../../templates/consumer-repo/)
 **Contract Type**: Content Source - Canonical Templates  
 **Consumer Behavior**: Files here are the source for sync; consumers receive copies
 

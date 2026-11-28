@@ -5,10 +5,18 @@ repository. Each output includes a type, description, and a short usage example.
 audited against the reusable workflow declarations under `.github/workflows/reusable-*.yml`; for
 workflows that only emit artifacts, see the "Workflows without workflow_call outputs" section.
 
-Audit guard: `tests/workflows/test_reusable_workflow_outputs_doc.py` parses every
+The audit in `tests/workflows/test_reusable_workflow_outputs_doc.py` parses every
 `.github/workflows/reusable-*.yml` file and fails when this catalog omits a declared
 `workflow_call` output, carries a stale output description, or fails to list an output-free
 reusable workflow in the no-output section.
+
+A caller's dependent jobs read these values through
+`needs.<calling-job>.outputs.<output>`. A `workflow_run` listener receives an
+upstream run ID, attempt, and conclusion. It uses that identity to look up
+jobs or artifacts when it needs detailed evidence. An explicit dispatch
+receives its declared inputs or event payload. See the
+[workflow dependency map](WORKFLOW_SYSTEM.md#topology-at-a-glance) for the
+caller, listener, and dispatch paths.
 
 ## Reference table of workflow outputs
 
@@ -186,7 +194,10 @@ reusable workflow in the no-output section.
 
 ## Workflows without workflow_call outputs
 
-The workflows below do not expose `workflow_call` outputs. They publish artifacts or logs only.
+These workflows expose their job results to the caller and can publish
+artifacts, annotations, or summaries. For example, Gate aggregates Python
+and Docker CI job results and downloads available CI artifacts in its
+`summary` job.
 
 <!-- OUTPUT-NONE-START -->
 - `reusable-10-ci-python.yml`
@@ -208,7 +219,7 @@ The workflows below do not expose `workflow_call` outputs. They publish artifact
 ```yaml
 jobs:
   codex:
-    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main
     with:
       prompt_file: .github/codex/prompts/keepalive.md
 
@@ -216,12 +227,15 @@ jobs:
     needs: codex
     runs-on: ubuntu-latest
     steps:
-      - run: echo "${{ needs.codex.outputs.final-message-summary }}"
+      - env:
+          CODEX_SUMMARY: ${{ needs.codex.outputs.final-message-summary }}
+        run: printf '%s\n' "$CODEX_SUMMARY"
 ```
+
 ## Provider-neutral optional capability evidence
 
-All four registry-backed runners (`reusable-codex-run.yml`,
-`reusable-claude-run.yml`, `reusable-cursor-run.yml`, and
+All five registry-backed runners (`reusable-codex-run.yml`,
+`reusable-claude-run.yml`, `reusable-cursor-run.yml`, `reusable-muse-run.yml`, and
 `reusable-gemini-run.yml`) expose the same optional outputs:
 `capability-id`, `effect-fingerprint`, `evidence-artifact-ref`,
 `supervision-mode`, `capability-evidence-status`, and

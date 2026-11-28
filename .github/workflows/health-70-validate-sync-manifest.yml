@@ -3,7 +3,7 @@
 # Check consumer-workflow names against template files and manifest targets.
 # Report action pin violations in the selected hosted and consumer workflows.
 
-name: Validate Sync Manifest
+name: Health 70 Validate Sync Manifest
 
 on:
   pull_request:
@@ -39,7 +39,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: Validate Sync Manifest-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

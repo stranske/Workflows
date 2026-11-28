@@ -127,10 +127,10 @@ Pre-commit hooks automatically format and lint Python code.
 
 ### Workflows
 
-1. Create/modify workflow in `.github/workflows/`
-2. Add corresponding tests if applicable
-3. Update documentation in `docs/workflows/`
-4. Run validation
+1. Choose the owner using the [architecture](ARCHITECTURE.md) and a filename and display name using [WFv1](WORKFLOW_GUIDE.md#wfv1-naming-scheme). Check the [sync manifest](../.github/sync-manifest.yml) for a distributed wrapper.
+2. Record the path, exact Actions name, trigger and purpose in the [catalog](ci/WORKFLOWS.md). For a changed handoff, update the [dependency map](ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) with the producer, condition, consumer and result.
+3. Trace direct `uses:` callers, filename dispatches, display-name listeners and required job names before renaming. Keep the old public interface until its receiving callers have migrated.
+4. Run `python -m pytest tests/workflows/test_workflow_naming.py tests/docs/test_workflow_source_docs.py` and the tests for the changed workflow.
 
 ### Workflow examples
 
@@ -179,4 +179,4 @@ Choose a common real-world use case and place it next to the workflow guide or s
 
 - Check existing [documentation](README.md)
 - Open an issue for bugs or feature requests
-- See [WORKFLOW_GUIDE.md](WORKFLOW_GUIDE.md) for workflow architecture
+- See the [architecture](ARCHITECTURE.md) for system boundaries and the [workflow guide](WORKFLOW_GUIDE.md) for naming and operator procedures

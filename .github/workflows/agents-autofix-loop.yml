@@ -1,4 +1,4 @@
-name: Agents Autofix Loop
+name: Agents 67 Autofix Loop
 
 on:
   workflow_dispatch:

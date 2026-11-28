@@ -132,7 +132,8 @@ text contract (not Codex's JSONL stream).
 |------|---------|
 | `.github/workflows/reusable-gemini-run.yml` | Reusable runner workflow |
 | `.github/agents/registry.yml` | Agent registration and `GEMINI_OAUTH_CREDS` requirement |
-| `agents-keepalive-loop.yml` | Keepalive dispatch for `agent:gemini` PRs |
+| [Workflows Keepalive Loop](../../.github/workflows/agents-keepalive-loop.yml) | Workflows keepalive runner call for eligible `agent:gemini` PRs |
+| [Consumer Gate Followups](../../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml) | Consumer keepalive runner call for eligible `agent:gemini` PRs |
 | `docs/guides/agent-readiness/agy.md` | `agy` readiness evaluation |
 | `docs/LABELS.md` | `agent:gemini` label behavior |
 | `docs/ci/WORKFLOW_OUTPUTS.md` | Runner output contract |

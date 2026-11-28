@@ -28,8 +28,8 @@ If a file is synced from Workflows, fix it in Workflows first.
 ## Current Consumer Defaults
 
 - First-party consumers currently reference reusable workflows with `@main`. Match that unless you are intentionally pinning to an exact commit SHA for a controlled reason.
-- `ci.yml` and `autofix-versions.env` are repo-specific.
-- `pr-00-gate.yml` is a create-only standard file. Keep it aligned with the standard gate unless this repo has a documented reason to diverge.
+- `ci.yml`, `pr-00-gate.yml`, `pr-00-gate-fork-status.yml` and `cross-repo-smoke.yml` are create-only. The receiver owns existing copies subject to the manifest's explicit exceptions. Keep Gate aligned with the standard unless this repo has a documented reason to diverge.
+- `.github/workflows/autofix-versions.env` is repo-specific. The shared `.github/workflows/ci-python-versions.env` is managed.
 - Synced workflows, prompts, scripts, and consumer docs are managed through `.github/sync-manifest.yml` in Workflows.
 
 ## Pull Request Readiness Invariant
@@ -45,10 +45,9 @@ Usually edit locally only when the file is repo-specific:
 
 | File | Default owner | Notes |
 |------|---------------|-------|
-| `ci.yml` | Consumer repo | Repo-specific CI wiring |
+| `ci.yml`, `pr-00-gate.yml`, `pr-00-gate-fork-status.yml`, `cross-repo-smoke.yml` | Consumer repo | Workflows seeds standard files under create-only delivery |
 | `autofix-versions.env` | Consumer repo | Repo-specific dependency pins |
-| `pr-00-gate.yml` | Consumer repo, but should match Workflows standard by default | Create-only standard file |
-| `agents-*.yml` | Workflows | Fix in Workflows, not here |
+| Manifest-managed workflow files | Workflows | Update the canonical Workflows source |
 | `autofix.yml` | Workflows | Fix in Workflows, not here |
 | `.github/codex/` prompts | Workflows | Fix in Workflows, not here |
 | synced scripts/docs | Workflows | Fix in Workflows, not here |
@@ -65,7 +64,7 @@ The current consumer default automation surface is centered on:
 - `ci.yml`
 - `pr-00-gate.yml`
 
-Legacy compatibility workflows may still exist during migrations. Do not assume an older filename is canonical without checking the Workflows docs first.
+Use the [template workflow index](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOWS.md#template-workflow-index) to check Actions names, responsibilities and delivery mode. Check the manifest for the specific path before editing a local compatibility workflow.
 
 ## Cross-Repo Policy
 

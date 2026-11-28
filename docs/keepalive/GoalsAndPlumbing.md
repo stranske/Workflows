@@ -33,18 +33,28 @@
 
 ## Lifecycle Overview
 
-1. **PR labeled:** A PR receives an `agent:*` routing label (for example, `agent:codex` or `agent:claude`) and the `agents:keepalive` opt-in label.
-2. **Guarded check:** Orchestrator guardrails confirm the label, Gate success, and run-cap capacity before running the agent.
-3. **Agent execution:** The appropriate agent workflow runs with explicit task context injected into the prompt.
-4. **Timed repeats:** Subsequent Gate completions trigger re-evaluation and continue if tasks remain.
-5. **Definition of done:** As soon as the acceptance criteria are all checked complete, keepalive posts no further rounds.
-6. **Suspend on label change:** If the label disappears or the guardrails fail mid-run, the workflow records the skip reason and stays silent until a human re-applies the label.
+1. **Wake evaluation.** Gate completion, eligible label events, or a sweep/manual
+   dispatch wake the [Workflows loop](../../.github/workflows/agents-keepalive-loop.yml)
+   or [consumer Gate Followups](../../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml).
+2. **Admit the round.** [The evaluator](../../.github/scripts/keepalive_loop.js)
+   checks the PR's labels, Gate result, task state and retry policy. The
+   [runner dispatcher](../../scripts/runner_lib/__main__.py) checks the dispatch
+   reservation before preflight checks credentials and records ownership.
+3. **Run the selected worker.** The guarded `run-<agent>` job calls its reusable
+   workflow with the selected runner profile and task appendix.
+4. **Record evidence.** `finish` reconciles tasks, updates the Automated Status
+   Summary, measures progress and records the runner completion. The
+   [reporter](Observability_Contract.md#persistent-feedback) handles failed or
+   cancelled attempts when the normal result is unavailable.
+5. **Re-evaluate.** A push can produce a new Gate event, and the hourly sweep
+   rechecks unchanged PRs. Completion, pause and retry rules determine the
+   next action.
 
 ---
 
 ### Runner job plumbing
 
-The root `Agents Keepalive Loop` uses the keepalive chain
+The Workflows repository’s `Agents Keepalive Loop` uses the keepalive chain
 `evaluate` → isolated `acceptance-gates` → `preflight` (check credentials, mark
 running, finalize authority) → `run-<agent>` → `finish`. The isolated acceptance
 job consumes the plan from `evaluate` with read-only permissions and no secrets;
@@ -116,13 +126,17 @@ evidence fails closed and remains available for evidence-based reconciliation.
 
 ## 1. Activation Guardrails
 
-Keepalive **must not** dispatch an agent unless *all* conditions hold:
+An ordinary implementation round requires these conditions:
 
 1. **PR opt-in:** The PR carries both an `agent:*` routing label (for example, `agent:codex` or `agent:claude`) and `agents:keepalive`.
 2. **Gate green:** The Gate workflow for the current head SHA completed successfully.
 3. **Tasks present:** The PR body contains unchecked actionable tasks, including visible checkboxes outside the Automated Status Summary.
 
-> **Note on auto-pilot:** Issue formatting now runs inside the auto-pilot workflow before a PR exists. Gate guardrails apply to **PR keepalive dispatch**, not the issue‑formatting phase of auto-pilot.
+The evaluator separately admits bounded Gate-fix work, authorized retry paths,
+and acceptance verification for a complete checklist. For example, a cancelled
+Gate normally waits for a recheck, while a classified rate-limit cancellation
+or a permitted forced retry can run with tasks remaining. See
+[the implemented decision branches](../../.github/scripts/keepalive_loop.js).
 >
 > **Root workflow-run filter:** The root keepalive loop rejects push-triggered Gate runs at the job condition before runner allocation. Pull-request and manually dispatched Gate runs remain eligible even when GitHub omits the `pull_requests` association, because `evaluateKeepaliveLoop` can recover the open PR from the run head SHA.
 >
@@ -134,13 +148,18 @@ Eligible-but-idle PRs must be re-evaluated even when no Gate completion or label
 
 | Mode | `vars.USE_CONSOLIDATED_WORKFLOWS` | Sweep job | Loop dispatched |
 |------|-----------------------------------|-----------|-----------------|
-| **Root Workflows repo** | `!= 'true'` (default) | root `agents-keepalive-sweep.yml` | `agents-keepalive-loop.yml` |
+| **Root Workflows repo** | `!= 'true'` (default) | `sweep` | `agents-keepalive-loop.yml` |
 | **Consumer consolidated** | `== 'true'` | `sweep_consolidated` | `agents-81-gate-followups.yml` |
 | **Consumer non-consolidated** | `!= 'true'` or unset | `sweep_nonconsolidated` | `agents-81-gate-followups.yml` |
 
-To trace a sweep, inspect the dispatched run in the PR's repository. The [Workflows sweep](../../.github/workflows/agents-keepalive-sweep.yml) calls its keepalive loop directly. Both jobs in the [consumer sweep](../../templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml) dispatch Gate Followups, which evaluates keepalive eligibility. Unchanged PRs are near-free no-ops via state fingerprint/debounce. The consumer template always runs a `name_mode` job that records which path is active and which is skipped, so a structurally inactive path (`vars.USE_CONSOLIDATED_WORKFLOWS unset — no periodic re-evaluation in this repo` via the consolidated job) is distinguishable from a healthy quiet re-evaluation (fallback or consolidated job ran; 0 eligible PRs).
+To trace a sweep, inspect the dispatched run in the PR's repository. The [Workflows sweep](../../.github/workflows/agents-keepalive-sweep.yml) calls its keepalive loop directly. Both jobs in the [consumer sweep](../../templates/consumer-repo/.github/workflows/agents-keepalive-sweep.yml) dispatch Gate Followups, which evaluates keepalive eligibility. The sweep sends `sweep_recheck=true` and `force_retry=false` for an ordinary
+recheck, bypassing state debounce while retaining the evaluator and dispatcher
+guards. The consumer template's `name_mode` job shows which sweep path is
+active. In a consumer without consolidated mode, `evaluate` can run on manual
+dispatch, including a sweep dispatch. Automatic Gate/label wakeups require
+`USE_CONSOLIDATED_WORKFLOWS=true`.
 
-`agent:auto` delegation policy reads capacity on **keepalive ticks** (`docs/LABELS.md`); those ticks come from the sweep jobs above in each mode, not from a silent workflow skip.
+`agent:auto` delegation policy reads capacity on **keepalive ticks** ([label policy](../LABELS.md)); those ticks come from the sweep jobs above in each mode, not from a silent workflow skip.
 
 ---
 
@@ -170,7 +189,9 @@ If any requirement fails, keepalive stays silent—no PR comments. Operators may
 ## 4. Pause & Stop Controls
 
 - Removing the `agent:*` label halts new dispatches until a label is re-applied and all guardrails pass again.
-- Respect the `agents:paused` label, which blocks *all* keepalive activity.
+- `agents:paused`, `needs-human`, and `agents:max-runs:0` block hosted worker
+  admission. The evaluator also yields to `agents:local-loop` when the
+  [local loop owns the PR](../ops/LOCAL_LANES.md).
 - Every non-transient run/fix failure records automation-owned retry state and explicitly dispatches a bounded retry while below the failure threshold. If direct dispatch fails, the durable lease is deferred for the hourly sweep to retry directly; automation does not add a sticky `agent:retry` label.
 - After repeated failures (default: 3), the loop pauses the current strategy and dispatches one non-recursive forced recovery lease. A complete-but-failing Gate uses that lease for one real fix attempt even when its ordinary Gate-fix budget is exhausted; after the forced run, the hourly keepalive sweep owns the next recovery review.
 - A possible access or authority boundary adds `agent:needs-attention` with an immediately due independent challenge. Durable state extracts only a closed allowlist of facts: a credential named by the routed agent's registry-backed `required_secrets` or the registry's shared authority list, a finite permission target, and HTTP 401/403. Its fingerprint and human action are derived only from those facts; arbitrary runner text is never copied or persisted. Every hourly sweep wakeup bypasses state debounce so an unchanged zero-commit round is re-evaluated, while ordinary wakeups retain completed-runner debounce. Both the root and consolidated consumer lanes require a dedicated keepalive or Workflows App token before marking an agent running or writing the final summary, so every mutation of App-owned state uses the same trusted writer class. Every keepalive reader selects durable state only from a marked summary comment authored by `stranske-keepalive[bot]`, `agents-workflows-bot[bot]`, the identity-checked PAT fallbacks `stranske` and `stranske-automation-bot`, or the migration-only legacy `github-actions[bot]` writer; an arbitrary later commenter cannot replace the preceding trusted state. If a selected App finds a summary from the known legacy writer or the other dedicated App, it migrates the parsed state to a newly created App-owned comment instead of editing the old marker in place, because GitHub preserves the original author. The sweep signs a v2 claim over the current authoritative challenge generation, exact fingerprint and due/expiry times, PR head, repository/PR, nonce, and sweep run/attempt. A matching claim may bypass runner debounce only after a conditional, PR-wide single-use receipt is persisted on `keepalive-authority-state`. Generic retries, old envelopes, and other workflows sharing `github-actions[bot]` cannot consume or confirm the challenge. Missing signing material permits an ordinary recheck without a challenge claim; a supplied invalid claim or unavailable ledger denies the challenge path. A green recheck clears the challenge. Only the signed sweep-selected projection failing again may record its allowlisted credential or permission remedy before replacing `agent:needs-attention` with `needs-human`; a different auth failure starts a new automation-owned challenge that the next sweep can evaluate. The reviewed-repo controller challenges confirmed holds again after 24 hours.
@@ -252,7 +273,11 @@ inspection; expiry alone never grants or refunds authority.
 
 ## 5. No-Noise Policy
 
-When preconditions are missing (labels absent, Gate not green, run cap reached), keepalive must not add new PR comments. At most, log a concise operator summary explaining the skipped action.
+Read skip reasons in the Actions run and use the marked Automated Status Summary
+for durable PR state. For an unlabelled PR without existing keepalive state,
+the summary helper suppresses the missing-agent comment and emits metrics only.
+An already tracked PR can receive an updated status summary when a round waits
+or stops.
 
 ---
 
@@ -298,13 +323,13 @@ The keepalive loop routes to agent workflows through `.github/agents/registry.ym
 
 | Label | Agent | Workflow |
 |-------|-------|----------|
-| `agent:codex` | Codex CLI (gpt-6.2-sol; fallback gpt-5.6-terra) | `reusable-codex-run.yml` |
+| `agent:codex` | Codex CLI | `reusable-codex-run.yml` |
 | `agent:claude` | Claude CLI | `reusable-claude-run.yml` |
 | `agent:cursor` | Cursor | `reusable-cursor-run.yml` (root and consumer Gate-followups) |
 | `agent:muse` | Muse | `reusable-muse-run.yml` (root and consumer Gate-followups) |
 | `agent:gemini` | Gemini | `reusable-gemini-run.yml` (root and consumer Gate-followups) |
 
-The table above is a snapshot of the current registry, not a second source of truth. See [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) and [`../guides/ADD_NEW_AGENT.md`](../guides/ADD_NEW_AGENT.md) for implementation details and how to add new agents.
+The registry supplies the selected execution profile, including the requested Codex model and fallback. See [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) and [`../guides/ADD_NEW_AGENT.md`](../guides/ADD_NEW_AGENT.md) for implementation details and how to add new agents.
 
 ---
 
@@ -328,17 +353,23 @@ When a workflow or automation records a non-`normal` mode, include the exact com
 
 ## 9. Branch-Sync Gate
 
-Before the next round begins:
+The hosted worker publishes changes through its reusable runner. In `finish`,
+`Measure runner productivity` compares the reserved head with the current PR
+head and records checklist progress. A new head will need its own Gate
+evidence; an unchanged head can still be re-evaluated by the hourly sweep.
+When the head is unreadable, completion recording waits for reliable evidence.
 
-1. Verify that the PR head SHA changed after the agent reported "done".
-2. If unchanged, the agent may have failed to push. The loop will retry on the next Gate pass.
-3. After repeated failures (default: 3), pause the current strategy and dispatch one non-recursive forced recovery lease (deferring to the hourly keepalive sweep if direct dispatch fails; automation does not add a sticky `agent:retry` label).
+A comment-command recovery uses [`keepalive_post_work.js`](../../.github/scripts/keepalive_post_work.js)
+via the [dispatch handler](../../.github/workflows/agents-keepalive-dispatch-handler.yml).
+Read its `SYNC:` line and re-fetch the current PR head after remediation.
+If it applies `agents:sync-required`, resolve the recorded branch failure
+and verify a fresh Gate result on the resulting head.
 
 ---
 
 ## 10. Orchestrator Invariants
 
-- **No self-cancellation:** Configure concurrency as `keepalive-{pr}` with `cancel-in-progress: false`.
+- **Concurrency:** Workflows uses `keepalive-<PR>` and the consumer uses `agents-gate-followups-<PR>`, both with `cancel-in-progress: false`. Unbound events fall back to their run ID. The runner reservation supplies a separate writer check.
 - **Explicit bails:** For early exits (missing preconditions, run cap reached, Gate not green), write a one-line reason to the run summary.
 - **Summary comment:** Update the keepalive summary comment with iteration status, agent output preview, and failure tracking.
 
@@ -348,7 +379,7 @@ Before the next round begins:
 
 - Removing and re-applying the `agent:*` label restarts the workflow once the activation guardrails pass again.
 - To reset failure count: do not edit the state marker manually—apply `agent:retry` (in root/non-consolidated loops) or run a `workflow_dispatch` recheck with `force_retry=true` (in consolidated consumers); the dedicated keepalive App then resets or clears the bot-owned failure state.
-- Keepalive stands down when **all acceptance criteria are checked complete**. At that point the orchestrator stops issuing further rounds.
+- Keepalive stands down when **all acceptance criteria are checked complete**. A complete checklist still needs a successful Gate and any required acceptance verification before ordinary keepalive completes.
 
 For callers that enable deterministic acceptance gates, checked criteria also require
 passing command results for the current head and extracted command set. The Python
@@ -366,7 +397,7 @@ or invalid JSON rejects the plan; it never establishes an empty, passing gate se
 Gate preparation and PR commands run in a separate `acceptance-gates` job with
 read-only contents permission, no secrets, no API-client setup and no persisted
 checkout credentials. Only its results artifact reaches the privileged
-`mark-running` job. Child processes inherit an explicit environment allowlist;
+`preflight` job. Child processes inherit an explicit environment allowlist;
 output retains at most 40 lines and 2 KiB per command, with 8 KiB total.
 A changed head or command set skips stale result persistence with a warning;
 the next evaluation requires fresh evidence before completion.
@@ -617,12 +648,12 @@ The same Gate step applies the `acceptance-criteria` label when a marker is pres
 
 | Phase | Key Checks |
 |-------|------------|
-| Activation | `agent:*` label present · Gate success |
+| Activation | `agent:*` and `agents:keepalive` labels present · current-head Gate and task state checked |
 | Repeat | Activation guardrails still true · run cap respected · failure threshold not exceeded |
 | Routing | Correct registry-backed agent workflow triggered based on label |
 | Capacity | Mode recorded when automation is rate-limited, auth-blocked, or local-only |
 | Prompt | Task appendix injected · Progress visible |
-| Exit | All acceptance criteria satisfied or max iterations reached |
+| Exit | Complete checklist with required Gate and acceptance evidence, or an explicit stop and recovery disposition |
 
 Keep this document in sync with [`MULTI_AGENT_ROUTING.md`](MULTI_AGENT_ROUTING.md) and [`Observability_Contract.md`](Observability_Contract.md) whenever the workflow evolves.
 

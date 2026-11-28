@@ -249,7 +249,7 @@ jobs:
             See the linked doc for full details on ChatGPT subscription authentication in CI.
 
             ---
-            *This issue was automatically created by the \`health-codex-auth-check\` workflow.*
+            *This issue was automatically created by the \`health-46-codex-auth-check\` workflow.*
             `;
 
             await withRetry(() =>

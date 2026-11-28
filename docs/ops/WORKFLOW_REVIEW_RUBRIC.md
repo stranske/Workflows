@@ -10,13 +10,11 @@ The review's purpose: **measurably reduce token usage, CI time, code-quality
 debt, and automation-efficiency gaps across the workflow fleet, while
 explicitly skipping workflows where no measurable improvement is available.**
 
-The companion docs are:
-- [`WORKFLOW_REVIEW_INVENTORY.md`](WORKFLOW_REVIEW_INVENTORY.md) — produced
-  in Phase 1, kept fresh quarterly. The 30,000-ft view of every workflow.
-- [`WORKFLOW_REVIEW_DECISIONS.md`](WORKFLOW_REVIEW_DECISIONS.md) — running log
-  of changes made AND deliberate non-changes. Created in Phase 3.
-- [`workflow-reviews/`](workflow-reviews/) — one review-doc per Tier A
-  workflow, produced in Phase 3.
+The review phases produce these records when run:
+
+- Phase 1 writes the fleet inventory to `docs/ops/WORKFLOW_REVIEW_INVENTORY.md`.
+- Phase 3 creates the decisions log at `docs/ops/WORKFLOW_REVIEW_DECISIONS.md`
+  and writes one document per Tier A workflow under `docs/ops/workflow-reviews/`.
 
 ---
 
@@ -106,7 +104,7 @@ systemic fixes before any per-workflow PR is created.
 
 ### Phase 1 — Instrument & inventory (read-only)
 
-Produce [`WORKFLOW_REVIEW_INVENTORY.md`](WORKFLOW_REVIEW_INVENTORY.md): one
+Write `docs/ops/WORKFLOW_REVIEW_INVENTORY.md` with one
 row per workflow file in `.github/workflows/` with run count, median + p90
 duration, success rate, est. monthly token cost, associated script LOC,
 recent failure modes, incident count, and any open/closed issues citing the
@@ -199,10 +197,9 @@ Now — and only now — code changes happen. For each approved change (whether
 from a Phase 3 proposal that survived synthesis, or a Phase 5 systemic fix):
 file an implementation issue.
 
-**Codex hand-off**: one issue per implementation with `agents:auto-pilot` (if
-the change is fully scoped) or `agent:codex` (if you want to review before
-merge). The issue body cites the source review doc + acceptance criteria
-from the rubric.
+**Codex hand-off**: file one issue per approved change through the
+[shared opener](LOCAL_LANES.md#lanes-overview). Cite the source review and
+acceptance criteria in the issue body.
 
 **Exit criterion**: every approved change has a merged PR; every Phase 3
 proposal is either implemented, superseded by a systemic fix, or marked
@@ -270,7 +267,7 @@ Each phase that delegates to Codex follows the same pattern:
 ## Source
 
 This issue is part of the Workflow Fleet Review (see
-[`docs/ops/WORKFLOW_REVIEW_RUBRIC.md`](../docs/ops/WORKFLOW_REVIEW_RUBRIC.md)),
+`docs/ops/WORKFLOW_REVIEW_RUBRIC.md`),
 **Phase <N>**.
 
 ## Why
@@ -353,7 +350,7 @@ Format:
 
 **Rationale**: <one paragraph>
 
-**Source review**: [agents-foo.md](workflow-reviews/agents-foo.md)
+**Source review**: `docs/ops/workflow-reviews/<workflow>.md`
 ```
 
 ---

@@ -26,7 +26,7 @@ def _steps_calling_helper(job: dict) -> list[dict]:
         ("maint-68-sync-consumer-repos.yml", "resolve-alert", "sync-failure"),
         ("health-71-sync-health-check.yml", "check-sync-health", "sync-failure"),
         ("health-67-integration-sync-check.yml", "check-sync", "integration-sync"),
-        ("health-codex-auth-check.yml", None, "auth-expiring"),
+        ("health-46-codex-auth-check.yml", None, "auth-expiring"),
     ],
 )
 def test_each_producer_closes_its_alert_on_a_gated_success_step(workflow, job, label):
@@ -98,11 +98,11 @@ def test_auth_alert_composite_raises_and_resolves_through_the_shared_helper():
     ("workflow", "status_expr", "title_word"),
     [
         (
-            "health-cursor-auth-check.yml",
+            "health-77-cursor-auth-check.yml",
             "steps.key.outputs.status == 'present' && 'ok' || 'failed'",
             "CURSOR_API_KEY",
         ),
-        ("health-muse-auth-check.yml", "steps.verdict.outputs.status || 'failed'", "Muse"),
+        ("health-79-muse-auth-check.yml", "steps.verdict.outputs.status || 'failed'", "Muse"),
     ],
 )
 def test_cursor_and_muse_call_the_alert_composite_once_on_every_run(
@@ -129,7 +129,7 @@ def test_cursor_and_muse_call_the_alert_composite_once_on_every_run(
 
 def test_auth_alert_titles_are_distinct_so_no_check_closes_another():
     titles = []
-    for workflow in ("health-cursor-auth-check.yml", "health-muse-auth-check.yml"):
+    for workflow in ("health-77-cursor-auth-check.yml", "health-79-muse-auth-check.yml"):
         (job,) = _load(workflow)["jobs"].values()
         titles += [
             s["with"]["title"]
@@ -138,7 +138,7 @@ def test_auth_alert_titles_are_distinct_so_no_check_closes_another():
         ]
     assert len(set(titles)) == 2
     assert not any("CODEX_AUTH_JSON" in title for title in titles)
-    codex = (WORKFLOWS / "health-codex-auth-check.yml").read_text(encoding="utf-8")
+    codex = (WORKFLOWS / "health-46-codex-auth-check.yml").read_text(encoding="utf-8")
     # Codex's duplicate check must ignore the Cursor/Muse alerts that share its label.
     assert "includes('CODEX_AUTH_JSON')" in codex
 

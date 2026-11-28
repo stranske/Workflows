@@ -8,7 +8,7 @@
 
 ## Using Templates
 
-Copy the workflow documentation template into [the workflow docs](../workflows/README.md), fill in the sections applicable to the workflow and add the new page to that index. Add a template to this list once its file is available.
+Record the workflow in the [catalog](../ci/WORKFLOWS.md). For a workflow that needs its own operator guide, use the template, place the guide with its subject and link it from the catalog. Add a template to this list once its file is available.
 
 ## See Also
 

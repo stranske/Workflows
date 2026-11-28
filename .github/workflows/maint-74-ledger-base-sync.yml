@@ -1,4 +1,4 @@
-name: Ledger Base Sync
+name: Maint 74 Ledger Base Sync
 
 on:
   schedule:
@@ -10,7 +10,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: Ledger Base Sync-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -252,7 +252,7 @@ python scripts/aggregate_metrics.py metrics.ndjson --format markdown
 ### 10. Live Workflow Validation (`agents-verifier` run #1324)
 
 **Run details:**
-- Workflow: [`agents-verifier.yml`](.github/workflows/agents-verifier.yml)
+- Workflow: [`agents-verifier.yml`](../.github/workflows/agents-verifier.yml)
 - Actions run: [22127289609](https://github.com/stranske/Workflows/actions/runs/22127289609)
 - Created: 2026-02-18 05:02 UTC
 - Branch: auto-generated verifier branch

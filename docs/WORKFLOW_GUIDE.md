@@ -1,10 +1,6 @@
 # Workflow Topology & Agent Routing Guide (WFv1)
 
-This guide describes the slimmed-down GitHub Actions footprint after Issues #2190 and #2466. Every workflow now follows the
-`<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly. The Gate workflow
-remains the required merge check, while `agents-keepalive-loop.yml` and `agents-keepalive-sweep.yml` drive authored Gate-completion and hourly keepalive sweeps. The [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) own issue admission and guarded PR promotion. For the executive
-summary of buckets, required checks, and automation roles, begin with
-[docs/ci/WORKFLOW_SYSTEM.md](ci/WORKFLOW_SYSTEM.md) before diving into the topology details below.
+Use this guide to name a workflow and operate it. The required Gate summary, event-driven Keepalive loop and hourly sweep run in Workflows. A consumer has its own entry points. The [dependency map](ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) shows where those paths diverge and how they connect to the [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview).
 
 Look up active workflow files in the [workflow catalog](ci/WORKFLOWS.md) and retired files in the [archive](archive/ARCHIVE_WORKFLOWS.md). This guide covers naming, routing and operator procedures. For [Python dependency and cache setup](#workflow-integration-guide), follow the live workflow definitions.
 
@@ -12,8 +8,6 @@ The reusable backplane conformance gate validates against the Workflows-owned
 registry and schemas. Its opt-in `manifest-evidence-closure/v1` policy validates
 Inv-Man-Intake's emitted `evidence-*.json` objects and manifest hashes against
 the run's `evidence_refs`; it does not execute a consumer-local validator.
-
-> _Gate rerun trigger:_ this paragraph was touched on 2025-10-13 to force a fresh Gate workflow execution.
 
 ## Artifact retention
 
@@ -38,21 +32,20 @@ artifact count can continue rising until the shorter retention periods elapse.
 | Prefix | Purpose | Active Examples |
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | [Gate and smoke checks](ci/WORKFLOWS.md#required-merge-gate) |
-| `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-46-post-ci.yml`, `maint-52-validate-workflows.yml`, `maint-60-release.yml`, `maint-61-release-please.yml`, `maint-coverage-guard.yml` |
+| `maint-` | Maintenance, release and distribution | `maint-45-cosmetic-repair.yml`, `maint-46-post-ci.yml`, `maint-52-validate-workflows.yml`, `maint-60-release.yml`, `maint-61-release-please.yml`, `maint-coverage-guard.yml` |
 | `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-42-actionlint.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
 | `agents-` | Agent orchestration entry points | `agents-63-issue-intake.yml`, `agents-64-verify-agent-assignment.yml`, `agents-model-profile-trial.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-guard.yml`, `agents-pr-meta-v4.yml`, `agents-moderate-connector.yml`, `agents-keepalive-*.yml`, `agents-debug-issue-event.yml` |
-| `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-model-profile-trial.yml`, `reusable-agents-issue-bridge.yml` |
+| `reusable-` | Reusable workflows called by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-model-profile-trial.yml`, `reusable-agents-issue-bridge.yml` |
 | `selftest-` | Repository checks and reusable workflow tests | [Self-test workflows](ci/WORKFLOWS.md#self-test-harness) |
-| `autofix.yml` | CI autofix loop | `autofix.yml` |
+| `autofix.yml` | Existing compatibility entry point | `autofix.yml` |
 
-**Naming checklist**
-1. Choose the correct prefix for the workflow's scope.
-2. Select a two-digit block that leaves room for future additions (e.g. use another `maint-3x` slot for maintenance jobs).
-3. Title-case the workflow name so it matches the filename (`maint-45-cosmetic-repair.yml` → `Maint 45 Cosmetic Repair`).
-4. Update the roster in `docs/ci/WORKFLOWS.md` and the expected name in the naming tests. Update
-   `docs/ci/WORKFLOW_SYSTEM.md` when relationships, procedures or guardrails change. Update this guide when the route an operator follows changes.
+New Workflows definitions and installable wrappers use **`<area>-<NN>-<slug>.yml`**. Choose `pr`, `maint`, `health`, `agents`, `reusable` or `selftest`, two digits and lowercase words separated by hyphens. The Actions `name:` starts with the area and the same two digits, followed by a readable title. Capitalize PR and preserve product names and acronyms. For example, `health-42-actionlint.yml` appears as **Health 42 Actionlint**. Look up an available number in the catalog. Established families can share a number across related files (for example, Gate and its fork-status publisher). A number is an identity, not an execution order.
 
-Tests under `tests/workflows/test_workflow_naming.py` check workflow names and catalog coverage.
+The filename is used in `jobs.<id>.uses`, file-path filters, dispatch commands and the sync manifest. The display name is used in `workflow_run.workflows`. A per-run `run-name:` and a required job/check context such as Gate's `summary` have different consumers. Search for each before changing an identity. For a distributed path, migrate its callers and verify the receiving heads before removing the old interface.
+
+Add the exact name and purpose to the [catalog](ci/WORKFLOWS.md) and the expected name in [the naming tests](../tests/workflows/test_workflow_naming.py). Update the [dependency map](ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) when a call, event, condition or output changes. Run `python -m pytest tests/workflows/test_workflow_naming.py tests/docs/test_workflow_source_docs.py`.
+
+See [published naming exceptions](#published-naming-exceptions) for existing identities that callers and operators use.
 
 ## Final Workflow Set
 
@@ -80,7 +73,7 @@ For a YAML or script syntax failure, open [Minimal invariant CI](ci/WORKFLOWS.md
   and Keepalive resolution reject all `lifecycle: trial` profiles.
 - **Consumer default entry points** — New consumer repos should install the template-managed pair `agents-80-pr-event-hub.yml` + `agents-81-gate-followups.yml` (along with `agents-verifier.yml`, `pr-00-gate.yml`, `AGENTS.md`, and `CLAUDE.md`). Treat `agents-pr-meta-v4.yml` as Workflows-local infrastructure, not a default consumer setup file.
 - **`agents-63-issue-intake.yml`** — Canonical front door for Codex issues. It normalizes ChatGPT export blobs / topic lists, dedupes and validates the resulting queue, optionally re-formats the new issues via LangChain, and drives the label-enforced issue bridge when `agent_bridge` mode is selected. The workflow now relies solely on the installation token + the shared API client (no ad-hoc GitHub App token mints), so manual reruns and workflow_call invocations stay lightweight while still enforcing the single-agent label contract before ready work is considered by the shared opener. [Supply input or preview an import](#import-issues-from-a-topic-list).
-- **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator that enforces the single `agent:*` label contract and confirms the assignee belongs to the approved automation roster. It now runs entirely on the default workflow token with the shared retry helper (no bespoke GitHub App mint), so verification hooks stay lightweight for intake, bridge, and manual dispatch callers.
+- **`agents-64-verify-agent-assignment.yml`** — Workflow-call validator that enforces the single `agent:*` label contract and confirms the assignee belongs to the approved automation roster. It now runs entirely on the default workflow token with the shared retry helper (no bespoke GitHub App mint), so an operator can check a real issue by manual dispatch. Current intake and bridge definitions do not automatically invoke Agents 64.
 - **`agents-capability-check.yml`** — Pre-flight guard that fires when an `agent:*` label lands on an issue. It installs `tools/requirements-llm.txt` after an optional metadata-guarded editable install, so package-shaped consumers and tool-only `pyproject.toml` repositories both receive the canonical LangChain dependencies without relying on a `langchain` extra. It runs `scripts/langchain/capability_check.py` to classify tasks as actionable/partial/blocked, adds `needs-human` + removes agent labels on BLOCKED outcomes, and posts/updates a structured comment so humans know why automation paused.
 - **`agents-auto-label.yml`** — Issue/PR label suggester that feeds LangChain embeddings through the shared API client, applies labels with the default token, and posts suggestion comments when confidence drops below auto-apply thresholds. Its install step uses the exact-synced `tools/requirements-llm.txt` after an optional metadata-guarded editable install; it does not assume consumer repos declare a `langchain` extra.
 - **`agents-autofix-loop.yml`** — Evaluates failed Gate runs and dispatches the configured repair agent for eligible PRs. It starts once per completed Gate run (`workflow_run`) and also accepts a manual `workflow_dispatch` with a Gate run ID. It flags PRs for human follow-up when automated repair is exhausted.
@@ -91,7 +84,7 @@ For a YAML or script syntax failure, open [Minimal invariant CI](ci/WORKFLOWS.md
 - For large issues, use the Issue Optimizer `agents:optimize` label or manual `analyze` phase to review task-splitting suggestions. The optimizer retains the shared `task_decomposer.py` helper.
 - **`agents-80-pr-event-hub.yml`** — Consumer-template consolidated PR event hub that fans out keepalive metadata, bot-comment handling, and verification follow-ups after a single PR context fetch.
 - **`agents-81-gate-followups.yml`** — Consumer-template consolidated Gate follow-up hub that coordinates keepalive, autofix, and post-CI recovery.
-- **`agents-pr-meta-v4.yml`** — Workflows-repo PR metadata/keepalive front door: listens to issue comments, structural PR updates (open, synchronize, and reopen), and Gate completions to detect `@agent` activations, enforce gate/run-cap rules, dispatch keepalive workers directly ([#5162](https://github.com/stranske/Workflows/pull/5162); measured capacity [#5163](https://github.com/stranske/Workflows/pull/5163)), and write dispatch summaries. It deliberately ignores PR-body edit events because it writes that body itself; observing its own edits can create an unbounded metadata-check loop. It leaves release-please PR bodies untouched so release-please can parse merged release PRs and publish tags/releases. This remains a Workflows-local service workflow; the current consumer default is the `agents-80-pr-event-hub.yml` / `agents-81-gate-followups.yml` pair distributed from `templates/consumer-repo/`.
+- **`agents-pr-meta-v4.yml`** — Workflows-repo PR metadata/keepalive front door: listens to issue comments, structural PR updates (open, synchronize, and reopen), and Gate completions to detect `@agent` activations, enforce gate/run-cap rules, emit the `codex-pr-comment-command` repository dispatch for the Workflows Keepalive Dispatch Handler, and write dispatch summaries. It deliberately ignores PR-body edit events because it writes that body itself; observing its own edits can create an unbounded metadata-check loop. It leaves release-please PR bodies untouched so release-please can parse merged release PRs and publish tags/releases. This remains a Workflows-local service workflow; the current consumer default is the `agents-80-pr-event-hub.yml` / `agents-81-gate-followups.yml` pair distributed from `templates/consumer-repo/`.
 - **`agents-verifier.yml`** — Label-driven verification runner. When a merged PR gets `verify:*` (or when dispatched manually), it routes the request through the reusable verifier workflow to run checkbox/evaluate/compare modes, posts the structured summary, and opens follow-up issues on failures. It now mints a GitHub App token before checking out the caller repo/Workflows scripts so cross-repo verification works under the service account while still falling back to the installation token when App credentials are missing, and it explicitly waits for `pr-00-gate.yml`, `pr-11-ci-smoke.yml`, and `selftest-ci.yml` to finish so the verifier never outruns Workflows’ CI set. The exact Workflows-local Maint 79 corpus-harvest PR (`verifier-corpus-harvest/auto` with both `automation` and `model-selection`) is excluded before CI and acceptance collection: it is a recurring data job governed by Maint 79's unchanged-head, required-check, and review-thread gates, not an implementation of the historical design issue referenced in its body.
 - **`agents-verify-to-issue-v2.yml`** — Converts verification feedback into an agent-ready follow-up issue whenever `verify:create-issue` is applied to a merged PR. It gathers the verification comments, original issue context, and PR metadata, runs LangChain templates, and opens a structured issue using the appropriate PAT/App token so ownership stays consistent.
 - **`agents-verify-to-new-pr.yml`** — Collects verification comments, reconstructs the original issue context, and creates a follow-up issue. Install [the shared opener handoff](https://github.com/stranske/Workflows/pull/5378) before delivering the legacy workflow removals to a receiver.
@@ -440,7 +433,7 @@ These outputs land in the Actions run summary, with any follow-up issue filed in
 5. After archiving a workflow, compare the [registered Actions paths and states](archive/ARCHIVE_WORKFLOWS.md#registered-workflows-after-retirement) with the default branch.
 
 ## Additional References
-- `.github/workflows/README.md` — Architecture snapshot for the CI + agent stack.
+- [Architecture](ARCHITECTURE.md) and [workflow map](ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) — ownership and handoffs for CI and agents.
 - `docs/ci/WORKFLOWS.md` — Acceptance-criteria checklist for the final workflow set.
 - `docs/agent-automation.md` — Detailed description of the agent orchestrator and options.
 - **`reusable-10-ci-python.yml`** — Primary Python CI composite (lint → format → mypy → pytest + coverage). Accepts matrix inputs and installs uv caches; optionally uses the GitHub App token for checkout when provided, but callers can rely on the default token.
@@ -584,3 +577,28 @@ Acceptance commands run on the immutable merge commit in a fresh Python 3.14
 virtual environment. Existing dependency preparation installs the project's
 declared test dependencies there; normal pytest plugin loading remains enabled.
 Ambient host/user packages cannot supply or break this environment.
+
+## Published naming exceptions
+
+These are the existing filenames or display names that differ from the numbered convention. Scope refers to the repository workflow directory or the corresponding consumer or integration template directory. The naming test checks this table against all three trees. A new exception needs an identified caller or other operational reason. Archived YAML, fixtures and example snippets have no deployed identity in these directories.
+
+| Scope | Filename | Why retain this identity |
+| --- | --- | --- |
+| Consumer | `agents-81-gate-followups.yml` | Completion listeners select the published Actions name. |
+| Consumer | `agents-80-pr-event-hub.yml`, `agents-issue-intake.yml`, `agents-pr-health.yml`, `backplane-conformance.yml`, `cross-repo-smoke.yml`, `list-llm-models.yml`, `maint-76-claude-code-review.yml` | Installed wrappers and operator entry points keep their receiver filenames and Actions names. |
+| Consumer, Integration | `ci.yml` | Completion listeners select the published Actions name. |
+| Integration | `notify-workflows.yml` | Installed wrappers and operator entry points keep their receiver filenames and Actions names. |
+| Workflows | `reusable-agents-issue-bridge.yml`, `reusable-agents-pr-health.yml`, `reusable-agents-verifier.yml`, `reusable-backplane-conformance.yml`, `reusable-bot-comment-handler.yml`, `reusable-claude-run.yml`, `reusable-codex-run.yml`, `reusable-cursor-run.yml`, `reusable-gemini-run.yml`, `reusable-model-profile-trial.yml`, `reusable-muse-run.yml` | Caller jobs import these published reusable paths with `uses:`. |
+| Workflows | `agents-debug-issue-event.yml`, `agents-moderate-connector.yml` | Agents Guard protects these repository workflows against renames. Their Actions names carry their assigned numbers (65 and 66). |
+| Workflows | `agents-keepalive-loop.yml`, `maint-71-merge-sync-prs.yml` | Completion listeners select the published Actions name. |
+| Workflows | `agents-autofix-loop.yml` | Agents Guard protects the existing filename. The Actions name carries the assigned number, Agents 67. |
+| Workflows | `agents-bot-comment-handler.yml`, `agents-verify-to-issue-v2.yml` | Weekly metrics reads artifacts by workflow path, including in installed receivers. Migrate the [artifact reader](../.github/scripts/weekly_metrics_artifacts.js) before moving either protected path. |
+| Workflows | `maint-auto-lock-deps.yml` | Scorecard exceptions match this path and finding. Migrate the [finding allowlist](../config/scorecard-dangerous-workflow-allowlist.json) and reconcile open findings before moving it. |
+| Workflows | `maint-auto-update-pypi-versions.yml` | Orchestrator's local loop names this pin writer. Migrate the writer instructions, downstream Maint 52 guidance and version-update receipts together. |
+| Workflows | `maint-80-langsmith-metrics-dashboard.yml`, `maint-82-sync-dependency-campaign.yml` | Existing operator runbooks and durable campaign or metrics receipts identify these workflows. |
+| Workflows | `agents-keepalive-branch-sync.yml`, `agents-keepalive-dispatch-handler.yml`, `agents-pr-meta-v4.yml`, `health-keepalive-e2e.yml` | Keepalive dispatch, observation and operator lookup use these published identities. |
+| Workflows | `selftest-ci.yml`, `selftest-reusable-ci.yml` | The self-test inventory and guide select these two existing harnesses. |
+| Workflows | `agents-model-profile-trial.yml` | The trial registry binds the dispatch filename to its run and profile evidence. |
+| Workflows, Consumer | `reusable-pr-context.yml` | Caller jobs import these published reusable paths with `uses:`. |
+| Workflows, Consumer | `agents-guard.yml`, `pr-00-gate.yml` | Completion listeners select the published Actions name. |
+| Workflows, Consumer | `agents-auto-label.yml`, `agents-capability-check.yml`, `agents-dedup.yml`, `agents-guard-fork-status.yml`, `agents-issue-format-guard.yml`, `agents-issue-optimizer.yml`, `agents-keepalive-loop-reporter.yml`, `agents-keepalive-sweep.yml`, `agents-verifier.yml`, `agents-verify-to-new-pr.yml`, `agents-weekly-metrics.yml`, `autofix.yml`, `maint-coverage-guard.yml`, `pr-00-gate-fork-status.yml` | Installed wrappers and operator entry points keep their receiver filenames and Actions names. |

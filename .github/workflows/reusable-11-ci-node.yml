@@ -1,4 +1,4 @@
-name: Reusable Node CI
+name: Reusable 11 Node CI
 
 on:
   workflow_call:
