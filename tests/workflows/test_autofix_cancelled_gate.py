@@ -201,7 +201,8 @@ const requireStub = (name) => {
     createTokenAwareRetry: async () => ({withRetry, paginateWithRetry})};
   if (name.endsWith('agent_registry.js')) return {
     loadAgentRegistry: () => ({agents: {codex: {}}}), resolveAgentFromLabels: () => 'codex',
-    isLocalLoopOwned: (labels) => labels.includes('agents:local-loop')};
+    isLocalLoopOwned: (labels) => labels.includes('agents:local-loop'),
+    resolveAutofixAgent: () => ({eligible: true, agentKey: 'codex', reason: 'eligible'})};
   throw Error('Unexpected dependency: ' + name);
 };
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;

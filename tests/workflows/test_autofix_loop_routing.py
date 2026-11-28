@@ -53,3 +53,10 @@ def test_autofix_fallback_never_selects_auto():
 
 def test_autofix_leaves_local_loop_prs_to_the_local_loop():
     assert _route_for(["agent:codex", "agents:local-loop"]) == {"stop_reason": "local_loop"}
+
+
+def test_autofix_refuses_agents_without_hosted_autofix():
+    # Cohesion round 2 (D1): decided from registry capabilities.pr_autofix before the
+    # runner reservation; an unknown label no longer falls through to a runner key.
+    assert _route_for(["agent:gemini"]) == {"stop_reason": "autofix_unsupported"}
+    assert _route_for(["agent:vibe"]) == {"stop_reason": "autofix_unsupported"}

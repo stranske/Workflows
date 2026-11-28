@@ -15,6 +15,7 @@ const {
   parseRegistryYaml,
   resolveAgentFromLabels,
   resolveAgentRoutingFromLabels,
+  resolveAutofixAgent,
   getAgentEntries,
   getAgentPreflightConfigs,
   resolveExecutionProfile,
@@ -385,4 +386,21 @@ test('isLocalLoopOwned reads the one agents:local-loop label in any label shape'
   assert.equal(isLocalLoopOwned(['agent:codex', 'agents:keepalive']), false);
   assert.equal(isLocalLoopOwned([]), false);
   assert.equal(isLocalLoopOwned(undefined), false);
+});
+
+test('resolveAutofixAgent reads capabilities.pr_autofix and fails closed', () => {
+  const opts = { registryPath: REGISTRY_PATH };
+  const decide = (labels) => resolveAutofixAgent(labels, opts);
+  assert.deepEqual(decide(['agent:codex']), { eligible: true, agentKey: 'codex', reason: 'eligible' });
+  assert.deepEqual(decide([]), { eligible: true, agentKey: 'codex', reason: 'eligible' });
+  assert.deepEqual(decide([{ name: 'agent:auto' }, { name: 'agent:claude' }]),
+    { eligible: true, agentKey: 'claude', reason: 'eligible' });
+  assert.deepEqual(decide(['agent:muse', 'agent:retry', 'agent:needs-attention']),
+    { eligible: true, agentKey: 'muse', reason: 'eligible' });
+  assert.deepEqual(decide(['agent:gemini']),
+    { eligible: false, agentKey: 'gemini', reason: 'autofix_unsupported' });
+  assert.deepEqual(decide(['agent:vibe']),
+    { eligible: false, agentKey: 'vibe', reason: 'unknown_agent' });
+  assert.deepEqual(decide(['agent:codex', 'agent:cursor']),
+    { eligible: false, agentKey: '', reason: 'multiple_agent_labels' });
 });

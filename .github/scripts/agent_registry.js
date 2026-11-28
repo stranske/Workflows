@@ -306,6 +306,39 @@ function isLocalLoopOwned(labels) {
   return labelList.map(normalizeLabel).includes(LOCAL_LOOP_LABEL);
 }
 
+// Labels with the agent: prefix that never name an agent.
+const NON_ROUTING_AGENT_KEYS = new Set(['auto', 'needs-attention', 'rate-limited', 'retry']);
+
+// Which agent hosted autofix would run for these PR labels, decided from the registry's
+// `capabilities.pr_autofix` before any runner slot is reserved. Fails closed: an agent label
+// the registry does not know (agent:vibe), an agent without hosted autofix (gemini), or two
+// explicit agent labels yield eligible=false. No explicit agent label means the default agent
+// (the human-PR escalation path).
+function resolveAutofixAgent(labels, options = {}) {
+  const { registryPath } = normalizeRegistryOptions(options);
+  const registry = loadAgentRegistry({ registryPath });
+  const labelList = Array.isArray(labels) ? labels : [];
+  const requested = Array.from(new Set(
+    labelList
+      .map(normalizeLabel)
+      .filter((value) => value.startsWith('agent:'))
+      .map((value) => value.slice('agent:'.length))
+      .filter((key) => key && !NON_ROUTING_AGENT_KEYS.has(key)),
+  ));
+  if (requested.length > 1) {
+    return { eligible: false, agentKey: '', reason: 'multiple_agent_labels' };
+  }
+  const agentKey = requested[0] || registry.default_agent;
+  const config = registry.agents[agentKey];
+  if (!config) {
+    return { eligible: false, agentKey, reason: 'unknown_agent' };
+  }
+  if (config.capabilities?.pr_autofix !== true) {
+    return { eligible: false, agentKey, reason: 'autofix_unsupported' };
+  }
+  return { eligible: true, agentKey, reason: 'eligible' };
+}
+
 function resolveAgentRoutingFromLabels(labels, options = {}) {
   const { registryPath } = normalizeRegistryOptions(options);
   const registry = loadAgentRegistry({ registryPath });
@@ -481,5 +514,6 @@ module.exports = {
   resolveExecutionProfile,
   resolveAgentFromLabels,
   resolveAgentRoutingFromLabels,
+  resolveAutofixAgent,
   validateAgentRegistry,
 };
