@@ -15,7 +15,7 @@ MACHINE_LABELABLE_CATEGORIES = {
 
 
 def _load_cases():
-    root = Path(__file__).resolve().parents[2]
+    root = Path(__file__).resolve().parents[3]
     payload = json.loads((root / "config" / "model_eval_pilot.json").read_text())
     return payload, payload["cases"]
 

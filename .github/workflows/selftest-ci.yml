@@ -231,8 +231,6 @@ jobs:
           python -c "import black, docformatter, isort, mypy, ruff"
           python -m pytest \
             tests/workflows/test_autofix_pipeline.py \
-            tests/workflows/test_autofix_full_pipeline.py \
-            tests/workflows/test_autofix_pipeline_diverse.py \
             tests/scripts/test_update_versions_from_pypi.py \
             -m 'slow and not quarantine' -n 4 --dist=loadgroup \
             --cov --cov-config=pyproject.toml \

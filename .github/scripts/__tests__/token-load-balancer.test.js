@@ -40,9 +40,73 @@ function seedRegistry(tokens) {
   }
 }
 
+test('owner PAT is never chosen for a general task', async () => {
+  seedRegistry([
+    { id: 'SERVICE_BOT_PAT', remaining: 250, limit: 5000 }, // 5% remaining
+    { id: 'OWNER_PR_PAT', remaining: 5000, limit: 5000 },   // 100% remaining
+  ]);
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  for (const token of balancer.tokenRegistry.tokens.values()) {
+    token.capabilities = [...balancer.TOKEN_CAPABILITIES.PAT];
+  }
+
+  const general = await balancer.getOptimalToken({ task: null });
+  assert.equal(general?.source, 'SERVICE_BOT_PAT');
+
+  const preferredOwnerGeneral = await balancer.getOptimalToken({
+    task: null,
+    preferredSource: 'OWNER_PR_PAT',
+  });
+  assert.equal(preferredOwnerGeneral?.source, 'SERVICE_BOT_PAT');
+
+  // When SERVICE_BOT_PAT is below minRemaining, general selection returns null
+  // instead of falling back to the exclusive OWNER_PR_PAT.
+  const belowExplicitMin = await balancer.getOptimalToken({ task: null, minRemaining: 300 });
+  assert.equal(belowExplicitMin, null);
+
+  balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.remaining = 50;
+  balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.percentRemaining = 1;
+  const belowDefaultMin = await balancer.getOptimalToken({ task: null });
+  assert.equal(belowDefaultMin, null);
+
+  const nonOwnerTask = await balancer.getOptimalToken({ task: 'verifier' });
+  assert.equal(nonOwnerTask, null);
+
+  const ownerExclusive = await balancer.getOptimalToken({ task: 'pr-creation-as-owner' });
+  assert.equal(ownerExclusive?.source, 'OWNER_PR_PAT');
+  assert.equal(ownerExclusive?.exclusive, true);
+});
+
+test('exclusive KEEPALIVE_APP is isolated from general tasks', async () => {
+  seedRegistry([
+    { id: 'SERVICE_BOT_PAT', remaining: 250, limit: 5000 },
+  ]);
+  balancer.registerToken({
+    id: 'KEEPALIVE_APP',
+    token: 'fake-token-KEEPALIVE_APP',
+    type: 'APP',
+    source: 'KEEPALIVE_APP',
+    capabilities: [...balancer.TOKEN_CAPABILITIES.APP],
+    priority: 10,
+  });
+  balancer.tokenRegistry.lastRefresh = Date.now();
+
+  const general = await balancer.getOptimalToken({ task: null });
+  assert.equal(general?.source, 'SERVICE_BOT_PAT');
+
+  const exhaustedGeneral = await balancer.getOptimalToken({ task: null, minRemaining: 300 });
+  assert.equal(exhaustedGeneral, null);
+
+  const keepaliveExclusive = await balancer.getOptimalToken({ task: 'keepalive-loop' });
+  assert.equal(keepaliveExclusive?.source, 'KEEPALIVE_APP');
+  assert.equal(keepaliveExclusive?.exclusive, true);
+  assert.equal(keepaliveExclusive?.percentRemaining, 100);
+});
+
 test('Maint 71 review reads prefer the service-bot quota over the owner quota', async () => {
   seedRegistry([
     { id: 'OWNER_PR_PAT', remaining: 5000 },
+    { id: 'ACTIONS_BOT_PAT', remaining: 4000 },
     { id: 'SERVICE_BOT_PAT', remaining: 500 },
   ]);
   balancer.tokenRegistry.lastRefresh = Date.now();
@@ -65,12 +129,20 @@ test('Maint 71 review reads prefer the service-bot quota over the owner quota', 
     excludeSources: ['SERVICE_BOT_PAT'],
     minRemaining: 100,
   });
-  assert.equal(rotated?.source, 'OWNER_PR_PAT');
+  assert.equal(rotated?.source, 'ACTIONS_BOT_PAT');
+
+  const exhaustedNonExclusive = await balancer.getOptimalToken({
+    capabilities: ['cross-repo', 'pulls:read'],
+    preferredSource: 'SERVICE_BOT_PAT',
+    excludeSources: ['SERVICE_BOT_PAT', 'ACTIONS_BOT_PAT'],
+    minRemaining: 100,
+  });
+  assert.equal(exhaustedNonExclusive, null);
 });
 
 test('GraphQL read selection ignores exhausted REST core and rejects exhausted GraphQL', async () => {
   seedRegistry([
-    { id: 'OWNER_PR_PAT', remaining: 5000 },
+    { id: 'ACTIONS_BOT_PAT', remaining: 5000 },
     { id: 'SERVICE_BOT_PAT', remaining: 0 },
   ]);
   balancer.tokenRegistry.lastRefresh = Date.now();
@@ -80,7 +152,7 @@ test('GraphQL read selection ignores exhausted REST core and rejects exhausted G
   balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').graphqlRateLimit = {
     remaining: 4000, percentRemaining: 80,
   };
-  balancer.tokenRegistry.tokens.get('OWNER_PR_PAT').graphqlRateLimit = {
+  balancer.tokenRegistry.tokens.get('ACTIONS_BOT_PAT').graphqlRateLimit = {
     remaining: 0, percentRemaining: 0,
   };
   const selected = await balancer.getOptimalToken({
