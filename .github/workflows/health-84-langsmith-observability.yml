@@ -46,33 +46,29 @@ jobs:
           set -uo pipefail
           mkdir -p .observability-health
           # One workflow: fleet conformance is a step of maint-80 (cohesion review B14).
-          for spec in \
-            "dashboard:maint-80-langsmith-metrics-dashboard.yml"; do
-            name="${spec%%:*}"
-            workflow="${spec#*:}"
-            output=".observability-health/${name}-runs.json"
-            raw_output=".observability-health/${name}-runs-raw.json"
-            if gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow "$workflow" \
-              --status completed \
-              --limit 20 \
-              --json conclusion,createdAt,databaseId,status,url \
-              > "$raw_output"; then
-              jq \
-                '{workflow_runs: [.[] | {
-                  conclusion,
-                  created_at: .createdAt,
-                  id: .databaseId,
-                  status,
-                  html_url: .url
-                }]}' \
-                "$raw_output" > "$output"
-            else
-              printf '{"workflow_runs":[],"fetch_error":"GitHub API request failed for %s"}\n' \
-                "$workflow" > "$output"
-            fi
-          done
+          workflow="maint-80-langsmith-metrics-dashboard.yml"
+          output=".observability-health/dashboard-runs.json"
+          raw_output=".observability-health/dashboard-runs-raw.json"
+          if gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow "$workflow" \
+            --status completed \
+            --limit 20 \
+            --json conclusion,createdAt,databaseId,status,url \
+            > "$raw_output"; then
+            jq \
+              '{workflow_runs: [.[] | {
+                conclusion,
+                created_at: .createdAt,
+                id: .databaseId,
+                status,
+                html_url: .url
+              }]}' \
+              "$raw_output" > "$output"
+          else
+            printf '{"workflow_runs":[],"fetch_error":"GitHub API request failed for %s"}\n' \
+              "$workflow" > "$output"
+          fi
 
       - name: Evaluate observability health
         env:
