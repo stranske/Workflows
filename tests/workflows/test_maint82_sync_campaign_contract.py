@@ -40,6 +40,7 @@ def test_campaign_refresh_passes_current_sync_hash_to_runner():
     assert "currentSyncHash," in script
 
 
+EXPORT_ACTION_PATH = ".github/actions/export-load-balancer-tokens/action.yml"
 MODEL_CONFIG_PATHS = (
     "config/llm_slots.json",
     "config/model_registry.json",
@@ -64,6 +65,9 @@ def campaign_hash(tmp_path):
     ):
         (tmp_path / path).mkdir(parents=True)
     (tmp_path / ".github/sync-manifest.yml").write_text("version: 1\n", encoding="utf-8")
+    export_action = tmp_path / EXPORT_ACTION_PATH
+    export_action.parent.mkdir(parents=True)
+    export_action.write_text("initial\n", encoding="utf-8")
     for path in MODEL_CONFIG_PATHS:
         (tmp_path / path).write_text("{}\n", encoding="utf-8")
     output = tmp_path / "github-output"
@@ -90,6 +94,12 @@ def test_campaign_hash_tracks_canonical_artifact_cache(tmp_path, campaign_hash, 
     source.write_text("initial\n", encoding="utf-8")
     before = campaign_hash()
     source.write_text("updated\n", encoding="utf-8")
+    assert campaign_hash() != before
+
+
+def test_campaign_hash_tracks_canonical_token_export(tmp_path, campaign_hash):
+    before = campaign_hash()
+    (tmp_path / EXPORT_ACTION_PATH).write_text("updated\n", encoding="utf-8")
     assert campaign_hash() != before
 
 

@@ -37,6 +37,14 @@ def test_model_config_changes_trigger_sync_and_manifest_validation() -> None:
             assert f"templates/consumer-repo/{source}" in health_72[event]["paths"]
 
 
+def test_token_export_changes_trigger_template_sync() -> None:
+    source = ".github/actions/export-load-balancer-tokens/action.yml"
+    health_72 = _workflow()[True]
+    for event in ("pull_request", "push"):
+        assert source in health_72[event]["paths"]
+        assert f"templates/consumer-repo/{source}" in health_72[event]["paths"]
+
+
 def test_push_uses_a_scoped_app_token_and_github_token_only_reads() -> None:
     steps = _steps()
     mint = next(i for i, step in enumerate(steps) if step.get("id") == "app_token")
