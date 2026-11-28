@@ -41,6 +41,24 @@ Recover it from Git:
 git show 5fcd51d31705496c1d8d18d264dfce72767a1ba4:.github/workflows/health-43-ci-signature-guard.yml
 ```
 
+### Health 41 Repo Health (cohesion review round 2, D9)
+
+`health-41-repo-health.yml` wrote a Monday table of stale branches, stale pull
+requests and unassigned issues to its run summary, which nothing read, and
+repeated the default-branch protection check that the
+[Health 40 self-check](../../.github/workflows/health-40-repo-selfcheck.yml)
+already reports on its tracker issue. It spent one API call per branch on each
+run. Its only failure path (`health_tracker_issue.js`) was removed with it. The
+self-check replaces it: `health-41-repo-health.yml` → `health-40-repo-selfcheck.yml`.
+
+The [original workflow](https://github.com/stranske/Workflows/blob/27f69f05fff0ff215fd0d8e63d9389bb7bb529be/.github/workflows/health-41-repo-health.yml)
+has SHA-256 `c60c392527ad3f17be82c434b012e3f9891ca59d376ddcf0ce7d4a323f536df3`.
+Recover it from Git:
+
+```sh
+git show 27f69f05fff0ff215fd0d8e63d9389bb7bb529be:.github/workflows/health-41-repo-health.yml
+```
+
 ### Legacy verify-to-issue v1
 
 The disabled [v1 definition](https://github.com/stranske/Workflows/blob/d884606ce6ec93b67029bf081ad509a25fdbe39c/archives/deprecated-workflows/agents-verify-to-issue.yml) is preserved in Git at `d884606ce6ec93b67029bf081ad509a25fdbe39c`. Its SHA-256 is `f9409273791aec983766cb9562d8fb36dd519bd3ce9da9c677977173afc95b63`. Recover the original bytes with `git show d884606ce6ec93b67029bf081ad509a25fdbe39c:archives/deprecated-workflows/agents-verify-to-issue.yml`.
