@@ -277,9 +277,7 @@
     "filing_latency_hours": 0.12666666666666668,
     "first_over_target_at": "2026-11-27T11:38:25+00:00",
     "issue_filed_at": "2026-11-27T11:46:01Z",
-    "issue_numbers": [
-      703
-    ],
+    "issue_numbers": [],
     "issue_updated_on": "2026-11-27",
     "longest_job": {
       "minutes": 12.9,
