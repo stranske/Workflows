@@ -1,57 +1,15 @@
-# Workflow Documentation
+# Workflow documentation
 
-Workflow-system notes and documentation.
+Use the [workflow catalog](../ci/WORKFLOWS.md) to find maintained workflows and the
+[outputs reference](../ci/WORKFLOW_OUTPUTS.md) to see what a reusable workflow
+returns to its caller. Start with the [workflow guide](../WORKFLOW_GUIDE.md) for
+operator procedures.
 
-This folder currently contains higher-level workflow system documents rather than one file per reusable workflow.
+This directory holds notes for two cross-workflow checks.
 
-## Documents
+- [Script interpolation triage](script-interpolation-triage.md)
+- [Silent API failure triage](silent-api-failure-triage.md)
 
-- [SystemEvaluation.md](SystemEvaluation.md)
-- [WorkflowSystemBugReport.md](WorkflowSystemBugReport.md)
-
-## Structure
-
-Each workflow should have its own markdown file:
-
-```
-workflows/
-├── reusable-10-ci-python.md       # Python CI workflow
-├── reusable-12-ci-docker.md       # Docker smoke tests
-├── reusable-18-autofix.md         # Autofix orchestration
-├── health-42-actionlint.md        # Workflow linting
-├── maint-52-validate-workflows.md # Workflow validation
-└── ...                            # Additional workflows
-```
-
-## Documentation Template
-
-Use [../templates/WORKFLOW_TEMPLATE.md](../templates/WORKFLOW_TEMPLATE.md) when creating new workflow documentation.
-
-Each workflow documentation file should include:
-
-1. **Overview** - What the workflow does and why to use it
-2. **Usage** - Basic and advanced usage examples
-3. **Inputs** - All inputs (required and optional) with descriptions
-4. **Outputs** - All outputs with descriptions
-5. **Secrets** - Required and optional secrets
-6. **Artifacts** - Artifacts produced by the workflow
-7. **Examples** - Multiple real-world examples
-8. **Troubleshooting** - Common issues and solutions
-9. **Version Compatibility** - Supported versions and migration guides
-
-## Naming Convention
-
-File names should match the workflow file names (without the `.yml` extension):
-
-- Workflow: `.github/workflows/reusable-10-ci-python.yml`
-- Documentation: `docs/workflows/reusable-10-ci-python.md`
-
-## Status
-
-As individual workflow docs are added, they should follow the naming convention described below.
-
-## See Also
-
-- [Workflow Template](../templates/WORKFLOW_TEMPLATE.md)
-- [Main Documentation README](../README.md)
-- [Workflow examples](../USAGE.md#examples)
+Use the [workflow documentation template](../templates/WORKFLOW_TEMPLATE.md) for a
+new workflow-specific guide. The [archive ledger](../archive/ARCHIVE_PLANS.md)
+lists historical materials.
