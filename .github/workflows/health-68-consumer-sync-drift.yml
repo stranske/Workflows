@@ -70,6 +70,19 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml requests
 
+      - name: Restore the uncovered clock
+        # When each repo was first seen uncovered. It resets only when the repo is
+        # converged or covered, so neither a later (or scoped) Maint 68 promotion nor
+        # delivery history falling off the listed page can renew an expired lease.
+        # A cache miss starts the clock now; delivery-anchored ages still apply.
+        if: inputs.repos == ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/health-68-uncovered
+          key: health-68-uncovered-${{ github.run_id }}
+          restore-keys: |
+            health-68-uncovered-
+
       - name: Read Maint 68 delivery history
         # The drain's own record: successful promote runs and the plan each delivered.
         # A failed read leaves no file, which the comparison treats as unreadable
@@ -85,6 +98,8 @@ jobs:
         env:
           CONSUMER_SYNC_DRIFT_REPORT_JSON: artifacts/consumer-sync-drift-report.json
           CONSUMER_SYNC_DELIVERIES_JSON: artifacts/maint-68-deliveries.json
+          CONSUMER_SYNC_UNCOVERED_CLOCK: >-
+            ${{ inputs.repos == '' && '.cache/health-68-uncovered/first-seen.json' || '' }}
           INPUT_REPOS: ${{ inputs.repos }}
         run: |
           mkdir -p artifacts
@@ -96,6 +111,16 @@ jobs:
             --repos "$repos_input" \
             --summary "$GITHUB_STEP_SUMMARY" \
             --report-json "$CONSUMER_SYNC_DRIFT_REPORT_JSON"
+
+      - name: Save the uncovered clock
+        if: >-
+          ${{ always() && inputs.repos == '' &&
+              (steps.compare.outcome == 'success' || steps.compare.outcome == 'failure') &&
+              hashFiles('.cache/health-68-uncovered/first-seen.json') != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/health-68-uncovered
+          key: health-68-uncovered-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload drift report
         if: always()

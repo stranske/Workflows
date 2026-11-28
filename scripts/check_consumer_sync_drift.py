@@ -101,6 +101,11 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--uncovered-clock",
+        default=os.environ.get("CONSUMER_SYNC_UNCOVERED_CLOCK", ""),
+        help="JSON file holding when each repo was first seen uncovered; read, then rewritten.",
+    )
+    parser.add_argument(
         "--write-deliveries",
         default="",
         help="Only write the Maint 68 delivery history to this path, then exit.",
@@ -747,6 +752,66 @@ def build_remediation_states(
     return states
 
 
+UNCOVERED_STATES = frozenset({"pending_delivery", "untracked_drift"})
+
+
+def apply_uncovered_clock(
+    states: dict[str, dict[str, object]],
+    previous: dict[str, str] | None,
+    now: datetime,
+) -> dict[str, str]:
+    """Age uncovered repos from when Health 68 FIRST saw them uncovered.
+
+    The clock survives between runs (an Actions cache file), resets only when the repo
+    is converged or covered, and is never renewed by a later or scoped Maint 68
+    promotion or by delivery history falling off the listed page. A repo uncovered
+    for longer than the lease is blocking whatever the delivery history says.
+    ``previous`` None means no saved clock: every uncovered repo starts now.
+    """
+    previous = previous or {}
+    first_seen: dict[str, str] = {}
+    for repo, item in states.items():
+        if item.get("state") not in UNCOVERED_STATES:
+            continue
+        seen = parse_github_timestamp(previous.get(repo)) or now
+        if seen > now:
+            seen = now
+        anchor = parse_github_timestamp(item.get("uncovered_since"))
+        since = min(seen, anchor) if anchor is not None else seen
+        first_seen[repo] = seen.strftime("%Y-%m-%dT%H:%M:%SZ")
+        item["uncovered_since"] = since.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if now - since > SYNC_COVERAGE_MAX_AGE and item.get("blocking") is not True:
+            item["blocking"] = True
+            item["reason"] = (
+                f"{item.get('reason', '')}; uncovered since {item['uncovered_since']}, "
+                "past the coverage lease"
+            ).lstrip("; ")
+    return first_seen
+
+
+def read_uncovered_clock(path: str) -> dict[str, str] | None:
+    """Load the saved first-seen clock; None when absent or unreadable (start now)."""
+    if not path:
+        return None
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return {str(key): str(value) for key, value in data.items()}
+
+
+def write_uncovered_clock(path: str, report: dict[str, object]) -> None:
+    if not path:
+        return
+    remediation = report.get("sync_remediation", {})
+    clock = remediation.get("uncovered_first_seen", {}) if isinstance(remediation, dict) else {}
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(clock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def delivery_anchor(
     deliveries: list[dict[str, object]] | None, current_plan_id: str
 ) -> dict[str, object]:
@@ -867,6 +932,7 @@ def build_report(
     current_plan_id: str = "",
     candidate_repos: set[str] | None = None,
     deliveries: list[dict[str, object]] | None = None,
+    uncovered_first_seen: dict[str, str] | None = None,
     now: datetime | None = None,
 ) -> dict[str, object]:
     unmeasured_create_only = unmeasured_create_only or set()
@@ -903,6 +969,9 @@ def build_report(
         global_errors=global_errors,
         deliveries=deliveries,
         now=now,
+    )
+    first_seen = apply_uncovered_clock(
+        remediation_states, uncovered_first_seen, now or datetime.now(UTC)
     )
     state_values = {str(item["state"]) for item in remediation_states.values()}
     blocking_repos = sorted(
@@ -980,6 +1049,8 @@ def build_report(
             "drainable_repos": drainable_repos,
             "delivery_anchor": render_delivery_anchor(delivery_anchor(deliveries, current_plan_id)),
             "repo_states": remediation_states,
+            "uncovered_first_seen": first_seen,
+            "uncovered_clock": "restored" if uncovered_first_seen is not None else "new",
             "global_errors": global_errors,
             "open_pr_count": len(open_sync_prs),
             "repo_count": open_sync_repo_count,
@@ -1516,6 +1587,7 @@ def main() -> int:
         current_plan_id=current_plan_id,
         candidate_repos=candidate_repos,
         deliveries=read_deliveries(getattr(args, "deliveries_json", "")),
+        uncovered_first_seen=read_uncovered_clock(getattr(args, "uncovered_clock", "")),
     )
     if gate_entry is not None:
         gate_lines = gate_trigger_lines(repos, gate_entry, remote_trees, read_blob)
@@ -1523,6 +1595,7 @@ def main() -> int:
         for line in gate_lines:
             print(line)
     write_report_json(args.report_json, report)
+    write_uncovered_clock(getattr(args, "uncovered_clock", ""), report)
     write_summary_markdown(args.summary, report)
     print(gate_line(report))
 

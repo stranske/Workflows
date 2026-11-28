@@ -78,7 +78,8 @@ def test_no_step_can_skip_the_comparison_inside_a_running_job() -> None:
     steps = {step["name"]: step for step in data["jobs"]["check-drift"]["steps"]}
     assert "if" not in steps[COMPARE_STEP]
     assert "steps.debounce" not in text
-    assert "actions/cache/" not in text
+    # The only cache is the uncovered clock; nothing may gate the compare on it.
+    assert "health-68-last-compared" not in text
 
 
 def test_comparison_reads_the_drain_history() -> None:

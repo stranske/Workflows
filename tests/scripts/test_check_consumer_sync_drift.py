@@ -3025,3 +3025,64 @@ def test_parse_maint68_promotions_reads_plan_ids_from_successful_promotes_only()
     ]
     with pytest.raises(ValueError):
         check_consumer_sync_drift.parse_maint68_promotions({"message": "Bad credentials"})
+
+
+# --- Uncovered clock: review follow-up on #5452 (scoped promotions / history paging) ---
+
+
+def _clock_report(deliveries, first_seen, repos=("owner/repo",)):
+    return check_consumer_sync_drift.build_report(
+        repos=list(repos),
+        drift={f"{repo}: README.md" for repo in repos},
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        open_sync_prs=[],
+        current_plan_id=_PLAN,
+        deliveries=deliveries,
+        uncovered_first_seen=first_seen,
+        now=_ANCHOR_NOW,
+    )
+
+
+def test_repeated_promotions_cannot_renew_pending_past_the_lease() -> None:
+    # A promotion 1 h ago (scoped or not) would make this pending forever; the clock
+    # says the repo has been uncovered for 40 h, so it blocks.
+    report = _clock_report(
+        [{"plan_id": _OLD_PLAN, "created_at": _iso(1)}], {"owner/repo": _iso(40)}
+    )
+    state = report["sync_remediation"]["repo_states"]["owner/repo"]
+    assert state["state"] == "pending_delivery"
+    assert state["blocking"] is True
+    assert state["uncovered_since"] == _iso(40)
+    assert report["status"] == "drift"
+
+
+def test_history_paging_cannot_reset_the_age_of_a_delivered_plan() -> None:
+    # Only a 10 h re-delivery is visible; the clock remembers 40 h.
+    report = _clock_report([{"plan_id": _PLAN, "created_at": _iso(10)}], {"owner/repo": _iso(40)})
+    state = report["sync_remediation"]["repo_states"]["owner/repo"]
+    assert state["blocking"] is True
+    assert report["status"] == "drift"
+
+
+def test_clock_starts_now_and_drops_repos_that_converged() -> None:
+    report = _clock_report(
+        [{"plan_id": _OLD_PLAN, "created_at": _iso(2)}],
+        {"owner/gone": _iso(50)},
+        repos=("owner/repo",),
+    )
+    clock = report["sync_remediation"]["uncovered_first_seen"]
+    assert clock == {"owner/repo": _ANCHOR_NOW.strftime("%Y-%m-%dT%H:%M:%SZ")}
+    assert report["sync_remediation"]["repo_states"]["owner/repo"]["blocking"] is False
+    assert report["status"] == "draining"
+
+
+def test_uncovered_clock_round_trips_and_missing_is_none(tmp_path) -> None:
+    path = tmp_path / "clock" / "first-seen.json"
+    assert check_consumer_sync_drift.read_uncovered_clock(str(path)) is None
+    report = _clock_report([{"plan_id": _OLD_PLAN, "created_at": _iso(2)}], None)
+    check_consumer_sync_drift.write_uncovered_clock(str(path), report)
+    assert check_consumer_sync_drift.read_uncovered_clock(str(path)) == (
+        report["sync_remediation"]["uncovered_first_seen"]
+    )

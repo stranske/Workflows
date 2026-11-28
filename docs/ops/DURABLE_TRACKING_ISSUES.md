@@ -170,6 +170,10 @@ addressed. Examples:
 
   The run summary prints the gate as one line: blocking repos AND drainable repos
   (covered, pending delivery, or uncovered within the lease) with the status.
+  Health 68 also keeps an "uncovered clock" (an Actions cache file): when it first
+  saw each repo uncovered, reset only when the repo is converged or covered. A repo
+  uncovered past the lease by that clock is blocking even if a later or scoped
+  Maint 68 promotion would otherwise call it `pending_delivery`.
 
   Drift alone is not a red signal: expected in-flight propagation is `covered`,
   exits zero, and is deliberately silent. A gap in comments means "nothing
