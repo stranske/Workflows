@@ -7,6 +7,18 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Installed retirements and repairs for two CI failures
+
+Stage 3 has 722/752 files and 39/43 folders accepted. Stage 4 has 1,452/1,540 files and 156/177 folders accepted. This session added 28 accepted original file decisions. All 198 original workflow decisions are accounted for. The original 28 delivery checks stand at 26 observed production passes and two replay-verified outcomes with no qualifying production input.
+
+**Installed on Workflows main.** The cohesion team's [#5473](https://github.com/stranske/Workflows/pull/5473) removed 12 unused commands and nine exclusive suites. Two mixed suites retained their live cases. [#5460](https://github.com/stranske/Workflows/pull/5460) removed the former label inventory and kept all 49 of its labels in the 67-label source. The live sync and receiving label readbacks passed. The two changes cover 25 original files. Their primary Python jobs took 491/428 and 422/535 seconds, respectively. [#5472](https://github.com/stranske/Workflows/pull/5472) moved the #1307 concern beside its evidence. [#5459](https://github.com/stranske/Workflows/pull/5459) retired Health 41. Health 40 retains required-context monitoring; the old weekly hygiene tables ended.
+
+**Two distinct CI failures.** Thirteen targeted retries still encountered the installation's REST quota. The historical Selftest replay called an unnecessary REST authentication preflight before querying GraphQL. [#5482](https://github.com/stranske/Workflows/pull/5482) removed that call. The live replay passed on [the ordinary PR event](https://github.com/stranske/Workflows/actions/runs/46125900947/job/140920382804) in 3.3 seconds. A separate Python failure was caused by fake-key tests leaking tracing settings into the next native test. The controlled offline sequence reproduced the original network denial. [#5484](https://github.com/stranske/Workflows/pull/5484) stopped the SDK worker and retained the network guard. All three affected named cases passed in both hosted JUnit results, 16,589 cases per runtime, in [366 and 356 seconds](https://github.com/stranske/Workflows/actions/runs/46125963551). Both fixes still need normal merge and default-branch verification.
+
+**Archive and placement.** [#5481](https://github.com/stranske/Workflows/pull/5481) removes two complete historical validation packets. All 52 files and 387,383 bytes recover from Git with matching blob IDs. The six live reader suites retained 154 passes and the same skip. In the remaining shebang evidence, seven active archives and their seven external summaries each failed when moved alone and verified when restored. Another 125 loose inputs have byte-identical archive members. Their independent readers and binding contracts remain under review. [#5479](https://github.com/stranske/Workflows/pull/5479) consolidates legacy workflow guards and corrects the Health 41 guide. [#5480](https://github.com/stranske/Workflows/pull/5480) moves native-verifier and capability suites to their feature owners and combines checks with existing suites. The ordinary, Gate and grammar selections matched case by case. None of these source changes is counted as a delivered removal.
+
+**Policy and dashboard.** [#5483](https://github.com/stranske/Workflows/pull/5483) moves the weekly proposal decision into the existing source-lane command. The original and proposed entry points returned identical outputs on four controls. [#5485](https://github.com/stranske/Workflows/pull/5485) retires a dashboard that recorded zero successes on five published terminal records, where the weekly reader identified three completed rounds. The general metrics reporter stays. The source PR is paused until the [guide owner](https://github.com/stranske/Workflows/pull/5470#issuecomment-7236683281) publishes the replacement command and recovery link or releases those lines for inclusion. The separate integration-validator repair [#5465](https://github.com/stranske/Workflows/pull/5465) still requires guarded source merge and its ordinary Maint 69 push to the integration default.
+
 ### November 28 · Verified playbook repair and 16 receiving deletions
 
 Stage 3 has **714/752 files and 39/43 folders** accepted. Stage 4 has **1,449/1,540 files and 156/177 folders** accepted. Across the original inventory this pass added **12 file and 3 folder decisions**.
@@ -542,20 +554,20 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,951/2,901 | 119/220 | — |
-| 3 · Scripts, tools and packages | 714/752 | 39/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,449/1,540 | 156/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 204/334 | 26/47 | — |
-| **Total** | **4,345/5,554** | **340/487** | **198/198** |
+| 2 · Evidence and archives | 1,965/2,901 | 119/220 | — |
+| 3 · Scripts, tools and packages | 722/752 | 39/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,452/1,540 | 156/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 207/334 | 26/47 | — |
+| **Total** | **4,373/5,554** | **340/487** | **198/198** |
 
-**Directory organization.** 4,133 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 4,161 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 127 |
-| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 27 |
+| [Keep in current role](workflow-decisions.md#keep) | 126 |
+| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 28 |
 | [Other verified decisions](workflow-decisions.md#verified) | 44 |
 | [Awaiting verification](workflow-decisions.md#waiting) | 0 |
 | [In review](workflow-decisions.md#review) | 0 |
