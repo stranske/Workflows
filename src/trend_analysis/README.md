@@ -28,7 +28,7 @@ samples outside that scan. The [path classifier](../../.github/path-classificati
 also treats a Python edit under `tests/` as test-only. A change to these
 source samples follows the Python source route.
 
-The [diverse-pipeline test](../../tests/workflows/test_autofix_pipeline_diverse.py)
+The [diverse-pipeline test](../../tests/workflows/test_autofix_pipeline.py)
 writes its own damaged modules into a temporary project. To exercise the
 [cosmetic repair](../../scripts/fix_cosmetic_aggregate.py) against the tracked
 `automation_multifailure.py`, run it from this directory in a disposable
