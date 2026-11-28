@@ -34,7 +34,7 @@ on:
         required: true
         type: string
       pr_head_sha:
-        description: 'Optional expected PR head for a correlated auto-pilot dispatch'
+        description: 'Optional expected PR head for a correlated dispatch'
         required: false
         type: string
         default: ''

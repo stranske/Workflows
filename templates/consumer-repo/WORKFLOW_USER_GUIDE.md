@@ -399,7 +399,7 @@ The [shared opener and closer](https://github.com/stranske/Workflows/blob/main/d
 
 ## Troubleshooting
 
-### Auto-pilot recovery procedures
+### Issue-format hold recovery procedures
 
 When the issue optimizer detects more than three runs for the same issue in one
 hour, it applies `agents:auto-pilot-pause` to stop the recursion.
@@ -475,7 +475,7 @@ a fresh budget.
 
 ---
 
-### Issue has a legacy Auto-Pilot failure marker
+### Issue has a legacy `agents:auto-pilot-failed` marker
 
 Check the issue timeline and linked PR for an existing owner, then read the [shared opener](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview) disposition.
 

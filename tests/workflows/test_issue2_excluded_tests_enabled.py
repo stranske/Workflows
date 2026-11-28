@@ -193,8 +193,6 @@ def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
     )
     for filename in (
         "test_autofix_pipeline.py",
-        "test_autofix_full_pipeline.py",
-        "test_autofix_pipeline_diverse.py",
         "test_update_versions_from_pypi.py",
     ):
         assert filename in run

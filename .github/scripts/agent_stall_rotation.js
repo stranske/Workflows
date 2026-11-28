@@ -3,7 +3,7 @@
 /**
  * Agent stall rotation
  *
- * When auto-pilot's stall handler is about to escalate a stuck issue to
+ * When a stall handler is about to escalate a stuck issue to
  * `needs-human`, this decides whether to first rotate to a DIFFERENT eligible
  * agent (bounded) and try again. It is registry- and capability-driven — it never
  * hard-codes an agent list — so it uses whatever agents the registry marks capable

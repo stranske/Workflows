@@ -60,7 +60,7 @@ def test_issue_optimizer_checks_for_format_label() -> None:
 
 
 def test_recursion_guard_links_to_managed_recovery_procedures() -> None:
-    recovery_anchor = "#auto-pilot-recovery-procedures"
+    recovery_anchor = "#issue-format-hold-recovery-procedures"
     root_text = WORKFLOW_PATH.read_text(encoding="utf-8")
     consumer_text = CONSUMER_WORKFLOW_PATH.read_text(encoding="utf-8")
     assert "/blob/${DEFAULT_BRANCH}/templates/consumer-repo/WORKFLOW_USER_GUIDE.md" in root_text
@@ -70,7 +70,7 @@ def test_recursion_guard_links_to_managed_recovery_procedures() -> None:
         assert "/blob/${DEFAULT_BRANCH}/Agents.md" not in text
 
     guide = CONSUMER_GUIDE_PATH.read_text(encoding="utf-8")
-    assert "### Auto-pilot recovery procedures" in guide
+    assert "### Issue-format hold recovery procedures" in guide
     assert "Remove `agents:auto-pilot-pause`" in guide
 
 

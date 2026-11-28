@@ -23,7 +23,12 @@ def test_fleet_renovate_intake_budget_is_bounded_to_the_weekly_window() -> None:
     preset = _preset()
 
     assert preset["timezone"] == "America/Chicago"
-    assert preset["schedule"] == ["after 1am and before 5am on monday"]
+    # The window must be wider than the gap between Mend's hosted runs. On 11-23 all three
+    # sampled consumer dashboards were edited at 06:38-06:39Z and next at 11:56Z or later, so
+    # no run fell inside the old 4-hour window (01:00-05:00 Chicago = 07:00-11:00Z) and no
+    # branch moved that week. The widest edit gap seen 11-15..11-28 was about 12h; all of
+    # Monday (24h) covers it. Intake stays bounded by the hourly and concurrency limits.
+    assert preset["schedule"] == ["on monday"]
     assert preset["commitHourlyLimit"] == 2
     assert preset["prConcurrentLimit"] == 3
     assert preset["branchConcurrentLimit"] == 3
@@ -84,7 +89,7 @@ def test_lock_file_maintenance_has_the_same_explicit_weekly_cadence() -> None:
     assert lock_maintenance == {
         "enabled": True,
         "groupName": "weekly lock file maintenance",
-        "schedule": ["after 1am and before 5am on monday"],
+        "schedule": _preset()["schedule"],
     }
 
 
