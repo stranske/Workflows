@@ -202,6 +202,9 @@ def test_pass_closes_only_its_own_alert(tmp_path):
     writes = _run_composite(
         tmp_path,
         "ok",
-        [{"number": 5, "title": title}, {"number": 6, "title": "⚠️ CODEX_AUTH_JSON expires in 3 hours"}],
+        [
+            {"number": 5, "title": title},
+            {"number": 6, "title": "⚠️ CODEX_AUTH_JSON expires in 3 hours"},
+        ],
     )
     assert len(writes) == 1 and writes[0].startswith("issue close 5"), writes

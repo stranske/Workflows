@@ -123,7 +123,7 @@ def test_raise_opens_one_issue_when_none_is_open(tmp_path, capsys):
     assert len(writes) == 1
     assert writes[0][:2] == ["issue", "create"]
     assert writes[0][writes[0].index("--title") + 1] == CURSOR
-    assert ["--label", "auth-expiring"] == writes[0][-4:-2]
+    assert writes[0][-4:-2] == ["--label", "auth-expiring"]
     assert "opened #41" in capsys.readouterr().out
 
 
@@ -141,8 +141,18 @@ def test_raise_needs_one_exact_title_and_a_body(tmp_path):
         rai.main([*RAISE, "--mode", "raise"], run=FakeGh([]))
     with pytest.raises(SystemExit):
         rai.main(
-            ["--repo", "o/r", "--label", "l", "--title-prefix", "x", "--mode", "raise",
-             "--body-file", str(tmp_path / "b")],
+            [
+                "--repo",
+                "o/r",
+                "--label",
+                "l",
+                "--title-prefix",
+                "x",
+                "--mode",
+                "raise",
+                "--body-file",
+                str(tmp_path / "b"),
+            ],
             run=FakeGh([]),
         )
 

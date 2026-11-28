@@ -135,7 +135,9 @@ def main(argv: Sequence[str] | None = None, run: Runner = _gh) -> int:
         parser.error("need at least one --label and one --title/--title-prefix")
     if args.mode == "raise":
         if len(args.titles) != 1 or args.prefixes or not args.body_file:
-            parser.error("--mode raise needs exactly one --title, no --title-prefix, and --body-file")
+            parser.error(
+                "--mode raise needs exactly one --title, no --title-prefix, and --body-file"
+            )
         try:
             action, number = raise_alert(
                 repo=args.repo,
