@@ -154,12 +154,13 @@ After PR merge, applying a `verify:*` label (`verify:compare` for dual-model mod
 
 ### Composite Actions (.github/actions)
 
-Thirteen composite actions, each with an `action.yml`:
+Fourteen composite actions, each with an `action.yml`:
 
 - `agent-event-eligibility/` - Decide whether an agent workflow event warrants running before expensive setup
 - `agent-reference-packs/` - Validate and materialize reference packs for reusable agent runners
 - `agent-run-base/` - Shared setup for the reusable agent runner workflows (checkout, Node, API client, Workflows scripts)
 - `artifact-cache/` - Restore, discover, and cache workflow artifacts by run window
+- `auth-alert-issue/` - Open, update or close the alert issue for an agent auth check
 - `autofix/` - Formatting and hygiene automation
 - `build-pr-comment/` - Assemble the autofix status comment from residual reports and trend artifacts
 - `codex-bootstrap-lite/` - Lightweight issue → branch → PR bootstrap for agent runs
