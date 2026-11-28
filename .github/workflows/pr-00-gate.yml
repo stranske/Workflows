@@ -288,7 +288,7 @@ jobs:
       # Preserve the full-suite 70% guard formerly repeated by six selftest profiles.
       coverage-min: '70'
       # The verifier grammar suites run in python-ci-grammar below; the two
-      # calls together discover the full suite (tests/workflows/test_ci_gate_budget.py).
+      # calls together discover the full suite (tests/test_ci_gate_budget.py).
       pytest_args: "-n auto --dist load --ignore=tests/scripts/test_pr_verifier_delivery_destinations.py --ignore=tests/scripts/test_pr_verifier_prompt_coverage.py --ignore=tests/scripts/test_pr_verifier_body_overall_integration.py"
       cache: ${{ needs.detect.outputs.cache == 'true' }}
       enable-soft-gate: ${{ needs.detect.outputs.coverage == 'true' }}
