@@ -74,16 +74,15 @@
     "stranske/Trend_Model_Project": {
       "decision": "approve",
       "priority": "normal",
-      "approved_candidates": "all",
-      "include_meta_candidate": false,
-      "human_resolutions": [
-        {
-          "target": "deadlocked_meta",
-          "decision": "skip_audit",
-          "rationale": "The deadlocked meta candidate proposed by one agent did not survive scrutiny. Do not open the audit issue this cycle. Approve the 2 converged candidates only (Monte Carlo scenario schema example + metrics.rf_override_enabled config declaration)."
-        }
+      "approved_converged_synthesized_at": "2026-11-26T14:03:58.805798+00:00",
+      "approved_candidates": [
+        1
       ],
-      "notes": "2 converged candidates. Meta-audit skipped per human decision."
+      "approved_title_patterns": [
+        "^Initialize scenario costs before parallel workers"
+      ],
+      "include_meta_candidate": false,
+      "notes": "Owner 2026-11-27 (session f53e1b6a): approve only round-2 candidate 1 (initialize scenario costs before parallel workers observe a partially initialized runner). Candidates 2-5 not approved this cycle. Previous decision (approve all, older set): {\"decision\": \"approve\", \"priority\": \"normal\", \"approved_candidates\": \"all\", \"include_meta_candidate\": false, \"human_resolutions\": [{\"target\": \"deadlocked_meta\", \"decision\": \"skip_audit\", \"rationale\": \"The deadlocked meta candidate proposed by one agent did not survive scrutiny. Do not open the audit"
     },
     "stranske/trip-planner": {
       "decision": "approve",
