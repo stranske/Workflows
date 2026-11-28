@@ -103,6 +103,11 @@ jobs:
             echo "baselines_changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "baselines_changed=true" >> "$GITHUB_OUTPUT"
+            # The consumer template holds a byte copy (scripts/validate_template_sync.py
+            # sources). Ship both in one commit: otherwise Health 72 pushes a sync commit
+            # to the baseline PR, the head moves inside the review window, and the PR
+            # never arms auto-merge.
+            cp config/model_registry.json templates/consumer-repo/config/model_registry.json
           fi
           if [ "$rc" = "1" ]; then
             echo "drift=true" >> "$GITHUB_OUTPUT"
@@ -135,7 +140,9 @@ jobs:
         with:
           retention-days: 30
           name: model-catalog-baselines-${{ github.run_id }}
-          path: config/model_registry.json
+          path: |
+            config/model_registry.json
+            templates/consumer-repo/config/model_registry.json
           if-no-files-found: error
 
   tracking-issue:
@@ -296,7 +303,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: model-catalog-baselines-${{ github.run_id }}
-          path: config
+          path: .
 
       - name: Open auto-merging catalog-baseline PR
         id: cpr
@@ -309,7 +316,9 @@ jobs:
           commit-message: "registry: record observed provider model catalogs"
           labels: "automation,model-selection"
           delete-branch: true
-          add-paths: config/model_registry.json
+          add-paths: |
+            config/model_registry.json
+            templates/consumer-repo/config/model_registry.json
           body: |
             <!-- workflow-source:automation_run -->
             <!-- workflow-source-ref:maint-77-model-registry-freshness -->

@@ -170,7 +170,23 @@ def test_scheduled_runs_record_baselines_through_the_maint_79_merge_path() -> No
     )
     cpr = next(s for s in ours if s.get("id") == "cpr")
     assert cpr["with"]["token"] == "${{ secrets.OWNER_PR_PAT }}"
-    assert cpr["with"]["add-paths"] == "config/model_registry.json"
+    # Health 72 mirrors the registry into the consumer template; the baseline PR must
+    # carry both copies or Health 72's sync push moves the head inside the window.
+    mirrored = subprocess.run(
+        [sys.executable, "scripts/validate_template_sync.py", "--print-sources"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    assert "config/model_registry.json" in mirrored
+    assert cpr["with"]["add-paths"].split() == [
+        "config/model_registry.json",
+        "templates/consumer-repo/config/model_registry.json",
+    ]
+    assert (
+        "cp config/model_registry.json templates/consumer-repo/config/model_registry.json"
+        in discovery["run"]
+    )
     assert "<!-- workflow-source:automation_run -->" in cpr["with"]["body"]
     window = next(s for s in ours if s.get("id") == "review_window")["run"]
     assert "sleep 420" in window
