@@ -23,9 +23,7 @@ from scripts.validate_workflow_yaml import (
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/reusable-agents-verifier.yml"
 TEMPLATE = ROOT / "templates/consumer-repo/.github/workflows/reusable-agents-verifier.yml"
-PRE_CORRECTION_SHELL = (
-    ROOT / "tests/fixtures/verifier_evaluation_transport/pre_correction_llm_evaluate.sh"
-)
+PRE_CORRECTION_SHELL = ROOT / "tests/workflows/fixtures/verifier_pre_correction_llm_evaluate.sh"
 LINE_LIMIT = 100
 
 # Source lines that belong to this receipt boundary. None of them may exceed

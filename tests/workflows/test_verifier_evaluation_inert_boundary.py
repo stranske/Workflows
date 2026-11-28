@@ -22,9 +22,7 @@ from tests.workflows.test_verifier_evaluation_transport import _bash, _local_com
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/reusable-agents-verifier.yml"
-PRE_CORRECTION_SHELL = (
-    ROOT / "tests/fixtures/verifier_evaluation_transport/pre_correction_llm_evaluate.sh"
-)
+PRE_CORRECTION_SHELL = ROOT / "tests/workflows/fixtures/verifier_pre_correction_llm_evaluate.sh"
 HARNESSES = (
     ROOT / "tests/workflows/test_verifier_evaluation_transport.py",
     ROOT / "tests/workflows/test_verifier_evaluation_pre_correction.py",
