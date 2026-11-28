@@ -654,7 +654,9 @@ def test_health_40_sweep_runs_only_on_schedule_and_dispatch():
     )
     maint52_triggers = maint52.get("on", maint52.get(True))
     assert "pull_request" in maint52_triggers and "push" in maint52_triggers
-    lint_steps = [step for step in maint52["jobs"]["lint"]["steps"] if "actionlint " in step.get("run", "")]
+    lint_steps = [
+        step for step in maint52["jobs"]["lint"]["steps"] if "actionlint " in step.get("run", "")
+    ]
     assert len(lint_steps) == 1
 
 
