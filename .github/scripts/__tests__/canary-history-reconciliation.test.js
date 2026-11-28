@@ -10,6 +10,7 @@ function fixture({ openOwners = false } = {}) {
   const data = structuredClone(retained), reads = [];
   const baselinePayload = structuredClone(data.payload);
   if (!openOwners) for (const row of data.baselines) { row.open = []; row.ref = null; }
+  data.producer.refresh_candidates = [...data.scope.canaries];
   const runs = [data.producer, ...data.unknowns];
   data.producer.delivery_digest = data.payload.digest;
   const current = new Map(data.unknowns.map(row => [row.id, structuredClone(row)]));
@@ -150,6 +151,9 @@ for (const [name, change] of [
   ['unverified baseline', f => { f.data.baselines[0].head.commit.verification.verified = false; }],
   ['untrusted baseline author', f => { f.data.baselines[0].pr.user.login = 'untrusted'; }],
   ['missing native producer', f => { f.data.producer.refresh_receipt.state = 'unknown'; }],
+  ['native producer ran for other receivers', f => {
+    f.data.producer.refresh_candidates = f.args.candidates.slice(1);
+  }],
   ['baseline did not deliver selected files', f => { f.data.producer.refresh_plan.plan.entries = []; }],
   ['baseline excluded a selected repository', f => {
     for (const entry of f.data.producer.refresh_plan.plan.entries) entry.skip_repos = [f.args.candidates[0]];

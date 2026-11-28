@@ -590,6 +590,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
       }
       if (receipt.state === 'not_started') run.refresh_not_started = true;
       if (receipt.plan_id) {
+        run.refresh_candidates = receipt.candidates;
         run.refresh_plan = refreshPlanContext({ planId: receipt.plan_id, planScope: receipt.plan_scope,
           scopeBaseSha: receipt.scope_base_sha, sourceSha: receipt.source_commit, plan: receipt.plan });
         run.source_commit = receipt.source_commit;

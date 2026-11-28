@@ -82,6 +82,47 @@ test('retained no-authorization plus skipped native consumer jobs is confirmed n
   assert.equal(result.plan_scope, 'source-delta');
 });
 
+function singleCanaryFixture() {
+  const f = fixture();
+  f.run.display_title = f.run.display_title.replace('candidates=owner/a,owner/b', 'candidates=owner/a');
+  f.jobs.pop();
+  f.jobs[0].steps.push({ name: 'Build phase-gated repo matrix', conclusion: 'success' });
+  const phase = JSON.parse(f.files['sync-phase-selection.json']);
+  const setPhase = overrides => {
+    const selected = { ...phase, canaries: [{ repo: 'owner/a' }, { repo: 'owner/b' }],
+      selected_repos: ['owner/a'], matrix: { repo: ['owner/a'] }, ...overrides };
+    f.files['sync-phase-selection.json'] = JSON.stringify(selected, (_, value) =>
+      value && !Array.isArray(value) && typeof value === 'object'
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value, 2) + '\n';
+    f.rebuild();
+  };
+  setPhase();
+  return { ...f, setPhase };
+}
+
+test('completed explicit canary subset is bound to the reviewed attempt roster', async () => {
+  const result = await singleCanaryFixture().read();
+  assert.equal(result.state, 'completed', result.reason);
+  assert.deepEqual(result.candidates, ['owner/a']);
+});
+
+for (const [name, change] of [
+  ['wrong requested receiver', f => { f.run.display_title = f.run.display_title.replace('candidates=owner/a', 'candidates=owner/b'); }],
+  ['outside configured candidates', f => { f.run.display_title = f.run.display_title.replace('candidates=owner/a', 'candidates=owner/outside'); }],
+  ['duplicate requested receiver', f => { f.run.display_title = f.run.display_title.replace('candidates=owner/a', 'candidates=owner/a,owner/a'); }],
+  ['wildcard selection', f => { f.run.display_title = f.run.display_title.replace('candidates=owner/a', 'candidates=*'); }],
+  ['changed workflow semantics', f => { f.state.workflow = Buffer.concat([f.state.workflow, Buffer.from('\n# unreviewed')]); }],
+  ['missing selector step', f => { f.jobs[0].steps.pop(); }],
+  ['wrong native receiver job', f => { f.jobs[1].name = 'Sync owner/b'; }],
+  ['wrong recorded matrix', f => { f.setPhase({ matrix: { repo: ['owner/b'] } }); }],
+  ['forged configured roster', f => { f.setPhase({ canaries: [{ repo: 'owner/a' }, { repo: 'owner/outside' }] }); }],
+  ['wrong selected receiver', f => { f.setPhase({ selected_repos: ['owner/b'] }); }],
+]) test(`an explicit canary subset remains unknown with ${name}`, async () => {
+  const f = singleCanaryFixture();
+  change(f);
+  assert.equal((await f.read()).state, 'unknown');
+});
+
 function cachedFixture(t) {
   const f = fixture();
   f.run.updated_at = '2026-10-27T22:02:00Z';

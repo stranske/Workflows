@@ -162,6 +162,7 @@ async function reconcileLegacyCanaryHistory({ withRetry, context, runs, candidat
         && String(run.run_attempt) === String(metadata.run_attempt)
         && run.status === 'completed' && run.conclusion === 'success'
         && run.refresh_receipt?.state === 'completed' && !run.refresh_unknown && !run.refresh_not_started
+        && Array.isArray(run.refresh_candidates) && run.refresh_candidates.includes(repositoryName)
         && key(run.refresh_plan, '') === tuple);
       need(producer, 'authenticated_baseline_producer_missing');
       const repoState = await read('repos', 'get', target);
