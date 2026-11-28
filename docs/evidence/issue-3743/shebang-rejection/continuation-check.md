@@ -31,7 +31,7 @@ Ruff reported `All checks passed!`; strict template validation reported
 `All consumer workflows are properly templated and manifested`; all four
 recorded validation commands exited 0.
 
-`continuation-validation/` retains the exact focused command and console,
+The [archived continuation run](https://github.com/stranske/Workflows/tree/432f8b003610446c5e85920652208815e202f8bc/docs/evidence/issue-3743/shebang-rejection/continuation-validation) retains the exact focused command and console,
 plus outputs from `verify_archives.py:validate`,
 `capture_acceptance_run.py:validate_retained`, and
 `compare_matched.py:validate_retained` (all exit 0). All five verifier-listed archives
