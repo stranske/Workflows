@@ -1,78 +1,38 @@
-## Automated Post-CI Status Summary
+# Automated Post-CI Status Summary
 
-The repository publishes a consolidated status block directly from the Gate
-workflow. The final `summary` job in `pr-00-gate.yml` downloads shared
-artifacts, computes coverage deltas, and renders Markdown headed by
-`## Automated Status Summary` before appending it to `$GITHUB_STEP_SUMMARY`.
+Start with the required `summary` check on the PR's current head. Gate also
+publishes a `Gate / gate` commit status from the same aggregate verdict. A
+cancelled run can leave that status stale. See the [Gate check contract](../ci/WORKFLOW_SYSTEM.md#gate-summary-job-pr-00-gateyml-job-summary).
 
-### Summary Contents
+## Read the report
 
-Each refresh includes:
+The [Gate workflow](../../.github/workflows/pr-00-gate.yml) uses
+[`tools/post_ci_summary.py`](../../tools/post_ci_summary.py) to render the
+head SHA, workflow and job results, required contexts, and available coverage.
+Gate writes the report to the anchored PR comment and uploads `gate-summary.md`
+to the corresponding Actions run. Open the artifact from that run or download
+it locally, replacing `RUN_ID` with the run for the head under review.
 
-* Head commit SHA and a roll-up of the most recent workflow runs that were
-  queried for the PR head commit.
-* A required-check summary derived from the Gate job list. The default patterns
-  track the fan-out jobs (`python ci`, `docker smoke`) plus the `summary`
-  aggregator so reviewers can see which leg failed.
-* A job-by-job table covering the latest Gate run, complete with badge emojis
-  indicating state and deep links to the workflow/job logs. Failing rows are
-  bolded for quick scanning.
-* Coverage headline metrics – latest averages, worst-job coverage, and deltas
-  vs the previous recorded run when history is available – along with any
-  Markdown snippet published as the `gate-coverage-summary` artifact or the
-  republished `gate-coverage-summary.md`.
+```bash
+gh run download RUN_ID -R stranske/Workflows -n gate-summary.md
+```
 
-The helper stores the rendered Markdown as `gate-summary.md` and uploads it as
-an artifact so maintainers can inspect the message directly from the Actions
-UI. Re-runs overwrite the same preview file with the latest content.
+Check the artifact's head SHA before using its job and coverage links. The
+artifact is a snapshot taken while the summary job is running. Use the final
+check for its terminal result. Coverage and Docker details can appear pending
+when their artifacts are unavailable.
 
-### Data sources
+## Recover a missing summary
 
-The workflow collects status data from three places:
+Follow the [Gate runbook](RUNBOOK.md#gate-stuck-or-red) to locate the failed or
+cancelled job and rerun Gate. [Maint 46](../../.github/workflows/maint-46-post-ci.yml)
+has a separate recovery path for eligible same-repository PR runs and skips it
+when the Gate summary succeeds. The
+[Gate Fork Status Publisher](../../.github/workflows/pr-00-gate-fork-status.yml)
+handles fork status publication.
 
-1. **Workflow run metadata** – `actions/github-script` queries the REST API to
-   locate the most recent Gate run for the PR head SHA, then expands its job
-   list so the summary reflects the real workflow structure.
-2. **Coverage summary artifact** – the CI workflow writes coverage metrics
-   directly to the job summary, and any uploaded Markdown snippet (`gate-coverage-summary`
-   or `gate-coverage-summary.md`) is embedded below the headline metrics when
-   present.
-3. **Coverage trend records** – JSON and NDJSON artifacts
-   (`coverage-trend.json` and `coverage-trend-history.ndjson`) continue to drive
-   the latest and previous coverage values when available.
-
-Missing artifacts now fail soft: the workflow marks the related sections as
-pending and logs a notice instead of erroring out when coverage or Docker
-bundles have not been published yet.
-
-### Idempotency & Anti-Spam
-
-* The workflow uses a concurrency group keyed by the PR number when Actions
-  provides it, falling back to the head SHA and ultimately the
-  `workflow_run` identifier, so stale runs are cancelled without clobbering
-  other PRs even when GitHub omits the commit hash.
-* Because the summary is appended to `$GITHUB_STEP_SUMMARY`, reruns simply
-  overwrite the section within the same workflow execution instead of creating
-  duplicate PR noise.
-* If neither CI nor Docker has produced artifacts yet, the helper still writes a
-  pending table so reviewers can see progress.
-
-### Adjusting Behaviour
-
-* Update required-check labelling or job patterns by editing the
-  `DEFAULT_REQUIRED_JOB_GROUPS` declaration inside `tools/post_ci_summary.py`,
-  or by supplying a `REQUIRED_JOB_GROUPS_JSON` workflow environment override.
-  The Gate workflow can also consult `.github/config/required-contexts.json` for
-  required contexts that should be highlighted.
-* Additional artifacts can be surfaced by extending the artifact download steps
-  in `pr-00-gate.yml` and updating the Markdown rendering helpers inside
-  `tools/post_ci_summary.py`.
-* To force Docker to run on documentation-only changes, tweak the `paths-ignore`
-  list in `.github/workflows/pr-00-gate.yml` (the skip rules are unchanged by this
-  consolidation).
-
-### Disabling the Summary
-
-Remove or comment out the `summary` job in `.github/workflows/pr-00-gate.yml`
-to disable the consolidated comment and run-summary entry. No other automation
-will recreate the block once the job is skipped.
+Gate's `summary` job is required by the
+[required-context configuration](../../.github/config/required-contexts.json).
+The Gate detect job and its Docker conditions determine docs-only applicability.
+Use the [workflow system guide](../ci/WORKFLOW_SYSTEM.md#gate-pr-00-gateyml) and
+the authored workflow when diagnosing a skipped leg.
