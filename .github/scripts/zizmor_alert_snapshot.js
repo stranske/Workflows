@@ -25,13 +25,9 @@ function countMarker(label = 'zizmor') {
   return `Open ${label} alerts:`;
 }
 
-function escapeRegExp(text) {
-  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function countPattern(label = 'zizmor') {
-  return new RegExp(`${escapeRegExp(countMarker(label))}\\*?\\s*\`(\\d+)\``);
-}
+// One static pattern for every scan; the label is compared as a string, so no
+// regular expression is ever built from a value.
+const COUNT_LINE_PATTERN = /Open (\S+) alerts:\*?\s*`(\d+)`/g;
 
 const COUNT_MARKER = countMarker('zizmor');
 
@@ -75,8 +71,12 @@ async function countOpenAlerts({
 }
 
 function parsePreviousCount(body, label = 'zizmor') {
-  const match = countPattern(label).exec(String(body || ''));
-  return match ? Number.parseInt(match[1], 10) : null;
+  for (const match of String(body || '').matchAll(COUNT_LINE_PATTERN)) {
+    if (match[1] === label) {
+      return Number.parseInt(match[2], 10);
+    }
+  }
+  return null;
 }
 
 function buildSnapshot({ current, previousBody = '', previousAt = '', label = 'zizmor' }) {
