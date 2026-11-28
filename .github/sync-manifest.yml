@@ -1031,6 +1031,8 @@ actions:
     description: "Resolves repository default branches for Workflows dual-checkout patterns"
 
   - source: .github/actions/export-load-balancer-tokens/
+    source_tree: root
+    template_sync: exact
     is_directory: true
     description: "Export load balancer tokens action - required by reusable-10-ci-python.yml (deprecated, use setup-api-client)"
 

@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - '.github/sync-manifest.yml'
+      - '.github/actions/export-load-balancer-tokens/action.yml'
+      - 'templates/consumer-repo/.github/actions/export-load-balancer-tokens/action.yml'
       - 'config/llm_slots.json'
       - 'config/model_registry.json'
       - 'config/verifier_semantic_rules.json'
@@ -21,6 +23,8 @@ on:
     branches: [main]
     paths:
       - '.github/sync-manifest.yml'
+      - '.github/actions/export-load-balancer-tokens/action.yml'
+      - 'templates/consumer-repo/.github/actions/export-load-balancer-tokens/action.yml'
       - 'config/llm_slots.json'
       - 'config/model_registry.json'
       - 'config/verifier_semantic_rules.json'
