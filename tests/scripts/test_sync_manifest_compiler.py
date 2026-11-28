@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
@@ -229,6 +230,63 @@ def test_retired_decompose_workflow_is_removed_without_losing_issue_shaping() ->
         assert entries[shared_path]["resolved_source"] == shared_path
         assert entries[shared_path]["delivery"] == "copy"
         assert shared_path not in removals
+
+
+def test_retired_autopilot_scripts_are_removed_without_stale_timer_tests() -> None:
+    root = Path(__file__).parents[2]
+    planned = compile_manifest(root / ".github" / "sync-manifest.yml", repo_root=root).to_plan()
+    entries = {item["target"]: item for item in planned["entries"]}
+    removals = {item["target"] for item in planned["removals"]}
+
+    retired_targets = (
+        ".github/workflows/agents-auto-pilot.yml",
+        "scripts/autopilot_summary_environment.py",
+        "scripts/autopilot_step_timer.py",
+        "scripts/autopilot_metrics_collector.py",
+    )
+    for target in retired_targets:
+        assert target not in entries
+        assert target in removals
+        assert not (root / target).exists()
+        assert not (root / "templates/consumer-repo" / target).exists()
+
+    retired_test_modules = (
+        "tests/scripts/test_autopilot_step_timer.py",
+        "tests/scripts/test_autopilot_step_timer_failure_handling.py",
+        "tests/scripts/test_autopilot_metrics_collector.py",
+        "tests/scripts/test_autopilot_metrics_file_io_and_env_handling.py",
+    )
+    for test_module in retired_test_modules:
+        assert not (root / test_module).exists()
+        assert not (root / "templates/consumer-repo" / test_module).exists()
+        assert test_module not in entries
+
+    retired_module_names = {
+        "autopilot_summary_environment",
+        "autopilot_step_timer",
+        "autopilot_metrics_collector",
+    }
+    stale_imports: list[tuple[str, str]] = []
+    for test_path in sorted((root / "tests").rglob("*.py")):
+        source_text = test_path.read_text(encoding="utf-8")
+        if not any(name in source_text for name in retired_module_names):
+            continue
+        tree = ast.parse(source_text, filename=str(test_path))
+        rel_path = test_path.relative_to(root).as_posix()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if any(part in retired_module_names for part in alias.name.split(".")):
+                        stale_imports.append((rel_path, alias.name))
+            elif isinstance(node, ast.ImportFrom):
+                module_name = node.module or ""
+                if any(part in retired_module_names for part in module_name.split(".")):
+                    stale_imports.append((rel_path, module_name))
+                for alias in node.names:
+                    if alias.name in retired_module_names:
+                        imported = f"{module_name}.{alias.name}" if module_name else alias.name
+                        stale_imports.append((rel_path, imported))
+    assert stale_imports == []
 
 
 @pytest.mark.parametrize(
@@ -712,6 +770,12 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
     }
     removals = {entry["target"] for entry in plan["removals"]}
     assert removals == {entry["target"] for entry in declared["removals"]}
+    retired_autopilot_targets = {
+        ".github/workflows/agents-auto-pilot.yml",
+        "scripts/autopilot_summary_environment.py",
+        "scripts/autopilot_step_timer.py",
+        "scripts/autopilot_metrics_collector.py",
+    }
     assert {
         ".github/scripts/sync_tracker_state/index.js",
         ".github/scripts/verifier_correction_runtime.js",
@@ -720,7 +784,9 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ".github/scripts/verifier_correction_seed.js",
         ".github/scripts/verifier_correction_artifact_sdk/package.json",
         ".github/scripts/verifier_correction_artifact_sdk/package-lock.json",
+        *retired_autopilot_targets,
     } <= removals
+    assert retired_autopilot_targets.isdisjoint({entry["target"] for entry in plan["entries"]})
     assert all(entry["source_tree"] in {"root", "template"} for entry in plan["entries"])
     assert all(entry["resolved_source"] for entry in plan["entries"])
     assert len({entry["target"] for entry in plan["entries"]}) == len(plan["entries"])
