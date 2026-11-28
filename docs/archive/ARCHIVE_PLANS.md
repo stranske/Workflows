@@ -6,7 +6,11 @@ For retired GitHub workflows, see [`ARCHIVE_WORKFLOWS.md`](ARCHIVE_WORKFLOWS.md)
 
 ## Archived portfolio test fixtures
 
-The [portfolio recovery guide](https://github.com/stranske/Workflows/blob/363fdcfc605abc608289ebd3b17418aea8e0a0be/src/trend_analysis/README.md#archived-portfolio-fixtures) contains the commands to replay the four original tests with their score data and recover the final versions of `constants.py`, `selector.py` and `weighting.py`.
+To replay the four historical portfolio tests with their score data or recover the three final modules, read the two recipes under **Archived portfolio fixtures** in the pinned guide.
+
+```sh
+git show 363fdcfc605abc608289ebd3b17418aea8e0a0be:src/trend_analysis/README.md
+```
 
 ## Historical Actionlint references
 
