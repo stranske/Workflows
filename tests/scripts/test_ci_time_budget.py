@@ -17,11 +17,15 @@ class FakeGitHub:
 
     def pages(self, path, key=None, **params):
         assert path.endswith("/issues")
-        assert params == {"state": "open", "labels": "ci-budget"}
+        assert params in (
+            {"state": "open", "labels": "ci-budget"},
+            {"state": "closed", "labels": "ci-budget"},
+        )
         return [
             issue
             for issue in self.issues
-            if issue.get("state", "open") == "open" and "ci-budget" in issue.get("labels", [])
+            if issue.get("state", "open") == params["state"]
+            and "ci-budget" in issue.get("labels", [])
         ]
 
     def optional(self, path):
@@ -30,11 +34,12 @@ class FakeGitHub:
     def request(self, method, path, payload=None):
         self.calls.append((method, path, payload))
         if method == "POST" and path.endswith("/issues"):
-            issue = {"number": 42, "created_at": NOW.isoformat(), **payload}
+            issue = {"number": 42 + len(self.issues), "created_at": NOW.isoformat(), **payload}
             self.issues.append(issue)
             return issue
         if method == "PATCH":
-            self.issues[0].update(payload)
+            number = int(path.rsplit("/", 1)[-1])
+            next(issue for issue in self.issues if issue["number"] == number).update(payload)
         return {}
 
 
@@ -502,7 +507,7 @@ def test_daily_runs_reload_native_sources_and_publish_before_recovery_closure(
                 # Closure must follow durable publication of all seven native dates.
                 row = self.saved[budget.SOURCE_REPO]
                 assert row["drainable_in"] == 0
-                assert len(row["p50_series"]) == budget.RECOVERY_DAYS
+                assert len(row["p50_series"]) == budget.SERIES_WINDOW_DAYS
                 for day, value in row["p50_series"].items():
                     assert row["daily_observations"][day]["p50_minutes"] == value
                 assert self.calls[-1][1] == f"{root}/issues/4642/comments"
@@ -948,3 +953,159 @@ def test_wall_clock_uses_existing_v1_job_cache_and_reports_missing_coverage(tmp_
         "over_10_minutes_count": 0,
         "over_10_minutes_share": None,
     }
+
+
+# --- Option B (owner decision 2026-11-28): code-only criteria + one-window refile hold ---
+
+
+def _section(body, heading):
+    start = body.index(f"## {heading}\n")
+    end = body.find("\n## ", start + 1)
+    return body[start : end if end != -1 else None]
+
+
+def _issue_format_validator():
+    import sys
+    from importlib.util import module_from_spec, spec_from_file_location
+    from pathlib import Path
+
+    spec = spec_from_file_location("issue_format", Path(".github/scripts/issue_format.py"))
+    module = module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _fixed_issue(number, closed_at, state_reason="completed"):
+    return {
+        "number": number,
+        "state": "closed",
+        "state_reason": state_reason,
+        "closed_at": closed_at.isoformat(),
+        "created_at": (closed_at - timedelta(days=3)).isoformat(),
+        "labels": ["ci-budget", "priority:high"],
+    }
+
+
+@pytest.mark.parametrize("previous", [None, {"number": 4619, "closed_at": "2026-11-11T01:47Z"}])
+def test_acceptance_criteria_are_the_code_slice_without_a_multi_day_observation(previous):
+    row = budget.observation({}, metrics(), NOW)
+    body = budget.issue_body(REPO, row, previous)
+    criteria = _section(body, "Acceptance Criteria")
+    assert criteria.count("- [ ]") == 3
+    for observation_wording in (
+        "consecutive",
+        "daily",
+        "series",
+        "Health 85",
+        "trailing",
+        f"{budget.SERIES_WINDOW_DAYS} days",
+        f"{budget.SERIES_WINDOW_DAYS}-day",
+        "seven",
+    ):
+        assert observation_wording not in criteria, observation_wording
+    # The code slice is checkable on the fix PR's own CI run.
+    assert "gh pr checks" in criteria and "gh run view <run-id> --json jobs" in criteria
+    assert "python ci / test (3.13)" in criteria and "20.00 min" in criteria
+    # The series is stated as Health 85's context, outside the criteria, with no checkbox.
+    note = _section(body, "Observation (Health 85 owns it; not an acceptance criterion)")
+    assert f"{budget.SERIES_WINDOW_DAYS} consecutive" in note and "- [" not in note
+    report = _issue_format_validator().validate(body)
+    assert report.ok, report.as_markdown()
+    assert ("#4619" in body) is (previous is not None)
+
+
+def test_no_refile_within_one_window_after_a_merged_fix_then_refile_after(capsys):
+    api = FakeGitHub()
+    fixed_at = NOW - timedelta(hours=10)  # closer closed it when the fix PR merged
+    api.issues.append(_fixed_issue(4619, fixed_at))
+    row = {}
+    window = timedelta(days=budget.SERIES_WINDOW_DAYS)
+    for hours in range(0, 24 * budget.SERIES_WINDOW_DAYS + 1, 12):
+        now = NOW + timedelta(hours=hours)
+        row = budget.observation(row, metrics(12), now)
+        budget.reconcile(api, REPO, row)
+        if now < fixed_at + window:
+            assert [i["number"] for i in api.issues] == [4619], now
+            assert row["issue_numbers"] == []
+            assert row["refile_hold"]["previous_issue"] == 4619
+        else:
+            break
+    assert now >= fixed_at + window
+    refiled = [i for i in api.issues if i["number"] != 4619]
+    assert len(refiled) == 1
+    assert "Previous `ci-budget` issue: #4619" in refiled[0]["body"]
+    assert row["issue_numbers"] == [refiled[0]["number"]]
+    assert "refile_hold" not in row
+    assert f"hold 0 d (series window after #4619 ended); refiled #{refiled[0]['number']}" in (
+        capsys.readouterr().out
+    )
+
+
+@pytest.mark.parametrize("state_reason", ["not_planned", "duplicate"])
+def test_close_without_a_fix_does_not_hold(state_reason):
+    api = FakeGitHub()
+    api.issues.append(_fixed_issue(4619, NOW - timedelta(hours=1), state_reason))
+    row = budget.observation({}, metrics(12), NOW)
+    budget.reconcile(api, REPO, row)
+    assert len(api.issues) == 2 and "refile_hold" not in row
+
+
+def test_own_recovery_close_does_not_hold_a_new_breach():
+    api = FakeGitHub()
+    row = budget.observation({}, metrics(20), NOW)
+    budget.reconcile(api, REPO, row)
+    for day in range(1, budget.SERIES_WINDOW_DAYS + 1):
+        row = budget.observation(row, metrics(8), NOW + timedelta(days=day))
+        budget.reconcile(api, REPO, row)
+    assert api.issues[0]["state"] == "closed"
+    assert row["recovery_closed_issues"] == [api.issues[0]["number"]]
+    api.issues[0]["closed_at"] = row["measured_at"]
+    row = budget.observation(row, metrics(12), NOW + timedelta(days=9))
+    budget.reconcile(api, REPO, row)
+    assert len(api.issues) == 2 and api.issues[1].get("state", "open") == "open"
+    assert "refile_hold" not in row
+
+
+def test_held_refile_prints_the_reason_with_its_clear_time(capsys):
+    api = FakeGitHub()
+    api.issues.append(_fixed_issue(4619, NOW))
+    row = budget.observation({}, metrics(12), NOW + timedelta(days=2))
+    budget.reconcile(api, REPO, row)
+    clears = (NOW + timedelta(days=budget.SERIES_WINDOW_DAYS)).isoformat()
+    assert row["refile_hold"] == {
+        "previous_issue": 4619,
+        "fix_closed_at": NOW.isoformat(),
+        "window_days": budget.SERIES_WINDOW_DAYS,
+        "remaining_days": budget.SERIES_WINDOW_DAYS - 2,
+        "clears_at": clears,
+    }
+    out = capsys.readouterr().out
+    assert (
+        f"{REPO}: refile held: ci-budget #4619 closed {NOW.isoformat()} (fix merged); "
+        f"series window {budget.SERIES_WINDOW_DAYS} d; "
+        f"hold {budget.SERIES_WINDOW_DAYS - 2:.2f} d; clears_at={clears}; share=4.35%"
+    ) in out
+
+
+def test_one_constant_drives_measurement_recovery_and_hold(monkeypatch):
+    monkeypatch.setattr(budget, "SERIES_WINDOW_DAYS", 3)
+    api = FakeGitHub()
+    api.issues.append(_fixed_issue(4619, NOW))
+    row = budget.observation({}, metrics(12), NOW)
+    budget.reconcile(api, REPO, row)
+    assert row["drainable_in"] == 3
+    assert row["refile_hold"]["clears_at"] == (NOW + timedelta(days=3)).isoformat()
+    row = budget.observation(row, metrics(12), NOW + timedelta(days=3))
+    budget.reconcile(api, REPO, row)
+    assert "refile_hold" not in row and len(api.issues) == 2
+    seen = []
+
+    def gate_runs(api, repo, start, end):
+        seen.append(end - start)
+        return []
+
+    monkeypatch.setattr(budget, "gate_runs", gate_runs)
+    with pytest.raises(RuntimeError, match="trailing 3 days"):
+        budget.measure(REPO, api=FakeGitHub(), now=NOW)
+    assert seen == [timedelta(days=3)]
