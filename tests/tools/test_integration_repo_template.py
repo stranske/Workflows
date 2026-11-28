@@ -1,24 +1,15 @@
 from __future__ import annotations
 
-import importlib.metadata as metadata
-import importlib.util
 import os
 import subprocess
 import sys
+import tomllib
+import venv
 from pathlib import Path
 
 import pytest
+from packaging.specifiers import SpecifierSet
 from tools.integration_repo import WORKFLOW_PLACEHOLDER, render_integration_repo
-
-
-def _run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
-    subprocess.run(cmd, cwd=cwd, check=True, env=env)
-
-
-def _in_virtualenv() -> bool:
-    """Check if running inside a virtualenv where --user installs are not supported."""
-    # sys.base_prefix != sys.prefix indicates a virtualenv
-    return sys.base_prefix != sys.prefix
 
 
 def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
@@ -33,44 +24,17 @@ def test_integration_template_installs_and_tests(tmp_path: Path) -> None:
     assert WORKFLOW_PLACEHOLDER not in workflow_contents
     assert workflow_ref in workflow_contents
 
-    env = os.environ.copy()
+    with (destination / "pyproject.toml").open("rb") as project:
+        requires_python = tomllib.load(project)["project"]["requires-python"]
+    if ".".join(map(str, sys.version_info[:3])) not in SpecifierSet(requires_python):
+        pytest.skip(f"Rendered scaffold requires Python {requires_python}")
 
-    # Only use --user flag when NOT in a virtualenv (virtualenvs don't support --user)
-    user_install_args = []
-    if not _in_virtualenv():
-        user_base = tmp_path / "userbase"
-        env["PYTHONUSERBASE"] = str(user_base)
-        user_install_args = ["--user"]
-
-    if importlib.util.find_spec("wheel") is None:
-        pytest.skip("wheel is unavailable in the test environment")
-    try:
-        metadata.version("setuptools")
-    except metadata.PackageNotFoundError:
-        pytest.skip("setuptools is unavailable in the test environment")
-
-    # Install setuptools first (required for --no-build-isolation with pyproject.toml builds)
-    _run(
-        [sys.executable, "-m", "pip", "install", "setuptools>=64", "wheel", *user_install_args],
-        cwd=destination,
-        env=env,
-    )
-
-    _run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "-e",
-            ".[test]",
-            "--no-build-isolation",
-            *user_install_args,
-        ],
-        cwd=destination,
-        env=env,
-    )
-    _run([sys.executable, "-m", "pytest"], cwd=destination, env=env)
+    # Exercise an actual install independently of the test runner's build dependencies.
+    env_dir = tmp_path / "venv"
+    venv.create(env_dir, with_pip=True, symlinks=os.name != "nt")
+    python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    subprocess.run([python, "-m", "pip", "install", "-e", ".[test]"], cwd=destination, check=True)
+    subprocess.run([python, "-m", "pytest"], cwd=destination, check=True)
 
 
 def _write_template_tree(root: Path) -> None:
