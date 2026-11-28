@@ -19,7 +19,7 @@ This repository is the source of truth for:
 
 Start with the current docs instead of inferring behavior from old comments:
 
-1. `README.md` - repository purpose, architecture, and current consumer model
+1. [Architecture](docs/ARCHITECTURE.md) and [repository map](docs/STRUCTURE.md) - system boundaries, code ownership and where new work belongs
 2. `docs/ci/WORKFLOWS.md` - authoritative inventory of active workflows
 3. `docs/WORKFLOW_GUIDE.md` - workflow naming, agent routing and operator procedures
 4. `docs/INTEGRATION_GUIDE.md` - consumer integration and versioning policy
@@ -84,7 +84,7 @@ record on GitHub: keepalive, Gate, runner receipts, and Maint 68/71/82 for sync.
 1. Decide whether the change belongs in a reusable workflow, a consumer template, or a consumer repo.
 2. Update the docs that define the changed contract.
 3. If consumers are affected, update the template files and the sync manifest in the same PR.
-4. Run the relevant validation for the changed surface.
+4. For an Actions change, check the [WFv1 naming scheme](docs/WORKFLOW_GUIDE.md#wfv1-naming-scheme) and [dependency map](docs/ci/WORKFLOW_SYSTEM.md#topology-at-a-glance). Trace filename callers, display-name listeners, required check contexts and receiver-specific wrappers. Run `python -m pytest tests/workflows/test_workflow_naming.py tests/docs/test_workflow_source_docs.py`. Update the catalog when an identity or purpose changes and the map when a handoff changes.
 5. If consumer templates changed, trigger sync and use the merge workflow for resulting sync PRs.
 
 ## Claude-Specific Note

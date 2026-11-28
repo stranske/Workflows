@@ -36,8 +36,10 @@ def test_comment_job_admits_only_owner_notifier_reports(job):
 
 def test_only_admitted_job_can_enter_writer_concurrency(workflow, job):
     assert "concurrency" not in workflow
+    # Older runs expanded github.workflow to this title. A display-name change
+    # must still serialize writes on the same ref with those active runs.
     assert job["concurrency"] == {
-        "group": "${{ github.workflow }}-${{ github.ref }}",
+        "group": "Auto-Fix Integration Test Failures-${{ github.ref }}",
         "cancel-in-progress": True,
     }
 

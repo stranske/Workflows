@@ -1,100 +1,76 @@
-# Keepalive Observability Contract (Goals & Plumbing Update)
+# Keepalive Observability Contract
 
-**Status:** Canonical reference for keepalive behavior and on‑run observability  
-**Scope:** PR‑meta workflow(s), Orchestrator/Worker workflow, Branch‑Sync module (registry-driven CLI keepalive)
-**Non‑goals:** Changes to acceptance‑criteria content, agent prompts, or moderation policy
+Use the workflow run, the PR's Automated Status Summary and the runner receipt to
+trace each round. Record the repository, PR, head SHA, workflow run and attempt.
+An Actions conclusion describes the workflow. The evaluator decision and worker
+evidence describe what happened to the PR.
 
-> **Applicability:** This contract applies to the registry-driven CLI keepalive implementation for Codex, Claude, and future agents. The legacy UI connector‑bot flow is documented in [`Keepalive_Approaches.md`](Keepalive_Approaches.md).
+## Round decisions
 
----
+[Agents Keepalive Loop](../../.github/workflows/agents-keepalive-loop.yml) is the
+Workflows entry point. [Agents Gate Followups](../../templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml)
+is the consumer entry point. Gate completion, eligible label events and
+[sweep/manual dispatches](GoalsAndPlumbing.md#periodic-re-evaluation-keepalive-sweep)
+wake the same evaluator within each lane.
 
-## 1) Purpose
+| Stage | What to inspect |
+| --- | --- |
+| `evaluate` | PR and head binding, `action`, `reason`, Gate conclusion, selected agent and runner dispatch reason. |
+| `acceptance-gates` on Workflows | Current-head deterministic acceptance command results. The read-only job provides an artifact to preflight. |
+| `preflight` | Selected environment, required credentials, ownership and trusted summary writer. Look for the running summary transition and any challenge receipt. |
+| `run-<agent>` | Exact worker attempt, runner outputs, push result and head movement. A skipped job and an executed zero-output job supply different evidence. |
+| `finish` | Workflow Summary metrics, task reconciliation, durable PR summary, measured productivity and runner completion. |
+| `resolve-target` and `report` in the reporter | The originating run's applicability, exact-attempt worker evidence, and any recovery of the matching authority receipt or running summary. |
 
-Keepalive must iteratively nudge a PR toward acceptance by:
-1) accepting a **human activation** (`@agent`) → **dispatch** an agent round after **Gate** success;
-2) posting a **round instruction** and running a **worker** to process outputs;
-3) **branch‑syncing** external outputs back to the PR;
-4) repeating until **acceptance criteria** are satisfied, then terminating.
+The [evaluator](../../.github/scripts/keepalive_loop.js) records decisions such as
+`keepalive-disabled`, `missing-agent-label`, `gate-pending`,
+`gate-not-success`, `run-cap-zero` and `round-budget-exhausted`. A sweep can
+wake evaluation without admitting a worker. Pause labels, head mismatches and
+missing evidence remain meaningful after a wake. See the
+[activation, run cap and retry contract](GoalsAndPlumbing.md#1-activation-guardrails).
 
-This document makes the **decision points observable** and **unskippable**: anyone can open the Checks page and see exactly why a round did or didn’t run, without private logs.
+## Comment activation
 
----
+The [Workflows PR meta manager](../../.github/workflows/agents-pr-meta-v4.yml)
+evaluates comments in `keepalive_dispatch` and replays eligible activations
+in `keepalive_from_gate`. The [Gate helper](../../.github/scripts/keepalive_gate.js)
+checks Gate and dispatch occupancy. The [activation helper](../../.github/scripts/agents_pr_meta_keepalive.js)
+checks the activation and author, and the workflow writes the `DISPATCH:`
+decision to the run Summary. The [orchestrator helper](../../.github/scripts/agents_pr_meta_orchestrator.js)
+handles the reaction lock and submits `codex-pr-comment-command`. The
+payload carries the activation comment, agent, instruction, branches, PR
+number, round and trace. An accepted event establishes submission. The
+[Workflows dispatch handler](../../.github/workflows/agents-keepalive-dispatch-handler.yml)
+calls [the post-work remediation helper](../../.github/scripts/keepalive_post_work.js).
+Inspect the handler separately for its result.
 
-## 2) Actors & Signals
+The [consumer PR Event Hub](../../templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml)
+calls [reusable PR-meta](../../.github/workflows/reusable-20-pr-meta.yml) for
+metadata. That reusable workflow accepts the former activation inputs for
+caller compatibility. Consumer keepalive rounds come from Gate Followups.
 
-- **PR‑meta** — decides whether to dispatch a round.
-  - **Lane A:** `issue_comment.created` (human @agent)
-  - **Lane B:** `workflow_run` of **Gate** (replay activation once Gate succeeds)
+## Persistent feedback
 
-- **Orchestrator** — posts the **instruction** (as `stranske`) and coordinates worker/branch‑sync.
+Keepalive projects durable state into the marked Automated Status Summary on
+the PR. A dedicated Keepalive or Workflows App owns the write. Trusted
+compatibility readers and migration behavior are documented in the
+[authority ledger contract](GoalsAndPlumbing.md#authority-challenge-ledger-v2).
+Read the section produced by the trusted writer for iteration, task counts,
+outcome, retry state and `running_owner_attempt`. Use the
+[metrics schema](METRICS_SCHEMA.md) when consuming the workflow artifact.
 
-- **Worker** — executes the round; may **execute** or **skip** based on new instruction & head.
-
-- **Branch‑Sync** — lands agent output into the PR head with:
-  - `update-branch` → `create-pr + auto-merge` → `escalate sync-required`
-
-- **Connector** — external agent; moderation workflow may delete connector chatter.
-
-**Labels (control plane)**  
-- `agents:keepalive` — enable keepalive on this PR  
-- `agents:activated` — set (auto) after first human activation  
-- `agents:max-runs:X` — run‑cap override (default 1; clamp 1..5)
-
----
-
-## 3) Required Markers & Instruction Shape
-
-Every **keepalive instruction** comment MUST include (top of body):
-<!-- codex-keepalive-marker --> <!-- codex-keepalive-round: <N> --> <!-- codex-keepalive-trace: <opaque-trace-id> -->
-
-Followed by:
-
-- `@<agent>` (e.g., `@codex`)  
-- **Scope**, **Tasks**, **Acceptance Criteria** (agent‑consumable)  
-- *(Optional short “Execution info”)* base/head/PR metadata  
-- **MUST NOT** include long status bundles (Latest Runs, coverage, etc.)
-
----
-
-## 4) Reaction Lock (cross‑event idempotency)
-
-Before any dispatch, PR‑meta adds 🚀 to the **activation comment** (the human @agent comment for first activation; the instruction comment for subsequent rounds). If already present (HTTP 409), the lane **does not** dispatch and reports `reason=lock-held`.
-
----
-
-## 5) Run‑Cap Definition (dispatch edge)
-
-At the **dispatch edge** PR‑meta computes:
-
-- `active` = number of **keepalive worker** runs for **this PR** in **{queued, in_progress}** (measured capacity shipped in [#5163](https://github.com/stranske/Workflows/pull/5163))
-- `cap` = from label `agents:max-runs:X` (default 2; clamp 1..5)
-
-If `active ≥ cap` ⇒ **do not** dispatch; report `reason=cap-reached`.
-
-> Implementation note: filter by the dispatched worker workflow name/id and PR discriminator (e.g., PR number embedded in keepalive `concurrency.group`).
-
----
-
-## 6) Mandatory One‑Line Summaries (Summary tab only)
-
-**PR‑meta (both lanes) — exactly one line per run**
-
-DISPATCH: ok=<true|false> path=<comment|gate> reason=<ok|missing-label|no-human-activation|gate-pending|gate-failed|cap-reached|no-linked-pr|no-activation-found|lock-held|instruction-empty> pr=#<PR_NUMBER> activation=<COMMENT_ID|none> agent=<ALIAS> head=<SHA7> cap=<CAP> active=<ACTIVE> trace=<TRACE|->
-
-
-**Belt keepalive worker**
-
-When `inputs.keepalive` is true and the record step runs, its Summary contains one line.
-
-```text
-WORKER: action=<action> reason=<reason> pr=<#number|#?> head=<SHA7|unknown> instr=<comment_id|0> trace=<trace|n/a>
-```
-
-If a preceding step fails or the job is cancelled before recording, inspect the step logs for the failure. PR-meta logs the instruction lookup as `INSTRUCTION: comment_id=… trace=… source=… seen=… deduped=…`. The worker does not post these diagnostics on the PR.
+The [root reporter](../../.github/workflows/agents-keepalive-loop-reporter.yml)
+and [consumer reporter](../../templates/consumer-repo/.github/workflows/agents-keepalive-loop-reporter.yml)
+use the [worker evidence helper](../../.github/scripts/keepalive_worker_evidence.js)
+to bind a failure or cancellation to its originating attempt. Unresolved target
+or worker evidence fails closed. A proven terminal worker that never started
+can allow receipt reconciliation. An ordinary run cancelled before any job
+existed is reported as not applicable when the exact run and complete empty
+job list establish that case.
 
 ## 6A) Terminal Disposition Coverage Preflight
 
-Weekly metrics MUST run a `workflows-terminal-disposition-coverage/v1` preflight
+The [weekly metrics workflow](../../.github/workflows/agents-weekly-metrics.yml) runs a `workflows-terminal-disposition-coverage/v1` preflight
 after downloading agent metrics artifacts. The preflight consumes
 `workflows-terminal-disposition/v1` records from verifier and review-thread
 handlers and writes both JSON and Markdown reports into the weekly metrics
@@ -150,137 +126,22 @@ supplied.
 
 ---
 
-## 7) Lane Behavior (Dispatch Contract)
-
-### Lane A — `issue_comment.created`
-**Preconditions:** `agents:keepalive` present; human @agent activation; Gate may be pending.
-
-1) If Gate **not** success → `DISPATCH ok=false path=comment reason=gate-pending …`
-2) If Gate success → evaluate run‑cap, markers, author allowlist, instruction extraction.
-3) If everything OK → **dispatch** the keepalive worker ([#5162](https://github.com/stranske/Workflows/pull/5162)) and print `ok=true`.
-
-### Lane B — `workflow_run` (Gate)
-**Preconditions:** Gate concluded success.
-
-1) If `activation_comment` output is empty → **fallback**:
-   - resolve PR; fetch most‑recent **human** @agent activation (no hidden markers)
-   - if none → `DISPATCH ok=false path=gate reason=no-activation-found …`
-2) Reaction lock on `activation_comment`; 409 ⇒ `reason=lock-held`
-3) Evaluate run‑cap/markers/instruction; then **dispatch** or report precise reason.
-
-**Fail‑fast:** If instruction extraction empty when dispatch would occur ⇒ `instruction-empty` and **fail** the job.
-
----
-
 ## 8) Orchestrator Contract
 
-**Author Invariant (recommended hardening)**  
-If `ACTIONS_BOT_PAT` is configured but the post would use `SERVICE_BOT_PAT`, **fail** the instruction step with:
+For an ordinary hosted round, inspect the reusable worker's publication steps,
+then compare the PR's current head to the reserved head. The `finish` job
+measures productivity and records completion through
+[`runner_lib`](../../scripts/runner_lib/__main__.py). An unchanged head leaves the
+PR eligible for a later sweep recheck. An unreadable head prevents recording a
+productivity result. Treat a branch update or a new Gate run as evidence only
+after binding it to the current PR head.
 
-INSTRUCTION: ok=false reason=wrong-author token=<SERVICE_BOT_PAT> head=<SHA7> trace=<TRACE>
+For a comment-command round that needs branch recovery, use the
+[branch-sync gate](GoalsAndPlumbing.md#9-branch-sync-gate). The
+[dispatch handler](../../.github/workflows/agents-keepalive-dispatch-handler.yml)
+has its own head-change checks and uses `agents:sync-required` when it cannot
+establish synchronization. Inspect its Summary and confirm a new Gate result
+for the actual head before proceeding.
 
-
-**Instruction Post & ACK**  
-On success post + ACK:
-
-INSTRUCTION: ok=true author=stranske comment=<COMMENT_ID> ack=<ok|fail> head=<SHA7> trace=<TRACE>
-
-
-**Worker Guard**  
-Skip **only if** both:
-- no **new** instruction since last processed, **and**
-- head SHA unchanged.
-
-Otherwise **execute**. Always print `WORKER:` line.
-
-**Branch‑Sync Gate**  
-If worker signals “done” but head unchanged:
-1) try `update-branch` (poll head),
-2) else `create-pr + auto-merge` (poll head),
-3) else `escalate` + label `agents:sync-required`.
-
-Always print `SYNC:` line.
-
----
-
-## 9) Failure Reasons (canonical list)
-
-- `missing-label` — `agents:keepalive` absent  
-- `no-human-activation` — comment didn’t match human @agent activation  
-- `gate-pending` / `gate-failed` — Gate not success  
-- `cap-reached` — run‑cap enforced at dispatch edge  
-- `no-linked-pr` — workflow_run lacked PR and no PR could be resolved  
-- `no-activation-found` — Gate lane fallback couldn’t find human activation  
-- `lock-held` — reaction lock already present on activation comment  
-- `markers-missing` — required hidden markers not present (where expected)  
-- `instruction-empty` — instruction segment extraction failed (fail job)  
-- `wrong-author` — orchestrator would post as bot when human PAT required  
-- `blocked` — worker blocked due to policy (rare; document if introduced)
-
----
-
-## 10) Test Matrix (minimum)
-
-| Scenario | Expected summaries (key fields) |
-|---|---|
-| Human @agent before Gate | `DISPATCH ok=false path=comment reason=gate-pending pr=#…` |
-| Gate success with prior activation | `DISPATCH ok=true path=gate …` then Orchestrator prints `INSTRUCTION ok=true author=stranske …` |
-| Cap reached | `DISPATCH ok=false reason=cap-reached cap=2 active=2` |
-| No activation found on Gate | `DISPATCH ok=false path=gate reason=no-activation-found` |
-| Instruction empty (parser/regression) | `DISPATCH ok=false reason=instruction-empty` **and job fails** |
-| Worker skip (no new instruction & head unchanged) | `WORKER action=skip reason=no-new-instruction-and-head-unchanged` |
-| Branch‑sync escalate | `SYNC action=escalate head_changed=false` |
-
----
-
-## 11) Minimal Implementation Checklist (step insertion points)
-
-> Names below match typical jobs; adapt IDs/paths to your repo.
-
-**PR‑meta (`.github/workflows/agents-pr-meta-v4.yml`)**
-
-- **Comment lane** (`on: issue_comment`):
-  - _Before dispatch_: run‑cap check; reaction lock; instruction extraction guard.
-  - _After decision_: print `DISPATCH:` (always).
-
-- **Gate lane** (`on: workflow_run` of Gate):
-  - _Early_: resolve PR; if `activation_comment` missing → fallback fetch; reaction lock.
-  - _Before dispatch_: run‑cap; instruction extraction guard.
-  - _After decision_: print `DISPATCH:` (always).
-
-**Keepalive worker (`agents-keepalive-loop.yml` and registry-backed runners)**
-
-- _After token selection_: author invariant (optional hard fail).
-- _After post + ACK_: print `INSTRUCTION:`.
-- _Worker pre‑decision_: print `WORKER:` with execute/skip reason.
-- _After branch‑sync_: print `SYNC:`.
-
-All summary lines should be appended using:
-```bash
-echo "…SUMMARY LINE…" >> "$GITHUB_STEP_SUMMARY"
-
-## 12) Example Summary Lines
-
-DISPATCH: ok=true path=gate reason=ok pr=#3541 activation=2012345678 agent=codex head=abc1234 cap=2 active=1 trace=ka-3541-r3
-INSTRUCTION: ok=true author=stranske comment=2012348901 ack=ok head=def5678 trace=ka-3541-r3
-WORKER: action=execute reason=new-instruction pr=#3541 head=def5678 instr=2012348901 trace=ka-3541-r3
-SYNC: action=update-branch head_changed=true trace=ka-3541-r3
-
-## 13) Rollout Notes
-
-- Land PR‑meta changes first; they add visibility immediately and do not affect posting behavior.
-
-- Then land Orchestrator summaries and (optionally) author invariant.
-
-- Validate with the Test Matrix; capture Summary screenshots in the PR description.
-
-## 14) FAQ
-
-Q: Why “Summary tab” and not PR comments?
-A: We avoid PR noise; the Summary tab is sufficient for reviewers and agents.
-
-Q: Do we remove connector moderation?
-A: No. Keep moderation; the observability contract reduces reliance on private logs and races, not moderation.
-
-Q: Does this change run‑cap, Gate, or acceptance content?
-A: No. It only hardens the activation→dispatch hop and makes decisions auditable.
+The [historical connector contract](https://github.com/stranske/Workflows/blob/114af08b46ed714e139691b6691d465fb16ac567/docs/keepalive/Observability_Contract.md)
+retains the original instruction, worker and sync marker examples.

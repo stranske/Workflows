@@ -4,10 +4,11 @@ This guide explains how to consume the reusable workflows from this repository i
 
 ## Quick Start
 
-Reference a workflow in your repository:
+This example pins one Python version. Omit the override to run the reusable
+workflow’s default Python 3.13 and 3.14 matrix.
 
 ```yaml
-# .github/workflows/ci.yaml
+# .github/workflows/ci.yml
 name: CI
 on:
   push:
@@ -18,7 +19,7 @@ jobs:
   python-ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
-      python-version: "3.12"
+      python-version: "3.14"
 ```
 
 ## Available Workflows
@@ -75,7 +76,7 @@ must exist in `.github/workflows/reusable-10-ci-python.yml`.
 |-------|----------|---------|-------------|
 | `python-version` | No | `""` | Explicit single runtime override; omitted selects Python 3.13 and 3.14 |
 | `python-versions` | No | `"[]"` | JSON array of Python versions to execute (takes precedence when non-empty) |
-| `pytest-workers` | No | `"auto"` | xdist workers; first-party Gate explicitly uses four |
+| `pytest-workers` | No | `"auto"` | xdist workers. Workflows Gate and the new consumer Gate template use four |
 | `working-directory` | No | `"."` | Relative working directory (`.` for repo root) |
 | `lint` | No | `true` | Toggle Ruff lint execution |
 | `format_check` | No | `true` | Toggle Black format check execution |

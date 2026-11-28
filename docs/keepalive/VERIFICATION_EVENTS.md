@@ -1,7 +1,10 @@
 # Verification events
 
-Initial and repeat evaluations use `agents-verifier.yml` and the same reusable
-collector, input admission, evaluator, CI hard gate and report publisher. A repair
+Initial and repeat evaluations use the [Workflows verifier](../../.github/workflows/agents-verifier.yml)
+or its [consumer caller](../../templates/consumer-repo/.github/workflows/agents-verifier.yml).
+Both use the [reusable verifier](../../.github/workflows/reusable-agents-verifier.yml)
+for collection, input admission, evaluation, the CI hard gate and report
+publication. A repair
 merged in another PR is evaluated as that actual delivery PR. An old PR number
 cannot be used to request evaluation of an arbitrary later commit.
 

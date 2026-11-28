@@ -1,4 +1,4 @@
-name: Agents Debug Issue Event
+name: Agents 65 Debug Issue Event
 on:
   workflow_dispatch:
     inputs:

@@ -6,6 +6,9 @@ This folder contains the source-of-truth documentation for this repository.
 
 | Document | Description |
 |----------|-------------|
+| [Architecture](ARCHITECTURE.md) | System boundaries, ownership and delivery routes |
+| [Workflow catalog](ci/WORKFLOWS.md) | Filenames, Actions names and purposes in Workflows and consumer templates |
+| [Workflow dependency map](ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) | Events, callers, handoffs and outputs by task |
 | [GLOSSARY.md](GLOSSARY.md) | Plain-language definitions of the system's key terms |
 | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Two-page operator cheat-sheet (pause/resume, keepalive, labels) |
 | [USAGE.md](USAGE.md) | Quick start and common setup patterns |
@@ -24,13 +27,7 @@ subdirectory) is listed, one line each, in the [repository map](STRUCTURE.md#dir
 
 ### Workflow Documentation
 
-Each workflow should have its own file under `docs/workflows/`, using the template at `docs/templates/WORKFLOW_TEMPLATE.md`:
-
-- Clear description of purpose
-- Complete input/output documentation
-- Working examples
-- Troubleshooting guide
-- Version compatibility information
+Give each deployed workflow an entry in the [workflow catalog](ci/WORKFLOWS.md). Apply the [WFv1 naming scheme](WORKFLOW_GUIDE.md#wfv1-naming-scheme). When a workflow calls, dispatches or waits for another, update the [dependency map](ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) with the trigger, condition and observable result. Add a separate task guide only when operators need setup, examples or troubleshooting beyond the catalog entry.
 
 ### Guides
 

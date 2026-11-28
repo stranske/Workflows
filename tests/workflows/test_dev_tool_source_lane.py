@@ -4,7 +4,7 @@ import yaml
 
 AUTO_UPDATE = Path(".github/workflows/maint-auto-update-pypi-versions.yml")
 MAINT52 = Path(".github/workflows/maint-52-sync-dev-versions.yml")
-SYNC_ENV = Path(".github/workflows/maint-sync-env-from-pyproject.yml")
+SYNC_ENV = Path(".github/workflows/maint-93-sync-pyproject-from-env.yml")
 
 
 def test_auto_updater_is_the_single_weekly_source_proposal_lane():

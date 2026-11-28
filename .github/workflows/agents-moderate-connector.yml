@@ -1,4 +1,4 @@
-name: Agents Moderate Connector Comments
+name: Agents 66 Moderate Connector Comments
 
 on:
   issue_comment:

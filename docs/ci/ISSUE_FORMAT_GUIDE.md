@@ -13,11 +13,18 @@ This guide describes the required format for GitHub issues and ChatGPT topic fil
 
 ## Issue Bridge Format (Codex Bootstrap)
 
-The **Agents 63 Issue Bridge** workflow reads GitHub issues and creates bootstrap pull requests for Codex to work on. Issues should follow this structure:
+Use this structure for GitHub issues routed through the
+[shared issue bridge](../../.github/workflows/reusable-agents-issue-bridge.yml).
+Workflows [Agents 63 Issue Intake](../../.github/workflows/agents-63-issue-intake.yml)
+uses invite mode. The [consumer intake template](../../templates/consumer-repo/.github/workflows/agents-issue-intake.yml)
+uses create mode for eligible issue events. The
+[opener lane](../ops/LOCAL_LANES.md#lanes-overview) owns admission and starts.
 
 ### Required Labels
 
-- **Exactly one** agent assignment label: `agent:codex` or `agent:chatgpt`
+- **Exactly one** supported concrete agent assignment label for automatic bridge
+  routing. Use the [agent registry](../../.github/agents/registry.yml) to find
+  the available routes.
 - Process labels like `agents:keepalive` are optional and don't interfere
 
 ### Required Sections
@@ -81,7 +88,7 @@ Technical details, file paths, branch names.
 
 ```markdown
 ## Implementation notes
-Files: .github/workflows/agents-64-pr-comment-command-listener.yml
+Files: .github/workflows/agents-pr-meta-v4.yml
 Branch: codex/issue--merge-pr-meta
 PR title prefix: [Agents] Merge PR meta workflows
 ```
@@ -223,7 +230,11 @@ One workflow handling both commands and body updates.
 
 **Labels**: `agent:codex`, `workflows`, `refactor`
 
-### Example 2: Detailed Issue
+### Example 2: Detailed Issue (Historical Consolidation)
+
+This example preserves the proposed file names from an earlier PR-meta
+consolidation. Consult the [system map](WORKFLOW_SYSTEM.md#topology-at-a-glance)
+for current workflow paths.
 
 ```markdown
 ## Why

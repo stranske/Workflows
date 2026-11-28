@@ -1,4 +1,4 @@
-name: Maint Sync Action Versions
+name: Maint 92 Sync Action Versions
 
 # Sync GitHub Action versions from .github/workflows to templates
 # after Dependabot merges action version updates.
@@ -18,7 +18,8 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Keep the same cancellation group for runs already queued under the former name.
+  group: Maint Sync Action Versions-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -7,8 +7,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 CHECKS = {
-    "CURSOR_API_KEY": ROOT / ".github/workflows/health-cursor-auth-check.yml",
-    "META_API_KEY": ROOT / ".github/workflows/health-muse-auth-check.yml",
+    "CURSOR_API_KEY": ROOT / ".github/workflows/health-77-cursor-auth-check.yml",
+    "META_API_KEY": ROOT / ".github/workflows/health-79-muse-auth-check.yml",
 }
 
 

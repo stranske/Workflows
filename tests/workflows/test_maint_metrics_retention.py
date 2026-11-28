@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-WORKFLOW_PATH = Path(".github/workflows/maint-metrics-retention.yml")
+WORKFLOW_PATH = Path(".github/workflows/maint-91-metrics-retention.yml")
 RETENTION_DOCS = (
     Path("docs/agent-automation.md"),
     Path("docs/ci/WORKFLOW_SYSTEM.md"),

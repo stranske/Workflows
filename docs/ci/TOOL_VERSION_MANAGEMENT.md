@@ -109,7 +109,7 @@ The source lane is deliberately single-writer:
 ### Repair committed source pins
 
 For drift against the existing canonical pins, push a Workflows topic branch and
-select it under **Run workflow** in [Maint - Sync pyproject from versions.env](../../.github/workflows/maint-sync-env-from-pyproject.yml).
+select it under **Run workflow** in [Maint 93 Sync Pyproject from Versions Env](../../.github/workflows/maint-93-sync-pyproject-from-env.yml).
 The workflow applies the two existing alignment helpers, then commits any
 correction back to that topic. An aligned branch produces no commit. Selecting
 the default branch or a tag skips the job. A push to main no longer runs this
@@ -272,7 +272,7 @@ drift. Full ownership table:
 ## Related Documentation
 
 - [Autofix routes](WORKFLOWS.md#autofix-routes) - Diagnose a skipped formatter or find its repair commit or patch
-- [Gate Workflow](GATE.md) - CI validation pipeline
+- [Gate Workflow](WORKFLOWS.md#gate-job-map) - CI validation pipeline
 - [Ledger System](LEDGER.md) - Agent progress tracking
 
 ## Maintenance Schedule

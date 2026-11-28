@@ -157,8 +157,7 @@ before assuming drift.
 | `agents-issue-intake.yml`, `agents-verifier.yml`, `autofix.yml`, `ci.yml` | Other current consumer entry points (see [`CLAUDE.md`](../CLAUDE.md)). |
 
 On the **Workflows repo itself**, the equivalent keepalive plumbing is
-`agents-keepalive-loop.yml` + `agents-keepalive-sweep.yml`, and the belt is
-`agents-71/72/73-codex-belt-*.yml`.
+`agents-keepalive-loop.yml` + `agents-keepalive-sweep.yml`. The [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) own issue admission and PR promotion.
 
 ---
 

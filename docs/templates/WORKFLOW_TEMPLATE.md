@@ -1,14 +1,10 @@
 # Workflow Documentation Template
 
-Use this template when documenting extracted workflows in `docs/workflows/`.
+Use this outline for a task that needs an operator guide beyond its [workflow catalog](../ci/WORKFLOWS.md) entry. Record its WFv1 filename and exact Actions display name, identify the upstream event or caller, and tell the operator where to inspect the result. Link the [dependency map](../ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) when another workflow consumes that result.
 
 ## Version pinning guidance
 
-When referencing reusable workflows, prefer a stable ref:
-
-- Use `@v1` for the current major version line.
-- Use `@v1.x.y` (for example `@v1.0.0`) or a commit SHA for maximum reproducibility.
-- Use `@main` only for experimentation (expect breaking changes).
+First-party templates call shared workflows at `@main`. Show an immutable SHA only for a caller that deliberately pins one, and explain who updates it. See the [integration policy](../INTEGRATION_GUIDE.md).
 
 ---
 
@@ -34,7 +30,7 @@ on: [push, pull_request]
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@v1
+    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@main
     with:
       required-input: value
       optional-input: value
@@ -48,7 +44,7 @@ on: [push, pull_request]
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@v1
+    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@main
     with:
       # Required inputs
       required-input-1: value1
@@ -92,7 +88,7 @@ jobs:
 ```yaml
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@v1
+    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@main
     with:
       required-input: value
   
@@ -160,7 +156,7 @@ on:
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@v1
+    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@main
     with:
       python-versions: '["3.12", "3.13"]'
       package-name: my-package
@@ -175,7 +171,7 @@ on: [push, pull_request]
 
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@v1
+    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@main
     with:
       # Different configuration example
       custom-setting: value
@@ -189,7 +185,7 @@ on: [push, pull_request]
 
 jobs:
   test:
-    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@v1
+    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@main
     with:
       setting: value
   
@@ -277,7 +273,7 @@ To enable debug logging:
 ```yaml
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@v1
+    uses: stranske/Workflows/.github/workflows/WORKFLOW_FILE.yml@main
     with:
       debug: 'true'
       required-input: value
@@ -295,22 +291,11 @@ If you encounter issues:
    - Error messages
    - Workflow run link
 
-## Version Compatibility
+## Compatibility and migration
 
-| Workflow Version | Supported | Notes |
-|------------------|-----------|-------|
-| v1.x | ✅ Current | Latest features |
-| v0.x | ⚠️ Deprecated | Upgrade to v1.x |
-
-### Migration from v0.x to v1.x
-
-If upgrading from v0.x:
-
-1. Update `uses:` line to `@v1`
-2. Rename inputs:
-   - `old-input-name` → `new-input-name`
-3. Review new required inputs
-4. Test in a branch before merging
+Identify the ref used by the supported caller and any repository-owned overrides.
+For a changed input, output or filename, identify the old and new interface,
+the callers that must move and the receiving run that demonstrates the migration.
 
 ## Implementation Details
 

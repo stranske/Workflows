@@ -1,4 +1,4 @@
-name: Reusable Cross-Repo Smoke
+name: Reusable 13 Cross-Repo Smoke
 
 on:
   workflow_call:

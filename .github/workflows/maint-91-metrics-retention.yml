@@ -1,4 +1,4 @@
-name: Maint Metrics Retention
+name: Maint 91 Metrics Retention
 
 on:
   workflow_dispatch:
@@ -12,13 +12,13 @@ on:
     paths:
       - "scripts/metrics_retention.py"
       - "config/retention-policy.json"
-      - ".github/workflows/maint-metrics-retention.yml"
+      - ".github/workflows/maint-91-metrics-retention.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: Maint Metrics Retention-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

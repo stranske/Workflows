@@ -2,7 +2,22 @@
 
 This repository provides a reusable GitHub Actions workflow that layers three progressive phases on top of a minimal test + coverage gate. Advanced observability features remain opt-in. Omitted runtime inputs select the parallel Python 3.13/3.14 matrix; explicit runtime overrides retain precedence.
 
-> **Note (Issue #2656):** The in-repo Gate workflow now calls `reusable-10-ci-python.yml` for Python 3.13/3.14 in parallel alongside the Docker smoke reusable. The former matrix wrapper (`reusable-90-ci-python.yml`) was retired during the CI consolidation; downstream consumers should invoke `reusable-10-ci-python.yml` directly or dispatch `selftest-reusable-ci.yml` when they need a matrix verification sweep. Historical notes about the removed wrapper live in [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md).
+### Workflow callers
+
+- [Workflows Gate](../.github/workflows/pr-00-gate.yml) calls the local reusable
+  in parallel for the main suite and the verifier grammar suites. Both calls
+  run Python 3.13 and 3.14 when the applicable CI path is selected. The main
+  suite publishes coverage from 3.14 and Gate's `summary` consumes the job
+  results and available artifacts.
+- The [consumer Gate template](../templates/consumer-repo/.github/workflows/pr-00-gate.yml)
+  calls the shared reusable at `@main` for applicable PR checks. The separate
+  [consumer CI template](../templates/consumer-repo/.github/workflows/ci.yml)
+  calls it on main pushes and by dispatch. The consumer verifier uses that
+  push CI as post-merge evidence.
+- [Selftest Reusables](ci/SELFTESTS.md) exercises reusable behavior with
+  fixtures. The [system map](ci/WORKFLOW_SYSTEM.md#topology-at-a-glance)
+  shows how Gate results, fork status publication, Autofix, and verifier
+  evidence reach their respective callers and listeners.
 
 ### Overview
 
@@ -23,7 +38,7 @@ primary-python-version       Artifact/tooling runtime (default shared CI_PYTHON_
 pytest-workers               xdist workers (default auto; first-party Gate requests 4)
 coverage-python-version      Optional coverage runtime, matching primary (default empty: all runtimes)
 coverage-min                 Minimum coverage percentage to pass (default 70)
-run-mypy                     'true'/'false' toggle to run mypy job (default true)
+run-mypy                     Boolean toggle to run mypy job (default true)
 typecheck-paths              Space-separated mypy targets; missing ones dropped, none left -> repo root (default 'src')
 ```
 
@@ -122,25 +137,27 @@ Output schema example:
 
 ### Example Invocation (Reusable Workflow)
 
-In a caller repository `.github/workflows/ci.yml` (older wrappers used `pr-10-ci-python.yml`
-before the Gate consolidation—see [ARCHIVE_WORKFLOWS.md](archive/ARCHIVE_WORKFLOWS.md) for the
-retirement log):
+For a repo-specific `ci.yml` with post-merge push checks, the example below
+uses the first-party `@main` convention.
 ```yaml
-name: Project CI
-on: [push, pull_request]
+name: CI
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       python-versions: '["3.13", "3.14"]'
       coverage-min: '72'
-      enable-metrics: 'true'
-      enable-history: 'true'
-      enable-classification: 'true'
-      enable-coverage-delta: 'true'
+      enable-metrics: true
+      enable-history: true
+      enable-classification: true
+      enable-coverage-delta: true
       baseline-coverage: '75.5'
       coverage-alert-drop: '1.0'
-      fail-on-coverage-drop: 'true'
+      fail-on-coverage-drop: true
 
 ```
 
@@ -152,10 +169,13 @@ sparse checkout to fetch the shared helper scripts it needs:
 
 ```yaml
 name: Package CI
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 jobs:
   ci:
-    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
+    uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main
     with:
       working-directory: packages/my-package
       python-versions: '["3.14"]'
@@ -169,7 +189,10 @@ The workflow writes a Markdown overview (artifacts presence + coverage stats) in
 A dedicated `logs_summary` job runs after ordinary success or failure (even if advanced phases are disabled), but skips whole-workflow cancellation using `always() && !cancelled()`. When it runs, it appends a per-job log links table plus a brief success/failure explanation. This makes it easy to jump directly to failing job logs without enabling any optional features. The soft coverage gate job no longer duplicates the table.
 
 ### Coverage Soft Gate & Topology Cross-Links (Issue #1351)
-For the broader CI topology (gate aggregation job, temporary wrapper, Codex kickoff lifecycle, and migration plan) see `.github/workflows/README.md` sections 1.1 and 7.2–7.6. This document intentionally avoids repeating those operational details; it focuses on the reusable workflow inputs and helper scripts. Enable the soft coverage gate in a consumer by passing `enable-soft-gate: 'true'` (documented in README section 7.3).
+Set `enable-soft-gate: true` when the caller needs the soft coverage path.
+Use the [Gate job map](ci/WORKFLOWS.md#gate-job-map) to trace the aggregate
+check and the [workflow outputs reference](ci/WORKFLOW_OUTPUTS.md) to see
+how reusable workflow output contracts differ from job results and artifacts.
 
 ### Design Principles
 1. Backward compatible defaults (all advanced phases off).

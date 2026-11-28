@@ -143,9 +143,14 @@ def test_workflow_docs_highlight_comment_consolidation() -> None:
 
 def test_workflow_system_documents_shared_admission_and_keepalive_dispatch() -> None:
     system_text = _normalize(WORKFLOW_SYSTEM_DOC.read_text())
+    handler_name = "agents-keepalive-dispatch-handler.yml"
+    handler = yaml.safe_load((pathlib.Path(".github/workflows") / handler_name).read_text())
+    handler_events = handler.get("on") or handler.get(True) or {}
+    (command_event,) = handler_events["repository_dispatch"]["types"]
+
     assert "[shared opener and closer](../ops/LOCAL_LANES.md#lanes-overview)" in system_text
     assert "agents-keepalive-loop.yml" in system_text
-    assert "PR-meta submits worker commands directly" in system_text
+    assert f"`{command_event}` repository dispatch to `{handler_name}`" in system_text
 
 
 def test_selftest_runner_plan_status_highlights_completion() -> None:

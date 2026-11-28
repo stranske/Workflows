@@ -7,6 +7,8 @@ A reusable GitHub Actions workflow system for Python projects with integrated ag
 
 For a narrative of how the repo evolved through five development phases (bootstrap → v1.1.x → Feb consolidation → production quiet → re-engagement) and where it stands today, see [`docs/HISTORY.md`](docs/HISTORY.md).
 
+See the [architecture](docs/ARCHITECTURE.md) for ownership boundaries and the [workflow dependency map](docs/ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) to trace a task across workflows.
+
 ## Project Status
 
 ✅ **Production Ready** - Actively used and maintained.

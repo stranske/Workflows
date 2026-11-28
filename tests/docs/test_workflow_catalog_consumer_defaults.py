@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_GUIDE = REPO_ROOT / "docs" / "WORKFLOW_GUIDE.md"
 INTEGRATION_GUIDE = REPO_ROOT / "docs" / "INTEGRATION_GUIDE.md"
@@ -18,6 +20,21 @@ ACTIVE_YML_PATTERN = re.compile(
 
 def _read(path: str) -> str:
     return Path(path).read_text(encoding="utf-8")
+
+
+def test_catalog_links_each_actions_name_in_its_own_repository_scope() -> None:
+    catalog = _read("docs/ci/WORKFLOWS.md").splitlines()
+    directory = Path(".github/workflows")
+    for root in (Path("."), Path("templates/consumer-repo"), Path("templates/integration-repo")):
+        for workflow in sorted((root / directory).iterdir()):
+            if workflow.suffix not in {".yml", ".yaml"}:
+                continue
+            name = yaml.load(workflow.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)["name"]
+            name_pattern = re.compile(r"(?<![\w-])" + re.escape(name) + r"(?![\w-])")
+            link = f"(../../{workflow.as_posix()})"
+            assert any(
+                link in line and name_pattern.search(line) for line in catalog
+            ), f"Catalog needs the Actions name {name!r} beside the link to {workflow}"
 
 
 def _workflow_exists(name: str) -> bool:

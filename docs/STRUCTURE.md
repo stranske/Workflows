@@ -1,6 +1,6 @@
 # Repository Structure
 
-Workflows owns the GitHub side of agent delivery and the files distributed to consumer repositories. Start with the change or symptom below. The [repository contract](../AGENTS.md) defines ownership, versioning and review expectations.
+Workflows owns the GitHub side of agent delivery and the files distributed to consumer repositories. Use the [architecture](ARCHITECTURE.md) for system boundaries and the [dependency map](ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) to follow an event across workflows. Start with the change or symptom below. The [repository contract](../AGENTS.md) defines ownership, versioning and review expectations.
 
 ## Change a reusable workflow
 

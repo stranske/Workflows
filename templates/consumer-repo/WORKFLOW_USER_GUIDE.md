@@ -4,6 +4,8 @@
 
 This guide explains how to use the automated workflows in your repository. The central Workflows repository distributes shared workflows. Each consumer also owns its repository-specific configuration.
 
+Use the [template workflow index](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOWS.md#template-workflow-index) to look up any receiving workflow by its Actions name or YAML path. The [sync manifest](https://github.com/stranske/Workflows/blob/main/.github/sync-manifest.yml) controls which files receive shared updates. Workflows seeds `ci.yml`, `pr-00-gate.yml`, `pr-00-gate-fork-status.yml` and `cross-repo-smoke.yml` as create-only defaults. The receiving repository owns existing copies, subject to the manifest's explicit exceptions. The receiver also owns `.github/workflows/autofix-versions.env` and its coverage baseline. Shared callers use Workflows reusables at `@main` by default.
+
 ---
 
 ## Table of Contents
@@ -28,17 +30,15 @@ This guide explains how to use the automated workflows in your repository. The c
 2. Add label: `agents:optimize` (AI analyzes and suggests improvements)
 3. Review the suggestions comment
 4. Add label: `agents:apply-suggestions` (applies formatting)
-5. Add label: `agent:codex` (creates a PR automatically)
+5. Add `agent:codex` to request Codex through issue intake, or submit eligible work through the [shared opener](https://github.com/stranske/Workflows/blob/main/docs/ops/LOCAL_LANES.md#lanes-overview)
 
 **What Happens:**
 - Issue is analyzed for clarity and completeness
 - Issue is formatted to standard template
-- Codex agent creates a branch and opens a ready-for-review PR
+- After the issue is eligible and claimed for work, the automation opens a ready-for-review PR
 - Agent works through the tasks automatically
 - Keepalive monitors and continues work until complete
 - Verification runs after merge
-
-**Time:** 5-30 minutes depending on complexity
 
 **Example:**
 ```
@@ -47,7 +47,7 @@ Issue: "Add user authentication"
 → Review suggestions
 → Add `agents:apply-suggestions` 
 → Add `agent:codex`
-→ PR created in ~2 minutes
+→ Look for the linked ready-for-review PR
 ```
 
 ---
@@ -57,20 +57,16 @@ Issue: "Add user authentication"
 **Use Case:** Your PR has formatting or lint errors
 
 **Steps:**
-1. Add label: `autofix` to your PR
-2. Wait ~2 minutes for workflow to run
-3. Check for new commits with fixes
+1. Add `autofix` to an open, non-draft PR from this repository with Python changes.
+2. Open the **Autofix** run for your PR in Actions.
+3. Check for a repair commit, a patch artifact or the skip reason in **Resolve Context**.
 
 **What Gets Fixed:**
-- Code formatting (black, prettier, etc.)
+- Configured Python formatting and lint fixes
 - Import organization
 - Trailing whitespace
-- Basic type annotation issues
-- Lint errors that can be auto-corrected
 
-**Advanced:** Use `autofix:clean` for more aggressive fixes including cosmetic repairs
-
-**Time:** 1-3 minutes
+Use `autofix:clean` when you want eligible cosmetic-only fixes.
 
 ---
 
@@ -112,8 +108,8 @@ Use the [shared opener and closer](https://github.com/stranske/Workflows/blob/ma
 | Label | Where | What It Does |
 |-------|-------|--------------|
 | `autofix` | PR | Auto-fixes formatting/lint errors |
-| `autofix:clean` | PR | Aggressive autofix with cosmetic repairs |
-| `agent:codex` | Issue | Creates PR from issue |
+| `autofix:clean` | PR | Requests cosmetic-only autofix |
+| `agent:codex` | Issue | Requests Codex through issue intake |
 | `agents:format` | Issue | Direct one-step formatting |
 | `agents:optimize` | Issue | Analyze and suggest improvements |
 | `agents:apply-suggestions` | Issue | Apply optimization suggestions |
@@ -148,30 +144,29 @@ Use the [shared opener and closer](https://github.com/stranske/Workflows/blob/ma
 
 | Event | Workflows That Trigger |
 |-------|----------------------|
-| Issue opened | Auto-label, Duplicate detection, Issue intake |
-| Label added: `agents:format` | Issue optimizer |
-| Label added: `agents:optimize` | Issue optimizer |
-| Label added: `agents:apply-suggestions` | Issue optimizer |
-| Label added: `agent:codex` | Issue intake, Capability check |
-| Label added: `agents:capability-check` | Capability checker |
+| Issue opened | Auto-Label Issues, Duplicate Detection, Agents Issue Format Guard and Agents Issue Intake evaluate eligibility. |
+| Labels `agents:format`, `agents:optimize` or `agents:apply-suggestions` added | Agents Issue Optimizer selects the requested operation. |
+| Label `agent:codex` added | Agents Issue Intake evaluates the request. |
+| Label `agents:capability-check` added | Capability Check evaluates feasibility. |
 
 ### PR Events
 
 | Event | Workflows That Trigger |
 |-------|----------------------|
-| PR opened | Gate (CI), Agents 80 PR Event Hub, Agents Guard |
-| Label added: `autofix` | Autofix loop |
-| Label added: `agents:keepalive` | Enables keepalive loop (runs on Gate workflow_run) |
-| Label removed: `agents:paused` | Keepalive resumes |
-| PR merged | Verifier (if verify labels present) |
-| Label added: `verify:*` (after merge) | Verifier workflows |
+| PR opened | Gate runs PR CI. Agents PR Event Hub and Health 45 Agents Guard evaluate their own event and policy conditions. |
+| Gate completes | Agents Gate Followups evaluates keepalive and repair in consolidated mode. Autofix separately evaluates eligible failed or timed-out checks. |
+| Label `autofix` or `autofix:clean` added | Autofix evaluates the explicit formatter request. |
+| Label `agents:keepalive` added | Agents Gate Followups can evaluate the PR in consolidated mode. |
+| Label `agents:paused` removed | The next eligible evaluation can resume keepalive. Use manual dispatch if an immediate recheck is needed. |
+| Verification label added to a merged PR | Agents Verifier handles eligible `verify:checkbox`, `verify:evaluate` and `verify:compare` requests. Agents PR Event Hub handles `verify:create-issue` in consolidated mode. Create New PR from Verification handles `verify:create-new-pr` and publishes a follow-up issue for the shared opener. |
 
 ### Continuous Monitoring
 
 | Workflow | Runs |
 |----------|------|
-| Keepalive loop | Gate workflow_run for eligible PRs (and manual dispatch) |
-| Bot comment handler | On every issue/PR comment |
+| Agents Keepalive Sweep | Hourly recheck of eligible open, non-draft keepalive PRs. |
+| Keepalive Loop Reporter | Reconciles completed Agents Gate Followups attempts and reports missing terminal summaries. |
+| Agents PR Event Hub | Evaluates eligible PR activity, Gate completions and bot review requests when consolidated workflows are enabled. |
 
 ---
 
@@ -227,13 +222,9 @@ Extracts suggestions from the analysis comment and:
 ### Agent Assignment & PR Creation
 
 #### `agent:codex` - Create PR from Issue
-**Assigns Codex agent to create a PR**
+**Requests Codex through Agents Issue Intake**
 
-1. Creates branch `codex/issue-<number>`
-2. Opens a ready-for-review PR linked to the issue
-3. Agent begins implementing tasks
-4. Keeps working through keepalive system
-5. Keeps dependency and progress state in labels, checks, and the PR body
+Issue intake checks the live issue, labels and routing before invoking the shared agent bridge. The shared opener also handles eligible issue intake under its own admission policy. Once a ready-for-review PR opens, use its checks, labels and PR body to track work. Keepalive evaluates eligible PRs after Gate.
 
 **Prerequisites:**
 - Issue must be formatted (`agents:formatted` label)
@@ -315,24 +306,17 @@ Runs repository's configured tools:
 - Linters with auto-fix
 - Type annotation fixes
 
-**Variants:**
-- `autofix:clean` - More aggressive, includes cosmetic repairs
-- `autofix:clean-only` - Only cosmetic changes
-- `autofix:bot-comments` - Removes bot comment artifacts
+Use `autofix:clean` for cosmetic-only repairs. The separate `autofix:bot-comments` label asks Agents PR Event Hub to evaluate unresolved bot review threads.
 
 **Use When:** CI is failing on style/format issues
 
 ---
 
-#### `autofix:patch` - Emergency Fixes
-**Applies fixes when push permissions unavailable**
+<a name="autofixpatch---emergency-fixes"></a>
 
-If autofix can't push directly:
-1. Creates a patch file
-2. Uploads as artifact
-3. Comments on PR with instructions
+#### Autofix patch delivery
 
-**Manual Step Required:** Download and apply patch
+When the formatter reports patch delivery, download the `autofix-patch-pr-<number>` artifact from the Autofix run and review it before applying it.
 
 ---
 
@@ -346,7 +330,7 @@ After PR merge, validates:
 - Acceptance criteria boxes checked
 - No incomplete items
 
-**Result:** Comment on PR, optional follow-up issue
+**Result:** Verification comment on the PR. To request a follow-up, use the follow-up labels below.
 
 ---
 
@@ -376,16 +360,13 @@ Runs verification with multiple models:
 ---
 
 #### `verify:create-issue` - Create Follow-up from Verification
-**Turns verification feedback into new issue**
+Apply the label after an eligible verifier report. Agents PR Event Hub uses that report to create a linked follow-up issue in consolidated mode.
 
-Extracts concerns from verification comment:
-- Low scores (<7/10)
-- Specific concerns noted
-- Creates structured follow-up issue
-- Links back to original PR
-- Auto-adds `agents:optimize` for formatting
+#### `verify:create-new-pr` - Queue Follow-up Work
 
-**Use When:** Verification found issues that need work
+Create New PR from Verification checks the terminal report and chain depth, then creates or reuses a linked follow-up issue for shared opener intake.
+
+See the [workflow catalog](https://github.com/stranske/Workflows/blob/main/docs/ci/WORKFLOWS.md#agents-control-plane) for verdict and follow-up details.
 
 ---
 
@@ -430,7 +411,7 @@ a fresh budget.
 1. Check issue has `agents:formatted` label
    - If not, add `agents:format` or `agents:optimize`
 2. Verify valid agent assignee exists
-3. Check `agents:guard` workflow logs for errors
+3. Check the **Agents Issue Intake** and **Health 45 Agents Guard** runs for an intake or policy error
 4. Look for `agent:needs-attention` label
 
 ---
@@ -456,8 +437,8 @@ a fresh budget.
 1. PR must be open (not merged/closed)
 2. PR must not be from a fork
 3. PR must not be draft
-4. Check `autofix.yml` workflow logs
-5. Ensure CI has push permissions
+4. Check **Autofix** for eligibility and delivery details
+5. Check for a patch artifact if the reusable reports patch delivery
 
 ---
 
@@ -489,13 +470,13 @@ Check the issue timeline and linked PR for an existing owner, then read the [sha
 2. Review and edit suggestions comment if needed
 3. Add `agents:apply-suggestions` (apply formatting)
 4. Add `agents:capability-check` (verify agent can do it)
-5. If ✅, add `agent:codex` (create PR)
+5. If the issue is ready, add `agent:codex` to request Codex
 ```
 
 **Pattern 2: Quick Format + Agent**
 ```
 1. Add `agents:format` (quick formatting)
-2. Add `agent:codex` (create PR)
+2. Add `agent:codex` to request Codex
 ```
 
 **Pattern 3: Full Automation**
@@ -542,7 +523,7 @@ After merge, add: verify:compare
 
 **All verifications:**
 ```
-Add all three labels before or after merge
+Choose the mode that matches the evidence you need. Apply its label after merge or dispatch Agents Verifier.
 ```
 
 ---

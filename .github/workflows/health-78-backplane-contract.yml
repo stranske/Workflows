@@ -11,7 +11,7 @@
 #
 # Modeled on health-70-validate-sync-manifest.yml (validate -> upload -> comment).
 
-name: Backplane Contract Integrity
+name: Health 78 Backplane Contract Integrity
 
 on:
   pull_request:
@@ -58,7 +58,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: Backplane Contract Integrity-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

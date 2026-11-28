@@ -170,7 +170,7 @@ When you have inline JavaScript in YAML workflows:
 
     To add new PATs/apps without editing workflows, populate `TOKEN_ROTATION_JSON`
     (and optionally `TOKEN_ROTATION_ENV_KEYS`) as documented in
-    [.github/scripts/README.md](.github/scripts/README.md).
+    [.github/scripts/README.md](README.md).
 
 ## API Reference
 

@@ -1,25 +1,22 @@
 import pathlib
+import re
 
 import yaml
 from scripts.check_docs_drift import WORKFLOWS_DOC, check_workflow_inventory
 
-ALLOWED_PREFIXES = (
-    "pr-",
-    "maint-",
-    "agents-",
-    "reusable-",
-    "reuse-",
-    "autofix",
-    "enforce-",
-    "health-",
-    "selftest-",
-    "debug-",
-)
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
+WORKFLOW_DIRS = {
+    "Workflows": WORKFLOW_DIR,
+    "Consumer": pathlib.Path("templates/consumer-repo") / WORKFLOW_DIR,
+    "Integration": pathlib.Path("templates/integration-repo") / WORKFLOW_DIR,
+}
+WFV1_FILENAME = re.compile(
+    r"(agents|health|maint|pr|reusable|selftest)-([0-9]{2})-[a-z0-9]+(?:-[a-z0-9]+)*\.yml"
+)
 
 
-def _workflow_paths():
-    return sorted(WORKFLOW_DIR.glob("*.yml"))
+def _workflow_paths(directory=WORKFLOW_DIR):
+    return sorted(path for path in directory.iterdir() if path.suffix in {".yml", ".yaml"})
 
 
 def _extract_name_from_lines(data: list[str]) -> str:
@@ -34,12 +31,40 @@ def _extract_name_from_lines(data: list[str]) -> str:
 
 
 def test_workflow_slugs_follow_wfv1_prefixes():
-    non_compliant = [
-        path.name for path in _workflow_paths() if not path.name.startswith(ALLOWED_PREFIXES)
-    ]
-    assert (
-        not non_compliant
-    ), f"Non-compliant workflow slug(s) detected outside {ALLOWED_PREFIXES}: {non_compliant}"
+    guide = pathlib.Path("docs/WORKFLOW_GUIDE.md").read_text(encoding="utf-8")
+    section = guide.split("## Published naming exceptions\n", 1)[1].split("\n## ", 1)[0]
+    published = set()
+    for scopes, filenames in re.findall(r"^\| ([A-Z][^|]+?) \| (`[^|]+?) \|", section, re.M):
+        for scope in scopes.split(", "):
+            assert scope in WORKFLOW_DIRS
+            for filename in re.findall(r"`([^`]+)`", filenames):
+                assert (
+                    scope,
+                    filename,
+                ) not in published, f"Duplicate exception: {scope}/{filename}"
+                published.add((scope, filename))
+
+    observed = set()
+    for scope, directory in WORKFLOW_DIRS.items():
+        names = set()
+        for path in _workflow_paths(directory):
+            name = _extract_name_from_lines(path.read_text(encoding="utf-8").splitlines())
+            assert (
+                name and name not in names
+            ), f"{scope}/{path.name}: empty or duplicate name {name!r}"
+            names.add(name)
+            match = WFV1_FILENAME.fullmatch(path.name)
+            if match:
+                area, number = match.groups()
+                prefix = f"{'PR' if area == 'pr' else area.title()} {number} "
+                if name.startswith(prefix) and name[len(prefix) :].strip():
+                    continue
+            observed.add((scope, path.name))
+
+    assert observed == published, (
+        f"Unregistered WFv1 exceptions: {sorted(observed - published)}; "
+        f"remove obsolete guide entries: {sorted(published - observed)}"
+    )
 
 
 def test_archive_directories_removed():
@@ -250,7 +275,7 @@ def test_workflow_display_names_are_unique():
 
 EXPECTED_NAMES = {
     "agents-model-profile-trial.yml": "Agents Model Profile Trial",
-    "agents-autofix-loop.yml": "Agents Autofix Loop",
+    "agents-autofix-loop.yml": "Agents 67 Autofix Loop",
     "agents-auto-label.yml": "Auto-Label Issues",
     "agents-bot-comment-handler.yml": "Agents Bot Comment Handler",
     "agents-capability-check.yml": "Capability Check",
@@ -266,8 +291,8 @@ EXPECTED_NAMES = {
     "agents-verify-to-issue-v2.yml": "Create Issue from Verification (Enhanced)",
     "agents-verify-to-new-pr.yml": "Create New PR from Verification",
     "agents-weekly-metrics.yml": "agents-weekly-metrics",
-    "agents-moderate-connector.yml": "Agents Moderate Connector Comments",
-    "agents-debug-issue-event.yml": "Agents Debug Issue Event",
+    "agents-moderate-connector.yml": "Agents 66 Moderate Connector Comments",
+    "agents-debug-issue-event.yml": "Agents 65 Debug Issue Event",
     "agents-keepalive-loop.yml": "Agents Keepalive Loop",
     "agents-keepalive-sweep.yml": "Agents Keepalive Sweep",
     "agents-keepalive-loop-reporter.yml": "Keepalive Loop Reporter",
@@ -280,9 +305,9 @@ EXPECTED_NAMES = {
     "health-40-sweep.yml": "Health 40 Sweep",
     "health-42-actionlint.yml": "Health 42 Actionlint",
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
-    "health-codex-auth-check.yml": "Health 46 Codex Auth Check",
-    "health-cursor-auth-check.yml": "Health 77 Cursor Auth Check",
-    "health-muse-auth-check.yml": "Health 79 Muse Auth Check",
+    "health-46-codex-auth-check.yml": "Health 46 Codex Auth Check",
+    "health-77-cursor-auth-check.yml": "Health 77 Cursor Auth Check",
+    "health-79-muse-auth-check.yml": "Health 79 Muse Auth Check",
     "health-50-security-scan.yml": "Health 50 Security Scan",
     "health-51-zizmor.yml": "Health 51 Actions SAST (zizmor)",
     "health-52-semgrep.yml": "Health 52 Semgrep Scan",
@@ -294,8 +319,8 @@ EXPECTED_NAMES = {
     "maint-88-verifier-runtime-comparison.yml": "Maint 88 Verifier Runtime Comparison",
     "maint-89-verifier-shadow-report.yml": "Maint 89 Verifier Shadow Report",
     "maint-90-sync-finding-assessment.yml": "Maint 90 Sync Finding Assessment",
-    "maint-sync-action-versions.yml": "Maint Sync Action Versions",
-    "maint-sync-env-from-pyproject.yml": "Maint - Sync pyproject from versions.env",
+    "maint-92-sync-action-versions.yml": "Maint 92 Sync Action Versions",
+    "maint-93-sync-pyproject-from-env.yml": "Maint 93 Sync Pyproject from Versions Env",
     "maint-52-validate-workflows.yml": "Maint 52 Validate Workflows",
     "maint-52-sync-dev-versions.yml": "Maint 52 Sync Dev Versions",
     "maint-auto-update-pypi-versions.yml": "Maint Auto-Update PyPI Versions",
@@ -303,14 +328,14 @@ EXPECTED_NAMES = {
     "maint-66-monthly-audit.yml": "Maint 66 Monthly Audit",
     "health-67-integration-sync-check.yml": "Health 67 Integration Sync Check",
     "health-68-consumer-sync-drift.yml": "Health 68 Consumer Sync Drift Check",
-    "health-70-validate-sync-manifest.yml": "Validate Sync Manifest",
+    "health-70-validate-sync-manifest.yml": "Health 70 Validate Sync Manifest",
     "health-71-sync-health-check.yml": "Health 71 Sync Health Check",
     "health-72-template-sync.yml": "Health 72 Template Sync",
     "health-73-template-completeness.yml": "Health 73 Template Completeness",
     "health-74-template-drift.yml": "Health 74 Template Drift",
     "health-75-api-rate-diagnostic.yml": "Health 75 API Rate Diagnostic",
     "health-76-codex-cli-freshness.yml": "Health 76 Codex CLI Freshness",
-    "health-78-backplane-contract.yml": "Backplane Contract Integrity",
+    "health-78-backplane-contract.yml": "Health 78 Backplane Contract Integrity",
     "health-83-dependency-sync-efficiency.yml": "Health 83 Dependency Sync Efficiency",
     "health-84-langsmith-observability.yml": "Health 84 LangSmith Observability",
     "health-85-ci-time-budget.yml": "Health 85 CI Time Budget",
@@ -319,9 +344,9 @@ EXPECTED_NAMES = {
     "maint-69-sync-labels.yml": "Maint 69 Sync Labels",
     "maint-60-release.yml": "Maint 60 Release",
     "maint-61-release-please.yml": "Maint 61 Release Please",
-    "maint-71-auto-fix-integration.yml": "Auto-Fix Integration Test Failures",
+    "maint-71-auto-fix-integration.yml": "Maint 71 Auto-Fix Integration Test Failures",
     "maint-71-merge-sync-prs.yml": "Merge Sync PRs",
-    "maint-74-ledger-base-sync.yml": "Ledger Base Sync",
+    "maint-74-ledger-base-sync.yml": "Maint 74 Ledger Base Sync",
     "maint-77-model-registry-freshness.yml": "Maint 77 Model Registry Freshness",
     "maint-78-model-evaluation-pilot.yml": "Maint 78 Verifier Model Cost and Quality",
     "maint-79-verifier-corpus-harvest.yml": "Maint 79 Verifier Corpus Harvest",
@@ -332,15 +357,15 @@ EXPECTED_NAMES = {
     "maint-85-keepalive-durability-export.yml": "Maint 85 Keepalive Durability Export",
     "maint-86-model-promotion-prepare.yml": "Maint 86 Model Promotion Prepare",
     "maint-coverage-guard.yml": "Maint Coverage Guard",
-    "maint-metrics-retention.yml": "Maint Metrics Retention",
+    "maint-91-metrics-retention.yml": "Maint 91 Metrics Retention",
     "pr-00-gate.yml": "Gate",
     "pr-00-gate-fork-status.yml": "Gate Fork Status Publisher",
     "pr-11-ci-smoke.yml": "PR 11 - Minimal invariant CI",
     "pr-46-dependency-repair-contract.yml": "PR 46 Dependency Repair Contract",
-    "reusable-10-ci-python.yml": "Reusable CI",
-    "reusable-11-ci-node.yml": "Reusable Node CI",
-    "reusable-12-ci-docker.yml": "Reusable Docker Smoke",
-    "reusable-13-cross-repo-smoke.yml": "Reusable Cross-Repo Smoke",
+    "reusable-10-ci-python.yml": "Reusable 10 Python CI",
+    "reusable-11-ci-node.yml": "Reusable 11 Node CI",
+    "reusable-12-ci-docker.yml": "Reusable 12 Docker Smoke",
+    "reusable-13-cross-repo-smoke.yml": "Reusable 13 Cross-Repo Smoke",
     "reusable-18-autofix.yml": "Reusable 18 Autofix",
     "reusable-19-dependency-repair-contract.yml": "Reusable 19 Dependency Repair Contract",
     "reusable-claude-run.yml": "Reusable Claude Run",

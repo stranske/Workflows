@@ -23,14 +23,16 @@ Related docs:
 
 ## Keepalive Not Progressing
 
-1. Confirm the PR is open, non-draft, and has exactly one concrete
-   `agent:<name>` label plus `agents:keepalive`.
+1. Confirm the PR is open, non-draft, and has `agents:keepalive` plus a
+   registry-backed agent route. Check the selected route in the keepalive
+   summary if the PR uses `agent:auto`.
 2. Confirm the branch prefix matches `.github/agents/registry.yml`
    (`codex/issue-*` for `agent:codex`, `claude/issue-*` for `agent:claude`).
-3. Check the latest `agents-keepalive-loop.yml` run and the keepalive summary
-   comment for the selected next task.
-4. If the runner should retry, apply `agent:retry`; the loop removes it at the
-   top of the resulting run.
+3. Check the latest Workflows `agents-keepalive-loop.yml` or consumer
+   `agents-81-gate-followups.yml` run and the keepalive summary comment for
+   the selected next task. Confirm the run applies to the current PR head.
+4. For an operator retry, apply `agent:retry`. For automation-owned recovery,
+   inspect the recorded retry decision and the hourly sweep.
 5. Do not wake CLI-agent keepalive PRs with UI-agent comments. The loop is
    workflow-driven and conflicting comments can start the wrong agent surface.
 

@@ -80,9 +80,11 @@ display finding IDs and mutable assignment do not change it. `source_scope_diges
 binds target/source/raw finding/scope. These functions are frozen in the effect
 helper; the shared fixture fixes their cross-language expected values.
 
-## Existing issue/autopilot effects and reconciliation
+## Historical issue and Auto-Pilot effect reconciliation
 
-The effect adapter has mandatory trusted-host dependencies and no live defaults:
+The offline effect adapter records the former two-stage design. The hosted
+correction dispatch currently collects evidence without effects. The adapter
+has mandatory trusted-host dependencies and no live defaults:
 original-seed/request/test-decision authentication, fresh facts, complete
 existing-follow-up-ledger reads, durable conditional ledger append, authenticated
 issue/started-receipt reconciliation, the existing GitHub client and a clock.
@@ -97,17 +99,15 @@ Both fixed stages share one trusted effect key:
    durably retain that response proof and identity before dispatch. A copied body
    marker, matching bot author or creation time cannot recover a lost native
    creation response. That case remains UNKNOWN, without another create call.
-2. `autopilot_dispatch`: after fresh created-issue/competing-work checks,
-   conditionally retain the separate intent before calling existing
-   `agents-auto-pilot.yml` with `issue_number` and `force_step=optimize` once.
+2. `autopilot_dispatch`: after fresh created-issue/competing-work checks, the
+   historical adapter recorded a separate intent before requesting the former
+   Auto-Pilot workflow with `issue_number` and `force_step=optimize`.
 
 Existing incumbents skip creation. Registry-derived agent/from/runner labels are
-preserved; no generic model qualification creates authority. The typed creation
-branch omits the `agents:auto-pilot` trigger label because explicit dispatch owns
-activation; adding that label would also start a label-event run. The legacy
-label-triggered implementation remains in place. A complete retained-history fence
-holds its source PR, and unscoped auto-pilot holds an authenticated incumbent
-issue, when a typed correction may already own the same work.
+preserved; no generic model qualification creates authority. In the historical
+design explicit dispatch owned activation and the typed creation branch omitted
+the `agents:auto-pilot` trigger label. A retained-history fence protected the
+source PR and an authenticated incumbent issue from duplicate work.
 
 Every stage refuses to invoke an effect without a confirmed durable intent.
 Conditional revision checks and a per-stage existing-intent check prevent duplicate

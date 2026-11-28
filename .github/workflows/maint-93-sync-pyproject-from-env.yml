@@ -1,7 +1,7 @@
 # Repairs source pin drift on a maintainer-selected topic branch. Gate checks
 # the committed pins before merge, and the canonical updater prepares routine PRs.
 
-name: Maint - Sync pyproject from versions.env
+name: Maint 93 Sync Pyproject from Versions Env
 
 on:
   workflow_dispatch:
@@ -10,7 +10,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Keep the same cancellation group for runs already queued under the former name.
+  group: Maint - Sync pyproject from versions.env-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

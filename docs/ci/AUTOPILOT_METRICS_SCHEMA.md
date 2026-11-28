@@ -117,13 +117,11 @@ To output the JSON schema from the collector:
 python scripts/autopilot_metrics_collector.py --print-schema
 ```
 
-## Needs Human Action
+## Historical Step Timing Proposal
 
-Auto-pilot step timing still requires workflow edits in `.github/workflows/agents-auto-pilot.yml`
-to call `scripts/autopilot_step_timer.py` at the start/end of each step and pass the
-timestamps to `scripts/autopilot_metrics_collector.py` (for example via `--started-at-ms`
-and `--ended-at-ms`). Workflow files are protected in agent-standard runs, so a
-maintainer must apply the timing-step additions and label the PR `needs-human`.
+The proposal was to call `scripts/autopilot_step_timer.py` at each step's
+start and end, then pass the timestamps to `scripts/autopilot_metrics_collector.py`
+through `--started-at-ms` and `--ended-at-ms`.
 
 ## Failure Summary Records
 

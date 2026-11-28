@@ -16,11 +16,18 @@ jobs:
 
 ## 3. Autofix (`reusable-18-autofix.yml`)
 
-[CI Autofix Loop](../.github/workflows/autofix.yml) calls [Reusable 18 Autofix](../.github/workflows/reusable-18-autofix.yml). For a Gate failure, see the [agent repair and formatting routes](ci/WORKFLOWS.md#autofix-routes).
+[CI Autofix Loop in Workflows](../.github/workflows/autofix.yml) and [Autofix in a consumer](../templates/consumer-repo/.github/workflows/autofix.yml) call [Reusable 18 Autofix](../.github/workflows/reusable-18-autofix.yml). For a Gate failure, see the [agent repair and formatting routes](ci/WORKFLOWS.md#autofix-routes).
 
 ## 4. Agent automation entry points
 
-For issue intake, Auto-Pilot, the belt and PR keepalive, see the [active agent workflows](WORKFLOW_GUIDE.md#agents--issues). Use the [manual dispatch instructions](WORKFLOW_GUIDE.md#manual-dispatch-quick-steps) to preview belt promotion or check assignment with Agents 64. The [Agents 70 archive](archive/ARCHIVE_WORKFLOWS.md#agents-70-retirement) records its replacements and recovery revisions.
+Use [Agents 63 Issue Intake](../.github/workflows/agents-63-issue-intake.yml)
+in Workflows or [Agents Issue Intake](../templates/consumer-repo/.github/workflows/agents-issue-intake.yml)
+in a consumer for manual intake and ChatGPT issue import. [Agents 64 Verify Agent Assignment](../.github/workflows/agents-64-verify-agent-assignment.yml)
+checks an existing issue on demand. The [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview)
+own ordinary issue admission and PR promotion. Use
+[Keepalive troubleshooting](keepalive/KEEPALIVE_TROUBLESHOOTING.md) for Gate and
+sweep follow-ups. The [Agents 70 archive](archive/ARCHIVE_WORKFLOWS.md#agents-70-retirement)
+records the retired dispatcher.
 
 ## 5. Selftest: Reusables (`selftest-reusable-ci.yml`)
 

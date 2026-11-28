@@ -28,8 +28,7 @@ eligible issue ─────────────────────�
 
 - **Keepalive** on PRs is driven by Gate `workflow_run` events
   (`agents-keepalive-loop.yml`), with hourly resync via `agents-keepalive-sweep.yml`.
-  PR-meta on Workflows submits keepalive worker commands directly ([#5162](https://github.com/stranske/Workflows/pull/5162));
-  measured dispatch capacity is enforced ([#5163](https://github.com/stranske/Workflows/pull/5163)).
+  An accepted Workflows PR-meta command emits `codex-pr-comment-command` for the [dispatch handler](../.github/workflows/agents-keepalive-dispatch-handler.yml). Consumer Gate Followups owns the consumer loop.
 - Review the [keepalive contract](keepalive/GoalsAndPlumbing.md) before changing keepalive workflows. For branch recovery, follow the [recovery procedure](keepalive/Observability_Contract.md#8-orchestrator-contract) and verify the new head with the [branch-sync gate](keepalive/GoalsAndPlumbing.md#9-branch-sync-gate).
 - The [opener and closer](ops/LOCAL_LANES.md#lanes-overview) record admission,
   active claims, PR links, and verified disposition. Use the keepalive run and
@@ -43,8 +42,7 @@ eligible issue ─────────────────────�
 - **Behaviour:** Fetches the issue, ensures the `agent:codex` (or configured) label
   is present, validates that one of the configured valid assignees is assigned, and
   publishes a step summary table documenting the outcome.
-- **Usage:** Ad-hoc verification from the Actions tab or callable reuse from intake
-  and bridge workflows.
+- **Usage:** Dispatch from the Actions tab with an issue number for an assignment check. The workflow also exposes `workflow_call`; current intake and bridge definitions have no automatic call to Agents 64.
 
 The default valid assignee roster includes `copilot`, `chatgpt-codex-connector`, and
 `stranske-automation-bot`; provide a comma-separated override when onboarding
@@ -251,7 +249,7 @@ Archived data can be restored when needed:
 Retention operations are tracked in `metrics-retention.ndjson`, including record counts, archive destinations, and storage
 reduction percentages.
 
-[Maint Metrics Retention](../.github/workflows/maint-metrics-retention.yml) accepts `workflow_dispatch` with an optional
+[Maint Metrics Retention](../.github/workflows/maint-91-metrics-retention.yml) accepts `workflow_dispatch` with an optional
 `dry_run` input (default `false`). Pull requests run in `--dry-run` mode when the script, policy config, or workflow
 changes. The job uses the selected ref's checkout and does not fetch existing metrics artifacts. A checkout without
 metrics logs succeeds with a zero-file `retention_summary`. The job reports storage reduction in the step summary

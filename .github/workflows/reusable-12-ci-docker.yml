@@ -1,4 +1,4 @@
-name: Reusable Docker Smoke
+name: Reusable 12 Docker Smoke
 
 on:
   workflow_call:

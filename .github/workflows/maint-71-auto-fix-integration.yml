@@ -1,4 +1,4 @@
-name: Auto-Fix Integration Test Failures
+name: Maint 71 Auto-Fix Integration Test Failures
 
 # Automatically fixes formatting issues in Integration-Tests repository
 # when integration CI failures are detected
@@ -38,7 +38,7 @@ jobs:
       )
       || github.event_name == 'workflow_dispatch'
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+      group: Auto-Fix Integration Test Failures-${{ github.ref }}
       cancel-in-progress: true
 
     steps:
