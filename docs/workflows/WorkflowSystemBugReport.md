@@ -515,18 +515,18 @@ const status = {
 
 ## Appendix A: Workflow Schedule Summary
 
+Rows for retired workflows (`agents-70-orchestrator`, `maint-50-tool-version-check`,
+`maint-51-dependency-refresh`, `security`) were removed on 2026-11-28. For current
+schedules read the workflow files or [the catalog](../ci/WORKFLOWS.md).
+
 | Workflow | Schedule | Purpose |
 |----------|----------|---------|
-| `agents-70-orchestrator.yml` | `*/20 * * * *` | Keepalive sweep |
 | `health-40-sweep.yml` | `5 5 * * 1` | Workflow lint |
 | `health-40-repo-selfcheck.yml` | `20 6 * * 1` | Repository validation |
 | `health-41-repo-health.yml` | `15 7 * * 1` | Stale content tracking |
 | `health-50-security-scan.yml` | `30 1 * * 0` | Security scanning |
 | `maint-coverage-guard.yml` | `45 6 * * *` | Coverage enforcement |
-| `maint-50-tool-version-check.yml` | `0 8 * * 1` | Tool version audit |
-| `maint-51-dependency-refresh.yml` | `0 4 1,15 * *` | Dependency updates |
 | `selftest-reusable-ci.yml` | `30 6 * * *` | CI self-validation |
-| `security.yml` | `30 1 * * 0` | Legacy security scan |
 
 ---
 

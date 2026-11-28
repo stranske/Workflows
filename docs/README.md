@@ -16,24 +16,9 @@ This folder contains the source-of-truth documentation for this repository.
 
 ## Structure
 
-### For Users
-
-- **[guides/](guides/)** - How-to guides and tutorials (currently minimal)
-- **[ci/](ci/)** - CI reference docs and troubleshooting
-- **[keepalive/](keepalive/)** - Keepalive/Codex automation documentation
-- **[contracts/](contracts/)** - Shared cross-repo contracts and schemas
-- **[reference/](reference/)** - Reference docs and analysis notes
-- **[workflows/](workflows/)** - Workflow system notes (evaluation, bug reports)
-- **[Workflow examples](USAGE.md#examples)** - Copyable starters and actual workflow calls
-
-### For Contributors
-
-- **[templates/](templates/)** - Templates and checklists
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
-
-### Archive
-
-- **[archive/](archive/)** - Historical documents and snapshots
+Every `docs/` subdirectory (and every other directory in the repository) is listed, one
+line each, in the [repository map](STRUCTURE.md#directory-index). Contributors: see
+[CONTRIBUTING.md](CONTRIBUTING.md) and the [templates](templates/).
 
 ## Documentation Guidelines
 
@@ -65,7 +50,7 @@ Follow the [workflow example contribution checklist](CONTRIBUTING.md#workflow-ex
 1. Use the appropriate template from [templates/](templates/)
 2. Keep examples runnable and aligned with the current workflow interfaces
 3. Use the current first-party consumer standard (`@main`) in consumer-facing examples unless you are explicitly documenting a pinned-SHA or alternate-ref strategy
-4. Cross-link related docs and update this README if you add a new top-level category
+4. Cross-link related docs, and add a new directory to the [repository map](STRUCTURE.md#directory-index)
 
 ## See Also
 
