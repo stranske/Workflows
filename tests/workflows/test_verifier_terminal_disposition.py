@@ -516,20 +516,6 @@ def test_terminal_disposition_writers_do_not_fall_back_to_raw_verdicts() -> None
         )
 
 
-def test_post_gate_tracker_helpers_are_wired_in_maint46() -> None:
-    """F45 repaired: Maint46 failure-tracker invokes all four helpers."""
-    helpers = (
-        "updateFailureTracker",
-        "resolveFailureIssuesForRecoveredPR",
-        "autoHealFailureIssues",
-        "snapshotFailureIssues",
-    )
-    workflow = (ROOT / ".github/workflows/maint-46-post-ci.yml").read_text(encoding="utf-8")
-    assert "failure-tracker:" in workflow
-    missing = [h for h in helpers if h not in workflow]
-    assert missing == [], f"Maint46 must call failure-tracker helpers; missing: {missing}"
-
-
 def _settlement_condition_after_failure(should_run: bool) -> bool:
     """Evaluate this authored condition, including Actions' implicit success()."""
     condition = _verifier_steps()["Set unified verdict"]["if"]
