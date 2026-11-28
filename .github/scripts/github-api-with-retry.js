@@ -644,6 +644,10 @@ function sanitizeRotationJson(value, allowOwnerPat) {
     if (filteredPats.length === parsed.pats.length) {
       return value;
     }
+    const remainingApps = Array.isArray(parsed.apps) ? parsed.apps : [];
+    if (filteredPats.length === 0 && remainingApps.length === 0) {
+      return '';
+    }
     return JSON.stringify({ ...parsed, pats: filteredPats });
   } catch {
     return value;

@@ -209,6 +209,24 @@ test('rotation pool excludes the owner PAT', async () => {
     pats: [{ id: 'PAT_1', token: 'z' }],
   });
 
+  const ownerOnlyJsonSecrets = collectTokenSecrets({
+    TOKEN_ROTATION_JSON: JSON.stringify({
+      pats: [{ id: 'OWNER_PR_PAT', token: 'x' }],
+    }),
+  });
+  assert.deepEqual(ownerOnlyJsonSecrets, {});
+
+  const ownerWithAppJsonSecrets = collectTokenSecrets({
+    TOKEN_ROTATION_JSON: JSON.stringify({
+      pats: [{ id: 'OWNER_PR_PAT', token: 'x' }],
+      apps: [{ id: 'APP_1', appId: '1', privateKey: 'k' }],
+    }),
+  });
+  assert.deepEqual(JSON.parse(ownerWithAppJsonSecrets.TOKEN_ROTATION_JSON), {
+    pats: [],
+    apps: [{ id: 'APP_1', appId: '1', privateKey: 'k' }],
+  });
+
   const exclusiveSecrets = collectTokenSecrets(
     {
       OWNER_PR_PAT: 'x',
@@ -287,6 +305,35 @@ test('createTokenAwareRetry registers OWNER_PR_PAT on demand for exclusive tasks
       getOctokit,
     });
     assert.equal(generalAfter.getTokenSource(), 'SERVICE_BOT_PAT');
+
+    // When all non-exclusive tokens are exhausted, general retry must NOT fall
+    // back to the registered OWNER_PR_PAT even at full capacity.
+    balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.remaining = 0;
+    balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.percentRemaining = 0;
+    const generalExhausted = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(generalExhausted.getTokenSource(), null);
+    assert.equal(generalExhausted.github.token, 'fallback');
+
+    const attemptedTokens = [];
+    await assert.rejects(
+      async () => generalExhausted.withRetry(
+        async (client) => {
+          attemptedTokens.push(client.token);
+          const error = new Error('API rate limit exceeded');
+          error.status = 403;
+          error.response = { headers: { 'x-ratelimit-remaining': '0' } };
+          throw error;
+        },
+        { maxRetries: 1, initialDelay: 1 },
+      ),
+      /API rate limit exceeded/,
+    );
+    assert.deepEqual(attemptedTokens, ['fallback']);
   } finally {
     balancer.tokenRegistry.tokens.clear();
     balancer.tokenRegistry.lastRefresh = 0;
