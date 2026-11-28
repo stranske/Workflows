@@ -8,7 +8,7 @@
   "platformAutomerge": true,
   "labels": ["dependencies"],
   "timezone": "America/Chicago",
-  "schedule": ["after 1am and before 5am on monday"],
+  "schedule": ["on monday"],
   "commitHourlyLimit": 2,
   "prConcurrentLimit": 3,
   "branchConcurrentLimit": 3,
@@ -23,7 +23,7 @@
   "lockFileMaintenance": {
     "enabled": true,
     "groupName": "weekly lock file maintenance",
-    "schedule": ["after 1am and before 5am on monday"]
+    "schedule": ["on monday"]
   },
   "pip-compile": {
     "managerFilePatterns": ["/(^|/)requirements\\.lock$/"]
