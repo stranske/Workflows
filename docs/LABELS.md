@@ -73,8 +73,8 @@ precedence chain — `cross_repo` > `epic` > `codemod` > `runtime_ac` > `testgen
 `mechanical` > `implement` — so a label here is not cosmetic: it selects the
 dispatch path.
 
-They are synced from `.github/labels-core.yml` by Maint 69. They are deliberately
-NOT in `.github/labels.yml`, which Maint 69 does not sync.
+They are synced from `.github/labels-core.yml` by Maint 69, the only label
+inventory (the unread `.github/labels.yml` was retired on 2026-11-28).
 
 Documented 2026-08-22. They were created by hand across 12 repos on 2026-08-20 and
 appeared in no inventory, so a freshly-onboarded consumer received 41 labels and
@@ -782,7 +782,7 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 
 **Effect:**
 1. Switches eligible jobs from the default `agent-standard` environment to `agent-high-privilege`.
-2. Defined in `.github/labels.yml`.
+2. Defined in `.github/labels-core.yml` and synced by Maint 69.
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
 `.github/workflows/agents-keepalive-loop.yml`,
@@ -800,7 +800,7 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 **Effect:**
 1. Classifies PR change risk (`risk:low` = small/safe automerge candidate, `risk:medium` = moderate change, `risk:high` = large or sensitive change).
 2. `risk:low` is checked by guarded automerge (`merge_manager.js`) and included in `health-40-repo-selfcheck.yml`'s `REQUIRED_LABELS`.
-3. Defined in `.github/labels.yml`.
+3. Defined in `.github/labels-core.yml` and synced by Maint 69.
 
 **Consumers:** `.github/scripts/merge_manager.js`,
 `.github/workflows/health-40-repo-selfcheck.yml`.
@@ -870,7 +870,7 @@ These labels are used for categorization but do not trigger workflows.
 
 **Applies to:** Issues or Pull Requests
 
-**Effect:** Marks an item as a reminder for future action (defined in `.github/labels.yml`).
+**Effect:** Marks an item as a reminder for future action (defined in `.github/labels-core.yml`).
 
 ---
 
