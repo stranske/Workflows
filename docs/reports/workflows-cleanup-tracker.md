@@ -7,6 +7,20 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Evidence families, documentation and receiving delivery
+
+Stage 2 has 2,901/2,901 file and 220/220 folder decisions. Stage 5 has 334/334 file and 46/47 folder decisions. Stage 3 is complete. Stage 4 has 1,536/1,540 files and 169/177 folders accepted. The original checklist has 26 production passes and two qualified replays. The workflow review has 198/198 accepted, and the original root-file review has 27/27.
+
+[#5536](https://github.com/stranske/Workflows/pull/5536) retired the duplicate archived intake input and put the historical code-quality review with the audits. The parser reproduced the three original topic identities. [#5537](https://github.com/stranske/Workflows/pull/5537) replaced seven loose historical receipts with one index. The originals recover from the linked revisions. [#5538](https://github.com/stranske/Workflows/pull/5538) removed 14 loose issue 3743 runtime reports totaling 453,840 bytes. Its tests, replay drivers and checksummed offline packets retain separate uses. The three invalid-identity cases that timed out during broader candidate runs all passed in matched baseline/candidate checks. No timeout or test was changed.
+
+[#5535](https://github.com/stranske/Workflows/pull/5535) installed the documentation consolidations and preserves the necessary source, history and operator routes. [#5540](https://github.com/stranske/Workflows/pull/5540) retired five superseded records, shortened three stable addresses and kept five live guides and inputs. All seven full originals recover, and the real issue 4284 completion output is byte-identical. [#5542](https://github.com/stranske/Workflows/pull/5542) corrected four operator guides and the obsolete Belt introduction. An offline session-analysis command now returns JSON. Ten other entry points retain separate, verified readers. [#5539](https://github.com/stranske/Workflows/pull/5539) moved the old operations audit, corrected token, ledger and workflow navigation, and replaced two unreferenced pointers with a single archive-ledger route. Both original reports recover.
+
+[#5506](https://github.com/stranske/Workflows/pull/5506) restored the historical Maint 47 bookmark in the shorter receiver guide. GitHub rendering preserved 110/110 bookmarks from each guide, the Manager-Database optimizer’s live recovery link, and six central routes. The guide has 632 fewer lines. Receiver installation is tracked separately.
+
+[#5531](https://github.com/stranske/Workflows/pull/5531) installed the Trend-specific correction at 0cfdd56f. Its primary Python Gate jobs passed in 379 and 339 seconds, below 600 seconds. The [signed canary](https://github.com/stranske/Workflows/actions/runs/46157732819) refreshed three actual receiving PRs. After their checks settled, [Maint 71](https://github.com/stranske/Workflows/actions/runs/46158487531) prepared all three for the same plan and started the [production promotion](https://github.com/stranske/Workflows/actions/runs/46158563458). Normal promotion created twelve PRs and refreshed Trend #6265. On the actual receiving head its four required blobs and 13 named test outcomes match the base, including three pre-existing failures. 16/16 corrected source merges have verified receiving-default ancestry. 0/16 receiving defaults carry the subsequent #5506 user guide. Native Ready Gate attempt 2 passed after a full rerun replaced a pre-seal metadata snapshot. Trend’s [merged default](https://github.com/stranske/Trend_Model_Project/commit/20cd61a427fd2ede022e8cef7af656f10beb19e7) produced all 13 original named outcomes. Source issue [#5525](https://github.com/stranske/Workflows/issues/5525) is closed. The separate [guide canary](https://github.com/stranske/Workflows/actions/runs/46160626434) carries only the subsequent managed guide change.
+
+All three map routes resolved on GitHub with six shared-workflow, seven consumer-file and eight stalled-task destinations. Their source and receiving owner bindings also passed.
+
 ### November 28 · Verified receiver installations and four tested helper dependencies
 
 Stage 3 is complete at 752/752 files and 43/43 folders. Stage 4 has 1,523/1,540 file and 167/177 folder decisions accepted. Stage 1A holds all 198 accepted workflow decisions, and Stage 1B holds all 27 root file decisions. The original 28 checks separately have 26 production passes and two qualified replays.
@@ -715,13 +729,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 2,562/2,901 | 148/220 | — |
+| 2 · Evidence and archives | 2,901/2,901 | 220/220 | — |
 | 3 · Scripts, tools and packages | 752/752 | 43/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,523/1,540 | 167/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 250/334 | 30/47 | — |
-| **Total** | **5,114/5,554** | **388/487** | **198/198** |
+| 4 · Workflow source trees, templates, tests and configuration | 1,536/1,540 | 169/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 334/334 | 46/47 | — |
+| **Total** | **5,550/5,554** | **478/487** | **198/198** |
 
-**Directory organization.** 3,617 completed file decisions fall under 4 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 952 completed file decisions fall under 2 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
