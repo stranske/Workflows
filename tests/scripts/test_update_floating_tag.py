@@ -194,3 +194,34 @@ def test_update_floating_tag_never_moves_back_to_an_older_release(monkeypatch):
             ["git", "rev-parse", "v1^{commit}"], cwd=repo_path, text=True
         ).strip()
         assert floating_target == commit_v1_10
+
+
+def test_update_floating_tag_survives_a_long_tag_listing(monkeypatch):
+    """D11 review: `head -n 1` under pipefail exited 141 (SIGPIPE) on long tag lists."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_path = pathlib.Path(temp_dir)
+        _init_repo(repo_path)
+
+        old_commit = _commit_file(repo_path, "file.txt", "old\n", "old")
+        refs = "".join(f"create refs/tags/v1.0.{n} {old_commit}\n" for n in range(3000))
+        subprocess.run(
+            ["git", "update-ref", "--stdin"], cwd=repo_path, input=refs, text=True, check=True
+        )
+        newest = _commit_file(repo_path, "file.txt", "new\n", "new")
+        _tag(repo_path, "v1.1.0", newest)
+
+        env = os.environ.copy()
+        env["DRY_RUN"] = "1"
+        for args in ([newest], []):
+            completed = subprocess.run(
+                ["bash", "-o", "pipefail", str(SCRIPT_PATH), "v1", "v1.", *args],
+                cwd=repo_path,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            assert completed.returncode == 0, completed.stderr
+            floating_target = subprocess.check_output(
+                ["git", "rev-parse", "v1^{commit}"], cwd=repo_path, text=True
+            ).strip()
+            assert floating_target == newest

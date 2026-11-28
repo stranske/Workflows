@@ -24,7 +24,9 @@ else
 fi
 
 if [[ -z "${TARGET_COMMIT}" ]]; then
-  RELEASE_TAG=$(git tag -l "${MAJOR_PREFIX}*" --sort=-v:refname | head -n 1)
+  # awk reads the whole listing; head would close the pipe early and, under
+  # pipefail, fail the run with SIGPIPE once the tag list is long.
+  RELEASE_TAG=$(git tag -l "${MAJOR_PREFIX}*" --sort=-v:refname | awk 'NR == 1')
   if [[ -z "${RELEASE_TAG}" ]]; then
     if [[ "${ALLOW_MISSING_RELEASES}" != "0" ]]; then
       echo "No tags found matching ${MAJOR_PREFIX}*; ALLOW_MISSING_RELEASES enabled, skipping update"
@@ -42,7 +44,7 @@ else
   fi
 
   RELEASE_TAG=$(git tag --list --points-at "${TARGET_COMMIT}" "${MAJOR_PREFIX}*")
-  RELEASE_TAG=$(echo "${RELEASE_TAG}" | sort -rV | head -n 1)
+  RELEASE_TAG=$(echo "${RELEASE_TAG}" | sort -rV | awk 'NR == 1')
   if [[ -z "${RELEASE_TAG}" ]]; then
     if [[ "${ALLOW_MISSING_RELEASES}" != "0" ]]; then
       echo "Commit ${TARGET_COMMIT} is not tagged with ${MAJOR_PREFIX}* release; ALLOW_MISSING_RELEASES enabled, skipping update"
@@ -57,7 +59,7 @@ fi
 # run, so a run for an older tag can finish after the run for a newer one. The
 # floating tag moves only to the highest ${MAJOR_PREFIX}* release known after
 # the fetch above; an older tag leaves it where it is.
-HIGHEST_TAG=$(git tag -l "${MAJOR_PREFIX}*" --sort=-v:refname | head -n 1)
+HIGHEST_TAG=$(git tag -l "${MAJOR_PREFIX}*" --sort=-v:refname | awk 'NR == 1')
 if [[ -n "${HIGHEST_TAG}" && "${HIGHEST_TAG}" != "${RELEASE_TAG}" ]]; then
   HIGHEST_COMMIT=$(git rev-list -n 1 "${HIGHEST_TAG}")
   if [[ "${HIGHEST_COMMIT}" != "${TARGET_COMMIT}" ]]; then
