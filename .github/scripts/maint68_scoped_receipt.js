@@ -92,6 +92,9 @@ const SOURCE_WORKFLOWS = new Set([
   // Comment-only: the daily-ordering comment names when Health 68 actually runs
   // (cohesion round-2 A2/D7). No step, input or job changed.
   '566dba1a08f40c6f535dc30fffc9dfa9ecb2e3155589da7f198e788ee29c6a10',
+  // Filters removal staging and application using the compiled recipient exclusions.
+  // Immutable source resolution, authorization, and artifact publication are unchanged.
+  '8d7396430f731bdb673604909cef75649f57b086d34ff8cd3e5ea2696af5f497',
 ]);
 
 async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {

@@ -21,7 +21,7 @@ from scripts.scope_consumer_sync_plan import select_plan
 with tempfile.TemporaryDirectory() as directory:
  root=Path(directory);(root/'.github').mkdir();(root/'scripts').mkdir()
  (root/'scripts/copied.js').write_text('copied\\n');(root/'scripts/other.js').write_text('other\\n')
- (root/'.github/sync-manifest.yml').write_text('version: 1\\nscripts:\\n  - source: scripts/copied.js\\n    description: café\\n  - source: scripts/other.js\\n    description: unrelated\\n')
+ (root/'.github/sync-manifest.yml').write_text('version: 1\\nscripts:\\n  - source: scripts/copied.js\\n    description: café\\n  - source: scripts/other.js\\n    description: unrelated\\nremovals:\\n  - target: .github/scripts/retired.js\\n    description: Retained locally\\n    skip_repos: [owner/a]\\n')
  full=compile_manifest(root/'.github/sync-manifest.yml',repo_root=root).to_plan()
  plan,scope=select_plan(full,mode='source-delta',changed_paths=['scripts/copied.js'],base_sha='b'*40,source_commit='a'*40)
  phase={'schema':'workflows.consumer-sync-phase-selection/v1','version':1,'phase':'canary','plan_id':plan['plan_id'],'selected_repos':['owner/a','owner/b']}
@@ -269,7 +269,10 @@ test('actual refresh collector cannot mistake prior full delivery for the reques
   // Fixed producer members use recursively sorted keys.
   f.files['sync-plan-scope.json'] = JSON.stringify(scope, Object.keys(scope).sort(), 2) + '\n';
   f.rebuild();
-  assert.equal((await f.read()).state, 'completed');
+  const receipt = await f.read();
+  assert.equal(receipt.state, 'completed');
+  assert.equal(receipt.proof.source_identity_bound, true);
+  assert.deepEqual(receipt.plan.removals.map(row => row.skip_repos), [['owner/a']]);
   const state = await refreshThroughNativeFixture(t, f);
   assert.equal(state.eligible, true); assert.equal(state.producer_succeeded, false);
 });

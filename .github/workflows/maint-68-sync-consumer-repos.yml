@@ -723,6 +723,8 @@ jobs:
                   return str(reasons.get(repo) or 'Manifest skip for repo')
               return ''
 
+          removals = [item for item in removals if not manifest_skip_reason(item, current_repo)]
+
           tracked_files = None
 
           def verified_directory_files(item):

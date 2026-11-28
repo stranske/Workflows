@@ -1569,8 +1569,9 @@ def main() -> int:
                     _check_file(local_path, entry.target, repo)
 
     for removal in compiled.removals:
+        skip_repos = {rule.repo for rule in removal.skip_repos}
         for repo, remote_tree in remote_trees.items():
-            if removal.target in remote_tree:
+            if repo not in skip_repos and removal.target in remote_tree:
                 obsolete.add(f"{repo}: {removal.target}")
 
     report = build_report(
