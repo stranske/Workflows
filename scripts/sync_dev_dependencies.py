@@ -46,20 +46,48 @@ PRE_COMMIT_FILE = Path(".pre-commit-config.yaml")
 # on the previous pytest. Other consumer workflows stay untouched.
 QUOTED_PIN_WORKFLOWS = (Path(".github/workflows/pages-wasm-demo.yml"),)
 
-# Map env file keys to package names
+# The ONE dev-tool package map: autofix-versions.env key -> PyPI package name.
+# Every other dev-tool list (update_versions_from_pypi.py, sync_tool_versions.py,
+# maint_tool_version_check.py, the Renovate fleet preset's disabled rule) is derived from
+# the keys present in autofix-versions.env through this map, and a parity test
+# (tests/scripts/test_dev_tool_single_source.py) fails when any of them drifts.
+# HYPOTHESIS_VERSION is mapped so a consumer that pins it locally stays aligned; the
+# canonical env file deliberately does not pin it.
+DEV_TOOL_PACKAGES: dict[str, str] = {
+    "RUFF_VERSION": "ruff",
+    "BLACK_VERSION": "black",
+    "ISORT_VERSION": "isort",
+    "MYPY_VERSION": "mypy",
+    "PYTEST_VERSION": "pytest",
+    "PYTEST_COV_VERSION": "pytest-cov",
+    "PYTEST_XDIST_VERSION": "pytest-xdist",
+    "COVERAGE_VERSION": "coverage",
+    "DOCFORMATTER_VERSION": "docformatter",
+    "HYPOTHESIS_VERSION": "hypothesis",
+}
+
 # Format: ENV_KEY -> (package_name, optional_alternative_names)
 TOOL_MAPPING: dict[str, tuple[str, ...]] = {
-    "RUFF_VERSION": ("ruff",),
-    "BLACK_VERSION": ("black",),
-    "ISORT_VERSION": ("isort",),
-    "MYPY_VERSION": ("mypy",),
-    "PYTEST_VERSION": ("pytest",),
-    "PYTEST_COV_VERSION": ("pytest-cov",),
-    "PYTEST_XDIST_VERSION": ("pytest-xdist",),
-    "COVERAGE_VERSION": ("coverage",),
-    "DOCFORMATTER_VERSION": ("docformatter",),
-    "HYPOTHESIS_VERSION": ("hypothesis",),
+    key: (package,) for key, package in DEV_TOOL_PACKAGES.items()
 }
+
+
+def pinned_dev_tools(pins: dict[str, str]) -> dict[str, str]:
+    """Return env key -> package for every ``*_VERSION`` key in a parsed pin file.
+
+    Raises ``ValueError`` for a pinned key the package map does not know, so adding a
+    tool to autofix-versions.env without naming its package fails loudly instead of
+    silently leaving it out of every derived list.
+    """
+    keys = [key for key in pins if key.endswith("_VERSION")]
+    unknown = [key for key in keys if key not in DEV_TOOL_PACKAGES]
+    if unknown:
+        raise ValueError(
+            "autofix-versions.env pins keys with no package in DEV_TOOL_PACKAGES: "
+            + ", ".join(sorted(unknown))
+        )
+    return {key: DEV_TOOL_PACKAGES[key] for key in keys}
+
 
 # Only version pins for tools already governed by autofix-versions.env are managed.
 # The rest of a consumer's pre-commit configuration remains consumer-owned.
