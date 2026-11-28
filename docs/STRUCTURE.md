@@ -58,6 +58,92 @@ Known exceptions, kept on purpose or tracked:
 | [Recovery evidence](../evidence) | Inputs for reconstructing earlier results. The [verifier recovery test](../tests/scripts/test_verifier_semantic_package_recovery.py) reads the issue 3820 sources and compares the recovered obligations with the recorded contract. |
 | [Routing acceptance packet](#replay-routing-acceptance-evidence) | Offline recovery for the recorded routing-label result on issue 3988. |
 
+## Directory index
+
+Every top-level and second-level directory, one line each. This is the only layout map:
+the [main README](../README.md) and the [docs index](README.md) link here, and
+`tests/docs/test_structure_directory_index.py` fails when a directory is added, removed
+or renamed without updating this list.
+
+| Directory | Holds |
+|---|---|
+| `.agents/` | Issue task ledgers (`issue-<N>-ledger.yml`); a record since the Codex Belt retired |
+| `.claude/` | Claude Code project settings |
+| `.claude/skills/` | Claude skills used in this repository |
+| `.devcontainer/` | Dev container definition |
+| `.github/` | GitHub configuration, workflows, actions and the scripts they run |
+| `.github/ISSUE_TEMPLATE/` | Issue forms and agent-task templates |
+| `.github/actions/` | Composite actions, one `action.yml` each, plus pinned CLI installs |
+| `.github/agents/` | Agent registry and model table |
+| `.github/codex/` | Agent instructions and prompts |
+| `.github/config/` | Required status checks (`required-contexts.json`) |
+| `.github/copilot-skills-local/` | Local Copilot skill notes |
+| `.github/scripts/` | Code that runs inside Actions jobs; JavaScript tests in `__tests__/` |
+| `.github/signature-fixtures/` | Inputs for the signature-verify action's self-test |
+| `.github/templates/` | Instruction text that workflows post (keepalive instruction) |
+| `.github/workflows/` | Workflow entry points and reusable workflows ([catalog](ci/WORKFLOWS.md)) |
+| `agents/` | Optional issue stubs created by the issue bridge |
+| `config/` | Live settings (single files at the root) and frozen evaluation corpora |
+| `config/model_eval_snapshots/` | Frozen model-evaluation snapshots (record) |
+| `config/verify_paired/` | Frozen paired-verification corpus (record) |
+| `docs/` | Documentation ([index](README.md)) |
+| `docs/analysis/` | One-off evaluations (record) |
+| `docs/archive/` | Retired workflows, superseded plans and historical files |
+| `docs/ci/` | CI reference: workflow catalog, outputs, audit procedure |
+| `docs/closer-operation/` | Closer operation contract and local validation |
+| `docs/contracts/` | Cross-repo contracts and JSON schemas |
+| `docs/dashboards/` | Dashboard notes (LangSmith metrics) |
+| `docs/evidence/` | Issue acceptance evidence (record) |
+| `docs/exports/` | Exported skill text |
+| `docs/fixes/` | Remediation plans and audits (record) |
+| `docs/git-hooks/` | Git hook overview |
+| `docs/guides/` | How-to guides (adding an agent) |
+| `docs/keepalive/` | Keepalive contract and agent routing |
+| `docs/ops/` | Operating procedures (lanes, sync, consumer maintenance, runbook) |
+| `docs/orchestrator/` | Orchestrator-facing maps and plans |
+| `docs/plans/` | Plans (mostly superseded; see the archive) |
+| `docs/reference/` | Reference notes |
+| `docs/reports/` | Generated and audit reports (cleanup tracker, decisions, CI budget) |
+| `docs/reverification/` | Reverification decisions for missing artifacts (record) |
+| `docs/templates/` | Issue and setup templates |
+| `docs/validation/` | Validation overview |
+| `docs/verification/` | Per-PR verification packets and captured assets (record) |
+| `docs/workflow-snippets/` | Copyable workflow fragments |
+| `docs/workflow-updates/` | Workflow review notes (record) |
+| `docs/workflows/` | Workflow system notes (evaluation, bug report) |
+| `evidence/` | Recovery inputs kept per issue, separate from `docs/evidence` |
+| `evidence/issue-<number>/` | One issue's recovery inputs (record) |
+| `packages/` | Separately versioned packages |
+| `packages/app-baseline-kit/` | App baseline kit package |
+| `packages/stranske_pdf_extract/` | PDF extraction package |
+| `renovate-presets/` | Renovate presets for the fleet, including the generated consumer-managed paths |
+| `scripts/` | CLIs with an entry point ([Where code goes](#where-code-goes), rule 4) |
+| `scripts/keepalive/` | Keepalive evidence validator |
+| `scripts/langchain/` | LangChain issue pipeline (formatter, optimizer, decomposer) |
+| `scripts/metrics/` | Metrics helpers shared by `scripts/*metrics*` CLIs |
+| `scripts/model_eval/` | Model-evaluation and judge-screen CLIs |
+| `scripts/repo_review_publication/` | Repo-review publication helpers |
+| `scripts/runner_lib/` | Runner library (acceptance gate) |
+| `scripts/verifier/` | Verifier research and replay CLIs |
+| `src/` | Autofix samples only |
+| `src/trend_analysis/` | Deliberately broken autofix samples ([README](../src/trend_analysis/README.md)) |
+| `templates/` | Material distributed to other repositories |
+| `templates/consumer-repo/` | Consumer template, delivered through the sync manifest |
+| `templates/integration-repo/` | Integration project that exercises shared CI (Maint 62, Maint 69 to WIT) |
+| `templates/test_helpers/` | Test helper module for templates |
+| `templates/workflow-templates/` | GitHub starter-workflow template |
+| `tests/` | Python tests; they follow the code they test |
+| `tests/contracts/` | Contract and schema tests |
+| `tests/docs/` | Documentation consistency tests |
+| `tests/fixtures/` | Python test inputs, by topic |
+| `tests/integration/` | Integration tests |
+| `tests/langchain/` | Tests for `scripts/langchain/` |
+| `tests/metrics/` | Tests for `scripts/metrics/` and metrics CLIs |
+| `tests/scripts/` | Tests for `scripts/` |
+| `tests/tools/` | Tests for `tools/` |
+| `tests/workflows/` | Workflow contract tests |
+| `tools/` | Importable shared modules and delivered tools ([Where code goes](#where-code-goes), rule 5) |
+
 ## Replay routing acceptance evidence
 
 The [issue 3988 acceptance packet](https://github.com/stranske/Workflows/tree/e1b5c5284108b94eacaab658cfcc60196c2dd0ce/artifacts/issue-3988) is preserved at its immutable revision. [Issue 4515](https://github.com/stranske/Workflows/issues/4515) cites the original paths and commands.
