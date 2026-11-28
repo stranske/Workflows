@@ -1414,3 +1414,89 @@ test('missing or corrupt authoritative state never grants', async () => {
     ownerAttempt, provider: 'codex', headSha,
   })).granted, false);
 });
+
+// Cohesion A1-interim: stranske/Workflows has no keepalive-authority-state branch, and its
+// sweep-dispatched reporter replay failed every hour on the GET-ref 404 (100 of 100 runs,
+// 2026-11-16..11-28). A branch that is PROVEN absent means "no ledger, no attempt indexes";
+// a 404 that cannot be proven to mean absence keeps failing closed.
+for (const directory of ['..', '../../../templates/consumer-repo/.github/scripts']) {
+  const label = directory === '..' ? 'root' : 'consumer';
+  function load(filename) {
+    const authority = require.resolve(`${directory}/keepalive_authority_state.js`);
+    delete require.cache[authority];
+    const target = require.resolve(`${directory}/${filename}`);
+    delete require.cache[target];
+    return require(target);
+  }
+
+  function absentBranchRequest({ listing = [], listingError = null } = {}) {
+    const calls = [];
+    const request = async (method, path) => {
+      calls.push(path);
+      assert.equal(method, 'GET', 'absence reads must never write');
+      if (path.endsWith('/git/ref/heads/keepalive-authority-state')) throw status(404);
+      if (path.endsWith('/git/matching-refs/heads/keepalive-authority-state')) {
+        if (listingError) throw listingError;
+        return listing;
+      }
+      throw new Error(`unexpected absent-branch request: ${path}`);
+    };
+    return { request, calls };
+  }
+
+  test(`${label}: replay treats a proven-absent authority branch as no ledger`, async () => {
+    const { readAuthorityStateForReplay: read } = load('keepalive_authority_state.js');
+    const { request, calls } = absentBranchRequest();
+    assert.equal(await read(request, repository, prNumber), null);
+    assert.deepEqual(calls, [
+      '/repos/owner/repo/git/ref/heads/keepalive-authority-state',
+      '/repos/owner/repo/git/matching-refs/heads/keepalive-authority-state',
+    ]);
+  });
+
+  test(`${label}: a prefix-only matching ref is still absence of the exact branch`, async () => {
+    const { readAuthorityStateForReplay: read } = load('keepalive_authority_state.js');
+    const { request } = absentBranchRequest({
+      listing: [{ ref: 'refs/heads/keepalive-authority-state-old' }],
+    });
+    assert.equal(await read(request, repository, prNumber), null);
+  });
+
+  test(`${label}: an unprovable 404 keeps failing closed`, async () => {
+    const { readAuthorityStateForReplay: read } = load('keepalive_authority_state.js');
+    for (const scenario of [
+      { listingError: status(404) },
+      { listingError: status(503) },
+      { listing: { message: 'Not Found' } },
+      { listing: [null] },
+    ]) {
+      await assert.rejects(read(absentBranchRequest(scenario).request, repository, prNumber),
+        /HTTP 404/);
+    }
+  });
+
+  test(`${label}: a branch that appears during the absence read is not absent`, async () => {
+    const { readAuthorityStateForReplay: read } = load('keepalive_authority_state.js');
+    const { request } = absentBranchRequest({
+      listing: [{ ref: 'refs/heads/keepalive-authority-state' }],
+    });
+    await assert.rejects(read(request, repository, prNumber), /appeared during absence read/);
+  });
+
+  test(`${label}: a proven-absent branch holds no attempt indexes`, async () => {
+    const { hasAttemptIndexesForPr: has } = load('keepalive_authority_state.js');
+    assert.equal(await has(absentBranchRequest().request, repository, prNumber), false);
+    await assert.rejects(has(absentBranchRequest({ listingError: status(503) }).request,
+      repository, prNumber), /HTTP 404/);
+  });
+
+  test(`${label}: sweep replay for a repo with no authority branch is a clean no-op`, async () => {
+    const { replayReporterAuthority } = load('keepalive_reporter_applicability.js');
+    const { request } = absentBranchRequest();
+    const result = await replayReporterAuthority({
+      github: {}, context: { repo: { owner: 'owner', repo: 'repo' } },
+      prNumber, makeRequest: () => request,
+    });
+    assert.deepEqual(result, { prNumber, results: [] });
+  });
+}
