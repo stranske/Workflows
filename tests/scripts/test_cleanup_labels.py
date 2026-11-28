@@ -1,8 +1,10 @@
 import json
 import runpy
+import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import yaml
 from scripts import cleanup_labels
 
 
@@ -55,6 +57,17 @@ def test_classify_label_covers_core_categories() -> None:
     assert cleanup_labels.classify_label("bug") == "informational"
     assert cleanup_labels.classify_label("codex") == "bloat"
     assert cleanup_labels.classify_label("team:triage") == "idiosyncratic"
+
+
+def test_every_synced_label_is_protected_by_the_audit() -> None:
+    definitions = cleanup_labels.ROOT / ".github/labels-core.yml"
+    labels = yaml.safe_load(definitions.read_text(encoding="utf-8"))
+    names = [label["name"] for label in labels]
+
+    assert "agents:pause" in names
+    assert cleanup_labels.classify_label_names(names)["functional"] == names
+    assert cleanup_labels.classify_label(" Agents:Pause ") == "functional"
+    assert cleanup_labels.classify_label("status: ready") == "bloat"
 
 
 def test_classify_label_normalizes_case_and_colon_spacing() -> None:
@@ -127,6 +140,39 @@ def test_remove_labels_deletes_only_requested_labels_when_confirmed() -> None:
     assert result == {"removed": ["codex"], "errors": []}
     assert bloat.deleted is True
     assert keep.deleted is False
+
+
+def test_execute_keeps_synced_labels_even_when_explicitly_requested(monkeypatch) -> None:
+    legacy_pause = FakeLabel("agents:pause")
+    runner = FakeLabel("runner:codex")
+    legacy_status = FakeLabel("status: ready")
+    custom = FakeLabel("team:triage")
+    github = FakeGithub(FakeRepo([legacy_pause, runner, legacy_status, custom]))
+    monkeypatch.setattr(cleanup_labels, "get_github_client", lambda: github)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "cleanup_labels.py",
+            "--repo",
+            "owner/repo",
+            "--execute",
+            "--confirm",
+            "--include-idiosyncratic",
+            "--remove-labels",
+            legacy_pause.name,
+            runner.name,
+            custom.name,
+        ],
+    )
+
+    cleanup_labels.main()
+
+    assert github.requested_repos == ["owner/repo", "owner/repo"]
+    assert not legacy_pause.deleted
+    assert not runner.deleted
+    assert legacy_status.deleted
+    assert custom.deleted
 
 
 def test_get_github_client_reports_missing_pygithub(monkeypatch, capsys) -> None:
