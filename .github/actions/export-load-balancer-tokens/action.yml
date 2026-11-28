@@ -43,6 +43,8 @@ runs:
   steps:
     - name: Export tokens
       shell: bash
+      env:
+        ROTATION_CONFIG: ${{ inputs.token_rotation_json }}
       run: |
         set -euo pipefail
 
@@ -85,5 +87,5 @@ runs:
         export_var "APP_2_ID" "${{ inputs.app_2_id }}"
         export_var "APP_2_PRIVATE_KEY" "${{ inputs.app_2_private_key }}"
 
-        export_var "TOKEN_ROTATION_JSON" "${{ inputs.token_rotation_json }}"
+        export_var "TOKEN_ROTATION_JSON" "$ROTATION_CONFIG"
         export_var "TOKEN_ROTATION_ENV_KEYS" "${{ inputs.token_rotation_env_keys }}"
