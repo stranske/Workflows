@@ -60,6 +60,7 @@ def test_summarize_workflow_activity_handles_naive_now(monkeypatch) -> None:
         now=now,
     )
     assert summaries[0]["recent_runs"] == 1
+    assert summaries[0]["sampled_runs"] == 2
 
 
 def test_summarize_workflow_activity_handles_naive_run_timestamps(monkeypatch) -> None:
@@ -518,6 +519,7 @@ def test_main_json_includes_workflow_activity(monkeypatch, capsys) -> None:
                 "repo": "owner/repo",
                 "window_hours": 2,
                 "recent_runs": 0,
+                "sampled_runs": 0,
                 "total_runs": 0,
             }
         ]
@@ -540,6 +542,7 @@ def test_main_json_includes_workflow_activity(monkeypatch, capsys) -> None:
             "repo": "owner/repo",
             "window_hours": 2,
             "recent_runs": 0,
+            "sampled_runs": 0,
             "total_runs": 0,
         }
     ]
@@ -576,6 +579,7 @@ def test_summarize_workflow_activity_filters_window(monkeypatch) -> None:
             "repo": "owner/repo",
             "window_hours": 2,
             "recent_runs": 1,
+            "sampled_runs": 4,
             "total_runs": 4,
         }
     ]
@@ -745,8 +749,10 @@ def test_rate_limit_models_and_api_helpers_cover_success_and_failure(monkeypatch
         }
     }
 
-    def successful_run(*_args, **kwargs):
+    def successful_run(command, **kwargs):
         assert kwargs["env"]["GH_TOKEN"] == "secret"
+        if command[2] == "repos/owner/repo/actions/runs":
+            assert command[3:] == ["--method", "GET", "-f", "per_page=100"]
         return subprocess.CompletedProcess([], 0, json.dumps(payload), "")
 
     monkeypatch.setattr(analyze_api_rate_limits.subprocess, "run", successful_run)
@@ -764,10 +770,10 @@ def test_rate_limit_models_and_api_helpers_cover_success_and_failure(monkeypatch
 
     monkeypatch.setattr(analyze_api_rate_limits.subprocess, "run", failed_run)
     assert analyze_api_rate_limits.get_rate_limits() is None
-    assert analyze_api_rate_limits.get_workflow_runs("owner/repo") == {
-        "workflow_runs": [],
-        "total_count": 0,
-    }
+    assert analyze_api_rate_limits.get_workflow_runs("owner/repo") is None
+    assert analyze_api_rate_limits.summarize_workflow_activity(["owner/repo"]) == [
+        {"repo": "owner/repo", "window_hours": 1, "error": "workflow_activity_unavailable"}
+    ]
     assert "Failed to get" in capsys.readouterr().err
 
 
@@ -788,7 +794,16 @@ def test_analyze_and_print_helpers_cover_all_output_branches(monkeypatch, capsys
     )
     analyze_api_rate_limits.print_workflow_activity([])
     analyze_api_rate_limits.print_workflow_activity(
-        [{"repo": "owner/repo", "window_hours": 1, "recent_runs": 2, "total_runs": 3}]
+        [
+            {
+                "repo": "owner/repo",
+                "window_hours": 1,
+                "recent_runs": 2,
+                "sampled_runs": 3,
+                "total_runs": 3,
+            },
+            {"repo": "owner/repo2", "error": "workflow_activity_unavailable"},
+        ]
     )
     analyze_api_rate_limits.print_recommendations()
     output = capsys.readouterr().out
@@ -796,6 +811,8 @@ def test_analyze_and_print_helpers_cover_all_output_branches(monkeypatch, capsys
     assert "Only 1 token" in output
     assert "Load is reasonably balanced" in output
     assert "owner/repo: 2 run(s)" in output
+    assert "among 3 first-page runs" in output
+    assert "owner/repo2: workflow activity unavailable" in output
 
 
 def test_main_human_output_critical_and_no_limits(monkeypatch, capsys) -> None:
