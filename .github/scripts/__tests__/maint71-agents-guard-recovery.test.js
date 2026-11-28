@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const native = require('../maint71_merge_sync_prs');
 const { CONTEXT, agentsGuardNeedsRecovery, agentsGuardNeedsInspection,
   agentsGuardRefusalHandoff } = require('../maint71_agents_guard_recovery');
-const real = require('./fixtures/ready-jobless-guard.json');
+const real = require('./fixtures/ready-agents-guard.json').jobless;
 
 function fixture() {
   const data = structuredClone(real), writes = [], reads = [], comments = [];
@@ -139,7 +139,7 @@ test('refusal repair hint does not replace independent check or review blockers'
 });
 
 test('real Gate-only protection and target-event Guard success still select original-event inspection', () => {
-  const input = require('./fixtures/ready-unqualified-guard-selection.json');
+  const input = require('./fixtures/ready-agents-guard.json').unqualified;
   const checks = [...input.checks, ...input.statuses.map(native.legacyStatusAsCheck)];
   const classification = require('../sync_pr_merge_contract').classifySyncPrChecks({
     checkRuns: checks, requiredContexts: input.required_contexts });

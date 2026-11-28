@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 LANGCHAIN_SCRIPTS = ROOT / "scripts" / "langchain"
 MANIFEST = ROOT / ".github" / "sync-manifest.yml"
 TEMPLATE = ROOT / "templates" / "consumer-repo"

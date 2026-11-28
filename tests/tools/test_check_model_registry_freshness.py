@@ -275,7 +275,7 @@ def test_real_registry_accepts_stale_consumer_slots_in_cli(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], config_dir: str, stale_selection: dict
 ):
     """Registry sync must stay nonblocking when create-only slots keep the retired judge."""
-    config_root = Path(__file__).resolve().parents[1] / config_dir
+    config_root = Path(__file__).resolve().parents[2] / config_dir
     slots = json.loads((config_root / "llm_slots.json").read_text(encoding="utf-8"))
     slots["slots"].append({"name": "slot3", "provider": "github-models", **stale_selection})
     # Old consumers need not have received the capacity-backup block either.
@@ -386,7 +386,7 @@ def test_slot_pin_and_profile_gate_branches(kind, slots):
 
 
 def test_real_repo_files_are_fresh():
-    root = Path(__file__).resolve().parent.parent
+    root = Path(__file__).resolve().parents[2]
     registry = json.loads((root / "config" / "model_registry.json").read_text())
     slots = json.loads((root / "config" / "llm_slots.json").read_text())
     policy = json.loads((root / "config" / "model_selection_policy.json").read_text())
@@ -426,7 +426,7 @@ def test_main_exit_codes(tmp_path: Path):
 
 
 def test_direct_script_execution_uses_shared_default_profile():
-    root = Path(__file__).resolve().parent.parent
+    root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
         [sys.executable, "tools/check_model_registry_freshness.py", "--json"],
         cwd=root,

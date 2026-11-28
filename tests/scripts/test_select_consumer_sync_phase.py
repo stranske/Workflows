@@ -17,7 +17,7 @@ ROOT = Path(__file__).parents[2]
 
 
 def test_promotion_consumes_the_shared_finding_contract_and_fails_closed(monkeypatch) -> None:
-    fixture = ROOT / ".github/scripts/__tests__/fixtures/sync_finding_disposition.js"
+    fixture = ROOT / ".github/scripts/__tests__/helpers/sync_finding_disposition.js"
     program = (
         "const p=require(process.argv[1]).findingPacket();"
         "console.log(JSON.stringify({repo:p.binding.repository,pr:p.binding.pr,"
