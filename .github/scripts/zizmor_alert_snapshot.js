@@ -1,18 +1,39 @@
 'use strict';
 
-// Open zizmor code-scanning alerts, with the trend since the previous
-// self-check snapshot (cohesion review A5d).
+// Open code-scanning alerts per scan, each with the trend since the previous
+// self-check snapshot (cohesion review A5d for zizmor; round 2 B3 adds CodeQL
+// and Semgrep).
 //
-// health-51-zizmor uploads SARIF with continue-on-error and nothing read the
-// resulting alerts, so the count could only grow unseen. The self-check now
-// prints it every week next to the previous value. Three outcomes are kept
-// distinct, because only one of them is good news:
+// The security scans upload SARIF with continue-on-error and nothing read the
+// resulting alerts, so the counts could only grow unseen. The self-check now
+// prints each count every week next to the previous value. Three outcomes are
+// kept distinct, because only one of them is good news:
 //   - measured, N > 0  -> "`N` open"
 //   - measured, 0      -> "`0` open - fully drained"
 //   - not measured     -> "not counted: <reason>" (never shown as zero)
 
-const COUNT_MARKER = 'Open zizmor alerts:';
-const COUNT_PATTERN = /Open zizmor alerts:\*?\s*`(\d+)`/;
+// `label` is what the snapshot prints; `tool` is the code-scanning tool name
+// the API filters on (the SARIF driver name, e.g. Semgrep uploads as
+// "Semgrep OSS").
+const SCANS = [
+  { label: 'zizmor', tool: 'zizmor' },
+  { label: 'CodeQL', tool: 'CodeQL' },
+  { label: 'Semgrep', tool: 'Semgrep OSS' },
+];
+
+function countMarker(label = 'zizmor') {
+  return `Open ${label} alerts:`;
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function countPattern(label = 'zizmor') {
+  return new RegExp(`${escapeRegExp(countMarker(label))}\\*?\\s*\`(\\d+)\``);
+}
+
+const COUNT_MARKER = countMarker('zizmor');
 
 // Callers pass the paginateWithRetry returned by createTokenAwareRetry
 // (github-api-with-retry.js); the default only serves unit tests.
@@ -53,14 +74,14 @@ async function countOpenAlerts({
   }
 }
 
-function parsePreviousCount(body) {
-  const match = COUNT_PATTERN.exec(String(body || ''));
+function parsePreviousCount(body, label = 'zizmor') {
+  const match = countPattern(label).exec(String(body || ''));
   return match ? Number.parseInt(match[1], 10) : null;
 }
 
-function buildSnapshot({ current, previousBody = '', previousAt = '' }) {
-  const previous = parsePreviousCount(previousBody);
-  const snapshot = { ...current, previous, previous_at: previousAt || null };
+function buildSnapshot({ current, previousBody = '', previousAt = '', label = 'zizmor' }) {
+  const previous = parsePreviousCount(previousBody, label);
+  const snapshot = { ...current, label, previous, previous_at: previousAt || null };
   if (current.status !== 'measured') {
     snapshot.trend = 'unknown';
     snapshot.delta = null;
@@ -76,17 +97,19 @@ function buildSnapshot({ current, previousBody = '', previousAt = '' }) {
   return snapshot;
 }
 
-function renderMarkdown(snapshot) {
-  const lines = ['## Security scan alerts', ''];
+// The lines for one scan, without the section heading.
+function renderScanLines(snapshot) {
+  const marker = countMarker(snapshot.label || 'zizmor');
+  const lines = [];
   if (snapshot.status !== 'measured') {
-    lines.push(`*${COUNT_MARKER}* not counted: ${snapshot.reason || 'unknown reason'}`);
+    lines.push(`*${marker}* not counted: ${snapshot.reason || 'unknown reason'}`);
     if (snapshot.previous !== null && snapshot.previous !== undefined) {
       lines.push('', `*Previous snapshot:* \`${snapshot.previous}\``);
     }
-    return `${lines.join('\n')}\n`;
+    return lines;
   }
   const drained = snapshot.open === 0 ? ' - fully drained' : '';
-  lines.push(`*${COUNT_MARKER}* \`${snapshot.open}\`${drained}`);
+  lines.push(`*${marker}* \`${snapshot.open}\`${drained}`);
   if (snapshot.previous === null || snapshot.previous === undefined) {
     lines.push('', '*Trend:* first measurement (no earlier snapshot carried a count)');
   } else {
@@ -103,13 +126,48 @@ function renderMarkdown(snapshot) {
   if (severities.length > 0) {
     lines.push('', `*By severity:* ${severities.map(([k, v]) => `${k} ${v}`).join(', ')}`);
   }
+  return lines;
+}
+
+function renderMarkdown(snapshot) {
+  return renderSecuritySection([snapshot]);
+}
+
+// One "Security scan alerts" section holding every scan, in the given order.
+function renderSecuritySection(snapshots) {
+  const lines = ['## Security scan alerts'];
+  for (const snapshot of snapshots) {
+    lines.push('', ...renderScanLines(snapshot));
+  }
   return `${lines.join('\n')}\n`;
+}
+
+// Count every scan in SCANS against the previous snapshot body.
+async function snapshotAllScans({
+  github,
+  owner,
+  repo,
+  paginateWithRetry,
+  previousBody = '',
+  previousAt = '',
+  scans = SCANS,
+}) {
+  const snapshots = [];
+  for (const scan of scans) {
+    const current = await countOpenAlerts({ github, owner, repo, tool: scan.tool, paginateWithRetry });
+    snapshots.push(buildSnapshot({ current, previousBody, previousAt, label: scan.label }));
+  }
+  return snapshots;
 }
 
 module.exports = {
   COUNT_MARKER,
+  SCANS,
   buildSnapshot,
+  countMarker,
   countOpenAlerts,
   parsePreviousCount,
   renderMarkdown,
+  renderSecuritySection,
+  snapshotAllScans,
 };
