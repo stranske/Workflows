@@ -1,9 +1,8 @@
 # Weekly repo-review automation configuration.
 #
-# This file documents the cron automation that drives the weekly
-# design-vs-implementation review cycle. The automation is named
-# "reviewed-repo-weekly-design-review" and is invoked by the macOS
-# launchd job / cron via the claude CLI with the coordinator script below.
+# This file records coordinator settings and operating notes for the weekly
+# design-vs-implementation review. The installed Codex automation
+# "reviewed-repo-weekly-design-review" defines the schedule in its automation.toml.
 #
 # To run manually (skip archiving and evaluator preflight):
 #   python scripts/repo_review_coordinator.py \
@@ -16,7 +15,6 @@
 
 [automation]
 name = "reviewed-repo-weekly-design-review"
-schedule = "0 9 * * 1"  # Mondays 09:00 local time
 entry_point = "scripts/repo_review_coordinator.py"
 output_dir = "docs/reports/repo-review"
 registry = "config/repo_review_registry.json"
@@ -106,7 +104,7 @@ As of #2272 the queue_builder is NOT a producer of approved-issue-queue.json:
 the final evaluator pass (step 4) is the SOLE writer of that artifact. This step
 previously wrote the file and the evaluator silently overwrote it with divergent
 approve/revise + meta-candidate + cycle-binding semantics, so what landed on disk
-depended on a race. The cron still does NOT auto-upload; the human reviews the
+depended on a race. The scheduled review does NOT auto-upload; the human reviews the
 packet and runs upload_repo_review_issues.py --apply.
 """
 output = "none (preview counts logged to coordinator stdout)"
@@ -155,7 +153,7 @@ auto-labeled. Without this safety net, manually-created enhancement issues
 with no priority label sit invisible indefinitely — the Inv-Man-Intake
 #25/#26/#27 case from 2026-05-07 confirmed the failure mode.
 
-Runs with --apply so labels are actually written during the cron. The
+Runs with --apply so labels are actually written during the scheduled review. The
 notify step renders the auto-labeled and needs-human lists in the desktop
 reminder.
 """
