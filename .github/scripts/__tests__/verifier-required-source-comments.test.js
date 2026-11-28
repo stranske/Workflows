@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {fetchRequiredConversationComments,fetchVerifierEvidence}=require('../../.github/scripts/agents_verifier_context');
-const {requiredEvidence,buildVerificationEvent}=require('../../.github/scripts/verification_event');
+const {fetchRequiredConversationComments,fetchVerifierEvidence}=require('../agents_verifier_context');
+const {requiredEvidence,buildVerificationEvent}=require('../verification_event');
 const url='https://github.com/a/b/issues/677#issuecomment-6236440140';
 const body='Owner decision 2026-10-17 (q-10afaa2d73683dec): historical policy revision.';
 const sourceIssues=[{number:677,url:'https://github.com/a/b/issues/677',repository:'a/b'}];
@@ -32,10 +32,31 @@ test('transient fetch failure retains recoverable cause; a fresh collection can 
  const failed=await fetchRequiredConversationComments(f.args);assert.equal(failed.inventory[0].status,'unavailable');assert.match(failed.inventory[0].reason,/temporary/);assert.throws(()=>requiredEvidence(selector,{comments:failed}),/absent/);
  f.github.rest.issues.getComment=get;const recovered=await fetchRequiredConversationComments(f.args);assert.equal(recovered.inventory[0].status,'included');
 });
-test('no selection is inert; duplicates fetch once; PR selection preserves existing conversation collector',async()=>{
- assert.deepEqual(await fetchRequiredConversationComments({material:undefined}),{records:[],inventory:[],chars:0});
- const f=fixture(),r=await fetchRequiredConversationComments({...f.args,material:[...selector,...selector]});assert.equal(f.calls(),1);assert.equal(r.records.length,1);
- const pr=await fetchRequiredConversationComments({...f.args,material:[{kind:'comment',url:'https://github.com/a/b/pull/689#issuecomment-42'}]});assert.equal(pr.inventory[0].status,'existing_pr_collection');assert.equal(f.calls(),1);
+test('no selection is inert, duplicate selectors fetch once and explicit PR comments require a matching thread', async () => {
+  assert.deepEqual(await fetchRequiredConversationComments({material: undefined}), {records: [], inventory: [], chars: 0});
+  const f = fixture();
+  const duplicate = await fetchRequiredConversationComments({...f.args, material: [...selector, ...selector]});
+  assert.equal(f.calls(), 1);
+  assert.equal(duplicate.records.length, 1);
+
+  const prUrl = 'https://github.com/a/b/pull/689#issuecomment-42';
+  const comment = {...f.comment, id: 42, html_url: prUrl};
+  const requests = [];
+  f.github.rest.issues.getComment = async args => {
+    requests.push(args);
+    return {data: comment};
+  };
+  const args = {...f.args, material: [{kind: 'comment', url: prUrl}]};
+  const wrongThread = await fetchRequiredConversationComments(args);
+  assert.equal(wrongThread.inventory[0].reason, 'required_comment_identity_invalid');
+  assert.deepEqual(wrongThread.records, []);
+
+  comment.issue_url = 'https://api.github.com/repos/a/b/issues/689';
+  const selected = await fetchRequiredConversationComments(args);
+  assert.equal(selected.inventory[0].status, 'included');
+  assert.equal(selected.records[0].url, prUrl);
+  assert.equal(selected.records[0].body, body);
+  assert.deepEqual(requests, Array(2).fill({owner: 'a', repo: 'b', comment_id: 42}));
 });
 test('real evidence collector reserves necessary source comment before optional PR comments',async()=>{
  const saved=process.env.VERIFICATION_MATERIAL,chars=process.env.VERIFIER_EVIDENCE_COMMENT_CHARS;

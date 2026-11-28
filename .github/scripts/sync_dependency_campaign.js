@@ -3,7 +3,6 @@
 const crypto = require('crypto');
 const {
   findOrCreateTracker,
-  isConsumerOpenPr,
   updateTrackerBody,
 } = require('./sync_tracker_state.js');
 const { mergeEligibility, parseDeliveryRecord } = require('./sync_pr_lease_contract');
@@ -2151,6 +2150,21 @@ async function fetchReviewThreads(github, owner, repo, number, core, withRetry =
   return threads;
 }
 
+const CAMPAIGN_HEAD_PATTERN = /^(sync\/workflows-|dependabot\/)/;
+
+// Same predicate isConsumerOpenPr applies: a consumer-owned head branch (not a
+// fork) whose name marks a sync or dependency PR.
+function isConsumerCampaignHead(pr, fullName) {
+  const headRef = cleanString(pr?.head?.ref || pr?.headRefName || pr?.head_ref);
+  const headRepository = cleanString(
+    pr?.head?.repo?.full_name || pr?.head?.repo?.nameWithOwner,
+  ).toLowerCase();
+  return (
+    headRepository === cleanString(fullName).toLowerCase()
+    && CAMPAIGN_HEAD_PATTERN.test(headRef)
+  );
+}
+
 async function discoverRepoWork({
   github,
   core,
@@ -2170,17 +2184,10 @@ async function discoverRepoWork({
     dependabotPrsOpen: 0,
   };
 
-  const hasCampaignPr = await isConsumerOpenPr({
-    github,
-    consumerRepo: fullName,
-    branchPattern: /^(sync\/workflows-|dependabot\/)/,
-    core,
-    withRetry,
-  });
-  if (!hasCampaignPr) {
-    return result;
-  }
-
+  // One listing per repo per pass (cohesion review round 2, A4). This used to
+  // list every open PR twice: once inside isConsumerOpenPr just to answer "is
+  // there a campaign PR at all?", then again for the scan below. Both answers
+  // now come from the same list.
   const prs = cleanArray(await paginateWithRetry({
     github,
     core,
@@ -2189,6 +2196,15 @@ async function discoverRepoWork({
     params: { owner, repo, state: 'open', per_page: 100 },
     label: `${fullName} open pulls`,
   }));
+  const hasCampaignPr = prs.some((pr) => isConsumerCampaignHead(pr, fullName));
+  log(
+    core,
+    'info',
+    `${fullName}: 1 open-PR listing, ${prs.length} open PRs, campaign PR present: ${hasCampaignPr}`,
+  );
+  if (!hasCampaignPr) {
+    return result;
+  }
 
   for (const pr of prs) {
     const classification = classifyPullRequest(pr);
