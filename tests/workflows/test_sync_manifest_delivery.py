@@ -360,7 +360,7 @@ def test_sync_fanout_is_canary_gated_and_promotion_is_plan_bound() -> None:
     assert '"workflow:source-sync"' in source
     labels_core = Path(".github/labels-core.yml").read_text(encoding="utf-8")
     assert (
-        "- name: workflow:source-sync\n  color: \"1d76db\"\n"
+        '- name: workflow:source-sync\n  color: "1d76db"\n'
         "  description: PR source is a sync or maintenance campaign"
     ) in labels_core
     assert "<!-- workflow-source:sync_campaign -->" in source
