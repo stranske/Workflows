@@ -9,6 +9,7 @@ const {
   isSecondaryRateLimitError,
   withRetry,
   paginateWithRetry,
+  collectTokenSecrets,
   createTokenAwareRetry,
   checkRateLimitStatus,
   createGithubFetchRequester,
@@ -172,6 +173,221 @@ test('paginateWithRetry switches tokens on primary rate limit errors', async () 
 
   assert.deepEqual(result, [{ id: 1 }]);
   assert.deepEqual(calls, ['token-a', 'token-b']);
+});
+
+test('rotation pool excludes the owner PAT', async () => {
+  const secrets = collectTokenSecrets({
+    OWNER_PR_PAT: 'x',
+    SERVICE_BOT_PAT: 'y',
+  });
+  assert.deepEqual(secrets, { SERVICE_BOT_PAT: 'y' });
+  assert.equal('OWNER_PR_PAT' in secrets, false);
+
+  const dynamicSecrets = collectTokenSecrets({
+    OWNER_PR_PAT: 'x',
+    SERVICE_BOT_PAT: 'y',
+    TOKEN_ROTATION_ENV_KEYS: 'OWNER_PR_PAT,PAT_1',
+    PAT_1: 'z',
+  });
+  assert.equal('OWNER_PR_PAT' in dynamicSecrets, false);
+  assert.equal(dynamicSecrets.PAT_1, 'z');
+  assert.equal(dynamicSecrets.TOKEN_ROTATION_ENV_KEYS, 'PAT_1');
+
+  const ownerOnlyDynamicSecrets = collectTokenSecrets({
+    OWNER_PR_PAT: 'x',
+    TOKEN_ROTATION_ENV_KEYS: 'OWNER_PR_PAT',
+  });
+  assert.deepEqual(ownerOnlyDynamicSecrets, {});
+
+  const fallbackDynamicSecrets = collectTokenSecrets({
+    OWNER_PR_PAT: 'x',
+    TOKEN_ROTATION_ENV_KEYS: 'OWNER_PR_PAT',
+    TOKEN_ROTATION_KEYS: 'OWNER_PR_PAT,CUSTOM_POOL_PAT',
+    CUSTOM_POOL_PAT: 'custom-token',
+  });
+  assert.deepEqual(fallbackDynamicSecrets, {
+    TOKEN_ROTATION_KEYS: 'CUSTOM_POOL_PAT',
+    CUSTOM_POOL_PAT: 'custom-token',
+  });
+
+  const jsonSecrets = collectTokenSecrets({
+    TOKEN_ROTATION_JSON: JSON.stringify({
+      pats: [
+        { id: 'OWNER_PR_PAT', token: 'x' },
+        { id: 'PAT_1', token: 'z' },
+      ],
+    }),
+  });
+  assert.deepEqual(JSON.parse(jsonSecrets.TOKEN_ROTATION_JSON), {
+    pats: [{ id: 'PAT_1', token: 'z' }],
+  });
+
+  const ownerOnlyJsonSecrets = collectTokenSecrets({
+    TOKEN_ROTATION_JSON: JSON.stringify({
+      pats: [{ id: 'OWNER_PR_PAT', token: 'x' }],
+    }),
+  });
+  assert.deepEqual(ownerOnlyJsonSecrets, {});
+
+  const ownerWithAppJsonSecrets = collectTokenSecrets({
+    TOKEN_ROTATION_JSON: JSON.stringify({
+      pats: [{ id: 'OWNER_PR_PAT', token: 'x' }],
+      apps: [{ id: 'APP_1', appId: '1', privateKey: 'k' }],
+    }),
+  });
+  assert.deepEqual(JSON.parse(ownerWithAppJsonSecrets.TOKEN_ROTATION_JSON), {
+    pats: [],
+    apps: [{ id: 'APP_1', appId: '1', privateKey: 'k' }],
+  });
+
+  const exclusiveSecrets = collectTokenSecrets(
+    {
+      OWNER_PR_PAT: 'x',
+      SERVICE_BOT_PAT: 'y',
+      TOKEN_ROTATION_JSON: JSON.stringify({
+        pats: [{ id: 'OWNER_PR_PAT', token: 'x' }],
+      }),
+    },
+    { task: 'pr-creation-as-owner' },
+  );
+  assert.equal(exclusiveSecrets.OWNER_PR_PAT, 'x');
+  assert.deepEqual(JSON.parse(exclusiveSecrets.TOKEN_ROTATION_JSON), {
+    pats: [{ id: 'OWNER_PR_PAT', token: 'x' }],
+  });
+
+  let initializedSecrets = null;
+  await createTokenAwareRetry({
+    github: { token: 'fallback' },
+    env: {
+      OWNER_PR_PAT: 'x',
+      SERVICE_BOT_PAT: 'y',
+      GITHUB_TOKEN: 'gh-token',
+    },
+    tokenRegistry: {
+      isInitialized: () => false,
+      async initializeTokenRegistry({ secrets: passedSecrets }) {
+        initializedSecrets = passedSecrets;
+      },
+      async getOptimalToken() {
+        return { token: 'y', source: 'SERVICE_BOT_PAT' };
+      },
+    },
+    getOctokit: (token) => ({ token }),
+  });
+  assert.deepEqual(initializedSecrets, { SERVICE_BOT_PAT: 'y' });
+});
+
+test('createTokenAwareRetry registers OWNER_PR_PAT on demand for exclusive tasks after general init', async () => {
+  const balancer = require(path.join(__dirname, '../token_load_balancer'));
+  balancer.tokenRegistry.tokens.clear();
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  try {
+    const env = {
+      OWNER_PR_PAT: 'owner-token',
+      SERVICE_BOT_PAT: 'service-token',
+    };
+    const getOctokit = (token) => ({ token });
+
+    const generalClient = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(generalClient.getTokenSource(), 'SERVICE_BOT_PAT');
+    assert.equal(balancer.tokenRegistry.tokens.has('OWNER_PR_PAT'), false);
+
+    const ownerClient = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      task: 'pr-creation-as-owner',
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(ownerClient.getTokenSource(), 'OWNER_PR_PAT');
+    assert.equal(ownerClient.github.token, 'owner-token');
+
+    // Subsequent general calls must still never select OWNER_PR_PAT even after
+    // it has been registered for the exclusive owner task.
+    balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.remaining = 250;
+    balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.percentRemaining = 5;
+    const generalAfter = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(generalAfter.getTokenSource(), 'SERVICE_BOT_PAT');
+
+    // When all non-exclusive tokens are exhausted, general retry must NOT fall
+    // back to the registered OWNER_PR_PAT even at full capacity.
+    balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.remaining = 0;
+    balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.percentRemaining = 0;
+    const generalExhausted = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(generalExhausted.getTokenSource(), null);
+    assert.equal(generalExhausted.github.token, 'fallback');
+
+    const attemptedTokens = [];
+    await assert.rejects(
+      async () => generalExhausted.withRetry(
+        async (client) => {
+          attemptedTokens.push(client.token);
+          const error = new Error('API rate limit exceeded');
+          error.status = 403;
+          error.response = { headers: { 'x-ratelimit-remaining': '0' } };
+          throw error;
+        },
+        { maxRetries: 1, initialDelay: 1 },
+      ),
+      /API rate limit exceeded/,
+    );
+    assert.deepEqual(attemptedTokens, ['fallback']);
+  } finally {
+    balancer.tokenRegistry.tokens.clear();
+    balancer.tokenRegistry.lastRefresh = 0;
+  }
+});
+
+test('createTokenAwareRetry registers OWNER_PR_PAT from TOKEN_ROTATION_JSON on demand for exclusive tasks', async () => {
+  const balancer = require(path.join(__dirname, '../token_load_balancer'));
+  balancer.tokenRegistry.tokens.clear();
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  try {
+    const env = {
+      SERVICE_BOT_PAT: 'service-token',
+      TOKEN_ROTATION_JSON: JSON.stringify({
+        pats: [{ id: 'OWNER_PR_PAT', token: 'owner-json-token' }],
+      }),
+    };
+    const getOctokit = (token) => ({ token });
+
+    const generalClient = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(generalClient.getTokenSource(), 'SERVICE_BOT_PAT');
+    assert.equal(balancer.tokenRegistry.tokens.has('OWNER_PR_PAT'), false);
+
+    const ownerClient = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      task: 'pr-creation-as-owner',
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(ownerClient.getTokenSource(), 'OWNER_PR_PAT');
+    assert.equal(ownerClient.github.token, 'owner-json-token');
+  } finally {
+    balancer.tokenRegistry.tokens.clear();
+    balancer.tokenRegistry.lastRefresh = 0;
+  }
 });
 
 test('createTokenAwareRetry initializes registry from env secrets', async () => {
