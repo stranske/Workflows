@@ -268,4 +268,4 @@ def test_health_67_drift_issue_steps_never_mutate_issues_on_pull_requests():
 
     script = str(create_step["with"]["script"])
     assert "maint-69-sync-integration-repo.yml" in script
-    assert "maint-65-sync-label-docs.yml" in script
+    assert "maint-65-sync-label-docs.yml" not in script

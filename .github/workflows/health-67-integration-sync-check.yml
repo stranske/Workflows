@@ -339,7 +339,7 @@ jobs:
             ### Sync Policy
             - Templates in this repo are the **source of truth**
             - Changes to Integration-Tests should be made here first, then synced
-            - Automated sync runs via \`maint-69-sync-integration-repo.yml\` (following the \`maint-65-sync-label-docs.yml\` pattern)
+            - Automated sync runs via \`maint-69-sync-integration-repo.yml\`
             `;
 
             // Check for existing open issue

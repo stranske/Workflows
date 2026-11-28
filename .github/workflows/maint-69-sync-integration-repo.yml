@@ -11,6 +11,7 @@ on:
       - 'templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml'
       - 'templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml'
       - 'templates/consumer-repo/.github/workflows/maint-coverage-guard.yml'
+      - 'templates/consumer-repo/docs/LABELS.md'
       - '.github/workflows/autofix-versions.env'
       - '.github/sync-manifest.yml'
       - 'scripts/sync_integration_manifest_subset.py'
@@ -61,6 +62,7 @@ jobs:
             templates/consumer-repo/.github/scripts/agents_orchestrator_resolve.js
             templates/consumer-repo/.github/scripts/keepalive_orchestrator_gate_runner.js
             templates/consumer-repo/.github/workflows/maint-coverage-guard.yml
+            templates/consumer-repo/docs/LABELS.md
             tools/coverage_guard.py
             tools/coverage_trend.py
             scripts/coverage_history_append.py
@@ -166,6 +168,12 @@ jobs:
             echo "✅ Updated notify-workflows.yml"
           fi
 
+          # Sync the consumer label guide. WIT is outside the Maint 68 consumer matrix, and this
+          # step is its only writer since the direct-push Maint 65 sync was retired.
+          mkdir -p docs
+          cp "../workflows/templates/consumer-repo/docs/LABELS.md" docs/LABELS.md
+          echo "✅ Updated docs/LABELS.md"
+
           # Sync consumer-template PR/keepalive hubs required for WIT PR automation.
           for workflow in agents-80-pr-event-hub.yml agents-81-gate-followups.yml; do
             src="../workflows/templates/consumer-repo/.github/workflows/${workflow}"
@@ -259,6 +267,7 @@ jobs:
             -m "- notify-workflows.yml (bidirectional sync trigger)" \
             -m "- agents-80-pr-event-hub.yml (consumer PR event hub)" \
             -m "- agents-81-gate-followups.yml (consumer Gate followups hub)" \
+            -m "- docs/LABELS.md (consumer label guide)" \
             -m "- scripts/ (synced from templates)" \
             -m "- .github/scripts/, .github/actions/setup-api-client, tools/coverage_guard.py" \
             -m "  and retired-workflow removals (from sync-manifest.yml)" \
