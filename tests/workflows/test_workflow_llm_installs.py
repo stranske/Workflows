@@ -18,7 +18,6 @@ VERIFY_TO_ISSUE = WORKFLOWS_DIR / "agents-verify-to-issue-v2.yml"
 REUSABLE_CODEX_RUN = WORKFLOWS_DIR / "reusable-codex-run.yml"
 CODEX_AUTH_HEALTH = WORKFLOWS_DIR / "health-codex-auth-check.yml"
 REUSABLE_CLAUDE_RUN = WORKFLOWS_DIR / "reusable-claude-run.yml"
-NEEDS_HUMAN_COMMENT = Path("tests/workflows/fixtures/needs_human_comment.md")
 REFERENCE_PACK_ACTION = Path(".github/actions/agent-reference-packs/action.yml")
 REFERENCE_PACK_RUNNER_USES = "./.workflows-lib/.github/actions/agent-reference-packs"
 REFERENCE_PACK_FIXTURES = Path("tests/workflows/fixtures/reference_packs")
@@ -284,8 +283,6 @@ def test_reusable_agents_verifier_llm_install_is_pinned_for_modes() -> None:
 
 
 def test_reusable_agents_verifier_pip_cache_is_configured() -> None:
-    if os.environ.get("AGENT_ENV", "agent-standard") != "agent-high-privilege":
-        pytest.skip("needs-human: workflow updates require agent-high-privilege")
     workflow = _load_workflow(VERIFIER)
     _assert_pip_cache(workflow, ".workflows-lib/tools/requirements-llm.txt", VERIFIER.name)
 
@@ -461,22 +458,6 @@ def test_reusable_codex_run_model_cli_compatibility_contract() -> None:
             f"Codex run model {model} requires @openai/codex >= {minimum_cli}, "
             f"but reusable-codex-run.yml defaults to {installed_cli}."
         )
-
-
-def test_workflow_llm_needs_human_comment_documents_blocker() -> None:
-    text = _load_text(NEEDS_HUMAN_COMMENT)
-    required_phrases = [
-        "Label: needs-human",
-        ".github/workflows/agents-issue-optimizer.yml",
-        ".github/workflows/reusable-agents-verifier.yml",
-        ACTIONS_CACHE_V6_REF,
-        "tools/requirements-llm.txt",
-        ".workflows-lib/tools/requirements-llm.txt",
-        "langchain",
-        "agent-high-privilege",
-    ]
-    missing = [phrase for phrase in required_phrases if phrase not in text]
-    assert not missing, f"needs-human comment missing: {', '.join(missing)}"
 
 
 def test_valid_reference_pack_config_materializes_populated_directories(tmp_path: Path) -> None:
