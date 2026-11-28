@@ -9,6 +9,7 @@ const ARTIFACT = 'sync-plan-and-prospective-diffs';
 const PREPARE = 'Prepare sync from manifest';
 const UPLOAD = 'Upload plan and prospective-diff evidence';
 const AUTHORIZE = 'Authorize canary payload mutation';
+const SELECT = 'Build phase-gated repo matrix';
 const MAX_BYTES = 4 * 1024 * 1024;
 // Controllers inject withRetry from createTokenAwareRetry using their existing
 // authenticated client. Bound outer retries as well as each native request.
@@ -189,9 +190,12 @@ async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaul
         workflow_blob_sha: workflow.blob, report_module_sha256: sha(reportModule.bytes), bootstrap_not_started: true } };
     }
     const sourceSteps = ['Resolve immutable plan scope', 'Checkout', 'Validate immutable source reachability'];
-    if (sourceSteps.every(name => step(name).conclusion === 'success') && knownWorkflow) {
-      const match = title.match(/^Maint 68 canary (full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/);
-      if (match) { source = match[2]; sourceMode = match[1] === 'source-delta' ? 'source-delta' : 'full'; proof.source_identity_bound = true; proof.workflow_blob_sha = workflow.blob; }
+    const match = title.match(/^Maint 68 canary (full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/);
+    if (sourceSteps.every(name => step(name).conclusion === 'success') && knownWorkflow && match) {
+      source = match[2];
+      sourceMode = match[1] === 'source-delta' ? 'source-delta' : 'full';
+      proof.source_identity_bound = true;
+      proof.workflow_blob_sha = workflow.blob;
     }
     const artifacts = await pages('listWorkflowRunArtifacts', { run_id: actual.id }, 'artifacts');
     const selected = artifacts.filter(artifact => artifact.name === ARTIFACT);
@@ -220,7 +224,19 @@ async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaul
       && (scope.mode === 'source-delta' ? commit(scope.base_sha) : scope.base_sha === '')
       && scope.selected_entry_count === plan.entries.length && scope.selected_removal_count === plan.removals.length
       && canonical(scope.selected_targets) === canonical(targets), 'native_scope_plan_binding');
-    const expected = repositories(candidates), selectedRepos = repositories(phase.selected_repos);
+    const configured = repositories(candidates), selectedRepos = repositories(phase.selected_repos);
+    let expected = configured;
+    if (actual.event === 'workflow_dispatch' && proof.source_identity_bound && match[3] !== '*') {
+      expected = repositories(match[3].split(','));
+      need(expected.every(repo => configured.includes(repo)), 'native_scope_phase_binding');
+      if (expected.length < configured.length) {
+        // The reviewed dispatch name exposes inputs.repos. A narrowed receipt
+        // also requires the selector's native step and complete phase matrix.
+        need(phase.version === 1 && step(SELECT).conclusion === 'success'
+          && canonical(repositories(phase.canaries?.map(row => row.repo))) === canonical(configured)
+          && canonical(repositories(phase.matrix?.repo)) === canonical(expected), 'native_scope_phase_binding');
+      }
+    }
     need(phase.schema === 'workflows.consumer-sync-phase-selection/v1' && phase.phase === 'canary'
       && phase.plan_id === plan.plan_id && canonical(expected) === canonical(selectedRepos), 'native_scope_phase_binding');
     const refreshed = await read('getWorkflowRun', { run_id: actual.id });
