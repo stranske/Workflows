@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.workflows.node_tap import assert_named_node_test
+
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "keepalive_loop"
 HARNESS = FIXTURES_DIR / "harness.js"
 
@@ -70,20 +72,4 @@ def test_keepalive_loop_rejects_foreign_recovery_owner_markers() -> None:
         str(test_file),
     ]
     result = subprocess.run(command, capture_output=True, text=True, cwd=repo_root)
-    if result.returncode != 0:
-        pytest.fail(
-            f"Node regression failed with code {result.returncode}:\n"
-            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
-
-    # Node can exit zero with a passing file-level subtest when the filter selects no test.
-    lines = result.stdout.splitlines()
-    passed_test = re.compile(rf"ok [0-9]+ - {re.escape(test_name)}")
-    if (
-        lines.count(f"# Subtest: {test_name}") != 1
-        or sum(passed_test.fullmatch(line) is not None for line in lines) != 1
-    ):
-        pytest.fail(
-            f"Expected exactly one passing Node testcase named {test_name!r}:\n"
-            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
+    assert_named_node_test(result, test_name)
