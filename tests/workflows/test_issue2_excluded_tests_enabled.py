@@ -97,7 +97,7 @@ def test_issue2_historic_excluded_files_remain_pytest_discoverable() -> None:
         assert path.is_file()
         assert path.suffix == ".py"
         assert path.name.startswith("test_")
-        assert Path(relative_path).parts[:2] == ("tests", "workflows")
+        assert path.parent in {ROOT / "tests/workflows", ROOT / "tests/scripts"}
 
 
 def test_issue2_autofix_stub_modules_are_importable() -> None:

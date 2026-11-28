@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 NO_BACKUP_NOTE = (
     "Consumers without a capacity_backup block in config/llm_slots.json "
     "have no configured backup"

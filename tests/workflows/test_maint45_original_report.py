@@ -48,7 +48,7 @@ def test_original_junit_preserves_real_repository_cosmetic_marks(
     result = _run_junit(
         ROOT,
         report,
-        "tests/workflows/test_autofix_pr_comment.py::test_load_json_and_coercion_helpers",
+        "tests/scripts/test_build_autofix_pr_comment_flow.py::test_load_json_and_coercion_helpers",
         "tests/workflows/fixtures/maint45_junit_marks.py::test_cosmetic_marker",
         "tests/workflows/fixtures/maint45_junit_marks.py::test_unmarked_control",
         junit_family=junit_family,

@@ -14,7 +14,7 @@
   "import_contract_test_files": [
     "tests/workflows/test_autofix_pipeline.py",
     "tests/workflows/test_autofix_pipeline_tools.py",
-    "tests/workflows/test_autofix_pr_comment.py"
+    "tests/scripts/test_build_autofix_pr_comment_flow.py"
   ],
   "expected_script_imports": [
     "scripts.auto_type_hygiene",

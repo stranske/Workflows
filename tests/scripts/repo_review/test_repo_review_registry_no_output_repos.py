@@ -12,7 +12,7 @@ and say why.
 import json
 from pathlib import Path
 
-REGISTRY = Path(__file__).resolve().parents[1] / "config" / "repo_review_registry.json"
+REGISTRY = Path(__file__).resolve().parents[3] / "config" / "repo_review_registry.json"
 NO_OUTPUT_REPOS = {"stranske/Collab-Admin", "stranske/Workflows-Integration-Tests"}
 
 
