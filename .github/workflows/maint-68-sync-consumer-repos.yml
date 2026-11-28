@@ -1179,44 +1179,34 @@ jobs:
         run: |
           cd consumer
 
-          # Required labels for sync PRs. Keep source provenance distinct from
-          # mutable delivery state so downstream event handlers can fail closed
-          # without mistaking file-summary issue references for source issues.
-          required_label_specs=(
-            "sync|Automated sync from Workflows|0e8a16"
-            "automated|Automated sync from Workflows|0e8a16"
-            "workflow:source-sync|PR source is a sync or maintenance campaign|1d76db"
-            "sync:delivery-staging|Generated delivery is mutable and must not merge|d93f0b"
-            "sync:delivery-ready|Generated delivery is sealed to its exact reviewed head|0e8a16"
+          # Labels this workflow applies to sync PRs. Their only definition is
+          # .github/labels-core.yml, written to every consumer by Maint 69 Sync Labels
+          # (on change and daily) and by Maint 83 bootstrap. This step checks that they
+          # exist; it never creates or recolours a label.
+          required_labels=(
+            "sync"
+            "automated"
+            "workflow:source-sync"
+            "sync:delivery-staging"
+            "sync:delivery-ready"
           )
-
-          for label_spec in "${required_label_specs[@]}"; do
-            IFS='|' read -r label description color <<<"$label_spec"
-            if ! gh label list --json name -q ".[].name" | grep -q "^${label}$"; then
-              echo "Creating label: $label"
-              gh label create "$label" --description "$description" --color "$color" || true
+          core_file="../workflows/.github/labels-core.yml"
+          present_labels="$(gh label list --limit 1000 --json name -q '.[].name')"
+          missing=()
+          for label in "${required_labels[@]}"; do
+            if ! grep -qxF -- "- name: ${label}" "$core_file"; then
+              echo "::error::Sync label '${label}' is not defined in .github/labels-core.yml"
+              exit 1
+            fi
+            if ! grep -qxF -- "$label" <<<"$present_labels"; then
+              missing+=("$label")
             fi
           done
-
-          # LangChain Phase 1 labels (agents:format workflow)
-          # These labels are required for the issue formatting and optimization workflows
-          echo "Ensuring LangChain agent labels exist..."
-
-          gh label create "agents:format" \
-            --description "Triggers direct issue formatting to AGENT_ISSUE_TEMPLATE" \
-            --color "0E8A16" --force || true
-
-          gh label create "agents:formatted" \
-            --description "Issue has been formatted to AGENT_ISSUE_TEMPLATE" \
-            --color "1D76DB" --force || true
-
-          gh label create "agents:optimize" \
-            --description "Triggers issue analysis with optimization suggestions" \
-            --color "FBCA04" --force || true
-
-          gh label create "agents:apply-suggestions" \
-            --description "Applies optimization suggestions from agents:optimize" \
-            --color "0E8A16" --force || true
+          echo "Required sync labels: ${#required_labels[@]}; present: $(( ${#required_labels[@]} - ${#missing[@]} )); missing: ${#missing[@]}"
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing sync labels in ${TARGET_REPOSITORY}: ${missing[*]}. Drain: Maint 69 Sync Labels creates every labels-core.yml label daily (or dispatch it now); it does not depend on this workflow."
+            exit 1
+          fi
 
       - name: Check for existing sync PR
         id: open_pr
