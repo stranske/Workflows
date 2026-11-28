@@ -89,6 +89,19 @@ def test_complete_receipts_cover_each_independently_collected_parameter(receipts
     assert len(result["receipts"]) == 4
 
 
+def test_receipts_recorded_at_the_historical_test_path_still_map(receipts):
+    """The retained receipts name tests/test_followup_issue_generator.py (moved in C7)."""
+    python, _node, _cases, run = receipts
+    old, new = auditor.HISTORICAL_PYTHON_TEST + "::", auditor.PYTHON_TEST + "::"
+    for proof in python["proofs"]:
+        for key in ("name", "test", "red_output"):
+            proof[key] = proof[key].replace(new, old)
+        proof["command"] = [part.replace(new, old) for part in proof["command"]]
+    result = run()
+    assert result["complete"] is True, result["problems"]
+    assert result["collected_added_cases"] == 2
+
+
 def test_missing_parameter_is_not_hidden_by_other_receipts(receipts):
     python, _, _, run = receipts
     python["proofs"].pop()
