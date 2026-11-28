@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from tools import validate_subscription_analysis_evidence as evidence
+from scripts.keepalive import validate_subscription_analysis_evidence as evidence
 
 SHA = "a" * 40
 STAMP = "2026-11-16T06:00:00.1234567Z "

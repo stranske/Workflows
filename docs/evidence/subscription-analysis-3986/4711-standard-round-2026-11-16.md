@@ -199,6 +199,11 @@ summary outputs. Diagnostics never reproduce input contents. The tool does not
 perform inference, change workflow behavior, or authenticate supplied evidence.
 It is not a distributed consumer file, so no template or manifest changes apply.
 
+**Current checkout.** Run `python scripts/keepalive/validate_subscription_analysis_evidence.py`
+with the arguments below. For the historical commands, use a separate checkout of the
+#4711 merge, which retains their original paths.
+[Pinned #4711 merge](https://github.com/stranske/Workflows/tree/876baff4ffbe7d4d9be3430470b0a88840602152).
+
 Once evidence is available, independently verify delivery and that all inputs
 come from the same hosted round. Save the registry from the delivered commit,
 the complete runner log, the analysis step log, the existing analysis JSON, and
