@@ -53,11 +53,24 @@ The mutation driver now resolves this checkout automatically, accepts `--repo` a
 `--output`, and retains compressed RED/GREEN captures and restored/test hashes. Run:
 
 ```sh
-python3 docs/evidence/issue-3743/launch-boundaries/wf-mutation-driver.py
+python3 docs/evidence/issue-3743/launch-boundaries/wf-mutation-driver.py --output "$(mktemp -d)"
 ```
 
-Fresh evidence lives in `revalidation/`; the original captures above are retained.
-`commands.json` records the matched test/coverage invocations and exits,
+The [recorded revalidation](https://github.com/stranske/Workflows/tree/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6/docs/evidence/issue-3743/launch-boundaries/revalidation)
+preserves all 39 original files. If the revision is missing from a shallow
+checkout, fetch it with `git fetch --depth=1 origin 8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6`.
+Recover the packet at its original paths in a separate directory.
+
+```sh
+recovered=$(mktemp -d)
+git archive --output="$recovered/revalidation.tar" 8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6 -- \
+  docs/evidence/issue-3743/launch-boundaries/revalidation &&
+  tar -xf "$recovered/revalidation.tar" -C "$recovered" &&
+  printf '%s\n' "$recovered"
+```
+
+In the recovered `revalidation/` directory, `commands.json` records the matched
+test and coverage invocations and exits,
 `wf-mutations.json` records all ten distinct source mutations, and `validation.json`
 records formatting, lint and template checks. Template completeness redirects only
 GITHUB_STEP_SUMMARY to a writable file under `/tmp`. The full Black command uses a
