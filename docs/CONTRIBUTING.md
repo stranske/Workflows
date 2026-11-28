@@ -150,8 +150,8 @@ Choose a common real-world use case and place it next to the workflow guide or s
    - separately versioned package → `packages/`;
    - runs only inside a GitHub Actions job → `.github/scripts/`;
    - has an entry point (`__main__`, `python -m`, shell) → `scripts/` (grouped, e.g. `scripts/langchain/`, `scripts/verifier/`, `scripts/model_eval/`);
-   - no entry point, imported by two or more entry points → `tools/`;
-   - no entry point, one importer → next to that importer.
+   - no entry point, imported from two or more folders → `tools/`;
+   - no entry point, all importers in one folder → next to them (that folder or a subpackage).
 2. Put tests where they mirror the code: `.github/scripts/__tests__/` for JavaScript, `tests/<area>/` for Python, with inputs under `tests/fixtures/<topic>/`
 3. Make executable if has shebang: `chmod +x script.sh`
 4. **Wrap all GitHub API calls** - See [API_CALL_PATTERN.md](../.github/scripts/API_CALL_PATTERN.md)

@@ -30,8 +30,8 @@ Take the first rule that matches. Each file then has exactly one home.
 2. **`packages/`:** it is separately versioned, with its own `pyproject.toml`.
 3. **`.github/scripts/`:** it only runs inside a GitHub Actions job, for example a JavaScript module loaded by `actions/github-script` or a Python helper that needs the Actions context (`GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY`, the event payload). JavaScript tests go in `.github/scripts/__tests__/`.
 4. **`scripts/`:** it has an entry point (`__main__`, `python -m`, or a shell script) that a workflow step or an operator can run from a checkout. This holds even when other code imports it. Group related CLIs in a subfolder. The LangChain pipeline is in `scripts/langchain/`. The verifier research and replay CLIs are in `scripts/verifier/`. The model-evaluation and judge-screen CLIs are in `scripts/model_eval/`.
-5. **`tools/`:** it has no entry point and is imported by two or more entry points (for example `tools/llm_registry.py`).
-6. **Next to its caller:** it has no entry point and only one importer.
+5. **`tools/`:** it has no entry point and is imported by entry points in two or more folders (for example `tools/llm_registry.py`, which `scripts/langchain/` and `tools/` both use).
+6. **Next to its callers:** it has no entry point and every importer is in one folder. Put it in that folder, or in a subpackage such as `scripts/metrics/` for helpers shared by several CLIs in `scripts/`.
 
 Tests follow the code they test. Test inputs live under `tests/fixtures/<topic>/` for Python and `.github/scripts/__tests__/fixtures/` for JavaScript. Issue evidence (`docs/evidence/`, `evidence/`) and frozen corpora (`config/verify_paired/`, `config/model_eval_snapshots/`) are records, not fixtures. A test may read a record by name, but new test inputs are not added there.
 
