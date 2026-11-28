@@ -700,6 +700,7 @@ jobs:
       - name: Checkout tracker helper
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github/scripts/health_tracker_issue.js
             .github/scripts/github-api-with-retry.js

@@ -127,7 +127,12 @@ jobs:
       # (cohesion review A4). This step is read-only and takes the required
       # contexts from the same file health-44 applies, never from a literal.
       - name: Snapshot branch protection state
+        id: protection-snapshot
         if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
+        # --check exits 1 on drift. That must not skip the signal collection
+        # below: the drift is reported as a warning check instead, and Health 44
+        # (the only writer) applies the config on its next run.
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ steps.branch-token.outputs.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -146,6 +151,7 @@ jobs:
         env:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
           BRANCH_PROTECTION_TOKEN: ${{ steps.branch-token.outputs.token }}
+          PROTECTION_SNAPSHOT_OUTCOME: ${{ steps.protection-snapshot.outcome }}
         with:
           github-token: ${{ steps.branch-token.outputs.token || github.token }}
           script: |
@@ -373,6 +379,21 @@ jobs:
                 detail: defaultBranch,
               },
             ];
+
+            // Read-only drift check against .github/config/required-contexts.json.
+            // Health 44 is the only writer, so drift is a warning with a named drain.
+            const snapshotOutcome = (process.env.PROTECTION_SNAPSHOT_OUTCOME || '').trim();
+            if (snapshotOutcome === 'failure') {
+              checks.push({
+                key: 'protection-drift',
+                title: 'Required status checks',
+                status: 'warn',
+                detail:
+                  'Required contexts on the default branch differ from ' +
+                  '.github/config/required-contexts.json (see the branch protection snapshot). ' +
+                  'Health 44 applies the file on its next scheduled run; dispatch it to apply now.',
+              });
+            }
 
             const summaryLines = [
               `Repo health summary @ ${timestamp}`,

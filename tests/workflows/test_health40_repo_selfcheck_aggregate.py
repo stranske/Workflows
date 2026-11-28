@@ -188,3 +188,18 @@ def test_status_body_says_not_counted_when_the_count_step_did_not_run(tmp_path: 
     body = _render_status_body(tmp_path, None)
     assert "*Open zizmor alerts:* not counted: the count step did not run" in body
     assert "`0`" not in body
+
+
+def test_protection_drift_does_not_skip_signal_collection() -> None:
+    """Without the old apply step, --check exits 1 on drift; that must be reported, not fatal."""
+    snapshot = _workflow_step("Snapshot branch protection state")
+    assert snapshot["id"] == "protection-snapshot"
+    assert snapshot["continue-on-error"] is True
+    collect = _workflow_step("Collect repository signals")
+    assert collect["env"]["PROTECTION_SNAPSHOT_OUTCOME"] == (
+        "${{ steps.protection-snapshot.outcome }}"
+    )
+    script = collect["with"]["script"]
+    assert "snapshotOutcome === 'failure'" in script
+    assert "key: 'protection-drift'" in script
+    assert "status: 'warn'" in script.split("key: 'protection-drift'")[1][:200]
