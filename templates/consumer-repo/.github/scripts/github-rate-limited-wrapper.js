@@ -27,10 +27,11 @@ const { createTokenAwareRetry } = require('./github-api-with-retry.js');
  * @param {Object} options.github - Original Octokit instance
  * @param {Object} options.core - GitHub Actions core for logging
  * @param {Object} options.env - Environment variables (defaults to process.env)
+ * @param {string} [options.task] - Trusted task for token specialization
  * @returns {Promise<Object>} Proxied github instance with automatic retry
  */
 async function createRateLimitedGithub(options = {}) {
-  const { github, core, env = process.env } = options;
+  const { github, core, env = process.env, task } = options;
   
   if (!github) {
     throw new Error('createRateLimitedGithub requires a github client');
@@ -46,6 +47,7 @@ async function createRateLimitedGithub(options = {}) {
     github,
     core,
     env,
+    task,
   });
 
   // Use the token-aware github client as base
@@ -285,10 +287,11 @@ function isTestMock(github) {
  * @param {Object} options.github - Octokit instance
  * @param {Object} options.core - GitHub Actions core for logging
  * @param {Object} options.env - Environment variables
+ * @param {string} [options.task] - Trusted task for token specialization
  * @returns {Promise<Object>} Rate-limit wrapped github client (or original if test mock/undefined)
  */
 async function ensureRateLimitWrapped(options = {}) {
-  const { github, core, env = process.env } = options;
+  const { github, core, env = process.env, task } = options;
   
   // If no github client provided, return undefined (some functions don't need it)
   if (!github) {
@@ -306,7 +309,7 @@ async function ensureRateLimitWrapped(options = {}) {
     return github;
   }
   
-  return createRateLimitedGithub({ github, core, env });
+  return createRateLimitedGithub({ github, core, env, task });
 }
 
 /**
