@@ -7,6 +7,31 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27 late evening · Script and test owners
+
+Stage 3 has **700/752 files and 39/43 folders**. Stage 4 has **1,410/1,540 files and 149/177 folders**. This pass added 57 net original file decisions and 3 folder decisions.
+
+| Source change | Delivery | Checked behavior |
+|---|---|---|
+| [#5424](https://github.com/stranske/Workflows/pull/5424) | On main at [`e6ed752ab`](https://github.com/stranske/Workflows/commit/e6ed752aba97854b517a5605f31f93de704250d6) | Moved ten verifier suites beside the evaluator. The 389 relocated cases preserved ordinary and hosted selection. Across the full verifier family, 31,387 passed and one pre-existing owner-local capture skipped. |
+| [#5425](https://github.com/stranske/Workflows/pull/5425) | On main at [`4bc4cb58e`](https://github.com/stranske/Workflows/commit/4bc4cb58e08c6f1f8d8f86b36e82eaec27f549b2) | Removed the unused workflow-health CLI and its 33 dedicated tests. Maint 66 ranked two actionable cohorts in 200 real workflow runs and zero in the 77 success controls. |
+| [#5426](https://github.com/stranske/Workflows/pull/5426) | On main at [`7949468d6`](https://github.com/stranske/Workflows/commit/7949468d6d0ada79dc7c583679ada392d1871fe0) | Grouped eight LangChain suites and placed the ledger, label and Autofix assertions with their script owners. The three Maint 45 examples and five obsolete Autofix demonstrations left ordinary discovery. The exact roster preserved 468 relocated cases. The real Ruff repair and both JUnit marker modes passed. |
+| [#5427](https://github.com/stranske/Workflows/pull/5427) | On main at [`a9eb082dc`](https://github.com/stranske/Workflows/commit/a9eb082dc2e7e6f00ff979ceb1884188e0534d83) | Removed the unused 284-line CI installer. No receiver contained it. The compiled 264-copy/37-removal plan and the active installer arguments matched, and removing the pin still prevented installation. |
+| [#5431](https://github.com/stranske/Workflows/pull/5431) | On main at [`ab407b957`](https://github.com/stranske/Workflows/commit/ab407b957ef8cba1f18c8232f6faff7913cd62cb) | Moved the frozen shell used by three verifier workflow suites into their shared fixtures. The original digest and the six pre-correction failure controls were preserved. |
+| [#5432](https://github.com/stranske/Workflows/pull/5432) | On main at [`0aae3bb66`](https://github.com/stranske/Workflows/commit/0aae3bb6611b75fcdecc990e2e99c34a639ee01d) | Corrected the integration README to distinguish a full 15-file scaffold from Maint 69’s selective receiver updates. The three CI job references and all 14 other files matched. Rendering twice refused to overwrite the first result. |
+| [#5433](https://github.com/stranske/Workflows/pull/5433) | Open PR; default-branch verification pending | Grouped the Python decoder, fallback splitter and Autofix report checks under the dedicated Python script job. Six redundant splitter cases dropped; the dedicated selector rose from 165 to 200, with the three production CLI outcomes preserved. |
+| [#5434](https://github.com/stranske/Workflows/pull/5434) | Open PR; default-branch verification pending | Retired the LangChain version printer and eight dedicated checks. The four-package PyPI run wrote no pins; Renovate #5349 did update them. All parsed project settings and 34 retained checks matched. |
+
+The 16 receiving defaults still contained both managed transition and continuation helpers after the independent [#5417](https://github.com/stranske/Workflows/pull/5417) removed their sources. All 16 already lacked the retry helper. On the installed source, 78 correction tests, 287 keepalive and independent-verifier tests, and four historical ordinary-route controls passed. Reintroducing the retired dispatch name tripped the new guard.
+
+Both test-package initializers have a working reason to stay. Removing them caused two duplicate-name collection errors and changed the identity of modules imported by other suites. The review registry also stays at its documented path while the installed mirror and weekly review automation read it directly. A test move that scoped the broad fixtures reduced worker-isolation setup from 455 calls to five, but total elapsed time went from 69.76 to 70.83 seconds. The document identity suite stays under tests/contracts. Moving it to tests/scripts kept all 13 cases in ordinary discovery and dropped all 13 from Health 78. Four native Node suites stayed with their owners. They cover initial inventory, cross-process updates, reporter classification and Maint 82 dispatch through the actual Selftest selector. Both residual scripts stay at the paths that pinned Autofix workflows fetch from the current helper branch. A real saved artifact grew from one point to two in either layout, but existing sparse checkouts lost both moved commands.
+
+[#5430](https://github.com/stranske/Workflows/pull/5430) addresses the separate receiving-delivery blocker. Native attempt evidence joins the trip-planner-only producer to its signed PR. The corrected reader accepted all three signed baselines and covered eight historical unknowns in a bounded, read-only replay. It kept the canceled November 7 run unknown. After #5430 landed, [the original scoped run](https://github.com/stranske/Workflows/actions/runs/46109688316) authenticated all three receiving baselines. The [daily sync](https://github.com/stranske/Workflows/actions/runs/46110121166) started at 05:00:41 UTC while the scoped guard was reading history. It yielded at 05:01:30 with reason native_writer_active, eight historical unknowns held and zero receiver writes. Check the daily run’s installed receiver results before deciding whether the scoped request is still needed.
+
+Primary hosted Python jobs with complete timings were [#5424](https://github.com/stranske/Workflows/pull/5424) 294/560 s, [#5425](https://github.com/stranske/Workflows/pull/5425) 316/517 s, [#5426](https://github.com/stranske/Workflows/pull/5426) 446/421 s, [#5427](https://github.com/stranske/Workflows/pull/5427) 367/406 s, [#5431](https://github.com/stranske/Workflows/pull/5431) 292/420 s, [#5433](https://github.com/stranske/Workflows/pull/5433) 483/429 s, [#5430](https://github.com/stranske/Workflows/pull/5430) 382/536 s (3.13/3.14, 600-second checkpoint).
+
+Stage 3 has 52 files and 4 folders open. Its largest remaining file groups are 17 in `scripts/`, 15 in `.github/scripts/__tests__/`, 14 in `.github/scripts/`. Stage 4 has 130 files and 28 folders open. Its largest remaining file groups are 30 in `templates/consumer-repo/.github/scripts/`, 24 in `tests/scripts/`, 22 in `tests/workflows/`. For managed helpers, verify deletion on the receiving default. Work on source-only tests and scripts can proceed independently.
+
 ### November 27 evening · Script and test ownership
 
 Stage 3 reached **677/752 files and 39/43 folders**. Stage 4 reached **1,376/1,540 files and 146/177 folders**. This pass settled 419 original files and 9 original folders. Of the newly accepted files, 338 stayed with their owners, 54 moved, 3 were consolidated and 25 were retired. One previously accepted file was reopened after a receiving-version mismatch. Of the 9 newly accepted folders, 3 were eliminated. The stage totals count original paths. Newly introduced destinations appear in the successor register.
@@ -446,12 +471,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 677/752 | 39/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,376/1,540 | 146/177 | — |
+| 3 · Scripts, tools and packages | 700/752 | 39/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,410/1,540 | 149/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
-| **Total** | **4,228/5,554** | **329/487** | **198/198** |
+| **Total** | **4,285/5,554** | **332/487** | **198/198** |
 
-**Directory organization.** 4,016 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 4,073 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
