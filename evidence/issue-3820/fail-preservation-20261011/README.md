@@ -1,5 +1,7 @@
 # Expanded configured FAIL preservation — 2026-10-11
 
+Recover the original validation outputs from the [October 11 packet index](../README.md#recover-the-october-11-validation-packets).
+
 The current production expanded-comparison aggregator returned CONCERNS for a valid configured judge FAIL, including when another configured arm was missing, malformed, duplicated or errored. Source3820 requires any valid judge FAIL to remain FAIL. The repaired aggregator validates all supplied arms, preserves strictly valid used results bound to a configured exact provider/model, and retains the exact complete/error-free/two-slot requirement for PASS. Invalid-schema, foreign-provider/model and unused FAIL controls remain CONCERNS. Original source gaps and diagnostic semantic insufficiency are not upgraded.
 
 Production workflow shells (provider CLI JSON alone substituted) reproduce 14 behavioral failures on the original production code. A deliberate actual-production mutation changes FAIL preservation to CONCERNS; 16 cases fail. Exact byte restoration then gives 16 PASS. Both verifier copies are identical; proof.json retains commands/source hashes/restoration and raw logs/JUnit. No provider calls were made. The regression covers both configured judge positions, missing/malformed/error/unused/duplicate/extra/PASS siblings, and a FAIL carrying a later diagnostic error. Four negative controls prevent unbound or malformed results impersonating configured judges.

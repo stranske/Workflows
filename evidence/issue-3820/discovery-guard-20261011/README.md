@@ -1,5 +1,7 @@
 # Acceptance-source discovery admission guard
 
+Recover the original validation outputs from the [October 11 packet index](../README.md#recover-the-october-11-validation-packets).
+
 Source #3820, existing PR #3831. Production context builder always emits
 `acceptance_source_discovery`, but deleting the record or using a false required
 flag with unavailable/truncated/unknown discovery previously admitted a complete
