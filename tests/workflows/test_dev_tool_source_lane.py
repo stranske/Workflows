@@ -3,7 +3,6 @@ from pathlib import Path
 import yaml
 
 AUTO_UPDATE = Path(".github/workflows/maint-auto-update-pypi-versions.yml")
-MAINT50 = Path(".github/workflows/maint-50-tool-version-check.yml")
 MAINT52 = Path(".github/workflows/maint-52-sync-dev-versions.yml")
 SYNC_ENV = Path(".github/workflows/maint-sync-env-from-pyproject.yml")
 
@@ -98,13 +97,16 @@ def test_source_alignment_dispatch_repairs_only_a_selected_topic_branch():
     assert 'git push origin "HEAD:${GITHUB_REF}"' in write_step
 
 
-def test_maint50_reports_freshness_without_creating_competing_work():
-    text = MAINT50.read_text(encoding="utf-8")
+def test_freshness_report_never_creates_competing_work():
+    # The report Maint 50 published until 2026-11-28 is now a step of the source lane.
+    text = AUTO_UPDATE.read_text(encoding="utf-8")
+    report = text[text.index("- name: Tool version report") : text.index("- name: Require")]
 
-    assert "Create or update issue" not in text
-    assert "github.rest.issues.create" not in text
-    assert "github.rest.issues.createComment" not in text
-    assert "Source proposals belong to maint-auto-update-pypi-versions.yml" in text
+    assert 'scripts/maint_tool_version_check.py" compare' in report
+    assert "gh issue" not in report
+    assert "gh pr" not in report
+    assert "github.rest" not in report
+    assert not Path(".github/workflows/maint-50-tool-version-check.yml").exists()
 
 
 def test_maint52_records_the_settled_canonical_source_commit():

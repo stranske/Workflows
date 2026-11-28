@@ -94,6 +94,23 @@ jobs:
           fi
           cat /tmp/check_output.txt
 
+      # Read-only freshness report for every tool autofix-versions.env pins. Until
+      # 2026-11-28 Maint 50 ran this same PyPI comparison five hours later in a separate
+      # workflow; it now runs once, in the job that acts on it, on every run (dry runs and
+      # runs outside the proposal window included). It writes its scratch files outside the
+      # checkout so they can never be swept into the source PR.
+      - name: Tool version report
+        id: report
+        env:
+          WORKFLOW_URL: >-
+            ${{ github.event.repository.html_url
+            }}/actions/workflows/maint-auto-update-pypi-versions.yml
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          python "$GITHUB_WORKSPACE/scripts/maint_tool_version_check.py" compare
+          cat tool-version-report.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Require workflow-capable proposal token
         if: >-
           steps.check.outputs.has_updates == 'true'

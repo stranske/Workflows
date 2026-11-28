@@ -72,14 +72,11 @@ COVERAGE_VERSION=<pinned-version>
 - Runs after Gate workflow failures
 - Applies import ordering (Ruff) and formatting (Black)
 
-### 4. Version Check (`maint-50-tool-version-check.yml`)
-- Runs weekly on Mondays at 8:00 AM UTC
-- Checks PyPI for latest versions of all tools
-- Publishes read-only freshness evidence; it never opens or comments on a
-  competing update issue or PR
-
-### 5. Canonical Source Proposal (`maint-auto-update-pypi-versions.yml`)
+### 4. Canonical Source Proposal (`maint-auto-update-pypi-versions.yml`)
 - Runs Mondays at 03:00 UTC, before consumer propagation
+- Writes a read-only freshness table (current pin against latest PyPI release,
+  for every pinned tool) to its run summary on every run, dry runs included.
+  This was the separate Maint 50 workflow until 2026-11-28
 - Is the only routine workflow allowed to open or refresh a Workflows dev-tool
   source PR
 - Uses one mutable `auto/weekly-dev-tool-update-YYYY-Www` PR per weekly window
@@ -99,14 +96,13 @@ COVERAGE_VERSION=<pinned-version>
 
 The source lane is deliberately single-writer:
 
-1. `maint-50-tool-version-check.yml` reports PyPI freshness only.
-2. `maint-auto-update-pypi-versions.yml` checks the canonical pin file in the
-   Monday batch window and opens or refreshes one source PR for all routine
-   updates found together.
-3. After that source PR merges and its normal validation succeeds, the
+1. `maint-auto-update-pypi-versions.yml` reports PyPI freshness for every
+   pinned tool, checks the canonical pin file in the Monday batch window, and
+   opens or refreshes one source PR for all routine updates found together.
+2. After that source PR merges and its normal validation succeeds, the
    `maint-52-sync-dev-versions.yml` push trigger propagates the exact settled
    source commit to consumers. Its delivery marker and PR body record that SHA.
-4. A security-sensitive update may be manually dispatched with
+3. A security-sensitive update may be manually dispatched with
    `security_override=true`; it remains on the same source lane and still runs
    the normal source validation before propagation.
 

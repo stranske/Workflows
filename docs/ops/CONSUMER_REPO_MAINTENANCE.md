@@ -3420,7 +3420,7 @@ the default Actions token lacks. The lane mints the Workflows App token
 proposal PR. `OWNER_PR_PAT` is a fallback only when that token cannot be
 minted, and must then be a classic PAT with `repo` and `workflow` scopes, which
 the workflow checks before editing pins. With neither credential it fails
-closed. Maint 50 reports freshness but never creates a
+closed. Its freshness report (formerly the separate Maint 50) never creates a
 competing issue or proposal. Each consumer wave records the settled Workflows
 source commit so propagation can be traced back to the validated source change.
 
