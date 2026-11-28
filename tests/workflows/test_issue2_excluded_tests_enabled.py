@@ -156,7 +156,7 @@ def test_issue2_selftest_ci_runs_all_workflow_tests() -> None:
         assert job["with"]["pytest-workers"] == "4"
         assert job["with"]["coverage-min"] == "70"
         # Gate splits the verifier grammar suites into python-ci-grammar; together the
-        # two calls discover the full suite (tests/test_ci_gate_budget.py).
+        # two calls discover the full suite (tests/workflows/test_ci_gate_budget.py).
         grammar = shlex.split(gate["jobs"]["python-ci-grammar"]["with"]["pytest_args"])[4:]
         expected_args = (
             ["-n", "auto", "--dist", "load", *(f"--ignore={path}" for path in grammar)]

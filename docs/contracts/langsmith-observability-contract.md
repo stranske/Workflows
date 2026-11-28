@@ -218,4 +218,4 @@ not a misleading empty-success result. Project lookup remains a read-only
 `/sessions` request. No SDK installation is required by this sentinel.
 
 Regression validation: `python -m pytest tests/scripts/test_langsmith_observability_health.py
-tests/test_smithdb_migration.py tests/workflows/test_langsmith_observability_health_workflow.py`.
+tests/scripts/test_smithdb_migration.py tests/workflows/test_langsmith_observability_health_workflow.py`.

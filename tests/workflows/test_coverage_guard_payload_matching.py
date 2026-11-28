@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 GUARDS = (
     REPO_ROOT / ".github/workflows/maint-coverage-guard.yml",
     REPO_ROOT / "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",

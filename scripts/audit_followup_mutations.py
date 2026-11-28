@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 
 PYTHON_SOURCE = "scripts/langchain/followup_issue_generator.py"
-PYTHON_TEST = "tests/test_followup_issue_generator.py"
+PYTHON_TEST = "tests/langchain/test_followup_issue_generator.py"
 NODE_SOURCE = ".github/scripts/agents_pr_meta_update_body.js"
 NODE_TEST = ".github/scripts/__tests__/agents-pr-meta-update-body.test.js"
 NODE_CASES = {

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 GATE_PATHS = (
     ROOT / ".github/workflows/pr-00-gate.yml",
     ROOT / "templates/consumer-repo/.github/workflows/pr-00-gate.yml",
