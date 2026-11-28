@@ -18,69 +18,45 @@ def test_request_json_uses_http_only_client(monkeypatch):
         lambda request, **kwargs: calls.append((request, kwargs)) or nullcontext(response),
     )
 
-    assert discovery._request_json(
-        "https://models.github.ai/catalog/models", {"X-Test": "yes"}
-    ) == {"data": []}
-    assert calls[0][0].full_url == "https://models.github.ai/catalog/models"
+    assert discovery._request_json("https://api.openai.com/v1/models", {"X-Test": "yes"}) == {
+        "data": []
+    }
+    assert calls[0][0].full_url == "https://api.openai.com/v1/models"
     assert calls[0][0].headers["X-test"] == "yes"
     assert calls[0][1] == {"timeout": 30}
 
 
-def test_github_catalog_parser_requires_id_and_capabilities():
-    payload = [
-        {"id": "openai/gpt-current", "publisher": "OpenAI", "capabilities": ["streaming"]},
-        {"id": "openai/embedding", "publisher": "OpenAI", "capabilities": []},
-        {"id": "other/model", "publisher": "Other", "capabilities": ["streaming"]},
-        {"id": "missing-capabilities", "publisher": "Meta"},
-        {"id": "", "publisher": "Meta", "capabilities": ["streaming"]},
-        {"publisher": "Meta", "capabilities": ["streaming"]},
-        None,
-        "invalid-entry",
-    ]
-    assert discovery.parse_catalog("github-models", payload) == [
-        discovery.CatalogModel("openai/gpt-current"),
-        discovery.CatalogModel("other/model"),
-    ]
+def test_github_models_is_retired():
+    """GitHub Models was retired on 2026-10-31: no provider, no URL, no baseline."""
+    assert discovery.PROVIDERS == ("openai", "anthropic")
+    assert not any("github" in url for url in discovery.CATALOG_URLS)
+    with pytest.raises(ValueError):
+        discovery._request_json("https://models.github.ai/catalog/models", {})
+    registry = json.loads(discovery.DEFAULT_REGISTRY_PATH.read_text(encoding="utf-8"))
+    assert set(registry["catalog_baselines"]) == set(discovery.PROVIDERS)
 
 
-@pytest.mark.parametrize("publisher", ["OpenAI", "Meta", "Mistral AI", "Microsoft", "Cohere"])
-def test_github_catalog_accepts_all_publishers(publisher):
-    payload = [
-        {
-            "id": "publisher/model",
-            "publisher": publisher,
-            "capabilities": ["streaming"],
-            "created_at": "2026-09-01T12:00:00Z",
-        }
-    ]
-    assert discovery.parse_catalog("github-models", payload) == [
-        discovery.CatalogModel("publisher/model", dt.datetime(2026, 9, 1, 12, tzinfo=dt.UTC))
-    ]
-
-
-def test_github_catalog_cli_reports_publishers_without_promoting(monkeypatch, tmp_path, capsys):
+def test_catalog_cli_reports_without_promoting(monkeypatch, tmp_path, capsys):
     registry = tmp_path / "registry.json"
-    original = json.dumps({"catalog_baselines": {"github-models": {"model_ids": ["openai/known"]}}})
+    original = json.dumps({"catalog_baselines": {"openai": {"model_ids": ["known"]}}})
     registry.write_text(original, encoding="utf-8")
     output = tmp_path / "report.json"
-    payload = [
-        {"id": "openai/known", "publisher": "OpenAI", "capabilities": ["streaming"]},
-        {"id": "meta/new", "publisher": "Meta", "capabilities": ["streaming"]},
-        {"id": "cohere/new", "publisher": "Cohere", "capabilities": ["streaming"]},
-    ]
+    payload = {"data": [{"id": "known"}, {"id": "new-b"}, {"id": "new-a"}]}
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(discovery, "_request_json", lambda url, headers: payload)
 
     assert (
         discovery.main(
-            ["--provider", "github-models", "--registry", str(registry), "--output", str(output)]
+            ["--provider", "openai", "--registry", str(registry), "--output", str(output)]
         )
         == 1
     )  # Catalog drift is the CLI's documented nonzero result, not a parse error.
     report = json.loads(output.read_text(encoding="utf-8"))
     assert json.loads(capsys.readouterr().out) == report
-    assert report["providers"][0]["added_candidates"] == ["cohere/new", "meta/new"]
+    assert report["providers"][0]["added_candidates"] == ["new-a", "new-b"]
     assert report["providers"][0]["observed_count"] == 3
     assert "do not auto-promote" in report["providers"][0]["note"]
+    assert "baseline_changes" not in report
     assert registry.read_text(encoding="utf-8") == original
 
 
@@ -102,7 +78,7 @@ def test_credentialed_catalog_ignores_historical_unknown_models():
 def test_new_model_is_candidate_not_selection():
     baseline = {"checked_at": "2026-07-10T00:00:00Z", "model_ids": ["known"]}
     report = discovery.catalog_diff(
-        provider="github-models",
+        provider="openai",
         models=[discovery.CatalogModel("known"), discovery.CatalogModel("new")],
         baseline=baseline,
     )
@@ -112,7 +88,7 @@ def test_new_model_is_candidate_not_selection():
 
 def test_removed_model_is_catalog_drift():
     report = discovery.catalog_diff(
-        provider="github-models",
+        provider="anthropic",
         models=[],
         baseline={"checked_at": "2026-07-10T00:00:00Z", "model_ids": ["removed"]},
     )
@@ -121,28 +97,20 @@ def test_removed_model_is_catalog_drift():
 
 
 def test_parse_timestamp_rejects_bool_created_at():
-    payload = [
-        {
-            "id": "boolean-timestamp",
-            "capabilities": ["streaming"],
-            "created_at": True,
-        }
-    ]
+    payload = {"data": [{"id": "boolean-timestamp", "created": True}]}
 
-    assert discovery.parse_catalog("github-models", payload) == [
+    assert discovery.parse_catalog("openai", payload) == [
         discovery.CatalogModel("boolean-timestamp")
     ]
 
 
 @pytest.mark.parametrize("timestamp", [1e100, -1e100, float("inf"), float("-inf"), float("nan")])
-def test_github_catalog_invalid_numeric_timestamp_does_not_abort(timestamp):
-    payload = [
-        {"id": "bad-time", "capabilities": ["streaming"], "created_at": timestamp},
-        {"id": "valid", "capabilities": ["streaming"], "created_at": 0},
-    ]
-    assert discovery.parse_catalog("github-models", payload) == [
+def test_invalid_numeric_timestamp_does_not_abort(timestamp):
+    payload = {"data": [{"id": "bad-time", "created": timestamp}, {"id": "valid", "created": 0}]}
+    # `created: 0` is falsy, so the parser falls back to `created_at` (absent).
+    assert discovery.parse_catalog("openai", payload) == [
         discovery.CatalogModel("bad-time"),
-        discovery.CatalogModel("valid", dt.datetime(1970, 1, 1, tzinfo=dt.UTC)),
+        discovery.CatalogModel("valid"),
     ]
 
 
@@ -160,3 +128,126 @@ def test_numeric_timestamp_platform_errors_are_ignored(monkeypatch, error):
         ),
     )
     assert discovery._parse_timestamp(123) is None
+
+
+NOW = dt.datetime(2026, 11, 30, 5, 20, tzinfo=dt.UTC)
+
+
+def _observed(**catalogs: list[str]) -> dict[str, list[discovery.CatalogModel]]:
+    return {
+        provider: [discovery.CatalogModel(model_id) for model_id in ids]
+        for provider, ids in catalogs.items()
+    }
+
+
+def _registry(review_by: str = "2026-08-30") -> dict:
+    return {
+        "review_by": review_by,
+        "catalog_baselines": {
+            "openai": {"checked_at": "2026-09-30T12:09:00Z", "model_ids": ["gpt-a"]},
+            "anthropic": {"checked_at": "2026-09-30T00:00:00Z", "model_ids": ["claude-a"]},
+        },
+    }
+
+
+def test_recorded_baseline_reports_only_later_additions(monkeypatch):
+    """Round-3 M2: nothing wrote catalog_baselines, so every week re-reported the same
+    additions (8 models since 2026-09-30, commented on the tracker weekly)."""
+    registry = _registry()
+    catalogs = {"openai": ["gpt-a", "gpt-b"], "anthropic": ["claude-a", "claude-b"]}
+    monkeypatch.setattr(
+        discovery,
+        "fetch_provider",
+        lambda provider: ([discovery.CatalogModel(m) for m in catalogs[provider]], None),
+    )
+    observed: dict = {}
+    first = discovery.build_report(registry, list(discovery.PROVIDERS), observed)
+    assert first["drift"] is True
+    changes = discovery.record_observation(registry, observed, list(discovery.PROVIDERS), NOW)
+    assert "openai: recorded 2 observed model id(s)" in changes
+    assert registry["catalog_baselines"]["openai"] == {
+        "checked_at": "2026-11-30T05:20:00Z",
+        "model_ids": ["gpt-a", "gpt-b"],
+    }
+
+    second = discovery.build_report(registry, list(discovery.PROVIDERS))
+    assert second["drift"] is False
+    assert [item["status"] for item in second["providers"]] == ["current", "current"]
+
+    catalogs["openai"].append("gpt-c")
+    third = discovery.build_report(registry, list(discovery.PROVIDERS))
+    assert third["providers"][0]["added_candidates"] == ["gpt-c"]
+
+
+def test_recording_renews_registry_review_only_when_every_catalog_was_read():
+    registry = _registry()
+    changes = discovery.record_observation(
+        registry, _observed(openai=["gpt-a", "gpt-b"]), ["openai"], NOW
+    )
+    assert changes == ["openai: recorded 2 observed model id(s)"]
+    assert registry["review_by"] == "2026-08-30"  # anthropic unread: not reviewed
+    assert registry["catalog_baselines"]["anthropic"]["model_ids"] == ["claude-a"]
+
+    discovery.record_observation(
+        registry, _observed(openai=["gpt-a", "gpt-b"], anthropic=["claude-a"]), ["openai"], NOW
+    )
+    assert registry["review_by"] == "2026-12-30"
+
+
+def test_quiet_week_writes_nothing_until_the_review_is_due_soon():
+    same = _observed(openai=["gpt-a"], anthropic=["claude-a"])
+    registry = _registry(review_by="2026-12-20")  # 20 days left
+    assert discovery.record_observation(registry, same, list(discovery.PROVIDERS), NOW) == []
+    assert registry["review_by"] == "2026-12-20"
+
+    registry = _registry(review_by="2026-12-10")  # 10 days left
+    changes = discovery.record_observation(registry, same, list(discovery.PROVIDERS), NOW)
+    assert changes == ["review_by: 2026-12-10 -> 2026-12-30 (every provider catalog observed)"]
+
+
+def test_record_baselines_cli_writes_the_registry(monkeypatch, tmp_path):
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(_registry(), indent=2) + "\n", encoding="utf-8")
+    catalogs = {"openai": ["gpt-a", "gpt-new"], "anthropic": ["claude-a"]}
+    monkeypatch.setattr(
+        discovery,
+        "fetch_provider",
+        lambda provider: ([discovery.CatalogModel(m) for m in catalogs[provider]], None),
+    )
+    output = tmp_path / "report.json"
+    rc = discovery.main(["--registry", str(path), "--output", str(output), "--record-baselines"])
+    assert rc == 1  # this run still reports the addition it recorded
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["providers"][0]["added_candidates"] == ["gpt-new"]
+    written = json.loads(path.read_text(encoding="utf-8"))
+    assert written["catalog_baselines"]["openai"]["model_ids"] == ["gpt-a", "gpt-new"]
+    assert written["review_by"] > "2026-11-28"
+    assert discovery.main(["--registry", str(path), "--record-baselines"]) == 0
+
+
+def test_recorded_cutoff_precedes_the_fetch(monkeypatch, tmp_path):
+    """Review on #5563: a model released while the catalogs are read must not fall
+    behind `checked_at`, or catalog_diff would drop it as historical next week."""
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(_registry(), indent=2) + "\n", encoding="utf-8")
+    clock = [dt.datetime(2026, 11, 30, 5, 20, tzinfo=dt.UTC)]
+
+    class Clock(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return clock[0]
+
+    def fetch(provider):
+        clock[0] += dt.timedelta(minutes=1)  # each catalog read takes a minute
+        return [discovery.CatalogModel(f"{provider}-new")], None
+
+    monkeypatch.setattr(
+        discovery,
+        "dt",
+        SimpleNamespace(datetime=Clock, UTC=dt.UTC, date=dt.date, timedelta=dt.timedelta),
+    )
+    monkeypatch.setattr(discovery, "fetch_provider", fetch)
+    discovery.main(["--registry", str(path), "--record-baselines"])
+    written = json.loads(path.read_text(encoding="utf-8"))
+    for provider in discovery.PROVIDERS:
+        assert written["catalog_baselines"][provider]["checked_at"] == "2026-11-30T05:20:00Z"
