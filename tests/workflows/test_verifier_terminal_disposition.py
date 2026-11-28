@@ -787,9 +787,9 @@ def test_followup_paths_select_latest_report_before_gate_and_creation(
         create["if"],
     )
     create_script = common + """
-      let mutations=0;
-      const github={rest:{issues:{listForRepo:'issues',create:async()=>{
-        mutations++; return {data:{number:99,html_url:'https://example.test/99'}};
+      let mutations=0, labelsSeen=[];
+      const github={rest:{issues:{listForRepo:'issues',create:async(args)=>{
+        mutations++; labelsSeen=args.labels; return {data:{number:99,html_url:'https://example.test/99'}};
       }}},paginate:async()=>[]};
     """
     create_script += (
@@ -797,8 +797,12 @@ def test_followup_paths_select_latest_report_before_gate_and_creation(
         + condition
         + "){await(async()=>{"
         + create["with"]["script"]
-        + "})();}console.log(mutations);})().catch(e=>{console.error(e);process.exit(1)});"
+        + "})();}console.log(mutations);console.log(JSON.stringify(labelsSeen));})()"
+        + ".catch(e=>{console.error(e);process.exit(1)});"
     )
+    # The workflow checks Workflows' scripts out into the workspace; mirror that here.
+    if not (tmp_path / ".github").exists():
+        (tmp_path / ".github").symlink_to(ROOT / ".github")
     created = subprocess.run(
         ["node", "-e", create_script],
         cwd=tmp_path,
@@ -807,7 +811,13 @@ def test_followup_paths_select_latest_report_before_gate_and_creation(
         capture_output=True,
         text=True,
     )
-    assert int(created.stdout.strip()) == int(terminal)
+    count, labels_json = created.stdout.strip().splitlines()
+    assert int(count) == int(terminal)
+    if terminal and workflow_path.endswith("agents-verify-to-issue-v2.yml"):
+        # Follow-ups are routed to an agent through intake, never to retired Auto-Pilot labels.
+        labels = json.loads(labels_json)
+        assert labels[0] == "follow-up" and labels[-1] == "agents:optimize"
+        assert not any(label.startswith("agents:auto-pilot") for label in labels)
 
 
 @pytest.mark.parametrize(

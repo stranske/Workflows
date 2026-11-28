@@ -346,8 +346,11 @@ jobs:
             config
             scripts/langchain
             tools
+            .github/agents/registry.yml
+            .github/scripts/agent_registry.js
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
+            .github/scripts/verification_followup_labels.js
           sparse-checkout-cone-mode: false
 
       - name: Set up Python
@@ -534,12 +537,19 @@ jobs:
               return;
             }
 
+            // Labels come from the shared helper so the hub and v2 stay identical.
+            const { buildVerificationFollowupLabels } = require('./.github/scripts/verification_followup_labels.js');
+            const issueLabels = buildVerificationFollowupLabels(
+              context.payload.pull_request?.labels || [],
+              { registryPath: './.github/agents/registry.yml', warn: (m) => core.warning(m) },
+            );
+
             const { data: issue } = await withRetry(() => github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: issueTitle,
               body: issueBody,
-              labels: ['agents:auto-pilot', 'from:verification']
+              labels: issueLabels
             }));
 
             core.info(`Created follow-up issue #${issue.number}`);

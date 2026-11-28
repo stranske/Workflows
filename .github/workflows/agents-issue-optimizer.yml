@@ -69,14 +69,13 @@ jobs:
               return 1
             fi
             if jq -e '[.labels[].name] | any(
-                . == "agents:auto-pilot" or
                 . == "agents:auto-pilot-pause" or
                 . == "needs-human" or
                 . == "tracker:durable" or
                 . == "automated" or
                 . == "wontfix"
               )' /tmp/format-eligibility.json >/dev/null; then
-              echo "Skipping format: issue is held, exempt, or owned by auto-pilot."
+              echo "Skipping format: issue is held or exempt."
               return 1
             fi
             if jq -er '.author.login // ""' /tmp/format-eligibility.json \
@@ -122,25 +121,15 @@ jobs:
               echo "should_run=$should_run"
             } >> "$GITHUB_OUTPUT"
           elif [[ "$LABEL_NAME" == "agents:optimize" || "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
-            if ! labels=$(gh issue view "$EVENT_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
-                --json labels --jq '.labels[].name'); then
-              echo "::error::Could not check optimizer ownership for issue #$EVENT_ISSUE_NUMBER"
-              exit 1
+            phase=analyze
+            if [[ "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
+              phase=apply
             fi
-            if grep -Fxq 'agents:auto-pilot' <<< "$labels"; then
-              echo "should_run=false" >> "$GITHUB_OUTPUT"
-              echo "Skipping: auto-pilot label present (owns this phase inline)"
-            else
-              phase=analyze
-              if [[ "$LABEL_NAME" == "agents:apply-suggestions" ]]; then
-                phase=apply
-              fi
-              {
-                echo "phase=$phase"
-                echo "issue_number=$EVENT_ISSUE_NUMBER"
-                echo "should_run=true"
-              } >> "$GITHUB_OUTPUT"
-            fi
+            {
+              echo "phase=$phase"
+              echo "issue_number=$EVENT_ISSUE_NUMBER"
+              echo "should_run=true"
+            } >> "$GITHUB_OUTPUT"
           elif [[ "$LABEL_NAME" == "agents:format" ]]; then
             if format_issue_is_eligible "$EVENT_ISSUE_NUMBER"; then
               {

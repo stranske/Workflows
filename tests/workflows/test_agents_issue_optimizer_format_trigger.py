@@ -88,14 +88,17 @@ def test_recursion_guard_counts_only_self_dispatched_retries() -> None:
 @pytest.mark.parametrize(
     ("label", "labels", "read_status", "expected"),
     [
-        ("agents:optimize", "sync\nagents:auto-pilot", 0, "should_run=false"),
-        ("agents:apply-suggestions", "agents:auto-pilot\nsync", 0, "should_run=false"),
+        # Auto-Pilot is retired (#5379): a leftover `agents:auto-pilot` label no longer
+        # makes the optimizer skip the issue.
+        ("agents:optimize", "sync\nagents:auto-pilot", 0, "phase=analyze\nissue_number=1768\nshould_run=true"),
+        ("agents:apply-suggestions", "agents:auto-pilot\nsync", 0, "phase=apply\nissue_number=1768\nshould_run=true"),
         ("agents:optimize", "", 0, "phase=analyze\nissue_number=1768\nshould_run=true"),
         ("agents:apply-suggestions", "sync", 0, "phase=apply\nissue_number=1768\nshould_run=true"),
-        ("agents:apply-suggestions", "", 1, None),
+        # The label phase no longer reads labels, so a failing read cannot block it.
+        ("agents:apply-suggestions", "", 1, "phase=apply\nissue_number=1768\nshould_run=true"),
     ],
 )
-def test_label_phase_checks_owner_before_checkout(
+def test_label_phase_selects_phase_without_an_owner_label_check(
     path: Path, label: str, labels: str, read_status: int, expected: str | None, tmp_path: Path
 ) -> None:
     import os
@@ -147,7 +150,6 @@ def test_format_optimizer_rechecks_live_hold_and_exemption_state() -> None:
         assert "format-eligibility.json" in text
         assert 'DISPATCH_PHASE" == "format"' in text
         for label in (
-            "agents:auto-pilot",
             "agents:auto-pilot-pause",
             "needs-human",
             "tracker:durable",

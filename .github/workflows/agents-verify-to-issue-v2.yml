@@ -79,6 +79,7 @@ jobs:
             .github/scripts/github-api-with-retry.js
             .github/scripts/terminal_disposition.js
             .github/scripts/token_load_balancer.js
+            .github/scripts/verification_followup_labels.js
             config
             scripts/langchain
             tools
@@ -418,31 +419,12 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
 
-            // Resolve agent from PR labels; fall back to registry default
-            let _defaultAgent = 'codex';
-            try {
-              const { loadAgentRegistry } = require('./.github/scripts/agent_registry.js');
-              const registry = loadAgentRegistry('./.github/agents/registry.yml');
-              _defaultAgent = registry.default_agent || 'codex';
-            } catch (_) {}
-            let agentKey = _defaultAgent;
-            try {
-              const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              const prLabels = context.payload.pull_request?.labels || [];
-              agentKey = resolveAgentFromLabels(prLabels, {
-                registryPath: './.github/agents/registry.yml',
-              });
-            } catch (err) {
-              core.warning(
-                `Failed to resolve agent from PR labels; defaulting to ${_defaultAgent}: ` +
-                  err.message
-              );
-              agentKey = _defaultAgent;
-            }
-            const normalized =
-              String(agentKey || _defaultAgent).trim().toLowerCase() || _defaultAgent;
-            const agentLabel = `agent:${normalized}`;
-            const fromLabel = `from:${normalized}`;
+            // Labels come from the shared helper so the hub and v2 stay identical.
+            const { buildVerificationFollowupLabels } = require('./.github/scripts/verification_followup_labels.js');
+            const issueLabels = buildVerificationFollowupLabels(
+              context.payload.pull_request?.labels || [],
+              { registryPath: './.github/agents/registry.yml', warn: (m) => core.warning(m) },
+            );
 
             const title = process.env.ISSUE_TITLE;
             const body = process.env.ISSUE_BODY;
@@ -457,7 +439,7 @@ jobs:
               repo: context.repo.repo,
               title: title,
               body: body,
-              labels: ['follow-up', agentLabel, fromLabel, 'agents:optimize']
+              labels: issueLabels
             }));
 
             core.info(`Created issue #${issue.data.number}`);

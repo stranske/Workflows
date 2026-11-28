@@ -232,7 +232,6 @@ def test_bot_comment_handler_preserves_pr_number_on_known_pr_skips() -> None:
         for skip_reason in (
             "pr-fetch-failed",
             "missing-agent-label",
-            "auto-pilot-managed",
         ):
             skip_index = workflow_text.index(f"core.setOutput('skip_reason', '{skip_reason}')")
             pr_output_index = workflow_text.rfind(

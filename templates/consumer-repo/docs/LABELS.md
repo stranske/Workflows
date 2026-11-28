@@ -23,8 +23,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agents:formatted` | Auto-applied | Indicates issue has been formatted
 | `agents:optimize` | Issue labeled | Analyzes issue and posts suggestions
 | `agents:apply-suggestions` | Issue labeled | Applies optimization suggestions
-| `agents:auto-pilot` | Issue labeled | Runs issue-to-PR automation
-| `agents:auto-pilot-pause` | Issue labeled | Pauses auto-pilot dispatch
+| `agents:auto-pilot-pause` | Issue labeled | Format-guard hold: the issue body does not validate against AGENT_ISSUE_FORMAT; the opener lane rewrites it and clears the label (name kept from the retired Auto-Pilot)
 | `agents:paused` | PR labeled | Pauses keepalive loop on PR
 | `agents:keepalive` | PR labeled | Enables keepalive loop on PR
 | `agents:local-loop` | PR labeled (local automation) | The local Orchestrator keepalive loop owns the PR; hosted keepalive stays off it
@@ -36,10 +35,10 @@ This document describes all labels that trigger automated workflows or affect CI
 | `runtime-ac` / runtime verification labels | PR labeled | Blocks external auto-merge until local Orchestrator runtime AC checks pass
 | `status:in-progress` | Issue labeled | Marks an issue claimed by the belt dispatcher/worker
 | `from:<agent>` | PR labeled | Records the automation agent that produced the PR
-| `runner:<agent>` | Issue labeled | Selects an auto-pilot runner without triggering issue intake
+| `runner:<agent>` | Issue labeled | Retired with Auto-Pilot (#5379): no live workflow reads it
 | `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge
 | `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge
-| `verify:pr-handoff` | Issue labeled | Auto-pilot recorded a PR-bound verification handoff
+| `verify:pr-handoff` | Issue labeled | Retired with Auto-Pilot (#5379): nothing writes or reads it
 | `verify:compare` | PR labeled | Runs verifier comparison mode after merge
 | `verify:create-issue` | PR labeled | Creates follow-up issue from verification
 | `verify:create-new-pr` | PR labeled | Creates follow-up issue and PR from verification
@@ -274,14 +273,7 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Applies to:** Issues
 
-**Trigger:** When applied to an issue that also has `agents:auto-pilot`
-
-**Effect:**
-1. Overrides the agent that auto-pilot will use (`runner:claude`, `runner:codex`, etc.)
-2. Auto-pilot reads this label during capability/check-pr steps and adds the matching `agent:<name>` label when it dispatches the belt
-3. Does **not** trigger the issue intake workflow by itself, so manual `agent:<name>` behavior is unaffected
-
-**Workflow:** `agents-auto-pilot.yml`
+**Status:** Retired with Auto-Pilot (#5379). It selected the runner Auto-Pilot used; no live workflow reads it now, and it never triggered issue intake.
 
 ---
 
@@ -316,9 +308,7 @@ This document describes all labels that trigger automated workflows or affect CI
 2. Used in conjunction with `agent:codex` to signal readiness
 3. May trigger the next step in the agent automation pipeline
 
-**Workflow:** `agents-issue-intake.yml` handles ordinary agent intake. The
-separate `agents:auto-pilot` route dispatches Agents 71 and the Agents 72
-wrapper when end-to-end automation is requested.
+**Workflow:** `agents-issue-intake.yml` handles agent intake.
 
 ---
 
@@ -460,6 +450,8 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Effect:** Runs an LLM evaluation of the work and posts a report with optional follow-up issues.
 
+**Who applies it:** a person, by hand. Auto-Pilot used to add it after merge and was retired in #5379; no workflow applies it now. The closer lane (`closer-core`) labels merged agent PRs `verify:compare` instead.
+
 **CI failure hard gate:** If any polled CI workflow concludes `failure` on the merge commit, the verdict is floored at CONCERNS before the LLM runs, so a merge that breaks `main` can never verify PASS.
 
 **Workflow:** `agents-verifier.yml`
@@ -470,11 +462,7 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 
 **Applies to:** Issues
 
-**Trigger:** Written by `agents-auto-pilot.yml` after it labels a merged source PR with `verify:evaluate`
-
-**Effect:** Marks a PR-bound verification handoff. Auto-pilot treats a closed issue as `done` only when this label is present (or a legacy recovery path applies). Issue-only `verify:evaluate` without this marker stays on `verify`.
-
-**Workflow:** `agents-auto-pilot.yml` (tracking); verifier still runs from the PR label
+**Status:** Retired with Auto-Pilot (#5379). Auto-Pilot wrote it when it labeled a merged source PR; nothing writes or reads it now. The verifier still runs from the PR label.
 
 ---
 
@@ -626,12 +614,11 @@ when the Orchestrator router starts the work on the owner's machine (`router.cho
 1. Stops automation until a human removes the label.
 2. Marks an independently confirmed policy, product, or external authority
    blocker; automation failure or exhausted retries alone are insufficient.
-3. May be applied by verifier follow-up policy, auto-pilot blockers, and
+3. May be applied by verifier follow-up policy, and
    capability checks only after they record the exact human action. Keepalive
    failures use `agent:retry` or `agent:needs-attention`, not this label.
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
-`.github/workflows/agents-auto-pilot.yml`,
 `.github/workflows/agents-verify-to-new-pr.yml`,
 `.github/workflows/agents-capability-check.yml`.
 
@@ -708,7 +695,6 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
 `.github/scripts/merge_manager.js`,
-`.github/workflows/agents-auto-pilot.yml`,
 `.github/workflows/agents-81-gate-followups.yml`.
 
 ---
@@ -804,7 +790,6 @@ These labels are used for categorization but do not trigger workflows.
 | (none) | `agents:optimize` | Analyzes and posts suggestions
 | `agents:optimize` | `agents:apply-suggestions` | Applies suggestions, adds `agents:formatted`
 | `agents:formatted` | `agent:codex` | Issue ready for agent processing
-| `agents:auto-pilot` | `runner:<agent>` | Auto-pilot uses the selected runner when it dispatches work
 | (none) | `agents:keepalive` | Enables keepalive monitoring for an agent PR
 | `agents:keepalive` | `agents:paused` | Pauses keepalive and agent dispatch until resumed
 | `agents:paused` | (removed) | Keepalive can resume on the next eligible event
