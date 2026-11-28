@@ -69,3 +69,32 @@ def test_renovate_fleet_preset_disables_exactly_the_pinned_tools() -> None:
     names = rule["matchPackageNames"]
     assert len(names) == len(set(names)), "duplicate dev-tool name in fleet.json"
     assert set(names) == _pinned_packages()
+
+
+PIN_COMPARING_WORKFLOWS = (
+    ROOT / ".github/workflows/health-67-integration-sync-check.yml",
+    ROOT / "templates/integration-repo/.github/workflows/notify-workflows.yml",
+)
+
+
+@pytest.mark.parametrize("workflow", PIN_COMPARING_WORKFLOWS, ids=lambda path: path.name)
+def test_pin_comparisons_cover_every_pinned_key(workflow: Path) -> None:
+    """Round-2 D7: Health 67 and the WIT notify job compared 4 of the 9 pins."""
+    import re
+
+    text = workflow.read_text(encoding="utf-8")
+    assert not re.search(r"for key in [A-Z0-9_]+_VERSION", text), "hand-kept pin subset is back"
+    assert "grep -oE '^[A-Z0-9_]+_VERSION'" in text
+    assert 'for key in "${pin_keys[@]}"' in text
+
+
+def test_pin_key_extraction_matches_the_package_map_keys() -> None:
+    import subprocess
+
+    keys = subprocess.run(
+        ["grep", "-oE", "^[A-Z0-9_]+_VERSION", str(PIN_FILE)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    assert set(keys) == set(pinned_dev_tools(parse_env_file(PIN_FILE)))

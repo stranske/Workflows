@@ -170,6 +170,11 @@ jobs:
       matrix: ${{ fromJson(needs.prepare.outputs.repos) }}
     env:
       REPO_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+      # Delivery lease for the generated PR. It must outlast the weekly cadence above
+      # (168 h), because the next scheduled run is what refreshes it: a 72 h lease
+      # expired on day 3 and the PR then waited up to 4 more days for a successor.
+      # tests/workflows/test_maint_52_delivery_lease.py pins lease > cadence.
+      DELIVERY_LEASE_HOURS: '192'
     steps:
       - name: Clone consumer repo
         env:
@@ -383,7 +388,7 @@ jobs:
           # Create PR body.  Each generated PR is a leased delivery attempt;
           # the durable campaign issue keeps the coordination history.
           desired_tree_hash=${desired_tree:-$(git rev-parse 'HEAD^{tree}')}
-          lease_expires_at=$(date -u -d '+72 hours' +%Y-%m-%dT%H:%M:%SZ)
+          lease_expires_at=$(date -u -d "+${DELIVERY_LEASE_HOURS} hours" +%Y-%m-%dT%H:%M:%SZ)
           delivery_marker=$(jq -nc \
             --arg schema "sync-pr-delivery-record/v1" \
             --arg durable_issue_url "https://github.com/stranske/Workflows/issues/1836" \

@@ -139,22 +139,24 @@ def test_health_44_admits_only_the_expected_classification_result():
     )
 
 
-def test_health_40_sweep_permissions_cover_called_branch_protection_workflow():
+def test_health_40_sweep_no_longer_calls_health_44():
+    """Round-2 A6: the branch-protection leg failed ten Mondays; the self-check drains drift."""
     sweep = yaml.safe_load((WORKFLOW_DIR / "health-40-sweep.yml").read_text(encoding="utf-8"))
-    branch_protection = yaml.safe_load(
-        (WORKFLOW_DIR / "health-44-gate-branch-protection.yml").read_text(encoding="utf-8")
-    )
-    permission_levels = {"none": 0, "read": 1, "write": 2}
-    branch_protection_job = sweep["jobs"]["branch-protection-verify"]
-    caller_permissions = branch_protection_job.get("permissions") or sweep.get("permissions") or {}
-    called_permissions = branch_protection.get("permissions") or {}
+    uses = {job.get("uses") for job in sweep["jobs"].values()}
+    assert "./.github/workflows/health-44-gate-branch-protection.yml" not in uses
+    assert "branch-protection-verify" not in sweep["jobs"]
 
-    for scope, requested in called_permissions.items():
-        available = caller_permissions.get(scope, "none")
-        assert permission_levels[available] >= permission_levels[requested], (
-            "Health 40 Sweep calls Health 44 as a reusable workflow, so its effective "
-            f"`{scope}` permission must be at least `{requested}`; found `{available}`."
-        )
+    selfcheck = yaml.safe_load(
+        (WORKFLOW_DIR / "health-40-repo-selfcheck.yml").read_text(encoding="utf-8")
+    )
+    assert selfcheck["permissions"]["actions"] == "write"
+    steps = selfcheck["jobs"]["repo-health"]["steps"]
+    apply = next(step for step in steps if step.get("id") == "protection-apply")
+    assert apply["if"] == "${{ steps.protection-snapshot.outcome == 'failure' }}"
+    assert "gh workflow run health-44-gate-branch-protection.yml" in apply["run"]
+    collect = next(step for step in steps if step.get("id") == "collect")
+    assert collect["env"]["PROTECTION_APPLY_OUTCOME"] == "${{ steps.protection-apply.outcome }}"
+    assert "next scheduled run" not in collect["with"]["script"]
 
 
 def test_health_40_and_branch_protection_concurrency_use_distinct_keys():
@@ -276,7 +278,6 @@ EXPECTED_NAMES = {
     "autofix.yml": "CI Autofix Loop",
     "health-40-repo-selfcheck.yml": "Health 40 Repo Selfcheck",
     "health-40-sweep.yml": "Health 40 Sweep",
-    "health-41-repo-health.yml": "Health 41 Repo Health",
     "health-42-actionlint.yml": "Health 42 Actionlint",
     "health-44-gate-branch-protection.yml": "Health 44 Gate Branch Protection",
     "health-codex-auth-check.yml": "Health 46 Codex Auth Check",

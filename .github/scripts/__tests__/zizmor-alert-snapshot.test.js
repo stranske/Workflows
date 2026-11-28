@@ -85,3 +85,58 @@ test('the first measurement says so instead of inventing a trend', () => {
   assert.equal(snapshot.previous, null);
   assert.match(renderMarkdown(snapshot), /first measurement/);
 });
+
+// --- Cohesion review round 2, B3: CodeQL and Semgrep in the same snapshot ---
+
+test('the snapshot counts zizmor, CodeQL and Semgrep, each against its own previous count', async () => {
+  const { SCANS, renderSecuritySection, snapshotAllScans } = require('../zizmor_alert_snapshot.js');
+  assert.deepEqual(
+    SCANS.map((scan) => scan.tool),
+    ['zizmor', 'CodeQL', 'Semgrep OSS']
+  );
+  const openByTool = { zizmor: 3, CodeQL: 0, 'Semgrep OSS': 2 };
+  const requestedTools = [];
+  const listAlertsForRepo = { name: 'listAlertsForRepo' };
+  const github = {
+    rest: { codeScanning: { listAlertsForRepo } },
+    paginate: async (_method, params) => {
+      requestedTools.push(params.tool_name);
+      return Array.from({ length: openByTool[params.tool_name] }, () => ({
+        rule: { severity: 'warning' },
+      }));
+    },
+  };
+  const previousBody = [
+    '## Security scan alerts',
+    '',
+    '*Open zizmor alerts:* `5`',
+    '',
+    '*Open Semgrep alerts:* `1`',
+  ].join('\n');
+  const snapshots = await snapshotAllScans({
+    github,
+    owner: 'o',
+    repo: 'r',
+    previousBody,
+    previousAt: '2026-11-23T06:30:00Z',
+  });
+  assert.deepEqual(requestedTools, ['zizmor', 'CodeQL', 'Semgrep OSS']);
+  assert.deepEqual(
+    snapshots.map((s) => [s.label, s.open, s.previous, s.delta]),
+    [
+      ['zizmor', 3, 5, -2],
+      ['CodeQL', 0, null, null],
+      ['Semgrep', 2, 1, 1],
+    ]
+  );
+  const md = renderSecuritySection(snapshots);
+  assert.equal((md.match(/^## Security scan alerts$/gm) || []).length, 1);
+  assert.deepEqual(
+    [...md.matchAll(/^\*Open (\w+) alerts:\*/gm)].map((m) => m[1]),
+    ['zizmor', 'CodeQL', 'Semgrep']
+  );
+  assert.match(md, /\*Open CodeQL alerts:\* `0` - fully drained/);
+  assert.match(md, /\*Open Semgrep alerts:\* `2`\n\n\*Trend:\* rising, \+1 since `1`/);
+  // A previous zizmor count is never read as another scan's count.
+  assert.equal(snapshots[1].trend, 'first measurement');
+});

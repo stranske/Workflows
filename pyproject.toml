@@ -162,7 +162,7 @@ python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
-files = ["src"]
+files = ["src", "scripts/metrics"]
 disable_error_code = "import-untyped"
 exclude = [
     "^archive/",
@@ -178,6 +178,13 @@ ignore_errors = true
 module = ["scripts.*", "tools.*"]
 follow_imports = "skip"
 ignore_errors = true
+
+# The metrics modules moved out of src/ (#5402) stay strictly typed; the more
+# specific pattern wins over scripts.* above.
+[[tool.mypy.overrides]]
+module = ["scripts.metrics.*"]
+follow_imports = "normal"
+ignore_errors = false
 
 [tool.pytest.ini_options]
 minversion = "7.0"

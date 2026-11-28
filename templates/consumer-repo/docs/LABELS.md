@@ -540,8 +540,11 @@ when the Orchestrator router starts the work on the owner's machine (`router.cho
    controller pass) owns the PR. It re-runs the agent on CI results with the failing lines, gives it the source
    issue's tasks, runs the issue's acceptance commands on a green head, and rotates agents after two
    unproductive rounds.
-2. One owner per PR: a PR with this label never carries `agents:keepalive`, so hosted keepalive
-   (`agents-81-gate-followups.yml`) does not dispatch on it, and the local label sweep does not add hosted labels.
+2. One owner per PR: a PR with this label never carries `agents:keepalive`, and the local label sweep does not
+   add hosted labels. The hosted side also enforces the label itself: hosted keepalive (`keepalive_loop.js`)
+   ends with `skip`/`local-loop` before any label write, runner reservation or comment, and hosted autofix
+   (`agents-81-gate-followups.yml`, `agents-autofix-loop.yml`) stops with `local_loop` before reserving a runner.
+   Both read the one constant `LOCAL_LOOP_LABEL` in `.github/scripts/agent_registry.js`.
 3. The loop ends either when the PR is done (closer-core merges the green PR, after a judge if the PR edits CI
    workflows) or by handing the PR to hosted keepalive. It hands off when its round cap is reached, no untried
    agent is left, or no local slot frees in time: it adds `agents:keepalive` and `autofix`, then removes

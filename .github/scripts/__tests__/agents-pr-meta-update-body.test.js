@@ -2508,8 +2508,12 @@ test('consumer PR metadata admits explicit live manual dispatch and preserves ot
     return new Function('inputs', 'github', `return (${match[1] || match[2]})`);
   };
   const metadata = guard('pr_body_update');
-  const comment = guard('keepalive_dispatch');
-  const replay = guard('keepalive_from_gate');
+  // Cohesion round 2 (D2): the consumer keepalive comment lane sent a repository_dispatch no
+  // consumer listens for, so its jobs are gone and no consumer path can send it.
+  for (const removed of ['keepalive_dispatch', 'keepalive_orchestrator', 'keepalive_from_gate']) {
+    assert.equal(workflow.includes(`\n  ${removed}:\n`), false, `${removed} must stay removed`);
+  }
+  assert.equal(workflow.includes('runKeepaliveOrchestrator'), false);
 
   const dispatch = { event_name: 'workflow_dispatch', event_action: 'workflow_dispatch', dry_run: false };
   const event = { event_name: 'workflow_dispatch', event: { inputs: { handler: 'pr-meta', debug: 'false' } } };
@@ -2519,8 +2523,6 @@ test('consumer PR metadata admits explicit live manual dispatch and preserves ot
     assert.equal(metadata(dispatch, { ...event, event: { inputs } }), false);
   }
   assert.equal(metadata(dispatch, { event_name: 'pull_request' }), false);
-  assert.equal(comment(dispatch, event), false);
-  assert.equal(replay(dispatch, event), false);
 
   const pr = { event_name: 'pull_request', event_action: 'opened' };
   const issueComment = { event_name: 'issue_comment', event_action: 'created' };
@@ -2528,9 +2530,6 @@ test('consumer PR metadata admits explicit live manual dispatch and preserves ot
   assert.equal(metadata(pr, {}), true);
   assert.equal(metadata(issueComment, {}), false);
   assert.equal(metadata(gate, {}), false);
-  assert.equal(comment(issueComment, {}), true);
-  assert.equal(replay(gate, {}), false);
-  assert.equal(replay({ ...gate, allow_replay: true }, {}), true);
 });
 
 test('manual consumer PR metadata renders the existing issue-backed body', async () => {

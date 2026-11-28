@@ -3,9 +3,10 @@
 # These labels MUST exist in all consumer repos for agent automation to work.
 # Synced via maint-sync-labels.yml workflow.
 #
-# NOTE: This is separate from labels.yml which contains ALL labels (including
-# repo-specific informational labels). Only labels in THIS file are synced
-# to consumer repos.
+# This is the ONLY label inventory file. Maint 69 Sync Labels applies it to every
+# registered consumer plus stranske/Workflows and stranske/Workflows-Integration-Tests
+# (the repos that run the label-reading automation). The former .github/labels.yml had
+# no reader; its five labels missing here were folded in on 2026-11-28 (round-2 A5).
 
 # Agent assignment labels
 - name: agent:codex
@@ -218,3 +219,20 @@
 - name: agents:apply-suggestions
   color: "0E8A16"
   description: Applies optimization suggestions from agents:optimize
+
+# PR environment and risk labels (folded in from the retired .github/labels.yml)
+- name: agent-high-privilege
+  color: "d93f0b"
+  description: Marks PRs that require high-privilege agent environments
+- name: risk:low
+  color: "0e8a16"
+  description: Small, safe change (automerge candidate)
+- name: risk:medium
+  color: "fbca04"
+  description: Moderate change
+- name: risk:high
+  color: "d73a4a"
+  description: Large or sensitive change
+- name: reminder
+  color: "d4c5f9"
+  description: Reminder for future action

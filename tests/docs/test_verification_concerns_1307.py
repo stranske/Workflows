@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-DOC_PATH = Path("docs/verification-concerns-1307.md").resolve()
-EVIDENCE_DIR = DOC_PATH.parent / "reverification"
+DOC_PATH = Path("docs/reverification/verification-concerns-1307.md").resolve()
+EVIDENCE_DIR = DOC_PATH.parent
 DECISIONS_PATH = EVIDENCE_DIR / "DECISIONS.md"
 INDEX_PATH = EVIDENCE_DIR / "README.md"
 MISSING_ARTIFACTS_CONCERN = "### Missing verification concerns/artifacts (Severity: High)"

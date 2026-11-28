@@ -31,7 +31,16 @@ def test_maint60_does_not_write_releases():
     assert "gh release" not in runs
     move = next(step for step in steps if step.get("name") == "Update floating v1 tag")
     assert move["if"] == "startsWith(github.ref_name, 'v1.')"
-    assert 'scripts/update-floating-tag.sh v1 v1. "$GITHUB_SHA"' in move["run"]
+    # Reconcile to the highest v1.x tag, never to this run's own tag (D11 review:
+    # a cancelled pending run must not leave v1 behind).
+    assert move["run"].strip() == "scripts/update-floating-tag.sh v1 v1."
+
+
+def test_maint60_runs_one_tag_at_a_time():
+    """Round-2 D11: per-tag concurrency let an older tag's run finish last."""
+    doc = yaml.safe_load((WORKFLOWS / "maint-60-release.yml").read_text(encoding="utf-8"))
+    assert "github.ref" not in doc["concurrency"]["group"]
+    assert doc["concurrency"]["cancel-in-progress"] is False
 
 
 def test_no_workflow_besides_release_please_creates_releases():

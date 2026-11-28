@@ -25,10 +25,10 @@ what was missing, where the evidence lives, and how to validate the remediation.
 - https://github.com/stranske/Workflows/pull/1323
 
 #### DECISIONS.md reference
-- [2026-02-07 - PR #1307 Missing Verification Artifacts](reverification/DECISIONS.md#2026-02-07---pr-1307-missing-verification-artifacts)
+- [2026-02-07 - PR #1307 Missing Verification Artifacts](DECISIONS.md#2026-02-07---pr-1307-missing-verification-artifacts)
 
 #### Evidence
-- [Evidence: PR #1307 missing artifacts](reverification/1307-missing-artifacts.md)
+- [Evidence: PR #1307 missing artifacts](1307-missing-artifacts.md)
 
 ## Artifacts Reviewed
 - `verifier-diff-summary.md` (empty)
