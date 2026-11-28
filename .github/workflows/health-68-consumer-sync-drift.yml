@@ -9,7 +9,7 @@ on:
   # its 05:00 schedule plus dispatches; a push to main is not drift until Maint 68 has
   # had its lease to deliver it, so a push-triggered comparison only ever re-measured
   # undelivered work. The comparison classifies "main moved after the last Maint 68
-  # delivery" as pending_delivery (see scripts/check_consumer_sync_drift.py).
+  # delivery" as pending_delivery (see scripts/consumer_sync/check_consumer_sync_drift.py).
   workflow_run:
     workflows: [Merge Sync PRs]
     types: [completed]
@@ -101,7 +101,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          python3 scripts/check_consumer_sync_drift.py \
+          python3 scripts/consumer_sync/check_consumer_sync_drift.py \
             --write-deliveries artifacts/maint-68-deliveries.json
 
       - name: Compare consumer repos to templates
@@ -118,7 +118,7 @@ jobs:
           if [ -z "$repos_input" ]; then
           repos_input=$(python3 scripts/list_registered_consumer_repos.py --separator=,)
           fi
-          python3 scripts/check_consumer_sync_drift.py \
+          python3 scripts/consumer_sync/check_consumer_sync_drift.py \
             --repos "$repos_input" \
             --summary "$GITHUB_STEP_SUMMARY" \
             --report-json "$CONSUMER_SYNC_DRIFT_REPORT_JSON"
@@ -185,7 +185,7 @@ jobs:
               formatIssueBody,
               formatIssueComment,
               parseIssueMarker,
-            } = require('./.github/scripts/consumer_sync_drift_issue_body.js');
+            } = require('./.github/scripts/consumer_sync/consumer_sync_drift_issue_body.js');
             const {
               appendTrackerComment,
               findOrCreateTracker,

@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const campaign = require('../sync_dependency_campaign');
+const campaign = require('../consumer_sync/sync_dependency_campaign');
 
 function fixture() {
   const retained = {

@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { compactCanaryRefresh } = require('../sync_refresh_diagnostics');
+const { compactCanaryRefresh } = require('../consumer_sync/sync_refresh_diagnostics');
 test('diagnostic histories deduplicate without mutating decision inputs or losing unknowns', () => {
   const plan = { schema: 'workflows.consumer-sync-plan/v1', plan_id: 'sha256:plan',
     manifest_sha256: 'sha256:manifest', entries: [{ target: 'scripts/a', content: 'large' }], removals: [] };

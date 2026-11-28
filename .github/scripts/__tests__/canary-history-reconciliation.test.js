@@ -116,8 +116,8 @@ test('no UNKNOWN history and no open owner permits scoped recovery without basel
 for (const unknownCount of [8, 0]) test(`production collector preserves owners with ${unknownCount} UNKNOWNs`, async t => {
   const f = fixture({ openOwners: true });
   if (!unknownCount) f.runs.splice(1);
-  const receipt = require('../maint68_scoped_receipt');
-  const payloads = require('../consumer_delivery_digest');
+  const receipt = require('../consumer_sync/maint68_scoped_receipt');
+  const payloads = require('../consumer_sync/consumer_delivery_digest');
   t.mock.method(receipt, 'readScopedCanaryReceipt', async ({ run }) =>
     run.id === f.data.producer.id ? { ...f.request, state: 'completed',
       candidates: f.args.candidates, proof: { source_identity_bound: true } } : { state: 'unknown' });

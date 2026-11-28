@@ -16,12 +16,16 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from scripts.consumer_sync.sync_integration_manifest_subset import (
+        DEFAULT_REPO as INTEGRATION_REPO,
+    )
     from scripts.list_registered_consumer_repos import is_owner_excluded
-    from scripts.sync_integration_manifest_subset import DEFAULT_REPO as INTEGRATION_REPO
     from scripts.sync_manifest_compiler import PLAN_SCHEMA
 except ImportError:
+    from consumer_sync.sync_integration_manifest_subset import (  # type: ignore[no-redef]
+        DEFAULT_REPO as INTEGRATION_REPO,
+    )
     from list_registered_consumer_repos import is_owner_excluded  # type: ignore[no-redef]
-    from sync_integration_manifest_subset import DEFAULT_REPO as INTEGRATION_REPO
     from sync_manifest_compiler import PLAN_SCHEMA  # type: ignore[no-redef]
 
 CANARY_SCHEMA = "workflows.consumer-sync-canaries/v1"

@@ -10,13 +10,13 @@ on:
       - '.github/workflows/*.yml'
       - 'templates/consumer-repo/.github/workflows/*.yml'
       - '.github/sync-manifest.yml'
-      - 'scripts/validate_template_completeness.py'
+      - 'scripts/consumer_sync/validate_template_completeness.py'
   pull_request:
     paths:
       - '.github/workflows/*.yml'
       - 'templates/consumer-repo/.github/workflows/*.yml'
       - '.github/sync-manifest.yml'
-      - 'scripts/validate_template_completeness.py'
+      - 'scripts/consumer_sync/validate_template_completeness.py'
   workflow_dispatch:
 
 permissions:
@@ -44,4 +44,4 @@ jobs:
 
       - name: Validate template completeness
         run: |
-          python scripts/validate_template_completeness.py --strict
+          python scripts/consumer_sync/validate_template_completeness.py --strict

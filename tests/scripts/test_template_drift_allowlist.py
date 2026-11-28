@@ -6,7 +6,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from scripts.check_template_drift import read_allowlist
+from scripts.consumer_sync.check_template_drift import read_allowlist
 
 ROOT = Path(__file__).resolve().parents[2]
 ALLOWLIST = ROOT / "config/template-drift-allowlist.txt"

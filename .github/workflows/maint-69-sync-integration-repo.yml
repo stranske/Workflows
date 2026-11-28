@@ -14,7 +14,7 @@ on:
       - 'templates/consumer-repo/docs/LABELS.md'
       - '.github/workflows/autofix-versions.env'
       - '.github/sync-manifest.yml'
-      - 'scripts/sync_integration_manifest_subset.py'
+      - 'scripts/consumer_sync/sync_integration_manifest_subset.py'
   schedule:
     # Daily drift sweep. WIT is outside the maint-68 consumer matrix, so without this the
     # manifest-declared hub scripts only reach it when a template path above happens to change.
@@ -67,9 +67,9 @@ jobs:
             tools/coverage_trend.py
             scripts/coverage_history_append.py
             scripts/sync_dev_dependencies.py
-            scripts/sync_integration_coverage_omit.py
-            scripts/sync_integration_manifest_subset.py
-            scripts/publish_integration_sync.py
+            scripts/consumer_sync/sync_integration_coverage_omit.py
+            scripts/consumer_sync/sync_integration_manifest_subset.py
+            scripts/consumer_sync/publish_integration_sync.py
           sparse-checkout-cone-mode: false
 
       - name: Prepare sync token
@@ -150,7 +150,7 @@ jobs:
             # Consumer-owned pyproject is not replaced wholesale; merge template
             # coverage omit patterns so synced scripts/tools stay out of the
             # full-coverage 70% floor measurement.
-            python "../workflows/scripts/sync_integration_coverage_omit.py" \
+            python "../workflows/scripts/consumer_sync/sync_integration_coverage_omit.py" \
               --apply \
               --template "../workflows/templates/integration-repo/pyproject.toml" \
               --pyproject "pyproject.toml"
@@ -187,7 +187,7 @@ jobs:
 
           # Deliver the manifest-declared .github/scripts/* the hubs require() at runtime, the
           # maint-coverage-guard workflow, and the manifest's removals (retired workflows).
-          python "../workflows/scripts/sync_integration_manifest_subset.py" \
+          python "../workflows/scripts/consumer_sync/sync_integration_manifest_subset.py" \
             --manifest "../workflows/.github/sync-manifest.yml" \
             --source-root "../workflows" \
             --target-root "." \
@@ -253,7 +253,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          python ../workflows/scripts/publish_integration_sync.py \
+          python ../workflows/scripts/consumer_sync/publish_integration_sync.py \
             --apply-script "$RUNNER_TEMP/apply-integration-templates.sh" \
             -m "sync: Update workflow templates from stranske/Workflows" \
             -m "" \

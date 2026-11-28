@@ -13,7 +13,10 @@ import subprocess
 from pathlib import Path
 
 import yaml
-from scripts.validate_template_completeness import WORKFLOWS_ONLY, is_consumer_workflow
+from scripts.consumer_sync.validate_template_completeness import (
+    WORKFLOWS_ONLY,
+    is_consumer_workflow,
+)
 from scripts.validate_workflow_yaml import (
     check_line_length,
     check_multiline_conditions,

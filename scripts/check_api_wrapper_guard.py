@@ -24,7 +24,7 @@ SKIP_FILES = {
     ROOT / ".github" / "scripts" / "token_load_balancer.js",
     ROOT / ".github" / "actions" / "codex-bootstrap-lite" / "action.yml",
     ROOT / "scripts" / "check_api_wrapper_guard.py",
-    ROOT / "scripts" / "check_consumer_sync_drift.py",
+    ROOT / "scripts" / "consumer_sync" / "check_consumer_sync_drift.py",
     ROOT / "scripts" / "api_client.py",
     # Offline provenance validation compares frozen URL strings; it performs no API calls.
     ROOT / "docs" / "evidence" / "issue-4369" / "observe-maint68.js",

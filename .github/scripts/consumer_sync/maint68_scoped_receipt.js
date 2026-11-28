@@ -3,7 +3,7 @@
 // Read the existing native Maint68 plan artifact; this is not a new receipt
 // publisher or an authority supplied by the refresh caller.
 const { createHash } = require('node:crypto');
-const { readRetainedArchive } = require('./verifier_pending_execution');
+const { readRetainedArchive } = require('../verifier_pending_execution');
 const WORKFLOW = '.github/workflows/maint-68-sync-consumer-repos.yml';
 const ARTIFACT = 'sync-plan-and-prospective-diffs';
 const PREPARE = 'Prepare sync from manifest';
@@ -95,6 +95,9 @@ const SOURCE_WORKFLOWS = new Set([
   // Filters removal staging and application using the compiled recipient exclusions.
   // Immutable source resolution, authorization, and artifact publication are unchanged.
   '8d7396430f731bdb673604909cef75649f57b086d34ff8cd3e5ea2696af5f497',
+  // Path-only: the summary jobs load sync_run_contract.js from .github/scripts/consumer_sync/
+  // (cohesion round-3 M5). Source resolution, checkout, validation and plan publication are unchanged.
+  '2b90037edb61268596c3ee9f04ab88bd8a3493c02cdd26399ec442050884622c',
 ]);
 
 async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {
@@ -185,6 +188,7 @@ async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaul
             summary.steps[index]?.name === name && summary.steps[index]?.conclusion === conclusion);
       })();
     if (bootstrap) {
+      // Historical path at the fixed bootstrap head above; the module moved to consumer_sync/ later.
       const reportModule = await readSourceFile('.github/scripts/sync_run_contract.js');
       need(sha(reportModule.bytes) === '10d28ca1485d2e3cf8630b915d3964c7f7103983511e2088a1135bc5e79ead46', 'native_scope_bootstrap_report_source_unverified');
       const emptyArtifacts = await pages('listWorkflowRunArtifacts', { run_id: actual.id }, 'artifacts');
@@ -287,7 +291,7 @@ async function readScopedCanaryReceipt(args) {
       head_repository_id: run.head_repository?.id,
       default_branch: args.defaultBranch || 'main', candidates: [...args.candidates].sort(),
       reader: sha(Buffer.concat([fs.readFileSync(__filename),
-        fs.readFileSync(require.resolve('./verifier_pending_execution'))])) };
+        fs.readFileSync(require.resolve('../verifier_pending_execution'))])) };
     key = sha(canonical(identity));
     file = path.join(directory, `${key}.json`);
     try {

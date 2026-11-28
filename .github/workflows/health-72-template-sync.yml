@@ -15,8 +15,8 @@ on:
       - '.github/scripts/**/*.js'
       - 'scripts/aggregate_agent_metrics.py'
       - 'scripts/langchain/checklist_utils.py'
-      - 'scripts/sync_templates.sh'
-      - 'scripts/validate_template_sync.py'
+      - 'scripts/consumer_sync/sync_templates.sh'
+      - 'scripts/consumer_sync/validate_template_sync.py'
       - 'tools/requirements-llm.txt'
       - 'templates/consumer-repo/.github/scripts/**/*.js'
   push:
@@ -34,8 +34,8 @@ on:
       - '.github/scripts/**/*.js'
       - 'scripts/aggregate_agent_metrics.py'
       - 'scripts/langchain/checklist_utils.py'
-      - 'scripts/sync_templates.sh'
-      - 'scripts/validate_template_sync.py'
+      - 'scripts/consumer_sync/sync_templates.sh'
+      - 'scripts/consumer_sync/validate_template_sync.py'
       - 'tools/requirements-llm.txt'
       - 'templates/consumer-repo/.github/scripts/**/*.js'
 
@@ -92,10 +92,10 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
-          ./scripts/sync_templates.sh
+          ./scripts/consumer_sync/sync_templates.sh
           if [ -n "$(git status --porcelain templates/consumer-repo)" ]; then
             if [ -z "${APP_TOKEN:-}" ]; then
-              echo "::error::templates/consumer-repo is out of sync with its sources. Health 72 pushes the sync commit only with the Workflows App token (a GITHUB_TOKEN push starts no checks on the new head), and no App token was minted. Run ./scripts/sync_templates.sh, commit templates/consumer-repo/ and push, or restore the WORKFLOWS_APP_ID / WORKFLOWS_APP_PRIVATE_KEY secrets."
+              echo "::error::templates/consumer-repo is out of sync with its sources. Health 72 pushes the sync commit only with the Workflows App token (a GITHUB_TOKEN push starts no checks on the new head), and no App token was minted. Run ./scripts/consumer_sync/sync_templates.sh, commit templates/consumer-repo/ and push, or restore the WORKFLOWS_APP_ID / WORKFLOWS_APP_PRIVATE_KEY secrets."
               git status --porcelain templates/consumer-repo
               exit 1
             fi
@@ -112,12 +112,12 @@ jobs:
 
       - name: Validate template sync
         run: |
-          if ! python scripts/validate_template_sync.py; then
+          if ! python scripts/consumer_sync/validate_template_sync.py; then
             echo ""
             echo "❌ FAILED: Template files are out of sync!"
             echo ""
             echo "To fix this error:"
-            echo "  1. Run: ./scripts/sync_templates.sh"
+            echo "  1. Run: ./scripts/consumer_sync/sync_templates.sh"
             echo "  2. Commit the changes to templates/consumer-repo/"
             echo "  3. Push to your branch"
             echo ""

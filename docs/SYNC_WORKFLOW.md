@@ -12,8 +12,8 @@ Validate shared changes in Workflows and deliver the reviewed payload to consume
 
 ### 0. Verify Template Sync (CRITICAL)
 
-For manifest-declared exact template mirrors, run `python scripts/validate_template_sync.py`.
-If it reports drift, run `./scripts/sync_templates.sh`, re-run the validator and
+For manifest-declared exact template mirrors, run `python scripts/consumer_sync/validate_template_sync.py`.
+If it reports drift, run `./scripts/consumer_sync/sync_templates.sh`, re-run the validator and
 review the resulting changes. The publisher and validator use the same compiled
 source list; Health 72 also checks it.
 

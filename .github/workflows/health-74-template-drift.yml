@@ -5,13 +5,13 @@ on:
     paths:
       - '.github/workflows/*.yml'
       - 'templates/consumer-repo/.github/workflows/*.yml'
-      - 'scripts/check_template_drift.py'
+      - 'scripts/consumer_sync/check_template_drift.py'
       - 'config/template-drift-allowlist.txt'
   pull_request:
     paths:
       - '.github/workflows/*.yml'
       - 'templates/consumer-repo/.github/workflows/*.yml'
-      - 'scripts/check_template_drift.py'
+      - 'scripts/consumer_sync/check_template_drift.py'
       - 'config/template-drift-allowlist.txt'
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           set +e
-          python scripts/check_template_drift.py \
+          python scripts/consumer_sync/check_template_drift.py \
             --allowlist config/template-drift-allowlist.txt \
             --summary "$GITHUB_STEP_SUMMARY"
           status=$?

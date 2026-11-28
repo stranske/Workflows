@@ -15,9 +15,9 @@ on:
       - '.github/workflows/**'
       - '.github/codex/**'
       - '.github/scripts/**'
-      - 'scripts/check_workflow_action_pins.py'
+      - 'scripts/consumer_sync/check_workflow_action_pins.py'
       - 'scripts/sync_manifest_compiler.py'
-      - 'scripts/validate_sync_target_dispositions.py'
+      - 'scripts/consumer_sync/validate_sync_target_dispositions.py'
       - 'templates/consumer-repo/**'
   push:
     branches: [main]
@@ -29,9 +29,9 @@ on:
       - '.github/workflows/**'
       - '.github/codex/**'
       - '.github/scripts/**'
-      - 'scripts/check_workflow_action_pins.py'
+      - 'scripts/consumer_sync/check_workflow_action_pins.py'
       - 'scripts/sync_manifest_compiler.py'
-      - 'scripts/validate_sync_target_dispositions.py'
+      - 'scripts/consumer_sync/validate_sync_target_dispositions.py'
       - 'templates/consumer-repo/**'
 
 permissions:
@@ -99,13 +99,13 @@ jobs:
             git fetch --no-tags --depth=1 origin "$BASE_SHA"
           fi
           git show "$BASE_SHA:.github/sync-manifest.yml" > "$RUNNER_TEMP/base-sync-manifest.yml"
-          python -m scripts.validate_sync_target_dispositions \
+          python -m scripts.consumer_sync.validate_sync_target_dispositions \
             --base-manifest "$RUNNER_TEMP/base-sync-manifest.yml" \
             --manifest .github/sync-manifest.yml
       - name: Validate manifest
         id: validate
         run: |
-          python scripts/validate_template_completeness.py \
+          python scripts/consumer_sync/validate_template_completeness.py \
             --workflows-dir ".github/workflows" \
             --template-dir "templates/consumer-repo/.github/workflows" \
             --manifest ".github/sync-manifest.yml" \
@@ -115,7 +115,7 @@ jobs:
         id: action_pins
         run: |
           mkdir -p artifacts/workflow-action-pins
-          python scripts/check_workflow_action_pins.py \
+          python scripts/consumer_sync/check_workflow_action_pins.py \
             .github/workflows/agents-verify-to-new-pr.yml \
             templates/consumer-repo/.github/workflows \
             --output-json artifacts/workflow-action-pins/workflow-action-pins.json \
@@ -162,7 +162,7 @@ jobs:
               guidance.push('**Validate manifest:** Review the named workflow in the job log. ' +
                 'For a workflow intended for consumers, make sure it has a template and a manifest target. ' +
                 'For a hosted-only workflow, check the existing rules in ' +
-                '`scripts/validate_template_completeness.py`.');
+                '`scripts/consumer_sync/validate_template_completeness.py`.');
             }
             if (process.env.ACTION_PINS_OUTCOME === 'failure') {
               guidance.push('**Validate workflow action pins:** See the failing step or the ' +

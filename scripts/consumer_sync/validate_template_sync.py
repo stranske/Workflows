@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 # Ensure the scripts package is importable when run as a subprocess from any cwd.
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import hashlib  # noqa: E402
 
@@ -114,7 +114,7 @@ def _compiled_template_sync_sources(repo_root: Path) -> list[str]:
 
 
 def main(*, print_sources: bool = False) -> int:
-    repo_root = Path(__file__).parent.parent
+    repo_root = Path(__file__).resolve().parents[2]
     if print_sources:
         try:
             sources = _compiled_template_sync_sources(repo_root)
@@ -187,7 +187,7 @@ def main(*, print_sources: bool = False) -> int:
                 print(f"  • {path} (MISSING - needs to be created)")
             else:
                 print(f"  • {path} (out of sync)")
-        print("\n💡 To fix: ./scripts/sync_templates.sh")
+        print("\n💡 To fix: ./scripts/consumer_sync/sync_templates.sh")
         print("   Then stage the affected template path(s):")
         for path in _format_stage_paths(Path("templates") / "consumer-repo", mismatches):
             print(f"     git add {path}")

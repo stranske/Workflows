@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { sha256, validateIndependentFindingVerification: validate,
-  validateIndependentFindingFromNative, validateNativeConversationDisposition, readProofReceipt } = require('../maint71_finding_verification');
+  validateIndependentFindingFromNative, validateNativeConversationDisposition, readProofReceipt } = require('../consumer_sync/maint71_finding_verification');
 const { validateReviewResolutionProof } = require('../maint71_merge_sync_prs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -488,7 +488,7 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
       // against its fixed clock, including an explicitly expired receipt,
       // instead of making a formerly valid test expire as wall time advances.
       Date: class FixtureDate extends Date { static now() { return args.now; } },
-      ...controller, ...require('../maint71_finding_verification'),
+      ...controller, ...require('../consumer_sync/maint71_finding_verification'),
       // Imported helpers retain their own module's Date, so pass their
       // supported clock argument as well as controlling the VM closure.
       validateIndependentFindingFromNative: options => validateIndependentFindingFromNative({ ...options, now: args.now }),
@@ -527,7 +527,7 @@ for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head
 }
 
 test('stock top-level completion resolves its short ref to the exact full head', async () => {
-  const { collectOriginatingCompletions } = require('../maint71_finding_verification');
+  const { collectOriginatingCompletions } = require('../consumer_sync/maint71_finding_verification');
   const f = fixture();
   const completion = f.args.thread.comments.nodes.pop();
   Object.assign(f.args.reviewerProfiles[0], { disposition_reviewed_commit_prefix: '**Reviewed commit:** ' });
@@ -547,7 +547,7 @@ test('stock top-level completion resolves its short ref to the exact full head',
 });
 
 test('collect all outer thread and inner comment pages, rejecting interrupted or changed pages', async () => {
-  const { collectFindingReviewState } = require('../maint71_finding_verification');
+  const { collectFindingReviewState } = require('../consumer_sync/maint71_finding_verification');
   for (const variant of ['complete', 'head-changed', 'branch-changed', 'branch-missing', 'cursor-missing']) {
     const calls = [];
     const github = { graphql: async (_query, vars) => {
@@ -598,7 +598,7 @@ test('new originating feedback in sibling threads or top-level comments invalida
 });
 
 test('retain all originating top-level feedback and skip only unresolvable commit references', async () => {
-  const { collectOriginatingCompletions } = require('../maint71_finding_verification');
+  const { collectOriginatingCompletions } = require('../consumer_sync/maint71_finding_verification');
   const f = fixture();
   const completion = f.args.thread.comments.nodes.pop();
   f.args.reviewerProfiles[0].disposition_reviewed_commit_prefix = '**Reviewed commit:** ';

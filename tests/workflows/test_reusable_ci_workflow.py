@@ -1302,8 +1302,11 @@ def test_integration_full_coverage_owns_the_measured_trend() -> None:
 
 
 def test_integration_coverage_helpers_ship_through_both_existing_paths(tmp_path: Path) -> None:
-    from scripts import publish_integration_sync
-    from scripts.sync_integration_manifest_subset import apply_subset, select_copy_sources
+    from scripts.consumer_sync import publish_integration_sync
+    from scripts.consumer_sync.sync_integration_manifest_subset import (
+        apply_subset,
+        select_copy_sources,
+    )
     from tools.integration_repo import render_integration_repo
 
     helpers = ("tools/coverage_trend.py", "scripts/coverage_history_append.py")

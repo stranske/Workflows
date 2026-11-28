@@ -10,7 +10,7 @@ const {
   buildMarkdownSummary,
   buildSyncRunReport,
   summarizeResults,
-} = require('../sync_run_contract');
+} = require('../consumer_sync/sync_run_contract');
 
 test('buildNoChangeEvidence binds unchanged delivery repos to an immutable campaign plan', () => {
   const planId = `sha256:${'a'.repeat(64)}`;

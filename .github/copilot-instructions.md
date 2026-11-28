@@ -52,5 +52,5 @@ a pair intentionally differs, review the change against its
 Run the same check from the repository root:
 
 ```sh
-python scripts/check_template_drift.py --allowlist config/template-drift-allowlist.txt
+python scripts/consumer_sync/check_template_drift.py --allowlist config/template-drift-allowlist.txt
 ```

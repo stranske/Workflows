@@ -4,7 +4,8 @@ from datetime import UTC, datetime
 import pytest
 
 SPEC = importlib.util.spec_from_file_location(
-    "dependency_sync_efficiency_metrics", "scripts/dependency_sync_efficiency_metrics.py"
+    "dependency_sync_efficiency_metrics",
+    "scripts/consumer_sync/dependency_sync_efficiency_metrics.py",
 )
 metrics = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None

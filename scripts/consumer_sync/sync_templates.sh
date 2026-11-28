@@ -3,7 +3,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 TEMPLATE_ROOT="$REPO_ROOT/templates/consumer-repo"
 
 cd "$REPO_ROOT"
@@ -12,7 +12,7 @@ echo "🔄 Syncing scripts to template directory..."
 
 # Compile the complete manifest before touching the filesystem. Do not use
 # process substitution here: Bash does not propagate the producer's failure.
-if ! FILES=$(python scripts/validate_template_sync.py --print-sources); then
+if ! FILES=$(python scripts/consumer_sync/validate_template_sync.py --print-sources); then
     echo "❌ Refusing to sync templates from an invalid manifest" >&2
     exit 1
 fi

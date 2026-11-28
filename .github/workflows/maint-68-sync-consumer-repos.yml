@@ -1981,7 +1981,7 @@ jobs:
           const {
             buildMarkdownSummary,
             buildSyncRunReport,
-          } = require('./.github/scripts/sync_run_contract');
+          } = require('./.github/scripts/consumer_sync/sync_run_contract');
 
           function parseRepos(value) {
             if (!value) return [];
@@ -2186,7 +2186,7 @@ jobs:
             buildNoChangeEvidence,
             buildNoChangeCanaryEvidence,
             mergeCampaignNoChangeEvidence,
-          } = require('./.github/scripts/sync_run_contract.js');
+          } = require('./.github/scripts/consumer_sync/sync_run_contract.js');
           const canaryConfig = JSON.parse(
             fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),
           );

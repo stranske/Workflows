@@ -5,8 +5,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from scripts import check_template_drift
-from scripts.check_template_drift import (
+from scripts.consumer_sync import check_template_drift
+from scripts.consumer_sync.check_template_drift import (
     AllowlistEntry,
     TemplateDriftAllowlist,
     WorkflowPair,
@@ -605,7 +605,9 @@ def _run_checker(tmp_path: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
             sys.executable,
-            str(Path(__file__).parents[2] / "scripts" / "check_template_drift.py"),
+            str(
+                Path(__file__).parents[2] / "scripts" / "consumer_sync" / "check_template_drift.py"
+            ),
             "--repo-root",
             str(tmp_path),
         ],
