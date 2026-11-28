@@ -1687,6 +1687,61 @@ test('discoverRepoWork scans paginated PR results', async () => {
   assert.equal(result.items[0].pr_number, 102);
 });
 
+test('discoverRepoWork lists each repo\'s open PRs exactly once per pass (A4)', async () => {
+  const pullsList = function pullsList() {};
+  const scenarios = [
+    // A campaign PR is present: the scan uses the same listing.
+    {
+      prs: [
+        {
+          number: 7,
+          title: 'Sync workflows',
+          user: { login: 'stranske-automation-bot' },
+          head: { ref: 'sync/workflows-abc', sha: 's1', repo: { full_name: 'stranske/App' } },
+          base: { ref: 'main' },
+        },
+      ],
+      expectCampaign: true,
+    },
+    // No campaign PR (a fork's sync-named branch does not count): one listing, then stop.
+    {
+      prs: [
+        {
+          number: 8,
+          title: 'fork',
+          user: { login: 'someone' },
+          head: { ref: 'sync/workflows-x', sha: 's2', repo: { full_name: 'fork/App' } },
+        },
+      ],
+      expectCampaign: false,
+    },
+  ];
+  for (const scenario of scenarios) {
+    let listCalls = 0;
+    const github = {
+      rest: { pulls: { list: pullsList } },
+      paginate: async (method) => {
+        if (method === pullsList) listCalls += 1;
+        return scenario.prs;
+      },
+      graphql: async () => ({
+        repository: {
+          pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] } },
+        },
+      }),
+    };
+    const result = await discoverRepoWork({
+      github,
+      core: { info() {}, warning() {} },
+      repoEntry: { owner: 'stranske', repo: 'App', fullName: 'stranske/App' },
+      now: '2026-11-28T06:00:00Z',
+      defaultOwner: 'stranske',
+    });
+    assert.equal(listCalls, 1);
+    assert.equal(result.syncPrsOpen, scenario.expectCampaign ? 1 : 0);
+  }
+});
+
 test('findCampaignIssue only returns marker-backed campaign issues', async () => {
   const issueList = function issueList() {};
   const markerBody = formatCampaignBody(mergeCampaignState({}, [], '2026-04-21T05:52:00Z'));

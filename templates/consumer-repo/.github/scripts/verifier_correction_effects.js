@@ -9,7 +9,6 @@ const {validateRequest,nativeBody} = require('./verifier_correction_consumer');
 const SHA = /^[a-f0-9]{64}$/;
 const isSha = value => typeof value === 'string' && SHA.test(value);
 const sha = value => createHash('sha256').update(value).digest('hex');
-const requireInventory = (value,message) => {if (!value) {const error=new Error(message);error.code='CORRECTION_INVENTORY_UNKNOWN';throw error;}};
 const requireThat = (value,message) => {if (!value) throw new Error(message);};
 const same = (left,right) => canonical(left) === canonical(right);
 
@@ -45,70 +44,6 @@ function validateIssueResponse(proof,request,key,consumer) {
     && typeof proof.issue.node_id==='string' && isSha(proof.issue.body_sha256), 'Original native issue-creation response proof unavailable');
   return proof;
 }
-function validateOwnership(value,seed) {
-  const fields=['schema','kind','seed_effect_key','source_scope_digest','observed_at','evidence_refs',...(value?.kind==='existing'?['incumbent']:[])].sort();
-  requireThat(value && same(Object.keys(value).sort(),fields), 'Unexpected trusted ownership fields');
-  requireThat(value?.schema === 'closer-correction-ownership/v1'
-    && ['existing','no_incumbent','unknown'].includes(value.kind)
-    && value.seed_effect_key === effectKey(seed) && value.source_scope_digest === sourceScopeDigest(seed)
-    && typeof value.observed_at === 'string' && Number.isFinite(Date.parse(value.observed_at))
-    && Array.isArray(value.evidence_refs) && value.evidence_refs.length > 0
-    && value.evidence_refs.every(ref => typeof ref === 'string' && ref.length > 0 && ref.length <= 4096), 'Trusted fresh ownership binding unavailable');
-  if (value.kind === 'existing') requireThat(value.incumbent && typeof value.incumbent === 'object', 'Existing incumbent evidence unavailable');
-  else requireThat(!Object.hasOwn(value,'incumbent'), 'No-incumbent/unknown evidence cannot assert an incumbent');
-  return value;
-}
-function checkFreshFacts(request,facts,{ownership = null,createdIssue = null,incumbentIssue = null,ownedFormatPauseIssue = null} = {}) {
-  const labels = issue => {
-    requireInventory(Array.isArray(issue?.labels), 'Fresh label inventory unavailable');
-    return issue.labels.map(label => typeof label === 'string' ? label : label.name);
-  };
-  const target=request.target;
-  requireThat(facts?.pull?.merged === true && facts.pull.head?.sha === target.head_sha
-    && facts.pull.base?.sha === target.base_sha && facts.pull.merge_commit_sha === target.merge_sha
-    && facts.pull.base?.repo?.full_name?.toLowerCase() === target.repository, 'Current merged PR binding changed');
-  requireThat(same(issueIdentity(facts.sourceIssue),request.source_issue), 'Current source issue binding changed');
-  const issues=[facts.pull,facts.sourceIssue];
-  if (ownership?.kind === 'no_incumbent') {
-    if (createdIssue) {
-      requireThat(same(issueIdentity(facts.incumbentIssue),createdIssue)
-        && facts.incumbentIssue.state === 'open' && Array.isArray(facts.incumbentIssue.assignees)
-        && facts.incumbentIssue.assignees.length === 0, 'Created issue acquired another owner or changed binding');
-      issues.push(facts.incumbentIssue);
-    } else requireThat(facts.incumbentIssue === null, 'No-incumbent collector conflicts with existing issue');
-  } else {
-    const expected=incumbentIssue || request.incumbent.issue;
-    requireThat(expected.number===request.incumbent.issue.number && expected.node_id===request.incumbent.issue.node_id,
-      'Current incumbent cannot replace original issue/node');
-    requireThat(same(issueIdentity(facts.incumbentIssue),expected)
-      && facts.incumbentIssue.state === 'open'
-      && facts.incumbentIssue.assignees?.some(person => person.login === request.incumbent.owner), 'Current incumbent assignment changed');
-    if (ownership) requireThat(same(ownership.incumbent,{...request.incumbent,issue:expected}), 'Declared incumbent differs from trusted current owner');
-    requireThat(facts.assignmentRef === request.incumbent.assignment_ref
-      && facts.lineageRef === request.incumbent.lineage_ref, 'Fresh corrective-owner evidence unavailable');
-    issues.push(facts.incumbentIssue);
-  }
-  if(ownedFormatPauseIssue)requireThat(facts.incumbentIssue && same(issueIdentity(facts.incumbentIssue),ownedFormatPauseIssue),
-    'Owned formatter pause proof cannot refer to another issue');
-  requireThat(!issues.some(issue => labels(issue).some(label =>
-    ['needs-human','agents:auto-pilot-failed','agents:paused'].includes(label)
-    || (label==='agents:auto-pilot-pause' && (!ownedFormatPauseIssue || issue.node_id!==ownedFormatPauseIssue.node_id)))),
-  'Current corrective lane is held');
-  requireInventory(Number.isSafeInteger(facts.chainDepth) && facts.chainDepth >= 0, 'Follow-up chain inventory unavailable');
-  requireThat(facts.chainDepth < 2, 'Follow-up chain limit reached');
-  requireThat(facts.verdictPolicy === 'follow-up' && ['admin','maintain','write'].includes(facts.dispatchActorPermission), 'Existing dispatch/policy authority unavailable');
-  const inventory=facts.workInventory;
-  requireInventory(inventory?.complete === true && ['continuations','openPullRequests','assignments','retainedEffects'].every(key => Array.isArray(inventory[key])), 'Complete existing corrective-work inventory unavailable');
-  if (ownership?.kind === 'no_incumbent') {
-    requireInventory(inventory.assignments.length === 0 && (inventory.retainedEffects.length === 0
-      || (createdIssue && inventory.retainedEffects.every(row => row.effect_key === effectKey(seedForRequest(request))
-        && row.state === 'issue_confirmed' && same(row.issue,createdIssue)))),
-      'No-incumbent evidence includes unknown/starting/denied or assigned work');
-    const agent=facts.agent;
-    requireThat(agent?.enabled === true && /^[a-z0-9][a-z0-9-]*$/.test(agent.key || '')
-      && isSha(agent.registry_sha256), 'Enabled registry-derived correction agent unavailable');
-  }
-}
 function confirmedIssue(snapshot) {
   const confirmed=snapshot.records.filter(row=>row.kind==='issue_confirmed');
   if (!confirmed.length) return null;
@@ -143,4 +78,4 @@ function validateLedger(snapshot,key) {
   return snapshot;
 }
 
-module.exports={validateIssueResponse,seedForRequest,sourceScopeDigest,effectKey,issueIdentity,validateOwnership,checkFreshFacts,validateLedger};
+module.exports={validateIssueResponse,seedForRequest,sourceScopeDigest,effectKey,issueIdentity,validateLedger};
