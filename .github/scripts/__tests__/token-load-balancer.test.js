@@ -53,6 +53,12 @@ test('owner PAT is never chosen for a general task', async () => {
   const general = await balancer.getOptimalToken({ task: null });
   assert.equal(general?.source, 'SERVICE_BOT_PAT');
 
+  const preferredOwnerGeneral = await balancer.getOptimalToken({
+    task: null,
+    preferredSource: 'OWNER_PR_PAT',
+  });
+  assert.equal(preferredOwnerGeneral?.source, 'SERVICE_BOT_PAT');
+
   // When SERVICE_BOT_PAT is below minRemaining, general selection returns null
   // instead of falling back to the exclusive OWNER_PR_PAT.
   const belowExplicitMin = await balancer.getOptimalToken({ task: null, minRemaining: 300 });
@@ -69,6 +75,32 @@ test('owner PAT is never chosen for a general task', async () => {
   const ownerExclusive = await balancer.getOptimalToken({ task: 'pr-creation-as-owner' });
   assert.equal(ownerExclusive?.source, 'OWNER_PR_PAT');
   assert.equal(ownerExclusive?.exclusive, true);
+});
+
+test('exclusive KEEPALIVE_APP is isolated from general tasks', async () => {
+  seedRegistry([
+    { id: 'SERVICE_BOT_PAT', remaining: 250, limit: 5000 },
+  ]);
+  balancer.registerToken({
+    id: 'KEEPALIVE_APP',
+    token: 'fake-token-KEEPALIVE_APP',
+    type: 'APP',
+    source: 'KEEPALIVE_APP',
+    capabilities: [...balancer.TOKEN_CAPABILITIES.APP],
+    priority: 10,
+  });
+  balancer.tokenRegistry.lastRefresh = Date.now();
+
+  const general = await balancer.getOptimalToken({ task: null });
+  assert.equal(general?.source, 'SERVICE_BOT_PAT');
+
+  const exhaustedGeneral = await balancer.getOptimalToken({ task: null, minRemaining: 300 });
+  assert.equal(exhaustedGeneral, null);
+
+  const keepaliveExclusive = await balancer.getOptimalToken({ task: 'keepalive-loop' });
+  assert.equal(keepaliveExclusive?.source, 'KEEPALIVE_APP');
+  assert.equal(keepaliveExclusive?.exclusive, true);
+  assert.equal(keepaliveExclusive?.percentRemaining, 100);
 });
 
 test('Maint 71 review reads prefer the service-bot quota over the owner quota', async () => {

@@ -620,6 +620,36 @@ function isOwnerPatExclusiveTask(task) {
   }
 }
 
+function sanitizeRotationEnvKeys(value, allowOwnerPat) {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => Boolean(entry) && (allowOwnerPat || entry !== 'OWNER_PR_PAT'))
+    .join(',');
+}
+
+function sanitizeRotationJson(value, allowOwnerPat) {
+  if (!value || typeof value !== 'string' || allowOwnerPat) {
+    return value;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.pats)) {
+      return value;
+    }
+    const filteredPats = parsed.pats.filter((entry) => entry?.id !== 'OWNER_PR_PAT');
+    if (filteredPats.length === parsed.pats.length) {
+      return value;
+    }
+    return JSON.stringify({ ...parsed, pats: filteredPats });
+  } catch {
+    return value;
+  }
+}
+
 function collectTokenSecrets(env = {}, options = {}) {
   const allowOwnerPat = isOwnerPatExclusiveTask(options?.task);
   const keys = [
@@ -653,9 +683,24 @@ function collectTokenSecrets(env = {}, options = {}) {
   const allKeys = Array.from(new Set([...keys, ...dynamicKeys]));
 
   return allKeys.reduce((acc, key) => {
-    if (env[key]) {
-      acc[key] = env[key];
+    if (!env[key]) {
+      return acc;
     }
+    if (!allowOwnerPat && (key === 'TOKEN_ROTATION_ENV_KEYS' || key === 'TOKEN_ROTATION_KEYS')) {
+      const sanitized = sanitizeRotationEnvKeys(env[key], allowOwnerPat);
+      if (sanitized) {
+        acc[key] = sanitized;
+      }
+      return acc;
+    }
+    if (!allowOwnerPat && key === 'TOKEN_ROTATION_JSON') {
+      const sanitized = sanitizeRotationJson(env[key], allowOwnerPat);
+      if (sanitized) {
+        acc[key] = sanitized;
+      }
+      return acc;
+    }
+    acc[key] = env[key];
     return acc;
   }, {});
 }
@@ -723,6 +768,31 @@ async function createTokenAwareRetry(options = {}) {
     } catch (error) {
       logWithCore(core, 'warning', `Token registry initialization failed: ${error.message}`);
     }
+  } else if (
+    registryInitialized &&
+    secrets.OWNER_PR_PAT &&
+    registry?.tokenRegistry?.tokens instanceof Map &&
+    !registry.tokenRegistry.tokens.has('OWNER_PR_PAT') &&
+    typeof registry.registerToken === 'function'
+  ) {
+    registry.registerToken({
+      id: 'OWNER_PR_PAT',
+      token: secrets.OWNER_PR_PAT,
+      type: 'PAT',
+      source: 'OWNER_PR_PAT',
+      account: 'stranske',
+      capabilities: registry.TOKEN_CAPABILITIES?.PAT || [
+        'read-repo',
+        'write-repo',
+        'pr-update',
+        'labels',
+        'comments',
+        'cross-repo',
+        'workflow-dispatch',
+        'statuses',
+      ],
+      priority: 5,
+    });
   }
 
   let currentGithub = github;

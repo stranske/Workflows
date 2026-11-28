@@ -422,6 +422,7 @@ function registerToken(tokenInfo) {
       reset: Date.now() + 3600000,
       checked: 0,
       percentUsed: 0,
+      percentRemaining: 100,
     },
   });
 }
@@ -760,7 +761,7 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
       if (spec.exclusive && spec.primaryTasks.includes(task) && !excludeSources.includes(id)) {
         const tokenInfo = tokenRegistry.tokens.get(id);
         const budget = rateResource === 'graphql' ? tokenInfo?.graphqlRateLimit : tokenInfo?.rateLimit;
-        if (tokenInfo && (budget?.remaining ?? 0) >= minRemaining) {
+        if (tokenInfo && !tokenInfo.rateLimit?.invalidAuth && (budget?.remaining ?? 0) >= minRemaining) {
           core?.info?.(`Using exclusive token ${id} for task '${task}'`);
           let token = tokenInfo.token;
           if (tokenInfo.type === 'APP' && !token) {

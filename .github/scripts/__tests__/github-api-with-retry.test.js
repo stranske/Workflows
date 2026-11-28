@@ -189,12 +189,40 @@ test('rotation pool excludes the owner PAT', async () => {
   });
   assert.equal('OWNER_PR_PAT' in dynamicSecrets, false);
   assert.equal(dynamicSecrets.PAT_1, 'z');
+  assert.equal(dynamicSecrets.TOKEN_ROTATION_ENV_KEYS, 'PAT_1');
+
+  const ownerOnlyDynamicSecrets = collectTokenSecrets({
+    OWNER_PR_PAT: 'x',
+    TOKEN_ROTATION_ENV_KEYS: 'OWNER_PR_PAT',
+  });
+  assert.deepEqual(ownerOnlyDynamicSecrets, {});
+
+  const jsonSecrets = collectTokenSecrets({
+    TOKEN_ROTATION_JSON: JSON.stringify({
+      pats: [
+        { id: 'OWNER_PR_PAT', token: 'x' },
+        { id: 'PAT_1', token: 'z' },
+      ],
+    }),
+  });
+  assert.deepEqual(JSON.parse(jsonSecrets.TOKEN_ROTATION_JSON), {
+    pats: [{ id: 'PAT_1', token: 'z' }],
+  });
 
   const exclusiveSecrets = collectTokenSecrets(
-    { OWNER_PR_PAT: 'x', SERVICE_BOT_PAT: 'y' },
+    {
+      OWNER_PR_PAT: 'x',
+      SERVICE_BOT_PAT: 'y',
+      TOKEN_ROTATION_JSON: JSON.stringify({
+        pats: [{ id: 'OWNER_PR_PAT', token: 'x' }],
+      }),
+    },
     { task: 'pr-creation-as-owner' },
   );
   assert.equal(exclusiveSecrets.OWNER_PR_PAT, 'x');
+  assert.deepEqual(JSON.parse(exclusiveSecrets.TOKEN_ROTATION_JSON), {
+    pats: [{ id: 'OWNER_PR_PAT', token: 'x' }],
+  });
 
   let initializedSecrets = null;
   await createTokenAwareRetry({
@@ -216,6 +244,53 @@ test('rotation pool excludes the owner PAT', async () => {
     getOctokit: (token) => ({ token }),
   });
   assert.deepEqual(initializedSecrets, { SERVICE_BOT_PAT: 'y' });
+});
+
+test('createTokenAwareRetry registers OWNER_PR_PAT on demand for exclusive tasks after general init', async () => {
+  const balancer = require(path.join(__dirname, '../token_load_balancer'));
+  balancer.tokenRegistry.tokens.clear();
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  try {
+    const env = {
+      OWNER_PR_PAT: 'owner-token',
+      SERVICE_BOT_PAT: 'service-token',
+    };
+    const getOctokit = (token) => ({ token });
+
+    const generalClient = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(generalClient.getTokenSource(), 'SERVICE_BOT_PAT');
+    assert.equal(balancer.tokenRegistry.tokens.has('OWNER_PR_PAT'), false);
+
+    const ownerClient = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      task: 'pr-creation-as-owner',
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(ownerClient.getTokenSource(), 'OWNER_PR_PAT');
+    assert.equal(ownerClient.github.token, 'owner-token');
+
+    // Subsequent general calls must still never select OWNER_PR_PAT even after
+    // it has been registered for the exclusive owner task.
+    balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.remaining = 250;
+    balancer.tokenRegistry.tokens.get('SERVICE_BOT_PAT').rateLimit.percentRemaining = 5;
+    const generalAfter = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(generalAfter.getTokenSource(), 'SERVICE_BOT_PAT');
+  } finally {
+    balancer.tokenRegistry.tokens.clear();
+    balancer.tokenRegistry.lastRefresh = 0;
+  }
 });
 
 test('createTokenAwareRetry initializes registry from env secrets', async () => {
