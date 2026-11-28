@@ -5,22 +5,23 @@ import types
 from pathlib import Path
 
 import pytest
+from scripts.sync_manifest_compiler import compile_manifest
 from tools import ci_failure_triage, llm_registry
 
 
 def test_default_playbooks_are_distributed_with_valid_anchors():
-    import yaml
-
     root = Path(__file__).resolve().parents[2]
-    manifest = yaml.safe_load((root / ".github/sync-manifest.yml").read_text())
-    docs = {entry.get("target", entry["source"]): entry for entry in manifest["docs"]}
+    manifest = compile_manifest(root / ".github/sync-manifest.yml", repo_root=root)
+    docs = {entry.target: entry for entry in manifest.section("docs")}
     for pattern in ci_failure_triage.DEFAULT_TRIAGE_PATTERNS:
         path, anchor = pattern.playbook_url.split("#", 1)
         assert path in docs, f"Undistributed playbook: {path}"
         assert (root / path).is_file()
         content = (root / path).read_text()
         assert f"## {anchor.replace('-', ' ').title()}" in content
-        assert (root / "templates/consumer-repo" / path).read_text() == content
+        delivered = docs[path]
+        assert not delivered.skip_repos
+        assert (root / delivered.resolved_source).read_text() == content
 
 
 def test_extract_pytest_failures_parses_unique() -> None:
