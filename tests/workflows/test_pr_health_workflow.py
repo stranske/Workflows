@@ -335,9 +335,6 @@ function makeCore(stepOutputs, logs, warnings, summaries) {
   if (!scenario.dryRun && (scanOutputs.check_dispatch_count ?? scanOutputs.failing_count) !== "0") {
     await runStep(scenario.scripts.fixChecks, {});
   }
-  await runStep(scenario.scripts.nudgeStalled, {
-    DRY_RUN: scenario.dryRun ? "true" : "false",
-  });
 
   // A failed security step skips evaluation under Actions' implicit success().
   const receiverGuards = [];
@@ -561,9 +558,6 @@ def _run_pr_health_replay(
             ),
             "fixChecks": _extract_github_script(
                 reusable_doc, "fix-checks", step_name="Fix each failing PR"
-            ),
-            "nudgeStalled": _extract_github_script(
-                reusable_doc, "nudge-stalled", step_name="Nudge each stalled PR"
             ),
             "consumerEvaluate": _extract_github_script(
                 consumer_followups_doc, "evaluate", step_id="evaluate"
@@ -892,7 +886,7 @@ def test_pr_health_applies_dispatch_cap_only_to_participating_failures(
 
 
 def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
-    """Replay PR-health scan, conflict, check-fix, and nudge steps against consumer templates."""
+    """Replay PR-health scan, conflict and check-fix steps against consumer templates."""
     consumer_wrapper = yaml.safe_load(CONSUMER_PR_HEALTH.read_text(encoding="utf-8"))
     reusable_workflow = yaml.safe_load(REUSABLE_PR_HEALTH.read_text(encoding="utf-8"))
     sync_manifest = yaml.safe_load(SYNC_MANIFEST.read_text(encoding="utf-8"))
@@ -940,7 +934,7 @@ def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
             "outputs": {"blocked": "false", "reason": "all-checks-passed"},
             "failed": False,
         }
-        for number in (101, 103, 104, 106)
+        for number in (101, 103)
     ]
     assert replay["warnings"] == []
     assert replay["scanOutputs"] == {
@@ -988,11 +982,10 @@ def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
                 },
             },
         ],
-        "removed_labels": [{"pr_number": 104, "name": "agent:retry"}],
-        "added_labels": [
-            {"pr_number": 104, "name": "agent:retry"},
-            {"pr_number": 106, "name": "agent:retry"},
-        ],
+        # Cohesion round 2 (D3): stalled PRs are reported, never relabelled. The old
+        # nudge re-added agent:retry hourly; consumer agents-81 has no agent:retry handler.
+        "removed_labels": [],
+        "added_labels": [],
         "final_stalled_labels": {
             "104": [
                 "agent:codex",
@@ -1005,7 +998,6 @@ def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
             "106": [
                 "agent:codex",
                 "agent:rate-limited",
-                "agent:retry",
                 "agents:keepalive",
                 "priority:medium",
             ],
@@ -1022,16 +1014,9 @@ def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
         accepted_inputs = set((target_on["workflow_dispatch"].get("inputs") or {}).keys())
         assert set(dispatch["inputs"].keys()) <= accepted_inputs
 
-    # 3. Nudge emits fresh labeled wakeups for agent:retry (both rotating an
-    # existing retry label and adding one fresh via the 404-safe remove path)
-    # while preserving paused PR #105 and unrelated comment state.
-    followups_on = _workflow_on_block(installed_workflows["agents-81-gate-followups.yml"])
-    assert "pull_request_target" in followups_on
-    assert "labeled" in (followups_on["pull_request_target"].get("types") or [])
-    assert replay["labelEvents"] == [
-        {"pr_number": 104, "action": "labeled", "label": {"name": "agent:retry"}},
-        {"pr_number": 106, "action": "labeled", "label": {"name": "agent:retry"}},
-    ]
+    # 3. No stalled-PR nudge exists: no job of the reusable workflow relabels a PR.
+    assert "nudge-stalled" not in reusable_workflow["jobs"]
+    assert replay["labelEvents"] == []
     # Paused PR #105 and unrelated comment state survive unchanged.
     assert set(replay["finalLabels"]["105"]) == {
         "agent:codex",
@@ -1043,11 +1028,11 @@ def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
     assert replay["finalComments"]["105"] == [{"id": 9005, "body": "paused PR state"}]
     assert replay["finalComments"]["106"] == [{"id": 9006, "body": "rate-limited PR context"}]
 
-    # 4. Trace receiving consumer workflow evaluation across conflict, fix-checks, and nudge wakeups.
+    # 4. Trace receiving consumer workflow evaluation across conflict and fix-checks wakeups.
     receiver_by_pr = {
         int(item["outputs"]["pr_number"]): item for item in replay["receiverEvaluations"]
     }
-    assert set(receiver_by_pr.keys()) == {101, 103, 104, 106}
+    assert set(receiver_by_pr.keys()) == {101, 103}
 
     assert receiver_by_pr[101]["trigger"] == "workflow_dispatch"
     assert receiver_by_pr[101]["ref"] == "main"
@@ -1068,20 +1053,6 @@ def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
     assert receiver_by_pr[103]["outputs"]["action"] == "fix"
     assert receiver_by_pr[103]["outputs"]["reason"].startswith("fix-")
 
-    assert receiver_by_pr[104]["trigger"] == "pull_request_target:labeled"
-    assert receiver_by_pr[104]["label"] == "agent:retry"
-    assert receiver_by_pr[104]["outputs"]["agent_type"] == "codex"
-    assert receiver_by_pr[104]["outputs"]["pr_ref"] == "codex/issue-104"
-    assert receiver_by_pr[104]["outputs"]["head_sha"] == "104deadbeef104deadbeef104deadbeef104dead"
-    assert receiver_by_pr[104]["outputs"]["action"] == "run"
-
-    assert receiver_by_pr[106]["trigger"] == "pull_request_target:labeled"
-    assert receiver_by_pr[106]["label"] == "agent:retry"
-    assert receiver_by_pr[106]["outputs"]["agent_type"] == "codex"
-    assert receiver_by_pr[106]["outputs"]["pr_ref"] == "codex/issue-106"
-    assert receiver_by_pr[106]["outputs"]["head_sha"] == "106deadbeef106deadbeef106deadbeef106dead"
-    assert receiver_by_pr[106]["outputs"]["action"] == "run"
-
     blocked_replay = _run_pr_health_replay(tmp_path, label="guard-controls", guard_controls=True)
     assert {
         item["pr_number"]: item["outputs"]["reason"]
@@ -1095,8 +1066,7 @@ def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
     }
     assert blocked_replay["receiverEvaluations"] == replay["receiverEvaluations"]
 
-    # 5. Compatibility controls: dry_run previews without mutating, and a PR
-    # paused between scan and nudge is skipped without label changes.
+    # 5. Compatibility control: dry_run previews without mutating.
     dry_replay = _run_pr_health_replay(tmp_path, dry_run=True)
     assert dry_replay["warnings"] == []
     assert dry_replay["workflowDispatches"] == []
@@ -1116,33 +1086,4 @@ def test_pr_health_dispatch_reaches_installed_consumer(tmp_path: Path) -> None:
         "agents:keepalive",
         "agent:rate-limited",
         "priority:medium",
-    }
-
-    race_paused_replay = _run_pr_health_replay(
-        tmp_path,
-        dry_run=False,
-        label="race-paused",
-        live_labels_override={
-            104: [
-                "agent:codex",
-                "agents:keepalive",
-                "agents:paused",
-                "agent:retry",
-                "agent:needs-attention",
-                "agent:rate-limited",
-                "priority:high",
-            ]
-        },
-    )
-    assert race_paused_replay["warnings"] == []
-    assert race_paused_replay["removedLabels"] == []
-    assert race_paused_replay["addedLabels"] == [{"pr_number": 106, "name": "agent:retry"}]
-    assert set(race_paused_replay["finalLabels"]["104"]) == {
-        "agent:codex",
-        "agents:keepalive",
-        "agents:paused",
-        "agent:retry",
-        "agent:needs-attention",
-        "agent:rate-limited",
-        "priority:high",
     }
