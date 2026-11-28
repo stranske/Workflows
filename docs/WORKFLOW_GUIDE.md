@@ -2,8 +2,7 @@
 
 This guide describes the slimmed-down GitHub Actions footprint after Issues #2190 and #2466. Every workflow now follows the
 `<area>-<NN>-<slug>.yml` naming convention with 10-point number gaps so future additions slot in cleanly. The Gate workflow
-remains the required merge check, `agents-keepalive-loop.yml` and `agents-keepalive-sweep.yml` drive authored Gate-completion and hourly keepalive sweeps, **Agents 70 Orchestrator** runs on a 30-minute dry-run shadow schedule plus input-controlled `workflow_dispatch`, and the
-**Agents 71–73 Codex Belt** automates the queue → branch → PR → merge conveyor for labeled Codex issues. For the executive
+remains the required merge check, while `agents-keepalive-loop.yml` and `agents-keepalive-sweep.yml` drive authored Gate-completion and hourly keepalive sweeps. The [shared opener and closer](ops/LOCAL_LANES.md#lanes-overview) own issue admission and guarded PR promotion. For the executive
 summary of buckets, required checks, and automation roles, begin with
 [docs/ci/WORKFLOW_SYSTEM.md](ci/WORKFLOW_SYSTEM.md) before diving into the topology details below.
 

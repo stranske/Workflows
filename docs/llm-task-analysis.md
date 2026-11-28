@@ -1,224 +1,27 @@
 # LangChain LLM Task Analysis
 
-> **Status**: Production-ready (merged to main)  
-> **Added**: January 2026  
-> **PRs**: #459 (feature), #461 (PYTHONPATH fix), #462 (logging fix), #463 (permissions)
-
-## Overview
-
-The keepalive automation now uses LLM-powered task completion detection to determine if a Codex session has completed its assigned task. This replaces simple regex-based heuristics with intelligent analysis of session transcripts.
-
-The standalone heuristic analyzer and its tests are retained in Git history at revision `a5126c655597da7234616061c452b80f4ce8960f`. To replay the [original analyzer](https://github.com/stranske/Workflows/blob/a5126c655597da7234616061c452b80f4ce8960f/tools/codex_log_analyzer.py) and [its tests](https://github.com/stranske/Workflows/blob/a5126c655597da7234616061c452b80f4ce8960f/tests/tools/test_codex_log_analyzer.py), run `git worktree add --detach /tmp/workflows-heuristic-replay a5126c655597da7234616061c452b80f4ce8960f` from Workflows, then run the repository-selected Python with `-m pytest -q tests/tools/test_codex_log_analyzer.py` from that checkout. The session CLI still provides its own regex fallback.
-
-## Architecture
-
-### Provider Chain
-
-The system uses a **fallback chain** of LLM providers:
-
-```
-┌─────────────────────┐
-│   GitHub Models     │  ← Primary (uses GITHUB_TOKEN)
-│     (gpt-4o)        │
-└─────────┬───────────┘
-          │ on failure
-          ▼
-┌─────────────────────┐
-│      OpenAI         │  ← Secondary (uses OPENAI_API_KEY)
-│     (gpt-4o)        │
-└─────────┬───────────┘
-          │ on failure
-          ▼
-┌─────────────────────┐
-│   Regex Fallback    │  ← Last resort (no API needed)
-│   (pattern-based)   │
-└─────────────────────┘
-```
-
-### Files
-
-| File | Purpose |
-|------|---------|
-| [tools/llm_provider.py](../tools/llm_provider.py) | LLM provider chain implementation |
-| [tools/codex_jsonl_parser.py](../tools/codex_jsonl_parser.py) | Parse Codex session JSONL files |
-| [tools/codex_session_analyzer.py](../tools/codex_session_analyzer.py) | Analyze session for task completion |
-| [scripts/analyze_codex_session.py](../scripts/analyze_codex_session.py) | CLI script for workflow integration |
-| [tools/requirements.txt](../tools/requirements.txt) | Python dependencies (langchain-openai) |
-
-## Workflow Integration
-
-### Reusable Workflow Changes
-
-The `reusable-codex-run.yml` workflow includes:
-
-1. **Sparse checkout** of Workflows repo scripts/tools directories
-2. **Install step** for LangChain dependencies
-3. **Analyze step** that runs the CLI script
-4. **New outputs** for LLM analysis results
-
-```yaml
-outputs:
-  llm-provider:
-    description: 'LLM provider used for analysis'
-    value: ${{ jobs.codex.outputs.llm-provider }}
-  llm-confidence:
-    description: 'Confidence level of LLM analysis'
-    value: ${{ jobs.codex.outputs.llm-confidence }}
-  session-event-count:
-    description: 'Number of events in session'
-    value: ${{ jobs.codex.outputs.session-event-count }}
-  session-todo-count:
-    description: 'Number of todos in session'
-    value: ${{ jobs.codex.outputs.session-todo-count }}
-```
-
-### PR Comment Display
-
-The keepalive loop script (`keepalive_loop.js`) displays analysis results in PR comments:
-
-```markdown
-### 🧠 Task Analysis
-
-| Metric | Value |
-|--------|-------|
-| Provider | ✅ GitHub Models (primary) |
-| Confidence | 87% |
-| Data Quality | 🟢 high |
-| Effort Score | 62/100 |
-```
-
-## Configuration
-
-### Required Permissions
-
-The workflow needs `models: read` permission for GitHub Models API:
-
-```yaml
-permissions:
-  contents: write
-  pull-requests: write
-  actions: write
-  models: read  # For GitHub Models AI inference
-```
-
-### Environment Variables
-
-| Variable | Provider | Required |
-|----------|----------|----------|
-| `GITHUB_TOKEN` | GitHub Models | Auto-provided by Actions |
-| `OPENAI_API_KEY` | OpenAI | Optional (fallback) |
-
-### Workflow Input
-
-Consumer workflows can specify which Workflows branch to use:
-
-```yaml
-uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@v1
-with:
-  workflows_ref: 'v1'  # Or 'main' when intentionally testing unreleased changes
-```
+The Codex reusable runner calls [the session analysis CLI](../scripts/analyze_codex_session.py)
+when its analysis prerequisites are satisfied. It supplies a session file and
+PR body and writes JSON; failed or unavailable analysis is reported as skipped
+rather than automatically proving task completion. See the
+[reusable runner](../.github/workflows/reusable-codex-run.yml) and
+[keepalive contract](keepalive/GoalsAndPlumbing.md) for the current call and
+completion rules.
 
 ## Usage
 
-### CLI Script
-
-```bash
+```sh
 python scripts/analyze_codex_session.py \
-  --jsonl-path /path/to/session.jsonl \
-  --output-path /path/to/analysis.json
+  --session-file /path/to/session.jsonl \
+  --pr-body-file /path/to/pr-body.md \
+  --output json
 ```
 
-### Output Format
+Use `--help` for the supported options. For a local offline control,
+`--provider regex-fallback` avoids an LLM API call. The
+[model selection policy](MODEL_SELECTION_POLICY.md) and
+[model management guide](MODEL_MANAGEMENT.md) own current model decisions.
 
-```json
-{
-  "task_completed": true,
-  "confidence": "high",
-  "provider": "github-models",
-  "reasoning": "Session shows all todos completed with successful verification",
-  "event_count": 42,
-  "todo_count": 5
-}
-```
-
-## Provider Details
-
-### GitHub Models (Primary)
-
-- **Model**: `gpt-4o`
-- **Endpoint**: `https://models.inference.ai.azure.com`
-- **Auth**: `GITHUB_TOKEN` with `models: read` permission
-- **Fallback trigger**: 401/403 errors, network failures
-
-### OpenAI (Secondary)
-
-- **Model**: `gpt-4o`
-- **Auth**: `OPENAI_API_KEY` environment variable
-- **Fallback trigger**: API errors, missing key
-
-### Regex Fallback (Last Resort)
-
-Pattern-based detection looking for:
-- "task completed" / "task complete"
-- "all todos completed"
-- "successfully implemented"
-- Exit code 0 with positive indicators
-
-## Consumer Repo Updates
-
-Consumer repositories need to sync their workflow templates to get:
-
-1. Updated `keepalive_loop.js` with Task Analysis section
-2. Updated workflow that passes LLM outputs
-
-**Sync PR**: Check for open sync PRs in consumer repos (e.g., `sync/workflows-*` branches)
-
-## Troubleshooting
-
-### GitHub Models 401 Error
-
-```
-The 'models' permission is required to access this endpoint
-```
-
-**Fix**: Add `models: read` to workflow permissions (PR #463)
-
-### Import Errors
-
-```
-ModuleNotFoundError: No module named 'tools'
-```
-
-**Fix**: Ensure `PYTHONPATH` includes `.workflows-lib` directory
-
-### JSON Parse Errors
-
-If analysis output contains logging messages:
-
-**Fix**: Logging now goes to stderr (PR #462)
-
-## Development History
-
-| PR | Description |
-|----|-------------|
-| #459 | Initial LangChain feature implementation |
-| #461 | Fix PYTHONPATH for tools imports |
-| #462 | Redirect logging to stderr |
-| #463 | Add models:read permission |
-
-## Testing
-
-Test PR in Manager-Database: #136 (`test/langchain-keepalive` branch)
-
-To test locally:
-
-```bash
-# Install dependencies
-pip install -r tools/requirements.txt
-
-# Run analysis
-export GITHUB_TOKEN="your-token"
-python scripts/analyze_codex_session.py \
-  --jsonl-path test-session.jsonl \
-  --output-path analysis.json
-```
+The [original January 2026 guide](https://github.com/stranske/Workflows/blob/c998308fc1795096f4a42bcfcdd77ef53832cfd1/docs/llm-task-analysis.md) and the
+[earlier standalone heuristic analyzer](https://github.com/stranske/Workflows/blob/a5126c655597da7234616061c452b80f4ce8960f/tools/codex_log_analyzer.py)
+remain available as historical references.
