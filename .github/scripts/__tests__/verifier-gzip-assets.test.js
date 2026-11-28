@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),os=require('os'),path=require('path');
 const {gzipSync}=require('zlib'),{createHash}=require('crypto');
-const {collectGzipAssets,selectors}=require('../../.github/scripts/verifier_gzip_assets');
-const {parseDiffFiles,retainCaptureBytes}=require('../../.github/scripts/agents_verifier_context');
-const {requiredEvidence,buildVerificationEvent}=require('../../.github/scripts/verification_event');
+const {collectGzipAssets,selectors}=require('../verifier_gzip_assets');
+const {parseDiffFiles,retainCaptureBytes}=require('../agents_verifier_context');
+const {requiredEvidence,buildVerificationEvent}=require('../verification_event');
 const sha=b=>createHash('sha256').update(b).digest('hex');
 function fixture(dir,{status='added',raw=gzipSync(Buffer.from('proof π\r\n')),paths=['docs/verification/é.log.gz']}={}) {
  const blob=createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${raw.length}\0`),raw])).digest('hex');
@@ -86,7 +86,7 @@ test('real Git C-quoted Unicode path traverses actual parser, collector and Pyth
  const coverage={gzip_asset_binding:{repository:'a/b',evaluated_sha:'d'.repeat(40)},gzip_asset_sources:rows};
  const input={coverage,patch:git.stdout,directory:dir};
  const code='import json,sys;from pathlib import Path;from tools.verifier_gzip_assets import verified_assets;x=json.load(sys.stdin);r=verified_assets(x["coverage"],Path(x["directory"]),x["patch"].encode());assert len(r)==1;assert next(iter(r.values()))["verified"]';
- execFileSync('python3',['-c',code],{cwd:path.resolve(__dirname,'../..'),input:JSON.stringify(input),env:{...process.env,PYTHONPATH:'.'}});
+ execFileSync('python3',['-c',code],{cwd:path.resolve(__dirname,'../../..'),input:JSON.stringify(input),env:{...process.env,PYTHONPATH:'.'}});
 });
 
 test('malformed selector types remain invalid while empty input preserves legacy behavior',()=>{
@@ -119,7 +119,7 @@ assert x['name'] not in label
 coverage=build_prompt_inputs(context,x['patch'],lossless=True).coverage
 assert coverage.files[0].status=='complete',coverage.reasons
 `;
-  execFileSync('python3',['-c',code],{cwd:path.resolve(__dirname,'../..'),input:JSON.stringify(input),env:{...process.env,PYTHONPATH:'.'}});
+  execFileSync('python3',['-c',code],{cwd:path.resolve(__dirname,'../../..'),input:JSON.stringify(input),env:{...process.env,PYTHONPATH:'.'}});
  }
 });
 

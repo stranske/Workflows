@@ -156,7 +156,7 @@ and verified against their recorded SHA-256:
 After restoration:
 
 ```text
-$ node --test tests/scripts/test_verification_event.js tests/scripts/test_verification_input_repair.js
+$ node --test .github/scripts/__tests__/verification-event.test.js .github/scripts/__tests__/verification-input-repair.test.js
 tests 53
 pass 53
 fail 0

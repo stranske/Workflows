@@ -9,11 +9,11 @@ const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
 const { createHash } = require('crypto');
-const { buildVerificationEvent, guardExistingEvent, completedEvent, digest } = require('../../.github/scripts/verification_event.js');
-const { publishInputRepairProvenance, readRetainedArchive, acquireRetainedExecution } = require('../../.github/scripts/verifier_pending_execution.js');
-const { retainedExecutionFixture } = require('./fixtures/retained_execution');
+const { buildVerificationEvent, guardExistingEvent, completedEvent, digest } = require('../verification_event.js');
+const { publishInputRepairProvenance, readRetainedArchive, acquireRetainedExecution } = require('../verifier_pending_execution.js');
+const { retainedExecutionFixture } = require('../../../tests/scripts/fixtures/retained_execution');
 
-const ROOT = path.join(__dirname, '../..');
+const ROOT = path.join(__dirname, '../../..');
 const FIXTURES = path.join(ROOT, 'tests/fixtures/verification_input_repair');
 const original = name => fs.readFileSync(path.join(FIXTURES, '4238-original', name));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

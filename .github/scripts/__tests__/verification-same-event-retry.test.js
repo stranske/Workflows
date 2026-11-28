@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {authenticatePredecessor,guardExistingEvent,completedEvent,digest}=require('../../.github/scripts/verification_event');
-const fixture=require('../fixtures/verification_event/714_same_event_known_no_evaluation.json');
+const {authenticatePredecessor,guardExistingEvent,completedEvent,digest}=require('../verification_event');
+const fixture=require('../../../tests/fixtures/verification_event/714_same_event_known_no_evaluation.json');
 const parse=c=>JSON.parse(c.body.slice(c.body.indexOf('{'),c.body.lastIndexOf('}')+1));
 const write=(c,row)=>{c.body=`<!-- ${row.schema} ${JSON.stringify(row)} -->`;};
 const EVENT=parse(fixture.records.at(-1)).verification_event;

@@ -1,8 +1,8 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {authenticatePredecessor,buildVerificationEvent,digest}=require('../../.github/scripts/verification_event');
-const fixture=require('../fixtures/verification_event/714_complete_then_no_evaluation.json');
+const {authenticatePredecessor,buildVerificationEvent,digest}=require('../verification_event');
+const fixture=require('../../../tests/fixtures/verification_event/714_complete_then_no_evaluation.json');
 const PARENT='e2af8d24132227fc2adbd187f95b9f9517f486900b8a52948dae6325a7ada5d8';
 const parse=c=>JSON.parse(c.body.slice(c.body.indexOf('{'),c.body.lastIndexOf('}')+1));
 const copy=()=>structuredClone(fixture.records);

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { captureModelEvalInputs } = require('../../scripts/model_eval/capture_model_eval_inputs.js');
+const { captureModelEvalInputs } = require('../../../scripts/model_eval/capture_model_eval_inputs.js');
 
 test('read-only context capture records retrospective provenance and restores process state', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'maint78-capture-'));

@@ -4,12 +4,12 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { buildVerificationEvent, guardExistingEvent, completedEvent, inputRepairMarker, digest }
-  = require('../../.github/scripts/verification_event.js');
-const { fetchVerifierEvidence } = require('../../.github/scripts/agents_verifier_context.js');
+  = require('../verification_event.js');
+const { fetchVerifierEvidence } = require('../agents_verifier_context.js');
 
 // Exact retained #4231/#4235 bytes, joined to native Actions provenance. API replay
 // below is offline regression coverage, not fresh artifact/native admission.
-const FIXTURES = path.join(__dirname, '../fixtures/verification_input_repair');
+const FIXTURES = path.join(__dirname, '../../../tests/fixtures/verification_input_repair');
 const sha = c => c.repeat(64);
 const bot = (n, id, body) => ({ author: 'github-actions[bot]', url: `https://github.com/stranske/workflows/pull/${n}#issuecomment-${id}`, body });
 const proofUrl = n => `https://github.com/stranske/Workflows/pull/${n}#issuecomment-${n === 4231 ? '6390994169' : '6392557346'}`;

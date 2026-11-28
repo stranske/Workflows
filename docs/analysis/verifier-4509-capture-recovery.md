@@ -392,7 +392,7 @@ Fresh authenticated GitHub connector GETs supplied the selected observations in
 | [Run artifacts](https://api.github.com/repos/stranske/Workflows/actions/runs/42330898168/artifacts?per_page=100) | Artifact `13556839741` remains unexpired; size/digest match the unchanged 18,725-byte retained ZIP |
 
 The regression in
-[`test_verifier_retained_recovery.js`](../../tests/scripts/test_verifier_retained_recovery.js)
+[`verifier-retained-recovery.test.js`](../../.github/scripts/__tests__/verifier-retained-recovery.test.js)
 passes that unchanged ZIP and selected native records through the actual
 acquisition function using mocked transport. Its current-run sentinel and
 inert validator-source response are explicitly test inputs. The fixture stores
