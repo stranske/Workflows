@@ -7,6 +7,15 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Workflow identity, documentation and test discovery
+
+[#5548](https://github.com/stranske/Workflows/pull/5548) installed WFv1 checks across 111 Workflows definitions, 28 consumer wrappers and two integration templates. Six paths moved and fourteen Actions display names changed. The six new paths have active GitHub registrations. The [naming guide](../WORKFLOW_GUIDE.md#wfv1-naming-scheme) lists compatibility exceptions. The [dependency map](../ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) distinguishes callable jobs, completion listeners and lanes that communicate through PR state. [Architecture](../ARCHITECTURE.md) and the [Keepalive lifecycle](../keepalive/GoalsAndPlumbing.md#lifecycle-overview) connect those handoffs to their source and owner.
+
+[#5562](https://github.com/stranske/Workflows/pull/5562) moved the GitNexus operator command, four historical plan pointers and five Python suites. All 221 moved cases ran before and after. Individual identities matched across local collection (46,709), the two hosted Gate shards (16,360 and 30,340), and Selftest (46,700). [#5553](https://github.com/stranske/Workflows/pull/5553) gained 122 JavaScript cases under the documented contributor and hosted glob, taking it from 4,087 to 4,209. Bare `node --test` went from 137 passing cases to zero. The [local discovery repair](https://github.com/stranske/Workflows/pull/5566) restores those 137 individual cases in local replay and preserves the 4,209 hosted cases.
+
+All 27 newly added paths through [2019495f](https://github.com/stranske/Workflows/commit/2019495f30237fa05ef6c4c2921de060ecd60692) have successor entries, including the six renamed workflows. The original 198 workflow decisions retain their identities. The three remaining Stage 4 behavior checks require a standalone Autofix call, an operator token export with optional inputs, or an actual fallback-only report upload. A real formatter failure on [#5565](https://github.com/stranske/Workflows/pull/5565) had the local report writer on both heads. Twelve ordinary wrapper runs in the measured interval skipped the worker. None exercised these paths.
+
+
 ### November 28 · Evidence families, documentation and receiving delivery
 
 Stage 2 has 2,901/2,901 file and 220/220 folder decisions. Stage 5 has 334/334 file and 46/47 folder decisions. Stage 3 is complete. Stage 4 has 1,537/1,540 files and 169/177 folders accepted. The original checklist has 26 production passes and two qualified replays. The workflow review has 198/198 accepted, and the original root-file review has 27/27.

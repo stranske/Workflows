@@ -267,90 +267,11 @@ and retains the `metrics-retention-log` audit artifact for 90 days. Run the CLI 
 
 ### Historical Auto-Pilot Stuck or Not Progressing
 
-**Symptom:** The auto-pilot workflow appears to stop after triggering format/optimize/apply steps and doesn't proceed.
-
-**Root Cause (Fixed 2026-01-12):** The original implementation incorrectly used label-based triggering for child workflows within auto-pilot:
-1. Auto-pilot added labels like `agents:format`, `agents:optimize`, `agents:apply-suggestions`
-2. These triggered separate workflows (`agents-issue-optimizer.yml`)
-3. Auto-pilot waited for those workflows to complete via `workflow_run` events
-4. **Problem:** workflow_run continuation was unreliable and created race conditions
-
-**Current Solution (Complete Fix as of 2026-01-12):** All preparation steps now run **inline** within the auto-pilot workflow:
-
-| Step | Old Approach | New Approach |
-|------|-------------|--------------|
-| **Format** | Added `agents:format` label → triggered separate workflow | Runs `issue_formatter.py` inline |
-| **Optimize** | Added `agents:optimize` label → triggered separate workflow | Runs `issue_optimizer.py` inline |
-| **Apply** | Added `agents:apply-suggestions` label → triggered separate workflow | Runs `apply_suggestions()` inline |
-
-**Benefits:**
-- ✅ No workflow_run dependencies or race conditions
-- ✅ Single workflow run for entire pipeline (easier debugging)
-- ✅ Faster execution (no workflow dispatch overhead)
-- ✅ Atomic operations within one job
-
-**Architecture Principle:**
-- **Standalone use**: Labels still work independently to trigger `agents-issue-optimizer.yml` for manual use
-- **Auto-pilot mode**: All logic executes inline; labels are only added as status markers (e.g., `agents:formatted`)
-
-**Prevention:**
-- Child workflows should only be triggered by labels for standalone/manual operations
-- Within orchestration workflows like auto-pilot, execute all logic inline as workflow steps
-- Avoid workflow_run chains — they introduce complexity, latency, and failure points
-
-**Manual Recovery (if using old version):**
-- Remove `agents:auto-pilot` label
-- Manually run the needed phase by adding appropriate label
-- Once complete, re-add `agents:auto-pilot` to continue
+The former [format, optimize and apply recovery procedure](https://github.com/stranske/Workflows/blob/2019495f30237fa05ef6c4c2921de060ecd60692/docs/agent-automation.md#historical-auto-pilot-stuck-or-not-progressing) applies to the retired workflow. For a new issue, check the [opener's admission rules](ops/LOCAL_LANES.md#lanes-overview). For an existing PR with unfinished tasks, follow the [Keepalive troubleshooting guide](keepalive/KEEPALIVE_TROUBLESHOOTING.md).
 
 ### Historical Auto-Pilot Stuck in Infinite Loop (Issue #1212)
 
-**Symptom:** Auto-pilot workflow repeatedly dispatches itself, making 30+ attempts over several hours without progressing past apply step. Label `agents:apply-suggestions` is added and removed in a loop.
-
-**Root Cause (Fixed 2026-02-06):** GitHub App token behavior change exposed a missing protection in the optimizer workflow:
-
-**Timeline:**
-1. **Jan 12 (c9f639d):** Auto-pilot redesigned for inline execution - labels became "status markers, not triggers"
-2. **Feb 2 (0d6103d):** GitHub App tokens added to ALL workflows for rate limit management
-3. **Feb 6 (issue #1212):** Loop detected - optimizer was removing labels that auto-pilot needed for state tracking
-
-**The Loop Mechanics:**
-```
-1. Auto-pilot apply step completes → adds agents:apply-suggestions label
-2. Optimizer workflow TRIGGERS (enabled by App token, not GITHUB_TOKEN)
-3. Optimizer had NO protection for auto-pilot → runs and removes the label  
-4. Auto-pilot checks HAS_APPLY → false (label gone!)
-5. Auto-pilot logic: "No label? Must need to run apply again"
-6. Back to step 1 → INFINITE LOOP
-```
-
-**Why This Wasn't Caught Earlier:**
-- `GITHUB_TOKEN` has built-in anti-recursion: workflows it triggers don't trigger other workflows
-- **GitHub App tokens DO trigger other workflows** - no anti-recursion protection
-- The optimizer violation of "labels as status markers only" was masked until App tokens were added
-
-**Former ownership check.** Until Auto-Pilot was retired (#5379) the [issue optimizer](../.github/workflows/agents-issue-optimizer.yml) read the issue’s labels and left an issue carrying `agents:auto-pilot` to Auto-Pilot. That check was removed with Auto-Pilot; the optimizer now runs the requested phase, and an explicit operator dispatch keeps its selected phase.
-
-Same protection added for `agents:format` and `agents:optimize` labels.
-
-**Architecture Clarification:**
-
-Labels in auto-pilot are **hybrid: status markers with functional side effects**:
-- ✅ **Status markers:** Indicate completion (e.g., "apply step finished")
-- ✅ **Functional checks:** Read back for flow control (e.g., `HAS_APPLY` at line 523)
-- ❌ **NOT triggers:** Should not trigger other workflows when auto-pilot is active
-
-**Label Semantics:**
-- `agents:formatted` - Format step completed
-- `agents:apply-suggestions` - Apply step completed (suggestions have been applied)
-- `agent:codex` - Agent capability check completed
-- `agents:auto-pilot` - Auto-pilot orchestration is active
-- `runner:<agent>` - Optional auto-pilot override (`runner:claude`, `runner:codex`, etc.) that selects the agent without triggering the issue intake workflow
-
-**Prevention:**
-- Workflows triggered by auto-pilot status labels MUST check for `agents:auto-pilot` presence
-- If auto-pilot is present, skip execution (auto-pilot runs logic inline)
-- This respects the inline execution model while preserving standalone label-triggered workflows
+The [February incident](https://github.com/stranske/Workflows/blob/2019495f30237fa05ef6c4c2921de060ecd60692/docs/agent-automation.md#historical-auto-pilot-stuck-in-infinite-loop-issue-1212) explains how label changes repeatedly dispatched the former pipeline. The current [issue optimizer](../.github/workflows/agents-issue-optimizer.yml) handles explicitly requested phases. After merge, see the [verification pipeline](../README.md#verification-pipeline).
 
 ### Keepalive Not Triggering
 

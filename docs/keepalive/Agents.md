@@ -27,11 +27,7 @@ Automation agents touching **any** keepalive code path must consult the followin
    - Durable summary, worker receipts and failed-run recovery
    - Workflows comment-command dispatch evidence
 
-4. **[`../analysis/autopilot-40pr-evaluation-feb-2026.md`](../analysis/autopilot-40pr-evaluation-feb-2026.md)** — Auto-pilot pipeline evaluation:
-   - 40-PR sample analysis (Workflows + TMP repos)
-   - Component-by-component assessment
-   - Recommendations and elements to preserve
-5. **[`../guides/ADD_NEW_AGENT.md`](../guides/ADD_NEW_AGENT.md)** — Checklist for onboarding new agents (registry entries, runner workflows, docs/tests) so every automation surface treats Codex, Claude, and future agents consistently.
+4. **[`../guides/ADD_NEW_AGENT.md`](../guides/ADD_NEW_AGENT.md)** — Checklist for onboarding new agents (registry entries, runner workflows, docs/tests) so every automation surface treats Codex, Claude, and future agents consistently.
 
 ## Current keepalive operation
 
@@ -101,51 +97,13 @@ and performed the requested work.
 
 ## Historical Auto-Pilot Integration
 
-The [shared opener and closer](../ops/LOCAL_LANES.md#lanes-overview) own current admission and promotion. This section records the retired Auto-Pilot integration. The keepalive worker and its authority ledger remain active.
-
-```
-Auto-pilot pipeline:
-  format → optimize → apply → capability-check → CREATE-PR → KEEPALIVE → verify → done
-                                                      │            │
-                                                      │            └─ Event-driven loop:
-                                                      │               Gate pass → task appendix
-                                                      │               → agent runner → push → repeat
-                                                      └─ Creates branch + PR with issue context
-```
-
 ### How Keepalive Fits In
 
-| Auto-pilot does... | Keepalive does... |
-|--------------------|--------------------|
-| Formats and enriches the issue | Drives the agent through PR tasks |
-| Creates the PR and branch | Evaluates Gate results and remaining work |
-| Dispatches the next pipeline step | Builds task appendix from PR body checkboxes |
-| Triggers verification post-merge | Dispatches the registry-backed agent with explicit task context |
+The [shared opener and closer](../ops/LOCAL_LANES.md#lanes-overview) own issue admission and PR promotion. Once a PR exists, [Keepalive](GoalsAndPlumbing.md) reads its task list and routes eligible work to a runner. After merge, the closer requests verification and reads the result.
 
 ### Former handoff sequence
 
-Closed issues always enter `verify`, including issues with retained
-`verify:evaluate` or `verify:pr-handoff` labels after reopening. Historical labels
-and closure records cannot select `done`. Verification must confirm an explicit
-evaluate dispatch or applicable verifier run for the merged source PR and head.
-Only a successful verify step with `verify_handoff=found` permits the workflow to
-dispatch its next run with `force_step=done`. The done reporter revalidates the
-PR/head evidence before publishing completion and removing `agents:auto-pilot`.
-
-Continuation uses `workflow_dispatch`, which the event gate accepts; it does not
-depend on a `verify:pr-handoff` label event. The executable source and consumer
-regressions are included in `.github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js`.
-After source changes reach main, Maint 68 regenerates the consumer candidate;
-the subsequent Maint 71 report must establish the original finding's disposition.
-Local source tests do not establish deployment or live acceptance.
-
-6. **Stall rotation and challenge before `needs-human`**: When an auto-pilot stall cap is reached, the pipeline tries a *different* eligible agent before requesting an independent authority challenge. It is registry-driven and bounded — the stalled agent is recorded with an `agents:tried-<agent>` label, so each rotation shrinks the candidate set. Exhausting eligible agents proves only that the current strategies stalled, not that a human is required. Two paths:
-   - **Belt lane (create-PR: no branch / no commits)** — retired with Auto-Pilot. Its decision helper `agent_stall_rotation.js` had no caller left and was removed on 2026-11-28 (round-2 D8); belt-lane stalls now park as described in the closer design.
-   - **Keepalive lane (monitor-PR: a PR exists)** — reuses the existing registry-driven delegation policy ([`agent_delegation_policy.js`](../../.github/scripts/agent_delegation_policy.js)) rather than rebuilding rotation: auto-pilot adds `agent:auto` to the issue and PR so `decideNextAgent` rotates across the fuller keepalive-capable set (codex/claude/cursor/muse/gemini) on its next round. If `agent:auto` is already present, delegation has had its chance and auto-pilot escalates.
-
-   **How a belt run reaches a given agent (traced 2026-10-16, Workflows#3929).** The three belt workflows (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`) contain no per-agent runner job and never call `reusable-<agent>-run.yml`; the `codex` in their names is historical. They are parameterized by `agent_key` (default `codex`) and read `.github/scripts/agent_registry.js` (`getAgentConfig`) for the branch prefix (`cursor/issue-`, `claude/issue-`, ...), the assignee logins and the required `agent:<key>` label. The agent itself runs afterwards, when the belt-created PR carries `agent:<key>` and the keepalive loop's static `run-<key>` job (root `agents-keepalive-loop.yml`, consumer `agents-81-gate-followups.yml`) dispatches that agent's `reusable-<key>-run.yml`. So an agent is belt-capable when it has a registry entry with a `branch_prefix` and `runner_workflow`, an `agent:<key>` label, and a `run-<key>` keepalive job; `tests/workflows/test_belt_agent_registry.py` enforces that for every `capabilities.belt: true` agent.
-
-   Both paths are **fail-safe**: any error or "no untried eligible agent left" routes to automation retry or an independent challenge with a concrete owner and next action. It does not silently become a human request. Capability gating means the set of rotation targets grows automatically as the registry marks more agents `belt`/`pr_keepalive` capable — no workflow edit needed.
+The retired Auto-Pilot and belt passed control through issue labels and dispatches. The [former handoff sequence and stall rotation](https://github.com/stranske/Workflows/blob/2019495f30237fa05ef6c4c2921de060ecd60692/docs/keepalive/Agents.md#former-handoff-sequence) and the [February 40-PR evaluation](../analysis/autopilot-40pr-evaluation-feb-2026.md) preserve those details.
 
 ## Key Principles
 

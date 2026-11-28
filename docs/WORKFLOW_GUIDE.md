@@ -61,7 +61,7 @@ For a YAML or script syntax failure, open [Minimal invariant CI](ci/WORKFLOWS.md
 
 - To investigate a failed Gate, use [Coverage Guardrails & Follow-ups](ci/WORKFLOWS.md#coverage-guardrails--follow-ups). For a guarded tolerance or snapshot repair, follow the [cosmetic repair procedure](ops/cosmetic-repair.md).
 - For release, integration, dependency and monthly audit workflows, start in [Autofix & Maintenance](ci/WORKFLOWS.md#autofix--maintenance). The [monthly audit checklist](ci/WORKFLOW_AUDIT_PROCEDURE.md) explains how to read the results and file findings.
-- For a failed sweep, an expiring credential or a drift alert, start in [Repository Health Checks](ci/WORKFLOWS.md#repository-health-checks). The [Health 40 runbook](ci/WORKFLOW_SYSTEM.md#health-40-sweep-health-40-sweepyml) describes the weekly Actionlint, liveness and belt-claim checks.
+- For a failed sweep, an expiring credential or a drift alert, start in [Repository Health Checks](ci/WORKFLOWS.md#repository-health-checks). The [Health 40 runbook](ci/WORKFLOW_SYSTEM.md#health-40-sweep-health-40-sweepyml) covers the weekly Actionlint job and the daily and weekly liveness and stale-claim checks. Manual dispatch also runs all three jobs.
 - To investigate a pending consumer delivery, follow the [sync campaign entry points](ops/SYNC_DEPENDENCY_CAMPAIGN.md#consumer-sync-entry-points). To change the label guide delivered to consumers, edit [templates/consumer-repo/docs/LABELS.md](../templates/consumer-repo/docs/LABELS.md). For keepalive regression coverage on a PR, use the [self-test catalog](ci/WORKFLOWS.md#self-test-harness).
 
 ### Agents & Issues

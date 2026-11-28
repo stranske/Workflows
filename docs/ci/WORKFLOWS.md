@@ -30,7 +30,7 @@ flowchart LR
 
 Diagram labels that start with `.` are shorthand for files under `.github/workflows/`.
 
-- **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) fans out to the reusable Python CI matrix and Docker smoke tests before its inline `summary` job publishes the commit status and PR comment. The **Gate summary job** keeps that follow-up comment updated with the latest artifacts.
+- **PR checks:** [Gate](../../.github/workflows/pr-00-gate.yml) selects the Python CI, GitHub scripts, docs, package and Docker jobs that apply to the PR. Its inline `summary` job publishes the commit status and updates the PR comment with the latest artifacts.
 - **Fork PR status:** [Gate Fork Status Publisher](../../.github/workflows/pr-00-gate-fork-status.yml) and [Agents Guard Fork Status Publisher](../../.github/workflows/agents-guard-fork-status.yml) validate trusted default-branch runs, current fork PR heads, latest attempts, protected controls, and complete attempt-bound evidence before writing their required contexts. See the [trust and rollout contract](../keepalive/FORK_GATE_STATUS_PUBLICATION.md).
 - Follow the [Autofix routes](#autofix-routes) to find the run that handled a Gate failure or produced a formatter patch.
 - **Agents control plane:** Completed non-push Gate `workflow_run` events trigger [Agents Keepalive Loop](../../.github/workflows/agents-keepalive-loop.yml), and the hourly [Agents Keepalive Sweep](../../.github/workflows/agents-keepalive-sweep.yml) (`23 * * * *`) re-dispatches that loop only for open, non-draft PRs carrying `agents:keepalive` plus an agent routing label; `agent:needs-attention`, `agent:rate-limited`, and `agent:retry` alone do not qualify. The [shared opener and closer](../ops/LOCAL_LANES.md#lanes-overview) own issue claims and guarded exact-head promotion. PR-meta keepalive commands dispatch workers directly ([#5162](https://github.com/stranske/Workflows/pull/5162)); measured worker capacity at dispatch ([#5163](https://github.com/stranske/Workflows/pull/5163)). The retired Agents 70 orchestrator stack is qualified history in [AGENTS_POLICY.md](../AGENTS_POLICY.md).
@@ -94,29 +94,35 @@ certified by a new producer; a fresh legitimate publication is required.
 
 #### Gate job map
 
-Use this map when triaging Gate failures. It illustrates the jobs that run on
-every pull request, which artifacts each produces, and how the final `gate`
-enforcement step evaluates their results.
+Use this map when triaging Gate failures. It shows where the main checks run
+when selected and where to find their output. Open `summary` for the aggregate
+result and the Gate YAML for job selection conditions.
 
 | Job ID | Display name | Purpose | Artifacts / outputs | Notes |
 | --- | --- | --- | --- | --- |
-| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` with a 3.13 + 3.14 matrix for every test file except the three verifier grammar suites, which `python-ci-grammar` (`python ci grammar`) runs in parallel without coverage. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage payloads share the `gate-coverage` artifact under `coverage/runtimes/<python>` for downstream consumers. |
+| `python-ci` | python ci | Runs the core Python 3.13 and 3.14 matrix, with Ruff, Mypy and coverage when enabled. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Python 3.14 is the coverage-reference runtime. Coverage payloads are retained under `coverage/runtimes/<python>`. |
+| `python-ci-grammar` | python ci grammar | Runs the three verifier grammar suites in parallel on both runtimes, with coverage disabled. | `grammar-*` test artifacts. | Together the two Python jobs cover the canonical selection for each runtime. |
+| `github-scripts-tests` | github scripts tests | On non-doc PRs, runs `.github/scripts/__tests__/*.test.js` with Node.js 24 and separately runs `pytest tests/workflows/github_scripts` when that directory exists. | Job logs. | Installs the `requirements.txt` pydantic pin into the runner's `python3` for verifier tests that spawn it. Selftest CI uses the same JavaScript entry points. |
 | `docs-guard` | docs guard | Runs the reusable-workflow documentation guards even when the PR is docs-only. | None (logs only). | Applies in repositories that carry the Workflows docs guard tests. Drift in documented workflow inputs or outputs fails Gate. |
 | `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
-| `summary` | summary | Aggregates lint/type/test/coverage results, computes deltas, uploads `gate-summary.md`, and maintains the consolidated PR comment. | Job summary, `gate-summary.md`, `gate-coverage.json`, `gate-coverage-delta.json`, `gate-coverage-summary.md`. | Posts the ruleset-required **`summary`** check (`.github/config/required-contexts.json:3`) and the duplicate `Gate / gate` commit status; enforces failure when upstream legs are unhealthy. |
+| `summary` | summary | Evaluates the delivery seal and applicable Python, docs guard, Docker and test-quality results, computes coverage deltas and maintains the consolidated PR comment. | Job summary, `gate-summary.md`, `gate-coverage.json`, `gate-coverage-delta.json`, `gate-coverage-summary.md`. | Publishes the ruleset-required **`summary`** check and the `Gate / gate` commit status. Open `github scripts tests` for its separate job result. |
 
 ```mermaid
 flowchart TD
     pr00["pr-00-gate.yml"] --> pythonCi["python ci\n3.13 + 3.14 matrix\n gate-coverage artifact"]
+    pr00 --> grammar["python ci grammar\n3.13 + 3.14 matrix"]
+    pr00 --> scripts["github scripts tests\nNode.js and Python"]
     pr00 --> dockerSmoke["docker smoke\nimage build logs"]
     pythonCi --> summaryJob["summary job\naggregates artifacts"]
+    grammar --> summaryJob
+    scripts -- "completion dependency" --> summaryJob
     dockerSmoke --> summaryJob
     summaryJob --> status["Required Gate status\nblocks/permits merge"]
 ```
 
 ```
 pull_request ──▶ Gate ──▶ Summary comment & status
-                    └─▶ Reusable test suites (Python matrix & Docker smoke)
+                    └─▶ Selected checks (Python, GitHub scripts, docs, packages, Docker)
 ```
 
 ### Reusable workflow outputs (caller-facing)
@@ -386,8 +392,8 @@ To find hosted workflows that read PR context, run `python scripts/workflow_pr_c
 
 Health workflows monitor scheduled conditions, validate changes or provide callable checks.
 
-* **Health 40 Repo Selfcheck** ([`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml)) runs Monday 06:20 UTC, inventories required automation labels, snapshots default-branch protection, and (when `BRANCH_PROTECTION_TOKEN` is present) enforces Gate + Guard contexts before publishing the consolidated status table to the run summary and the dedicated health snapshot issue. Issue updates rotate across registered issue-capable credentials; the branch-protection token stays reserved for admin probes. Snapshot mutation is best-effort so exhausted ancillary credentials do not override an otherwise authoritative health result, and the workflow falls back to read-only branch-protection mode when only the installation token is available.
-* **Health 40 Sweep** ([`health-40-sweep.yml`](../../.github/workflows/health-40-sweep.yml)) runs Actionlint on main weekly (Maint 52 lints every PR and push). Daily runs check workflow liveness and reclaim idle belt claims. Branch protection is read by the self-check, which dispatches Health 44 when it finds drift. See the [Health 40 runbook](WORKFLOW_SYSTEM.md#health-40-sweep-health-40-sweepyml).
+* **Health 40 Repo Selfcheck** ([`health-40-repo-selfcheck.yml`](../../.github/workflows/health-40-repo-selfcheck.yml)) runs Monday at 06:20 UTC or by manual dispatch. It inventories required labels, reports default-branch protection and publishes its status table in the run summary and health snapshot issue. With an admin probe token, it compares protection to the required contexts file and dispatches Health 44 when that workflow can apply a fix. Extra contexts require operator review. Health 44 writes branch protection. Health snapshot issue updates are best-effort and use registered issue-capable credentials.
+* **Health 40 Sweep** ([`health-40-sweep.yml`](../../.github/workflows/health-40-sweep.yml)) runs liveness and stale claim checks on both the daily 06:25 UTC and Monday 05:05 UTC schedules. The Monday run also runs Actionlint, and manual dispatch runs all three jobs. The claim job rereads open issues with `status:in-progress` and releases claims older than 24 hours when no linked open or merged PR exists. See the [Health 40 runbook](WORKFLOW_SYSTEM.md#health-40-sweep-health-40-sweepyml).
 * **Health 77 Cursor Auth Check** ([`health-77-cursor-auth-check.yml`](../../.github/workflows/health-77-cursor-auth-check.yml)) checks daily for the presence of the `CURSOR_API_KEY` secret.
 * **Health 79 Muse Auth Check** ([`health-79-muse-auth-check.yml`](../../.github/workflows/health-79-muse-auth-check.yml)) checks daily for the presence of the `META_API_KEY` secret and verifies the Muse CLI and bubblewrap sandbox without a model call.
 * **Health 42 Actionlint** ([`health-42-actionlint.yml`](../../.github/workflows/health-42-actionlint.yml)) provides the reusable Actionlint leg for the sweep or ad-hoc rehearsals.
@@ -609,10 +615,10 @@ the three verifier grammar suites (`tests/scripts/test_pr_verifier_delivery_dest
 `test_pr_verifier_prompt_coverage.py`, `test_pr_verifier_body_overall_integration.py`)
 and `python-ci-grammar` runs exactly those files on both runtimes, with coverage off
 and the `grammar-` artifact prefix so the summary's `gate-*` merge never sees them.
-They hold ~35.6k cases and ~38% of the suite's worker time, and in one job they kept
-the pytest step at 6.7–13.3 minutes (Workflows#3904). The Gate passes only when both
-calls pass; `tests/workflows/test_ci_gate_budget.py` keeps the ignore list equal to the
-grammar call's files, so the two calls still discover the full suite. Coverage
+At the time of the split, they held about 35,600 cases and 38% of the suite's
+worker time. The combined pytest step took 6.7–13.3 minutes (Workflows#3904).
+When Gate selects the Python jobs, both must pass. `tests/workflows/test_ci_gate_budget.py`
+checks that the ignore list and grammar call's files match, preserving full discovery. Coverage
 percentages therefore exclude lines only those suites reach. In addition,
 parity checks on large managed files (such as `scripts/langchain/pr_verifier.py`,
 `.github/scripts/keepalive_loop.js`, and `.github/scripts/verification_event.js`)
