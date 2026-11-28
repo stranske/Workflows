@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate metrics from NDJSON autopilot metrics logs.
+"""Aggregate metrics from NDJSON agent metrics logs.
 
 This script analyzes LangSmith trace coverage and generates summary statistics
 for monitoring observability adoption across the agent workflows.
@@ -53,7 +53,6 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
             "total_with_traces": 0,
             "trace_coverage_pct": 0.0,
             "by_operation": {},
-            "by_step": {},
         }
 
     # Count metrics with trace IDs
@@ -79,29 +78,11 @@ def aggregate_traces(metrics: list[dict[str, Any]]) -> dict[str, Any]:
             "coverage_pct": round(coverage, 1),
         }
 
-    # Group by autopilot step (if present)
-    by_step: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "with_trace": 0})
-    for metric in metrics:
-        step = metric.get("step_name", "unknown")
-        by_step[step]["total"] += 1
-        if _metric_has_trace(metric):
-            by_step[step]["with_trace"] += 1
-
-    step_summary = {}
-    for step, counts in by_step.items():
-        coverage = (counts["with_trace"] / counts["total"]) * 100 if counts["total"] > 0 else 0.0
-        step_summary[step] = {
-            "total": counts["total"],
-            "with_trace": counts["with_trace"],
-            "coverage_pct": round(coverage, 1),
-        }
-
     return {
         "total_metrics": total_metrics,
         "total_with_traces": total_with_traces,
         "trace_coverage_pct": round(trace_coverage_pct, 1),
         "by_operation": operation_summary,
-        "by_step": step_summary,
     }
 
 
@@ -122,16 +103,6 @@ def format_report(summary: dict[str, Any]) -> str:
         for op, stats in sorted(summary["by_operation"].items()):
             lines.append(
                 f"| {op} | {stats['total']} | {stats['with_trace']} | {stats['coverage_pct']}% |"
-            )
-        lines.append("")
-
-    if summary["by_step"]:
-        lines.append("## Coverage by Autopilot Step")
-        lines.append("| Step | Total | With Trace | Coverage |")
-        lines.append("|------|-------|------------|----------|")
-        for step, stats in sorted(summary["by_step"].items()):
-            lines.append(
-                f"| {step} | {stats['total']} | {stats['with_trace']} | {stats['coverage_pct']}% |"
             )
         lines.append("")
 
