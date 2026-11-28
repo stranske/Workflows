@@ -1,3 +1,0 @@
-a) first
-b) second
-d) fourth skipped c
