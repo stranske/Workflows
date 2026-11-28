@@ -2896,3 +2896,193 @@ def test_main_directory_compare_skips_subdir_entries_and_absent_removals(
     assert "owner/repo: .github/obsolete.yml" in report["obsolete"]
     assert "owner/repo: .github/already-gone.yml" not in report["obsolete"]
     assert report["counts"]["drift"] == 0
+
+
+# --- Delivery anchor: the measuring window is Maint 68's draining window (round-2 A2) ---
+
+_PLAN = "sha256:" + "a" * 64
+_OLD_PLAN = "sha256:" + "b" * 64
+_ANCHOR_NOW = datetime(2026, 11, 28, 12, tzinfo=UTC)
+
+
+def _anchor_report(deliveries, repos=("owner/repo",), drift=True):
+    return check_consumer_sync_drift.build_report(
+        repos=list(repos),
+        drift={f"{repo}: README.md" for repo in repos} if drift else set(),
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        open_sync_prs=[],
+        current_plan_id=_PLAN,
+        deliveries=deliveries,
+        now=_ANCHOR_NOW,
+    )
+
+
+def _iso(hours_before: float) -> str:
+    return (_ANCHOR_NOW - timedelta(hours=hours_before)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_main_moved_after_last_delivery_is_pending_not_drift() -> None:
+    report = _anchor_report([{"plan_id": _OLD_PLAN, "created_at": _iso(2)}])
+    state = report["sync_remediation"]["repo_states"]["owner/repo"]
+    assert state["state"] == "pending_delivery"
+    assert state["blocking"] is False
+    assert report["status"] == "draining"
+    assert report["status"] in check_consumer_sync_drift.PASSING_STATUSES
+    assert report["sync_remediation"]["blocking_repo_count"] == 0
+    assert report["sync_remediation"]["drainable_repo_count"] == 1
+
+
+@pytest.mark.parametrize(
+    ("delivered_hours_ago", "blocking", "status"),
+    [(10, False, "draining"), (36, False, "draining"), (36.01, True, "drift")],
+)
+def test_delivered_plan_without_pr_blocks_only_past_the_lease(
+    delivered_hours_ago, blocking, status
+) -> None:
+    report = _anchor_report(
+        [
+            {"plan_id": _PLAN, "created_at": _iso(delivered_hours_ago)},
+            {"plan_id": _PLAN, "created_at": _iso(1)},  # a later re-delivery must not reset the age
+        ]
+    )
+    state = report["sync_remediation"]["repo_states"]["owner/repo"]
+    assert state["state"] == "untracked_drift"
+    assert state["uncovered_since"] == _iso(delivered_hours_ago)
+    assert state["blocking"] is blocking
+    assert report["status"] == status
+
+
+@pytest.mark.parametrize(
+    "deliveries",
+    [
+        pytest.param(None, id="history-unreadable"),
+        pytest.param([], id="history-empty"),
+        pytest.param([{"plan_id": _OLD_PLAN, "created_at": _iso(40)}], id="drain-idle-past-lease"),
+    ],
+)
+def test_no_evidence_the_drain_is_running_blocks_at_once(deliveries) -> None:
+    report = _anchor_report(deliveries)
+    state = report["sync_remediation"]["repo_states"]["owner/repo"]
+    assert state["state"] == "untracked_drift"
+    assert state["blocking"] is True
+    assert report["status"] == "drift"
+
+
+def test_gate_line_prints_blocking_and_drainable_including_fully_drained() -> None:
+    drained = _anchor_report([{"plan_id": _PLAN, "created_at": _iso(1)}], drift=False)
+    assert drained["status"] == "converged"
+    # The drained state must be reachable and say so, not read as an unmeasured gate.
+    assert check_consumer_sync_drift.gate_line(drained) == (
+        "Gate: blocking 0 repo(s) (stale, blocked, or uncovered past the 36h lease); "
+        "drainable 0 (none); status converged"
+    )
+    mixed = _anchor_report(
+        [{"plan_id": _OLD_PLAN, "created_at": _iso(2)}], repos=("owner/a", "owner/b")
+    )
+    assert "blocking 0 repo(s)" in check_consumer_sync_drift.gate_line(mixed)
+    assert "drainable 2 (pending_delivery=2)" in check_consumer_sync_drift.gate_line(mixed)
+
+
+def test_read_deliveries_keeps_unreadable_distinct_from_empty(tmp_path) -> None:
+    assert check_consumer_sync_drift.read_deliveries("") is None
+    assert check_consumer_sync_drift.read_deliveries(str(tmp_path / "missing.json")) is None
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    assert check_consumer_sync_drift.read_deliveries(str(bad)) is None
+    empty = tmp_path / "empty.json"
+    empty.write_text("[]", encoding="utf-8")
+    assert check_consumer_sync_drift.read_deliveries(str(empty)) == []
+
+
+def test_parse_maint68_promotions_reads_plan_ids_from_successful_promotes_only() -> None:
+    plan = "sha256:" + "c" * 64
+    payload = {
+        "workflow_runs": [
+            {
+                "id": 1,
+                "conclusion": "success",
+                "created_at": "2026-11-28T05:16:33Z",
+                "display_title": f"Maint 68 promote auto  {plan}",
+            },
+            {
+                "id": 2,
+                "conclusion": "success",
+                "created_at": "2026-11-28T05:00:41Z",
+                "display_title": "Maint 68 canary auto   source=0aae3bb candidates=* dry=false",
+            },
+            {
+                "id": 3,
+                "conclusion": "failure",
+                "created_at": "2026-11-28T00:59:54Z",
+                "display_title": f"Maint 68 promote full repos=o/r {plan}",
+            },
+        ]
+    }
+    assert check_consumer_sync_drift.parse_maint68_promotions(payload) == [
+        {"plan_id": plan, "created_at": "2026-11-28T05:16:33Z", "run_id": 1}
+    ]
+    with pytest.raises(ValueError):
+        check_consumer_sync_drift.parse_maint68_promotions({"message": "Bad credentials"})
+
+
+# --- Uncovered clock: review follow-up on #5452 (scoped promotions / history paging) ---
+
+
+def _clock_report(deliveries, first_seen, repos=("owner/repo",)):
+    return check_consumer_sync_drift.build_report(
+        repos=list(repos),
+        drift={f"{repo}: README.md" for repo in repos},
+        missing=set(),
+        errors=set(),
+        obsolete=set(),
+        open_sync_prs=[],
+        current_plan_id=_PLAN,
+        deliveries=deliveries,
+        uncovered_first_seen=first_seen,
+        now=_ANCHOR_NOW,
+    )
+
+
+def test_repeated_promotions_cannot_renew_pending_past_the_lease() -> None:
+    # A promotion 1 h ago (scoped or not) would make this pending forever; the clock
+    # says the repo has been uncovered for 40 h, so it blocks.
+    report = _clock_report(
+        [{"plan_id": _OLD_PLAN, "created_at": _iso(1)}], {"owner/repo": _iso(40)}
+    )
+    state = report["sync_remediation"]["repo_states"]["owner/repo"]
+    assert state["state"] == "pending_delivery"
+    assert state["blocking"] is True
+    assert state["uncovered_since"] == _iso(40)
+    assert report["status"] == "drift"
+
+
+def test_history_paging_cannot_reset_the_age_of_a_delivered_plan() -> None:
+    # Only a 10 h re-delivery is visible; the clock remembers 40 h.
+    report = _clock_report([{"plan_id": _PLAN, "created_at": _iso(10)}], {"owner/repo": _iso(40)})
+    state = report["sync_remediation"]["repo_states"]["owner/repo"]
+    assert state["blocking"] is True
+    assert report["status"] == "drift"
+
+
+def test_clock_starts_now_and_drops_repos_that_converged() -> None:
+    report = _clock_report(
+        [{"plan_id": _OLD_PLAN, "created_at": _iso(2)}],
+        {"owner/gone": _iso(50)},
+        repos=("owner/repo",),
+    )
+    clock = report["sync_remediation"]["uncovered_first_seen"]
+    assert clock == {"owner/repo": _ANCHOR_NOW.strftime("%Y-%m-%dT%H:%M:%SZ")}
+    assert report["sync_remediation"]["repo_states"]["owner/repo"]["blocking"] is False
+    assert report["status"] == "draining"
+
+
+def test_uncovered_clock_round_trips_and_missing_is_none(tmp_path) -> None:
+    path = tmp_path / "clock" / "first-seen.json"
+    assert check_consumer_sync_drift.read_uncovered_clock(str(path)) is None
+    report = _clock_report([{"plan_id": _OLD_PLAN, "created_at": _iso(2)}], None)
+    check_consumer_sync_drift.write_uncovered_clock(str(path), report)
+    assert check_consumer_sync_drift.read_uncovered_clock(str(path)) == (
+        report["sync_remediation"]["uncovered_first_seen"]
+    )

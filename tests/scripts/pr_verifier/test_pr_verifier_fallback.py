@@ -1,8 +1,14 @@
 """Tests for PR verifier auth error fallback."""
 
+import pytest
 import scripts.langchain.pr_verifier as pr_verifier
 
-from tests.scripts.verifier_capacity_fakes import with_capacity
+from tests.scripts.verifier_capacity_fakes import (
+    synthetic_verifier_capacity_contract,  # noqa: F401
+    with_capacity,
+)
+
+pytestmark = pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 
 SAMPLE_DIFF = "diff --git a/example.py b/example.py\n--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new\n"
 

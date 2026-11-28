@@ -154,15 +154,26 @@ addressed. Examples:
   is actionable and closes it on the next clean comparison. A later incident
   creates a new issue instead of reopening a permanent red dashboard. Since
   #2878 the checker classifies each consumer as `converged`, `covered`,
-  `blocked`, `untracked_drift`, or `stale`:
+  `pending_delivery`, `blocked`, `untracked_drift`, or `stale`. Since round-2 A2
+  (2026-11-28) Health 68 measures on Maint 68's cadence (the daily schedule and
+  the scheduled Maint 71 pass), not on every push, and ages uncovered drift from
+  Maint 68's own delivery history:
 
   | State | Meaning | Exit code | Opens or refreshes an alert |
   |-------|---------|-----------|-----------------------------|
   | `converged` | No drift against the compiled plan | 0 | No |
   | `covered` | Drift exists, but an open stable candidate/delivery PR matches the current plan and is inside the 36-hour coverage lease | 0 | No |
+  | `pending_delivery` | Main moved after the last successful Maint 68 promote (within the lease), so the current plan has not been delivered yet | 0 | No |
   | `stale` | A plan-matching sync PR is open but has not been updated inside the lease | non-zero | Yes |
   | `blocked` | A global comparison error, or a per-repo lookup/content error, prevented classification | non-zero | Yes |
-  | `untracked_drift` | Drift with no open PR on the current plan's branch (including a superseded hash) | non-zero | Yes |
+  | `untracked_drift` | Drift with no open PR on the current plan's branch. Uncovered since Maint 68 first delivered the current plan: within the lease it drains (exit 0, no alert); past the lease, or when the delivery history cannot be read, it is blocking | non-zero once blocking | Only when blocking |
+
+  The run summary prints the gate as one line: blocking repos AND drainable repos
+  (covered, pending delivery, or uncovered within the lease) with the status.
+  Health 68 also keeps an "uncovered clock" (an Actions cache file): when it first
+  saw each repo uncovered, reset only when the repo is converged or covered. A repo
+  uncovered past the lease by that clock is blocking even if a later or scoped
+  Maint 68 promotion would otherwise call it `pending_delivery`.
 
   Drift alone is not a red signal: expected in-flight propagation is `covered`,
   exits zero, and is deliberately silent. A gap in comments means "nothing

@@ -1,8 +1,17 @@
 from __future__ import annotations
 
+from unittest import mock
+
 import pytest
 from scripts.langchain import trace_utils
 from scripts.langchain.trace_utils import invoke_with_trace
+
+
+@pytest.fixture(autouse=True)
+def isolate_langsmith_test_state():
+    # Enabling tracing from a fake key also sets derived environment variables.
+    with mock.patch.dict("os.environ"), mock.patch("tools.llm_provider.LANGSMITH_ENABLED", False):
+        yield
 
 
 class _Response:

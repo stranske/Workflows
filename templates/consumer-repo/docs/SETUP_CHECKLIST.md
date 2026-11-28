@@ -1290,8 +1290,8 @@ kind it is — the distinction matters and both appear in this repo:
 
 Both were got wrong during the Orchestrator onboarding and caught in review:
 
-* **Routing labels go in `.github/labels-core.yml`**, which Maint 69 syncs — not
-  `.github/labels.yml`. Labels added to the latter never reach consumers. This is
+* **Routing labels go in `.github/labels-core.yml`**, which Maint 69 syncs. (The
+  old `.github/labels.yml` never reached consumers and was retired on 2026-11-28.) This is
   also why `refactor`, `cross-repo`, `epic`, `runtime-ac`, `testgen` and
   `tracker:durable` existed on 12 repos by hand but on no newly-onboarded one:
   applying `labels.yml` gave a fresh consumer 41 labels and **none** that

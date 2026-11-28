@@ -73,8 +73,8 @@ precedence chain — `cross_repo` > `epic` > `codemod` > `runtime_ac` > `testgen
 `mechanical` > `implement` — so a label here is not cosmetic: it selects the
 dispatch path.
 
-They are synced from `.github/labels-core.yml` by Maint 69. They are deliberately
-NOT in `.github/labels.yml`, which Maint 69 does not sync.
+They are synced from `.github/labels-core.yml` by Maint 69, the only label
+inventory (the unread `.github/labels.yml` was retired on 2026-11-28).
 
 Documented 2026-08-22. They were created by hand across 12 repos on 2026-08-20 and
 appeared in no inventory, so a freshly-onboarded consumer received 41 labels and
@@ -610,8 +610,11 @@ when the Orchestrator router starts the work on the owner's machine (`router.cho
    controller pass) owns the PR. It re-runs the agent on CI results with the failing lines, gives it the source
    issue's tasks, runs the issue's acceptance commands on a green head, and rotates agents after two
    unproductive rounds.
-2. One owner per PR: a PR with this label never carries `agents:keepalive`, so hosted keepalive
-   (`agents-81-gate-followups.yml`) does not dispatch on it, and the local label sweep does not add hosted labels.
+2. One owner per PR: a PR with this label never carries `agents:keepalive`, and the local label sweep does not
+   add hosted labels. The hosted side also enforces the label itself: hosted keepalive (`keepalive_loop.js`)
+   ends with `skip`/`local-loop` before any label write, runner reservation or comment, and hosted autofix
+   (`agents-81-gate-followups.yml`, `agents-autofix-loop.yml`) stops with `local_loop` before reserving a runner.
+   Both read the one constant `LOCAL_LOOP_LABEL` in `.github/scripts/agent_registry.js`.
 3. The loop ends either when the PR is done (closer-core merges the green PR, after a judge if the PR edits CI
    workflows) or by handing the PR to hosted keepalive. It hands off when its round cap is reached, no untried
    agent is left, or no local slot frees in time: it adds `agents:keepalive` and `autofix`, then removes
@@ -766,7 +769,6 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 3. Is applied by keepalive on a tasks-complete success terminal when appropriate.
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
-`.github/scripts/merge_manager.js`,
 `templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml`.
 
 ---
@@ -779,7 +781,7 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 
 **Effect:**
 1. Switches eligible jobs from the default `agent-standard` environment to `agent-high-privilege`.
-2. Defined in `.github/labels.yml`.
+2. Defined in `.github/labels-core.yml` and synced by Maint 69.
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
 `.github/workflows/agents-keepalive-loop.yml`,
@@ -796,11 +798,10 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 
 **Effect:**
 1. Classifies PR change risk (`risk:low` = small/safe automerge candidate, `risk:medium` = moderate change, `risk:high` = large or sensitive change).
-2. `risk:low` is checked by guarded automerge (`merge_manager.js`) and included in `health-40-repo-selfcheck.yml`'s `REQUIRED_LABELS`.
-3. Defined in `.github/labels.yml`.
+2. `risk:low` is included in `health-40-repo-selfcheck.yml`'s `REQUIRED_LABELS`. (The `merge_manager.js` automerge check that read it had no caller and was removed on 2026-11-28.)
+3. Defined in `.github/labels-core.yml` and synced by Maint 69.
 
-**Consumers:** `.github/scripts/merge_manager.js`,
-`.github/workflows/health-40-repo-selfcheck.yml`.
+**Consumers:** `.github/workflows/health-40-repo-selfcheck.yml`.
 
 ---
 
@@ -832,8 +833,7 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
    `from:claude`, `from:cursor`, `from:muse`, `from:gemini`, `from:copilot`, or `from:auto`.
 2. Helps merge and verifier tooling distinguish agent-origin PRs from manual PRs.
 
-**Consumers:** `.github/scripts/merge_manager.js`,
-`.github/workflows/agents-verify-to-new-pr.yml`,
+**Consumers:** `.github/workflows/agents-verify-to-new-pr.yml`,
 `.github/workflows/agents-verify-to-issue-v2.yml`,
 `.github/workflows/reusable-agents-verifier.yml`.
 
@@ -867,7 +867,7 @@ These labels are used for categorization but do not trigger workflows.
 
 **Applies to:** Issues or Pull Requests
 
-**Effect:** Marks an item as a reminder for future action (defined in `.github/labels.yml`).
+**Effect:** Marks an item as a reminder for future action (defined in `.github/labels-core.yml`).
 
 ---
 

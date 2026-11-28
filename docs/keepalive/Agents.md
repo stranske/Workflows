@@ -140,7 +140,7 @@ the subsequent Maint 71 report must establish the original finding's disposition
 Local source tests do not establish deployment or live acceptance.
 
 6. **Stall rotation and challenge before `needs-human`**: When an auto-pilot stall cap is reached, the pipeline tries a *different* eligible agent before requesting an independent authority challenge. It is registry-driven and bounded — the stalled agent is recorded with an `agents:tried-<agent>` label, so each rotation shrinks the candidate set. Exhausting eligible agents proves only that the current strategies stalled, not that a human is required. Two paths:
-   - **Belt lane (create-PR: no branch / no commits)** — no PR/keepalive history exists yet, so the pure decision helper [`agent_stall_rotation.js`](../../.github/scripts/agent_stall_rotation.js) (`decideStallRotation`, capability `belt`) picks the next untried belt-capable agent, swaps the `agent:<name>` label, and re-dispatches the belt via `agents-71-codex-belt-dispatcher.yml` with the new `agent_key`.
+   - **Belt lane (create-PR: no branch / no commits)** — retired with Auto-Pilot. Its decision helper `agent_stall_rotation.js` had no caller left and was removed on 2026-11-28 (round-2 D8); belt-lane stalls now park as described in the closer design.
    - **Keepalive lane (monitor-PR: a PR exists)** — reuses the existing registry-driven delegation policy ([`agent_delegation_policy.js`](../../.github/scripts/agent_delegation_policy.js)) rather than rebuilding rotation: auto-pilot adds `agent:auto` to the issue and PR so `decideNextAgent` rotates across the fuller keepalive-capable set (codex/claude/cursor/muse/gemini) on its next round. If `agent:auto` is already present, delegation has had its chance and auto-pilot escalates.
 
    **How a belt run reaches a given agent (traced 2026-10-16, Workflows#3929).** The three belt workflows (`agents-71-codex-belt-dispatcher.yml`, `agents-72-codex-belt-worker.yml`, `agents-73-codex-belt-conveyor.yml`) contain no per-agent runner job and never call `reusable-<agent>-run.yml`; the `codex` in their names is historical. They are parameterized by `agent_key` (default `codex`) and read `.github/scripts/agent_registry.js` (`getAgentConfig`) for the branch prefix (`cursor/issue-`, `claude/issue-`, ...), the assignee logins and the required `agent:<key>` label. The agent itself runs afterwards, when the belt-created PR carries `agent:<key>` and the keepalive loop's static `run-<key>` job (root `agents-keepalive-loop.yml`, consumer `agents-81-gate-followups.yml`) dispatches that agent's `reusable-<key>-run.yml`. So an agent is belt-capable when it has a registry entry with a `branch_prefix` and `runner_workflow`, an `agent:<key>` label, and a `run-<key>` keepalive job; `tests/workflows/test_belt_agent_registry.py` enforces that for every `capabilities.belt: true` agent.
@@ -246,16 +246,40 @@ staged and unstaged patches, an untracked-file archive and a receipt; the source
 issue comment names that artifact. The workflow requires `issues: write` for the
 source-issue comment. Token clearing is not a credential sandbox, and the
 post-run read does not prevent a later concurrent merge.
-Issue #4562's production acceptance still requires a mid-run merge observation
-and 14 days without new orphan slug-branch PRs after deployment.
 
-Run `python scripts/check_cursor_pr_outcome.py --fix-pr stranske/Workflows#4564`
-to collect the read-only PR search. JSON includes blocking and drainable counts;
-exit 0 (`clear_search`) means a full clear 14-day window, 1 means a matching PR,
-and 2 means pending or unavailable evidence. Missing, blank or malformed branch
-or author evidence is unavailable, never a clear search. Pending evidence drains
-through a later read; matching PRs require follow-up investigation. The acceptance box
-still needs a separately observed mid-run merge; a clear search cannot check it.
+### November 10, 2026 Cursor incident evidence
+
+[Issue #4562](https://github.com/stranske/Workflows/issues/4562) closed with the
+[production observation outstanding](https://github.com/stranske/Workflows/issues/4562#issuecomment-6768849632).
+The incident called for a separately observed post-deployment mid-run merge and
+a 14-day search for new Actions bot PRs on orphan Cursor slug branches after
+[#4564](https://github.com/stranske/Workflows/pull/4564) merged. The workflow
+protection described above remains active and is covered by
+`tests/workflows/test_cursor_run_no_agent_pr_creation.py`.
+
+To recover the historical checker and its tests, run from the root of a
+Workflows checkout with the repository's Python environment and pytest
+installed. Set `python_bin` to its absolute interpreter path.
+
+```bash
+python_bin="$PWD/.venv/bin/python"
+scratch=$(mktemp -d)
+git archive 751ae468124719e77847a139854bd7858a777a24 \
+  scripts/__init__.py scripts/check_cursor_pr_outcome.py \
+  tests/scripts/test_check_cursor_pr_outcome.py | tar -xf - -C "$scratch"
+(
+  cd "$scratch" || exit
+  "$python_bin" -m pytest -q tests/scripts/test_check_cursor_pr_outcome.py &&
+  "$python_bin" scripts/check_cursor_pr_outcome.py --help
+)
+```
+
+The recovered tests use offline GitHub responses. The historical invocation
+takes `--fix-pr 'stranske/Workflows#4564'` and may read individual PRs across the
+owner's repositories. Its JSON reports blocking and drainable counts. Exit 0
+(`clear_search`) certifies only the complete search window, exit 1 identifies a
+matching PR, and exit 2 means pending or unavailable evidence. A production
+acceptance finding also requires a separate, qualifying mid-run observation.
 
 ### Hosted agent startup recovery
 

@@ -27,7 +27,8 @@ on:
   schedule:
     # Daily janitor pass: auto-merge ready sync PRs, close superseded ones, and prune
     # leftover branches without waiting for a manual dispatch. Health 68 runs from this
-    # workflow's successful completion, so it evaluates the post-janitor state.
+    # scheduled pass's successful completion, so it evaluates the post-janitor state;
+    # dispatched continuations end that Health 68 run `skipped`.
     # A schedule event carries no inputs, so parseBooleanInput applies its defaults:
     # auto_merge=true, dry_run=false, cleanup_branches=true, repos=all.
     - cron: '30 5 * * *'

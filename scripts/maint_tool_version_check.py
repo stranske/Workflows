@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""PyPI freshness report for the dev tools autofix-versions.env pins.
+"""Proposal policy and PyPI freshness report for the dev-tool source lane.
 
-Run by the "Tool version report" step of maint-auto-update-pypi-versions.yml (Maint 50
-ran it as a separate workflow until 2026-11-28).
+Used by maint-auto-update-pypi-versions.yml to check the UTC proposal window
+and report freshness of the autofix-versions.env pins.
 """
 
 from __future__ import annotations
@@ -17,9 +17,9 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-try:
+if __package__:
     from scripts.sync_dev_dependencies import pinned_dev_tools
-except ModuleNotFoundError:  # direct script execution
+else:  # direct script execution
     from sync_dev_dependencies import pinned_dev_tools  # type: ignore[no-redef]
 
 
@@ -266,12 +266,41 @@ def command_compare() -> int:
     return 0
 
 
+ROUTINE_WINDOW_WEEKDAY = 0  # Monday in ``datetime.weekday`` notation.
+
+
+def should_propose_update(now: dt.datetime, *, security_override: bool) -> bool:
+    """Return whether the canonical source lane may open or refresh its PR."""
+    if now.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    return security_override or now.astimezone(dt.UTC).weekday() == ROUTINE_WINDOW_WEEKDAY
+
+
+def command_proposal_policy(at: str | None, *, security_override: bool) -> int:
+    now = dt.datetime.fromisoformat(at.replace("Z", "+00:00")) if at else dt.datetime.now(dt.UTC)
+    allowed = should_propose_update(now, security_override=security_override)
+    if security_override:
+        reason = "security_override"
+    elif allowed:
+        reason = "weekly_window"
+    else:
+        reason = "outside_weekly_window"
+    print(f"should_propose={'true' if allowed else 'false'}")
+    print(f"reason={reason}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subcommands = parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("latest")
     subcommands.add_parser("compare")
+    proposal_policy = subcommands.add_parser("proposal-policy")
+    proposal_policy.add_argument("--security-override", action="store_true")
+    proposal_policy.add_argument("--at", help="UTC ISO-8601 timestamp for deterministic checks")
     args = parser.parse_args(argv)
+    if args.command == "proposal-policy":
+        return command_proposal_policy(args.at, security_override=args.security_override)
     if args.command == "latest":
         return command_latest()
     if args.command == "compare":

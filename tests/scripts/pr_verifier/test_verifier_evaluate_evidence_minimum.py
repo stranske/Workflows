@@ -8,7 +8,13 @@ from unittest import mock
 import pytest
 from scripts.langchain import pr_verifier as verifier
 
-from tests.scripts.verifier_capacity_fakes import complete_capture_context, with_capacity
+from tests.scripts.verifier_capacity_fakes import (
+    complete_capture_context,
+    synthetic_verifier_capacity_contract,  # noqa: F401
+    with_capacity,
+)
+
+pytestmark = pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 
 
 def capture(requirement="Evidence must be provided.", *, failure="transport"):

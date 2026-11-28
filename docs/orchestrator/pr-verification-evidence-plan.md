@@ -29,13 +29,13 @@ The table below is derived from repository files only (workflows, scripts, contr
 | **Terminal disposition & metrics** | Verifier and follow-up workflows upload NDJSON disposition artifacts | `.github/scripts/terminal_disposition.js`, `scripts/aggregate_agent_metrics.py`, `.github/workflows/agents-weekly-metrics.yml` | `tests/workflows/test_verifier_terminal_disposition.py`, `tests/workflows/test_bot_comment_handler.py`, `tests/scripts/test_aggregate_agent_metrics.py`, `tests/workflows/test_workflow_agents_consolidation.py` |
 | **Durability / fleet** | `.github/workflows/maint-85-keepalive-durability-export.yml` | `scripts/export_keepalive_durability.py`, `scripts/langsmith_fleet.py`, `scripts/langsmith_fleet_conformance.py`, `docs/contracts/langsmith-fleet-v1.md`, `config/langsmith_fleet_registry.json` | `tests/scripts/test_export_keepalive_durability.py`, `tests/scripts/test_langsmith_fleet.py`, `tests/scripts/test_langsmith_fleet_conformance.py`, `tests/workflows/test_langsmith_fleet_conformance_workflow.py` |
 | **Contract-level evidence** | `.github/workflows/reusable-backplane-conformance.yml`, `.github/workflows/health-78-backplane-contract.yml` | `docs/contracts/research-backplane-contract.md`, `docs/contracts/run-contract-v1.md`, `docs/contracts/schemas/evidence-object-v1.schema.json`, `scripts/validate_run_contract.py`, `config/backplane_participants.json` | Contract validation via health workflows; no verifier→evidence-object bridge yet |
-| **Operational / reverification docs** | — | `docs/verification-concerns-1307.md`, `docs/reverification/README.md`, `docs/reverification/1307-missing-artifacts.md` | `tests/docs/test_verification_concerns_1307.py` |
+| **Operational / reverification docs** | — | `docs/reverification/verification-concerns-1307.md`, `docs/reverification/README.md`, `docs/reverification/1307-missing-artifacts.md` | `tests/docs/test_verification_concerns_1307.py` |
 
 ### Local artifact surfaces (verifier run workspace)
 
 | File / artifact family | Producer | Uploaded today? | Notes |
 | --- | --- | --- | --- |
-| `verifier-context.md`, `verifier-diff-summary.md`, `verifier-pr-diff.patch` | `.github/scripts/agents_verifier_context.js` | **No** (written locally; not in upload steps) | Gap documented in `docs/verification-concerns-1307.md` |
+| `verifier-context.md`, `verifier-diff-summary.md`, `verifier-pr-diff.patch` | `.github/scripts/agents_verifier_context.js` | **No** (written locally; not in upload steps) | Gap documented in `docs/reverification/verification-concerns-1307.md` |
 | `codex-output.md`, `evaluation.json` | `reusable-agents-verifier.yml` checkbox/evaluate steps | Partial (hashed into disposition; not always uploaded standalone) | Used by terminal disposition concerns hash |
 | `comparison.json`, `comparison-comment.md` | compare mode in `reusable-agents-verifier.yml` | Yes (`comparison-results-*`, 7-day retention) | |
 | `agent-metrics/verifier-terminal-disposition.ndjson`, `verifier-followup-ledger.ndjson` | terminal disposition step | Yes (`verifier-terminal-disposition-*`, 14-day retention) | |
@@ -43,7 +43,7 @@ The table below is derived from repository files only (workflows, scripts, contr
 
 ### Known gaps (inputs to slices below)
 
-- `docs/verification-concerns-1307.md` and `docs/reverification/1307-missing-artifacts.md` document missing or empty verifier context artifacts that block acceptance-criteria review.
+- `docs/reverification/verification-concerns-1307.md` and `docs/reverification/1307-missing-artifacts.md` document missing or empty verifier context artifacts that block acceptance-criteria review.
 - `docs/analysis/verify-compare-40pr-evaluation-feb-2026.md` recommends persisting `chain_depth` on follow-up artifacts and feeding prior iteration summaries into `followup_issue_generator.py` Round 1.
 - `scripts/gate_detect_output_diff.py` validates detect-job output wiring but is not yet wired into Gate CI as a required check.
 - Runtime acceptance evidence lives in the local Orchestrator path; Workflows only arms labels and merge guards — there is no repo-local artifact proving a runtime AC spec passed.

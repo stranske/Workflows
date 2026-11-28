@@ -412,6 +412,13 @@ jobs:
                   .map((label) => (label?.name || '').toLowerCase())
                   .filter(Boolean)
               : [];
+            // One owner per PR (docs/LABELS.md `agents:local-loop`): the local loop fixes
+            // CI on its own PRs, so hosted autofix stops before any label write or runner
+            // reservation.
+            const { isLocalLoopOwned } = require('./.github/scripts/agent_registry.js');
+            if (isLocalLoopOwned(labels)) {
+              return stop('agents:local-loop owns this pull request', 'local_loop');
+            }
 
             const labelObjects = Array.isArray(prData.labels) ? prData.labels : [];
             const agentPrefix = 'agent:';
@@ -470,18 +477,27 @@ jobs:
             }
 
             const hasExplicitAgentLabel = routingAgentKeys.length > 0;
-            let agentType = '';
+            // Decide the autofix agent from registry capabilities.pr_autofix BEFORE the
+            // runner reservation (Check runner dispatch debounce). Keepalive reserves the
+            // same PR/head/agent key, so a slot held for an agent autofix cannot run (gemini,
+            // or an unknown label such as agent:vibe) would refuse that PR's own keepalive
+            // round as a duplicate for 30 minutes.
+            let autofixAgent;
             try {
-              const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              agentType = resolveAgentFromLabels(
-                routingLabelCandidates.length ? routingLabelCandidates : prData.labels,
-              );
+              const { resolveAutofixAgent } = require('./.github/scripts/agent_registry.js');
+              autofixAgent = resolveAutofixAgent(prData.labels);
             } catch (error) {
-              const fallbackAgent = routingAgentKeys[0];
-              agentType = fallbackAgent || 'codex';
+              const reason = `registry_error: ${error.message}`;
+              autofixAgent = { eligible: false, agentKey: '', reason };
             }
-
-            outputs.agent_type = String(agentType || '');
+            if (!autofixAgent.eligible) {
+              return stop(
+                `agent ${autofixAgent.agentKey || '(none)'} has no hosted autofix ` +
+                  `(${autofixAgent.reason})`,
+                'autofix_unsupported',
+              );
+            }
+            outputs.agent_type = autofixAgent.agentKey;
 
             const hasHighPrivilege = labels.includes('agent-high-privilege');
             outputs.has_high_privilege = String(hasHighPrivilege);

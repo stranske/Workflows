@@ -146,9 +146,9 @@ a create-only starting point (see [`CLAUDE.md`](../CLAUDE.md)).
 
 ### Guarded merge / `automerge`
 The automated merge path for completed agent PRs, gated so it cannot bypass
-safety. The `automerge` label marks a PR eligible; `.github/scripts/merge_manager.js`
-then checks an allowlist file (`.github/autoapprove-allowlist.json`, with `patterns`
-and `max_lines_changed`) and requires Gate success. Per [`LABELS.md`](LABELS.md),
+safety. The `automerge` label marks a PR eligible, and the merge itself requires Gate
+success. (The `.github/scripts/merge_manager.js` allowlist checker had no caller and was
+removed on 2026-11-28, round-2 D8.) Per [`LABELS.md`](LABELS.md),
 `automerge` **does not** bypass required checks, branch protection, or review
 policy — hence "guarded." Applied by keepalive on a tasks-complete terminal when
 appropriate.

@@ -1194,16 +1194,8 @@ jobs:
           if [ -n "$provider" ] && [ "$provider" != "github-models" ]; then
             args+=(--provider "$provider")
           fi
-          agent_label="${{ steps.agent.outputs.agent_label || '' }}"
-          from_label="${{ steps.agent.outputs.from_label || '' }}"
-          args+=(--create-issue)
-          if [ -n "$agent_label" ]; then
-            args+=(--issue-label "$agent_label")
-          fi
-          if [ -n "$from_label" ]; then
-            args+=(--issue-label "$from_label")
-          fi
-          args+=(--issue-label verify:evaluate)
+          # No issue-creation flags: pr_verifier.py hard-codes issue creation off
+          # (_should_create_issue returns False); follow-ups come from verify-to-issue.
 
           # Run evaluator (stderr to separate file to avoid corrupting JSON)
           evaluation_exit=0

@@ -43,7 +43,7 @@ def test_gate_workflow_matches_recorded_coverage_command() -> None:
     )
     project_expected = (
         "branch = true",
-        'source = ["scripts", "tools", "src"]',
+        'source = ["scripts", "tools"]',
     )
     evidence_expected = (
         "`coverage-python-version`: `3.14`",
@@ -79,7 +79,7 @@ def test_gate_workflow_matches_recorded_coverage_command() -> None:
     )
     assert _present(project, project_expected) == (
         "branch = true",
-        'source = ["scripts", "tools", "src"]',
+        'source = ["scripts", "tools"]',
     )
     assert _present(evidence, evidence_expected) == (
         "`coverage-python-version`: `3.14`",

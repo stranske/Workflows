@@ -174,12 +174,10 @@ Fourteen composite actions, each with an `action.yml`:
 Three more folders hold pinned CLI installs (`package.json` + lockfile, no `action.yml`):
 `maint78-codex-cli/`, `trial-codex-cli/`, `verifier-codex-cli/`.
 
-### Other Top-level Code Homes
+### Where Everything Lives
 
-- `tools/` - shared importable Python modules (the LLM library, files delivered to consumers) plus research CLIs for the verifier and model evaluation
-- `src/` - four metrics modules used by `scripts/*metrics*`, and deliberately broken autofix samples (`src/trend_analysis/`) that the fleet path classifier names
-- `packages/` - versioned packages (`app-baseline-kit`, `stranske_pdf_extract`)
-- `evidence/` - records kept per issue (`evidence/issue-<number>/`), separate from `docs/evidence`
+The [repository map](docs/STRUCTURE.md#directory-index) is the one layout map: every
+top-level and second-level directory, one line each, kept complete by a test.
 
 ### Scripts
 

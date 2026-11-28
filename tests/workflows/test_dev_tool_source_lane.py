@@ -11,7 +11,7 @@ def test_auto_updater_is_the_single_weekly_source_proposal_lane():
     text = AUTO_UPDATE.read_text(encoding="utf-8")
 
     assert "cron: '0 3 * * 1'" in text
-    assert 'scripts/dev_tool_update_policy.py "${args[@]}"' in text
+    assert 'scripts/maint_tool_version_check.py proposal-policy "${args[@]}"' in text
     assert "auto/weekly-dev-tool-update-$(date +%G-W%V)" in text
     assert 'existing_pr=$(gh pr list --head "$branch"' in text
     assert 'git fetch origin "$branch:refs/remotes/origin/$branch"' in text

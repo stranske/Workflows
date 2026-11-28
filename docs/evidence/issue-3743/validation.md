@@ -110,3 +110,11 @@ updates remain unavailable in this run.
 ## Historical archive validation runs
 
 The [initial filesystem validation](https://github.com/stranske/Workflows/blob/67dee42616781423c5197ddf640d4070286cbfa4/docs/evidence/issue-3743/archive-boundary/README.md) and [follow-up execution report](https://github.com/stranske/Workflows/blob/67dee42616781423c5197ddf640d4070286cbfa4/docs/evidence/issue-3743/archive-boundary/proof-execution/README.md) preserve the original directory layout, transcripts, manifests and results together in Git.
+
+The November shebang checks have two completed validation packets in Git history. The [integrity run](https://github.com/stranske/Workflows/tree/432f8b003610446c5e85920652208815e202f8bc/docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation) records archive-member checks. The [continuation run](https://github.com/stranske/Workflows/tree/432f8b003610446c5e85920652208815e202f8bc/docs/evidence/issue-3743/shebang-rejection/continuation-validation) records the focused commands and their outputs. To recover all 52 files at their original paths, run the following in the repository.
+
+```sh
+git archive 432f8b003610446c5e85920652208815e202f8bc -- \
+  docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation \
+  docs/evidence/issue-3743/shebang-rejection/continuation-validation | tar -xf -
+```

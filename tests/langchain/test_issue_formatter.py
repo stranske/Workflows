@@ -369,7 +369,6 @@ def test_format_issue_body_guard_blocks_llm(
 
 
 def test_format_issue_body_llm_path_includes_raw_issue(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LANGSMITH_API_KEY", "test-key")
     mock_client = mock.MagicMock()
     mock_chain = mock.MagicMock()
     mock_response = mock.MagicMock()
@@ -383,9 +382,13 @@ def test_format_issue_body_llm_path_includes_raw_issue(monkeypatch: pytest.Monke
 
     _install_fake_langchain(monkeypatch, mock_chain)
 
-    with mock.patch(
-        "scripts.langchain.issue_formatter._get_llm_client",
-        return_value=(mock_client, "github-models"),
+    with (
+        mock.patch.dict("os.environ", {"LANGSMITH_API_KEY": "test-key"}),
+        mock.patch("tools.llm_provider.LANGSMITH_ENABLED", False),
+        mock.patch(
+            "scripts.langchain.issue_formatter._get_llm_client",
+            return_value=(mock_client, "github-models"),
+        ),
     ):
         result = issue_formatter.format_issue_body("Raw issue text", use_llm=True)
 

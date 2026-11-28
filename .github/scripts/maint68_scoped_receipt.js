@@ -89,6 +89,9 @@ const SOURCE_WORKFLOWS = new Set([
   // The sync-label step only checks that labels-core.yml labels exist (no create/recolour).
   // Source resolution, checkout, validation and plan publication are unchanged.
   '927b1c666fcfc0290cda1b4edd146fedf5cc5f35d3c944334ec0984a2fb1872d',
+  // Comment-only: the daily-ordering comment names when Health 68 actually runs
+  // (cohesion round-2 A2/D7). No step, input or job changed.
+  '566dba1a08f40c6f535dc30fffc9dfa9ecb2e3155589da7f198e788ee29c6a10',
 ]);
 
 async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {
