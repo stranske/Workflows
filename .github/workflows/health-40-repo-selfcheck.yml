@@ -18,6 +18,8 @@ permissions:
   # Read-only: the snapshot reports the open zizmor, CodeQL and Semgrep alert
   # counts (cohesion review A5d; round 2 B3).
   security-events: read
+  # Dispatch Health 44 (the only branch-protection writer) when drift is found.
+  actions: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -131,8 +133,8 @@ jobs:
         id: protection-snapshot
         if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
         # --check exits 1 on drift. That must not skip the signal collection
-        # below: the drift is reported as a warning check instead, and Health 44
-        # (the only writer) applies the config on its next run.
+        # below: the drift is reported as a warning check instead, and the next
+        # step dispatches Health 44 (the only writer) to apply the config.
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ steps.branch-token.outputs.token }}
@@ -146,6 +148,24 @@ jobs:
             --no-clean \
             --snapshot repo-health-branch-protection.json
 
+      # The drain for protection drift (cohesion review round 2, A6). Health 44
+      # used to apply only through the Health 40 Sweep leg, which was never
+      # created on ten Mondays in a row, so "applies on its next scheduled run"
+      # named a run that did not happen. The self-check that measures the drift
+      # now starts the writer itself; workflow_dispatch on main is a caller
+      # Health 44's snapshot pointer accepts.
+      - name: Dispatch Health 44 to apply the drift
+        id: protection-apply
+        if: ${{ steps.protection-snapshot.outcome == 'failure' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run health-44-gate-branch-protection.yml \
+            --repo "${GITHUB_REPOSITORY}" --ref "${DEFAULT_BRANCH:-main}"
+          echo "Dispatched Health 44 on ${DEFAULT_BRANCH:-main} to apply .github/config/required-contexts.json."
+
       - name: Collect repository signals
         id: collect
         uses: actions/github-script@v9
@@ -153,6 +173,7 @@ jobs:
           REQUIRED_LABELS: agent:codex,agent:copilot,automerge,risk:low,codex-ready
           BRANCH_PROTECTION_TOKEN: ${{ steps.branch-token.outputs.token }}
           PROTECTION_SNAPSHOT_OUTCOME: ${{ steps.protection-snapshot.outcome }}
+          PROTECTION_APPLY_OUTCOME: ${{ steps.protection-apply.outcome }}
         with:
           github-token: ${{ steps.branch-token.outputs.token || github.token }}
           script: |
@@ -385,6 +406,12 @@ jobs:
             // Health 44 is the only writer, so drift is a warning with a named drain.
             const snapshotOutcome = (process.env.PROTECTION_SNAPSHOT_OUTCOME || '').trim();
             if (snapshotOutcome === 'failure') {
+              const applyOutcome = (process.env.PROTECTION_APPLY_OUTCOME || '').trim();
+              const drain =
+                applyOutcome === 'success'
+                  ? 'This run dispatched Health 44 to apply the file; the next self-check shows whether it cleared.'
+                  : `Dispatching Health 44 failed (${applyOutcome || 'step did not run'}); ` +
+                    'run `gh workflow run health-44-gate-branch-protection.yml` to apply the file.';
               checks.push({
                 key: 'protection-drift',
                 title: 'Required status checks',
@@ -392,7 +419,7 @@ jobs:
                 detail:
                   'Required contexts on the default branch differ from ' +
                   '.github/config/required-contexts.json (see the branch protection snapshot). ' +
-                  'Health 44 applies the file on its next scheduled run; dispatch it to apply now.',
+                  drain,
               });
             }
 
