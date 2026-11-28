@@ -26,7 +26,7 @@ on:
       - 'scripts/validate_backplane_registry.py'
       - 'tests/fixtures/backplane/**'
       - 'tests/contracts/**'
-      - 'tests/test_backplane_registry.py'
+      - 'tests/scripts/test_validate_backplane_registry.py'
       - 'docs/reports/backplane_registry_status.md'
       - '.github/workflows/health-78-backplane-contract.yml'
   push:

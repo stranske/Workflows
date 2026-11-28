@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 SPEC = importlib.util.spec_from_file_location(
-    "check_topology", Path(__file__).parents[1] / "scripts/check_checks_reported.py"
+    "check_topology", Path(__file__).parents[2] / "scripts/check_checks_reported.py"
 )
 assert SPEC and SPEC.loader
 reporter = importlib.util.module_from_spec(SPEC)
@@ -1704,9 +1704,9 @@ def python_producer_fixture():
 
     path = ".github/workflows/reusable-10-ci-python.yml"
     workflow = reporter.yaml.load(
-        (Path(__file__).parents[1] / path).read_text(), Loader=reporter.WorkflowLoader
+        (Path(__file__).parents[2] / path).read_text(), Loader=reporter.WorkflowLoader
     )
-    helper = (Path(__file__).parents[1] / "scripts/reusable_ci_scope.py").read_bytes()
+    helper = (Path(__file__).parents[2] / "scripts/reusable_ci_scope.py").read_bytes()
     arguments = {
         "workflow_name": "Gate",
         "python_versions": '["3.12","3.13"]',
@@ -1859,7 +1859,7 @@ def test_real_workflow_producer_emits_recomputable_receipt(tmp_path, monkeypatch
     step = workflow["jobs"]["select-scope"]["steps"][-1]
     helper = tmp_path / ".workflows-lib/scripts/reusable_ci_scope.py"
     helper.parent.mkdir(parents=True)
-    helper.write_bytes((Path(__file__).parents[1] / "scripts/reusable_ci_scope.py").read_bytes())
+    helper.write_bytes((Path(__file__).parents[2] / "scripts/reusable_ci_scope.py").read_bytes())
     monkeypatch.chdir(tmp_path)
     for name, value in {
         "WORKFLOW_NAME": "Gate",
@@ -1990,9 +1990,9 @@ def test_new_workflow_not_in_base_directory_is_unknown():
 def scenario_fixture(path=".github/workflows/selftest-reusable-ci.yml", changed=None):
     import copy
 
-    workflow_bytes = (Path(__file__).parents[1] / path).read_bytes()
+    workflow_bytes = (Path(__file__).parents[2] / path).read_bytes()
     workflow = reporter.yaml.load(workflow_bytes, Loader=reporter.WorkflowLoader)
-    helper = (Path(__file__).parents[1] / "scripts/reusable_ci_scope.py").read_bytes()
+    helper = (Path(__file__).parents[2] / "scripts/reusable_ci_scope.py").read_bytes()
     full = reporter.scenario_source_matrix(workflow["jobs"]["select-scenarios"])
     changed = [path] if changed is None else changed
     selected = reporter.select_scenarios(Path(path).stem, changed, full)
@@ -2662,7 +2662,7 @@ def test_url_only_and_missing_status_are_not_publishing_identity():
 )
 def test_current_canonical_gate_summary_can_bind_status(relative):
     workflow = reporter.yaml.load(
-        (Path(__file__).parents[1] / relative).read_text(), Loader=reporter.WorkflowLoader
+        (Path(__file__).parents[2] / relative).read_text(), Loader=reporter.WorkflowLoader
     )
     packet = actions_status_packet()
     packet["runs"][0]["jobs"][0]["name"] = workflow["jobs"]["summary"]["name"]
@@ -2899,7 +2899,7 @@ def test_collect_fork_receipt_keeps_publisher_separate_from_event_topology(event
         return fallback(endpoint)
 
     evidence = reporter.Evidence(transport)
-    evidence.content = lambda repo, path, ref: Path(__file__).parents[1].joinpath(path).read_bytes()
+    evidence.content = lambda repo, path, ref: Path(__file__).parents[2].joinpath(path).read_bytes()
     evidence.job_receipts = lambda repo, job_id, marker: fork["receipts"]
     result = reporter.collect(evidence, packet["repo"], 1, HEAD, event, "synchronize")
     assert result["verdict"] == "PASS", result["unknown"]
@@ -2921,12 +2921,12 @@ def test_skipped_fork_publisher_requires_no_job_log():
         pytest.fail(f"Skipped publisher cannot have a receipt: {endpoint}")
 
     evidence = reporter.Evidence(transport)
-    evidence.content = lambda repo, path, ref: Path(__file__).parents[1].joinpath(path).read_bytes()
+    evidence.content = lambda repo, path, ref: Path(__file__).parents[2].joinpath(path).read_bytes()
     assert reporter.collect_fork_publishers(evidence, packet["repo"], packet["statuses"]) == []
 
 
 def test_fork_publisher_hashes_match_immutable_audited_source():
-    root = Path(__file__).parents[1]
+    root = Path(__file__).parents[2]
     assert (
         hashlib.sha256((root / reporter.FORK_PUBLISHER_PATH).read_bytes()).hexdigest()
         == reporter.FORK_WORKFLOW_SHA256

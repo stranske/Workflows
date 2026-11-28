@@ -5,7 +5,7 @@ Validated on 2026-10-19, without live provider requests or runtime installation.
 ```bash
 python3 -m pytest tests/scripts/test_closer_runtime.py \
   tests/scripts/test_closer_portable_boundaries.py \
-  tests/test_check_checks_reported.py -q
+  tests/scripts/test_check_checks_reported.py -q
 ```
 
 Result: **356 passed**. Ruff and Black checks passed for the six touched Python

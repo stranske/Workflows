@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-REGISTRY = Path(__file__).resolve().parents[1] / "config" / "repo_review_registry.json"
-PROFILES = Path(__file__).resolve().parents[1] / "config" / "repo_review_profiles.json"
+REGISTRY = Path(__file__).resolve().parents[3] / "config" / "repo_review_registry.json"
+PROFILES = Path(__file__).resolve().parents[3] / "config" / "repo_review_profiles.json"
 ACTIVE_CODE_REPOS = {
     "stranske/Doc-Lineage",
     "stranske/Deliverable-Render",
