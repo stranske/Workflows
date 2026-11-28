@@ -95,19 +95,21 @@ function buildSecretsFromEnv(env = process.env, keys = DEFAULT_TOKEN_KEYS) {
   return Object.fromEntries(keys.map((key) => [key, env[key] || '']));
 }
 
-async function fetchRateLimitData({ token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN } = {}) {
-  const { Octokit } = require('@octokit/rest');
-  const { createTokenAwareRetry } = require('../github-api-with-retry.js');
-  const core = { info: () => {}, warning: console.warn, debug: () => {} };
+// Each step reads the quota of the ONE token it was given. It must not go
+// through the token load balancer (createTokenAwareRetry): the balancer swaps in
+// the healthiest token, so every source used to report that token's numbers and
+// an exhausted pool could never show (cohesion review round 2, A3).
+// GET /rate_limit does not count against the quota, so it also answers when the
+// token is exhausted.
+async function fetchRateLimitData({
+  token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN,
+  Octokit = require('@octokit/rest').Octokit,
+} = {}) {
+  if (!token) {
+    throw new Error('fetchRateLimitData requires the step token (GH_TOKEN)');
+  }
   const github = new Octokit({ auth: token });
-  const { withRetry } = await createTokenAwareRetry({
-    github,
-    core,
-    env: process.env,
-    task: 'health-75-api-rate-diagnostic',
-    capabilities: ['rate_limit:read'],
-  });
-  const response = await withRetry((client) => client.rest.rateLimit.get());
+  const response = await github.rest.rateLimit.get();
   return response.data || {};
 }
 
