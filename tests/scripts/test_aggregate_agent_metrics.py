@@ -1998,7 +1998,7 @@ def test_uncovered_metric_helpers_preserve_legacy_and_error_contracts(tmp_path: 
         [],
     )
 
-    # Retired Auto-Pilot step records are no longer a family (#5379).
+    # Step records from the retired workflow (#5379) are no longer a family.
     assert (
         aggregate_agent_metrics._classify_entry({"step_name": "apply", "duration_ms": 1})
         == "unknown"
