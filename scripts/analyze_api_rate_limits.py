@@ -103,7 +103,7 @@ def get_rate_limits(token: str | None = None) -> dict[str, Any] | None:
         return None
 
 
-def get_workflow_runs(repo: str, token: str | None = None) -> dict[str, Any]:
+def get_workflow_runs(repo: str, token: str | None = None) -> dict[str, Any] | None:
     """Get recent workflow runs for a repository."""
     env = os.environ.copy()
     if token:
@@ -115,6 +115,8 @@ def get_workflow_runs(repo: str, token: str | None = None) -> dict[str, Any]:
                 "gh",
                 "api",
                 f"repos/{repo}/actions/runs",
+                "--method",
+                "GET",
                 "-f",
                 "per_page=100",
             ],
@@ -126,7 +128,7 @@ def get_workflow_runs(repo: str, token: str | None = None) -> dict[str, Any]:
         return json.loads(result.stdout)
     except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
         print(f"Warning: Failed to get workflow runs for {repo}: {e}", file=sys.stderr)
-        return {"workflow_runs": [], "total_count": 0}
+        return None
 
 
 def _parse_github_timestamp(value: str) -> datetime | None:
@@ -300,7 +302,7 @@ def summarize_workflow_activity(
     hours: int = 1,
     now: datetime | None = None,
 ) -> list[dict[str, Any]]:
-    """Summarize recent workflow activity for the requested repositories."""
+    """Summarize the first page of workflow runs for each requested repository."""
     normalized_repos = _normalize_repos(repos)
     if not normalized_repos:
         return []
@@ -310,6 +312,11 @@ def summarize_workflow_activity(
 
     for repo in normalized_repos:
         data = get_workflow_runs(repo, token=token)
+        if data is None:
+            summaries.append(
+                {"repo": repo, "window_hours": hours, "error": "workflow_activity_unavailable"}
+            )
+            continue
         runs_raw = data.get("workflow_runs", [])
         runs = []
         if isinstance(runs_raw, list):
@@ -324,6 +331,7 @@ def summarize_workflow_activity(
                 "repo": repo,
                 "window_hours": hours,
                 "recent_runs": len(recent_runs),
+                "sampled_runs": len(runs),
                 "total_runs": (
                     data.get("total_count")
                     if isinstance(data.get("total_count"), int)
@@ -472,10 +480,17 @@ def print_workflow_activity(summaries: list[dict[str, Any]]) -> None:
     print("-" * 40)
     for summary in summaries:
         repo = summary.get("repo", "unknown")
+        if "error" in summary:
+            print(f"{repo}: workflow activity unavailable")
+            continue
         window = summary.get("window_hours", "?")
         recent = summary.get("recent_runs", 0)
+        sampled = summary["sampled_runs"]
         total = summary.get("total_runs", 0)
-        print(f"{repo}: {recent} run(s) in last {window}h (total reported: {total})")
+        print(
+            f"{repo}: {recent} run(s) in last {window}h among {sampled} first-page runs "
+            f"(repository total reported: {total})"
+        )
 
 
 def _rate_limit_payload(info: RateLimitInfo) -> dict[str, Any]:
@@ -503,7 +518,7 @@ def main() -> int:
         "--check-repos",
         nargs="*",
         metavar="REPO",
-        help="Also check workflow activity in specified repos (owner/repo format)",
+        help="Sample the first 100 workflow runs in each specified repo (owner/repo format)",
     )
     parser.add_argument(
         "--workflow-hours",
@@ -545,6 +560,7 @@ def main() -> int:
             token=token_for_workflows,
             hours=args.workflow_hours,
         )
+    activity_unavailable = any("error" in summary for summary in workflow_summaries)
 
     if args.json:
         # JSON output for programmatic use
@@ -568,7 +584,7 @@ def main() -> int:
                 )
             output["tokens"][trl.source] = token_payload
         print(json.dumps(output, indent=2))
-        return 0
+        return int(activity_unavailable)
 
     # Human-readable output
     print_utilization_table(limits)
@@ -579,7 +595,7 @@ def main() -> int:
 
     # Return non-zero if critical warnings
     critical = any("CRITICAL" in w for w in warnings)
-    return 1 if critical else 0
+    return int(critical or activity_unavailable)
 
 
 if __name__ == "__main__":
