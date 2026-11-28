@@ -49,8 +49,8 @@ def test_original_junit_preserves_real_repository_cosmetic_marks(
         ROOT,
         report,
         "tests/workflows/test_autofix_pr_comment.py::test_load_json_and_coercion_helpers",
-        "tests/workflows/test_workflow_multi_failure_demo.py::test_cosmetic_failure",
-        "tests/workflows/test_workflow_multi_failure_demo.py::test_lint_failure",
+        "tests/workflows/fixtures/maint45_junit_marks.py::test_cosmetic_marker",
+        "tests/workflows/fixtures/maint45_junit_marks.py::test_unmarked_control",
         junit_family=junit_family,
     )
     assert result.returncode == 0, result.stdout + result.stderr
@@ -60,8 +60,8 @@ def test_original_junit_preserves_real_repository_cosmetic_marks(
         for case in ElementTree.parse(report).iter("testcase")
     } == {
         "test_load_json_and_coercion_helpers": expected,
-        "test_cosmetic_failure": expected,
-        "test_lint_failure": set(),
+        "test_cosmetic_marker": expected,
+        "test_unmarked_control": set(),
     }
 
 

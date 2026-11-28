@@ -1296,7 +1296,7 @@ def test_valid_report_uses_the_installed_source_or_consumer_guide(
 _VALID_REWRITE = (
     VALID_CONTEXT
     + "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
-    + "## Acceptance Criteria\n- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.\n"
+    + "## Acceptance Criteria\n- [ ] `pytest tests/langchain/test_issue_formatter.py` passes.\n"
 )
 _NO_GATE_REWRITE = (
     "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"

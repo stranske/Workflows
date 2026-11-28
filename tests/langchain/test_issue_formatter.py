@@ -167,7 +167,7 @@ Acceptance Criteria:
 
 def test_format_issue_fallback_adds_acceptance_gate_when_only_tasks_have_verify_hint() -> None:
     raw = """## Tasks
-- [ ] Update `scripts/langchain/issue_formatter.py` and run `(verify: pytest tests/scripts/test_issue_formatter.py)`.
+- [ ] Update `scripts/langchain/issue_formatter.py` and run `(verify: pytest tests/langchain/test_issue_formatter.py)`.
 
 ## Acceptance Criteria
 - [ ] Formatter preserves the source acceptance prose.
@@ -176,7 +176,7 @@ def test_format_issue_fallback_adds_acceptance_gate_when_only_tasks_have_verify_
     formatted = issue_formatter.format_issue_body(raw, use_llm=False)["formatted_body"]
     acceptance = _extract_section(formatted, "Acceptance Criteria")
 
-    assert "python3 -m pytest tests/scripts/test_issue_formatter.py" in acceptance
+    assert "python3 -m pytest tests/langchain/test_issue_formatter.py" in acceptance
     assert "Formatter preserves the source acceptance prose." in acceptance
     assert _canonical_issue_format().GATE.search(acceptance)
     assert _canonical_issue_format().validate(formatted).ok is True
@@ -184,7 +184,7 @@ def test_format_issue_fallback_adds_acceptance_gate_when_only_tasks_have_verify_
 
 def test_format_issue_fallback_replaces_acceptance_placeholder_for_safe_verify_hint() -> None:
     raw = """## Tasks
-- [ ] Update `scripts/langchain/issue_formatter.py` and run `(verify: pytest tests/scripts/test_issue_formatter.py)`.
+- [ ] Update `scripts/langchain/issue_formatter.py` and run `(verify: pytest tests/langchain/test_issue_formatter.py)`.
 
 ## Acceptance Criteria
 - [ ] _Not provided._
@@ -194,7 +194,7 @@ def test_format_issue_fallback_replaces_acceptance_placeholder_for_safe_verify_h
     acceptance = _extract_section(formatted, "Acceptance Criteria")
 
     assert "_Not provided._" not in acceptance
-    assert "python3 -m pytest tests/scripts/test_issue_formatter.py" in acceptance
+    assert "python3 -m pytest tests/langchain/test_issue_formatter.py" in acceptance
 
 
 def test_format_issue_fallback_does_not_promote_shell_verify_hint() -> None:
@@ -376,7 +376,7 @@ def test_format_issue_body_llm_path_includes_raw_issue(monkeypatch: pytest.Monke
     mock_response.content = (
         "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
         "## Acceptance Criteria\n"
-        "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+        "- [ ] `pytest tests/langchain/test_issue_formatter.py` passes."
     )
     mock_response.response_metadata = {"run_id": "trace-format"}
     mock_chain.invoke.return_value = mock_response
@@ -400,7 +400,7 @@ def test_formatted_output_valid_uses_canonical_contract() -> None:
     valid = (
         "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
         "## Acceptance Criteria\n"
-        "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+        "- [ ] `pytest tests/langchain/test_issue_formatter.py` passes."
     )
 
     assert issue_formatter._formatted_output_valid(invalid) is False
@@ -474,7 +474,7 @@ def test_formatter_degrades_to_heading_validation_when_validator_cannot_load(
     )
     raw = """## Tasks
 
-- [ ] Run `(verify: pytest tests/scripts/test_issue_formatter.py)`.
+- [ ] Run `(verify: pytest tests/langchain/test_issue_formatter.py)`.
 
 ## Acceptance Criteria
 
@@ -491,7 +491,7 @@ _REWRITE_VALID_BODY = (
     "## Why\nThe formatter needs feedback.\n\n"
     "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
     "## Acceptance Criteria\n"
-    "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.\n"
+    "- [ ] `pytest tests/langchain/test_issue_formatter.py` passes.\n"
 )
 
 
@@ -590,7 +590,7 @@ Keep the formatter actionable.
 
 ## Acceptance Criteria
 
-- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.
+- [ ] `pytest tests/langchain/test_issue_formatter.py` passes.
 
 ## Implementation Notes
 
@@ -625,7 +625,7 @@ Preserve this note.
         "- [ ] Add regression tests for the formatter"
     )
     assert _extract_section(updated, "Acceptance Criteria") == (
-        "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+        "- [ ] `pytest tests/langchain/test_issue_formatter.py` passes."
     )
     assert "Preserve this note." in updated
     assert returned_audit == audit
@@ -641,7 +641,7 @@ def test_task_refinement_uses_a_placeholder_when_every_task_is_dropped(
 
 ## Acceptance Criteria
 
-- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.
+- [ ] `pytest tests/langchain/test_issue_formatter.py` passes.
 """
 
     from scripts.langchain import task_validator
@@ -672,7 +672,7 @@ def test_task_refinement_degrades_cleanly_when_validator_is_unavailable(
 
 ## Acceptance Criteria
 
-- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.
+- [ ] `pytest tests/langchain/test_issue_formatter.py` passes.
 """
     real_import = builtins.__import__
 
@@ -714,7 +714,7 @@ def test_github_models_401_retries_once_with_openai(monkeypatch: pytest.MonkeyPa
     valid_body = (
         "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
         "## Acceptance Criteria\n"
-        "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+        "- [ ] `pytest tests/langchain/test_issue_formatter.py` passes."
     )
     calls: list[object] = []
 
@@ -1145,11 +1145,11 @@ def test_append_raw_issue_section_replaces_not_nests() -> None:
 def test_append_raw_issue_section_recovers_attributed_details_wrapper() -> None:
     formatted_with_block = """## Tasks
 
-- [ ] `pytest tests/scripts/test_issue_formatter.py`
+- [ ] `pytest tests/langchain/test_issue_formatter.py`
 
 ## Acceptance Criteria
 
-- [ ] `pytest tests/scripts/test_issue_formatter.py` passes.
+- [ ] `pytest tests/langchain/test_issue_formatter.py` passes.
 
 <details open>
 <summary>Original Issue</summary>
@@ -1778,7 +1778,7 @@ def test_strip_original_issue_handles_nested_details_outside_fences() -> None:
 _FORMATTED_RESPONSE_TEXT = (
     "## Tasks\n- [ ] Update `scripts/langchain/issue_formatter.py`.\n\n"
     "## Acceptance Criteria\n"
-    "- [ ] `pytest tests/scripts/test_issue_formatter.py` passes."
+    "- [ ] `pytest tests/langchain/test_issue_formatter.py` passes."
 )
 
 

@@ -131,3 +131,10 @@ def test_main_skips_missing_project_dirs(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(mypy_return_autofix, "PROJECT_DIRS", [Path("missing")])
 
     assert mypy_return_autofix.main([]) == 0
+
+
+def test_mypy_return_autofix_main_noops_when_targets_missing(tmp_path: Path, monkeypatch) -> None:
+    missing = tmp_path / "missing-src"
+    monkeypatch.setattr(mypy_return_autofix, "ROOT", tmp_path, raising=False)
+    monkeypatch.setattr(mypy_return_autofix, "PROJECT_DIRS", [missing], raising=False)
+    assert mypy_return_autofix.main() == 0

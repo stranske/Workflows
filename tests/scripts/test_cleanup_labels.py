@@ -1,4 +1,7 @@
+import json
+import runpy
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from scripts import cleanup_labels
 
@@ -33,6 +36,18 @@ class FakeGithub:
     def get_repo(self, repo_name: str) -> FakeRepo:
         self.requested_repos.append(repo_name)
         return self.repo
+
+
+def test_cleanup_uses_the_shared_ready_label() -> None:
+    labels = cleanup_labels.BELT_LABELS
+    assert labels["ready"] == "status:ready"
+    assert cleanup_labels.classify_label(labels["ready"]) == "functional"
+
+    # Changing the configured label must also change which label cleanup protects.
+    alternate = {**labels, "ready": "queue:waiting"}
+    with patch.object(json, "loads", return_value=alternate):
+        classifier = runpy.run_path(cleanup_labels.__file__)["classify_label"]
+    assert classifier(alternate["ready"]) == "functional"
 
 
 def test_classify_label_covers_core_categories() -> None:
