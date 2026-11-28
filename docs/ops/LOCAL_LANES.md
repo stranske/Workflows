@@ -17,7 +17,7 @@ workspace-private memory, with no owning doc in the system-of-record repo.
 > the contract and current status, not the code. The only files this
 > contract owns in-repo are this doc, the consumer-template `.gitignore` status
 > block, `.github/sync-manifest.yml`, `docs/ops/GITNEXUS.md`, and
-> `docs/ops/bin/gitnexus_fleet.sh`.
+> `scripts/gitnexus_fleet.sh`.
 
 Related docs: [`REPO_REVIEW_PROCESS.md`](REPO_REVIEW_PROCESS.md) (the weekly
 evaluator → approved-queue lifecycle the opener consumes) and
@@ -194,7 +194,7 @@ canonical clone keeps `main` free while the steward still tracks the latest
 reviewed tip. GitNexus continues to ignore the steward worktree for indexing —
 that part of the old note is correct and is preserved; only the "temporary /
 throwaway" framing is corrected (see [`GITNEXUS.md`](GITNEXUS.md),
-`docs/ops/bin/gitnexus_fleet.sh`, `AGENTS.md`, and `CLAUDE.md`).
+`scripts/gitnexus_fleet.sh`, `AGENTS.md`, and `CLAUDE.md`).
 
 ## Memory-file rotation
 

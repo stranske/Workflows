@@ -42,7 +42,7 @@ run_gitnexus() {
 
 usage() {
   cat <<USAGE
-Usage: docs/ops/bin/gitnexus_fleet.sh <command> [repo-name]
+Usage: scripts/gitnexus_fleet.sh <command> [repo-name]
 
 Commands:
   list                 Show canonical repos in the GitNexus fleet.

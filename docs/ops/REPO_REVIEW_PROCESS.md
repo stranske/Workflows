@@ -273,7 +273,7 @@ Refresh GitNexus maps:
 Use the fleet helper when working from Workflows:
 
 ```bash
-docs/ops/bin/gitnexus_fleet.sh index <local-repo-name>
+scripts/gitnexus_fleet.sh index <local-repo-name>
 ```
 
 If natural-language GitNexus query returns no processes and the repo map has `embeddings: 0`, treat that as a search-mode limitation, not as evidence that no relevant code exists. Use Cypher to list communities and processes, then inspect exact symbols with `context()`.
