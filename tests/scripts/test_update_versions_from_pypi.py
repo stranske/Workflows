@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from scripts import update_versions_from_pypi
-from scripts.dev_tool_update_policy import ROUTINE_WINDOW_WEEKDAY
+from scripts.maint_tool_version_check import ROUTINE_WINDOW_WEEKDAY
 from scripts.update_versions_from_pypi import (
     PACKAGE_MAPPING,
     VersionInfo,
@@ -55,7 +55,7 @@ def _skip_if_pypi_unreachable() -> None:
 
 # The stale-pin gate and its drain must measure the same window (Workflows#4454).
 # The updater (`maint-auto-update-pypi-versions.yml`) proposes pin bumps only inside the
-# Monday UTC window (`scripts/dev_tool_update_policy.py`), so a pin that lags a release
+# Monday UTC window, so a pin that lags a release
 # published AFTER the most recent window started could not have been bumped yet and must
 # not fail every pull request until Monday. A pin that lags a release the updater could
 # already have proposed (published before that window started) is still a failure.

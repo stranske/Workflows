@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
-from scripts.dev_tool_update_policy import main, should_propose_update
+from scripts.maint_tool_version_check import main, should_propose_update
 
 
 def test_routine_updates_are_limited_to_the_weekly_utc_window():
@@ -31,18 +31,18 @@ def test_policy_requires_an_aware_timestamp():
 
 
 def test_cli_reports_the_weekly_window_output_contract(capsys):
-    assert main(["--at", "2026-08-03T03:00:00Z"]) == 0
+    assert main(["proposal-policy", "--at", "2026-08-03T03:00:00Z"]) == 0
 
     assert capsys.readouterr().out == "should_propose=true\nreason=weekly_window\n"
 
 
 def test_cli_reports_a_skipped_routine_window(capsys):
-    assert main(["--at", "2026-08-04T03:00:00Z"]) == 0
+    assert main(["proposal-policy", "--at", "2026-08-04T03:00:00Z"]) == 0
 
     assert capsys.readouterr().out == "should_propose=false\nreason=outside_weekly_window\n"
 
 
 def test_cli_reports_the_security_override_output_contract(capsys):
-    assert main(["--at", "2026-08-04T03:00:00Z", "--security-override"]) == 0
+    assert main(["proposal-policy", "--at", "2026-08-04T03:00:00Z", "--security-override"]) == 0
 
     assert capsys.readouterr().out == "should_propose=true\nreason=security_override\n"
