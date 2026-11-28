@@ -1,5 +1,37 @@
 # Issue #4500 follow-up status, 2026-11-07
 
+## Recover the historical follow-up captures
+
+The November follow-up drivers, validation logs, mutation receipts, Gate
+selection snapshot, and term-report output are preserved at their original paths in the
+[#5306 Git revision](https://github.com/stranske/Workflows/tree/c96e0ab40b5b696561aaec3133b44d4472e3313f/docs/evidence/issue-4426).
+The evidence paths shown in the historical notes below refer to this snapshot.
+The current reconciler and test inputs remain under this issue directory.
+
+From a Workflows clone, recover the recorded files into a separate directory.
+If the commit is missing from a shallow clone, the command fetches that exact
+revision from `origin`.
+
+```bash
+(
+  set -e
+  cd "$(git rev-parse --show-toplevel)"
+  revision=c96e0ab40b5b696561aaec3133b44d4472e3313f
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 origin "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-4426-follow-up.XXXXXX")
+  git -c tar.umask=0022 archive --output="$recovered/snapshot.tar" "$revision" docs/evidence/issue-4426
+  tar -xpf "$recovered/snapshot.tar" -C "$recovered"
+  rm "$recovered/snapshot.tar"
+  printf '%s\n' "$recovered"
+)
+```
+
+The recovered directory contains the reference files. Historical drivers that
+read source or Git history also need the checkout and prerequisites cited in
+their original validation notes.
+
 ## Current continuation disposition, 2026-11-07
 
 This section supersedes earlier live-state claims below; those remain historical.

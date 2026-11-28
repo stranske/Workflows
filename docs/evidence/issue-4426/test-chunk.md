@@ -1,5 +1,8 @@
 # Issue #4426 first test chunk
 
+The [historical follow-up recovery](follow-up-status.md#recover-the-historical-follow-up-captures) restores the capture files
+cited in the November follow-up notes.
+
 Checked 2026-11-06. Selection uses the regenerated current ranking in
 `ranking.md`. Rank 1 is `scripts/langchain/pr_verifier.py` (escaped-defect
 weight 62, churn 75, 273 missing statements and branches on Gate run

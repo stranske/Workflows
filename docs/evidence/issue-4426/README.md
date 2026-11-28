@@ -7,7 +7,7 @@ The original dated snapshots below are retained as historical evidence.
 
 The later [log reconciliation](coverage-measurement.md#later-log-reconciliation-2026-11-07)
 recovers counters from [pinned Gate reports](gate-report-inputs.json), with
-[validator mutation receipts](reconciliation-mutations.json). The 164-unit
+[validator mutation receipts](https://github.com/stranske/Workflows/blob/c96e0ab40b5b696561aaec3133b44d4472e3313f/docs/evidence/issue-4426/reconciliation-mutations.json). The 164-unit
 snapshot difference remains unattributed; task 1 is still incomplete.
 
 Checked 2026-11-06. This record preserves the original contract from
