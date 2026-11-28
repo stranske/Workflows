@@ -40,10 +40,8 @@ WALL_CLOCK_THRESHOLD_MINUTES = 10.0
 # issue, and the refile hold after a fix closes an issue. A shared name cannot
 # drift; a matching pair of literals can (latched-gate rule).
 SERIES_WINDOW_DAYS = 7
-# This job posts RECOVERY_CLOSE_TEXT immediately before its recovery PATCH. A close
-# within RECOVERY_CLOSE_SLACK after that comment is that recovery close.
+# This job posts RECOVERY_CLOSE_TEXT immediately before its recovery PATCH.
 RECOVERY_CLOSE_TEXT = "Closing after confirmed recovery."
-RECOVERY_CLOSE_SLACK = timedelta(minutes=10)
 REPORT_PATH = Path("docs/reports/ci-budget.json")
 REPORT_BRANCH = "ci-time-budget"
 SOURCE_REPO = "stranske/Workflows"
@@ -404,22 +402,24 @@ First over-target measurement: {row.get('first_over_target_at', 'unknown')}.
 
 
 def is_recovery_close(api: GitHub, root: str, issue: dict) -> bool:
-    """Read durable GitHub evidence, not report state, to tell this job's own close.
+    """Was the issue's latest close this job's recovery close? Read from its timeline.
 
-    The recovery comment is posted before the PATCH, so it exists even when the
-    report publish after reconciliation fails. Matching by time ties it to that
-    one closure: if the issue is reopened and a fix closes it later, that later
-    close has no recovery comment just before it and counts as a fix close.
+    The evidence is on GitHub, not in the report, so it survives a failed publish
+    after reconciliation. It is tied to the close event by order, not by a time
+    window: walking back from the latest `closed` event, the recovery comment must
+    come before any `reopened` or earlier `closed` event. A reopened issue that a
+    fix then closes, however soon, has a `reopened` event in between.
     """
-    closed = timestamp(issue["closed_at"])
-    earliest = closed - RECOVERY_CLOSE_SLACK
-    return any(
-        RECOVERY_CLOSE_TEXT in (comment.get("body") or "")
-        and earliest <= timestamp(comment["created_at"]) <= closed
-        for comment in api.pages(
-            f"{root}/issues/{issue['number']}/comments", since=earliest.isoformat()
-        )
-    )
+    timeline = api.pages(f"{root}/issues/{issue['number']}/timeline")
+    closes = [i for i, item in enumerate(timeline) if item.get("event") == "closed"]
+    if not closes:
+        return False
+    for item in reversed(timeline[: closes[-1]]):
+        if item.get("event") in {"reopened", "closed"}:
+            return False
+        if item.get("event") == "commented" and RECOVERY_CLOSE_TEXT in (item.get("body") or ""):
+            return True
+    return False
 
 
 def last_fixed_issue(api: GitHub, root: str) -> dict | None:

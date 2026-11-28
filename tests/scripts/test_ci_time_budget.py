@@ -14,18 +14,13 @@ class FakeGitHub:
     def __init__(self):
         self.issues = []
         self.calls = []
-        self.comments = {}
+        self.timelines = {}
         self.clock = NOW  # GitHub's server time for comments and closes
 
     def pages(self, path, key=None, **params):
-        if path.endswith("/comments"):
-            since = datetime.fromisoformat(params.pop("since"))
-            assert params == {}
-            return [
-                comment
-                for comment in self.comments.get(int(path.split("/")[-2]), [])
-                if datetime.fromisoformat(comment["created_at"]) >= since
-            ]
+        if path.endswith("/timeline"):
+            assert key is None and params == {}
+            return list(self.timelines.get(int(path.split("/")[-2]), []))
         assert path.endswith("/issues")
         assert params in (
             {"state": "open", "labels": "ci-budget"},
@@ -48,15 +43,19 @@ class FakeGitHub:
             self.issues.append(issue)
             return issue
         if method == "POST" and path.endswith("/comments"):
-            comment = {"body": payload["body"], "created_at": self.clock.isoformat()}
-            self.comments.setdefault(int(path.split("/")[-2]), []).append(comment)
+            self.event(int(path.split("/")[-2]), "commented", body=payload["body"])
         if method == "PATCH":
             number = int(path.rsplit("/", 1)[-1])
             issue = next(issue for issue in self.issues if issue["number"] == number)
             issue.update(payload)
             if payload.get("state") == "closed":
                 issue.update(closed_at=self.clock.isoformat(), state_reason="completed")
+                self.event(number, "closed")
         return {}
+
+    def event(self, number, kind, **fields):
+        item = {"event": kind, "created_at": self.clock.isoformat(), **fields}
+        self.timelines.setdefault(number, []).append(item)
 
 
 def metrics(p50=15):
@@ -1088,14 +1087,20 @@ def test_own_recovery_close_does_not_hold_a_new_breach():
     assert "refile_hold" not in row
 
 
-def test_reopened_recovery_issue_later_closed_by_a_fix_starts_a_hold():
+@pytest.mark.parametrize("after_recovery", [timedelta(days=1), timedelta(minutes=2)])
+def test_reopened_recovery_issue_later_closed_by_a_fix_starts_a_hold(after_recovery):
     api = FakeGitHub()
     row = _recover(api)
     issue = api.issues[0]
-    # Reopened, then closed by the closer when a fix merged: no recovery comment precedes it.
-    fixed_at = NOW + timedelta(days=budget.SERIES_WINDOW_DAYS + 1)
+    # Reopened, then closed by the closer when a fix merged; the minutes case is
+    # inside any time window around the recovery comment, so only order can tell.
+    recovered_at = datetime.fromisoformat(issue["closed_at"])
+    api.clock = recovered_at + after_recovery / 2
+    api.event(issue["number"], "reopened")
+    api.clock = fixed_at = recovered_at + after_recovery
+    api.event(issue["number"], "closed")
     issue.update(state="closed", closed_at=fixed_at.isoformat(), state_reason="completed")
-    row = budget.observation(row, metrics(12), fixed_at + timedelta(days=1))
+    row = budget.observation(row, metrics(12), fixed_at + timedelta(hours=1))
     budget.reconcile(api, REPO, row)
     assert len(api.issues) == 1
     assert row["refile_hold"]["previous_issue"] == issue["number"]
