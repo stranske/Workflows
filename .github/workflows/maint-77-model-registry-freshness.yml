@@ -4,6 +4,13 @@ name: Maint 77 Model Registry Freshness
 # and manual runs additionally query provider catalogs when credentials exist.
 # Catalog changes are advisory candidates; they never change a selection.
 #
+# Scheduled and manual runs record what they observed into
+# config/model_registry.json `catalog_baselines` through an auto-merging PR (the
+# Maint 79 pattern), so the next run reports only additions since this one. When
+# every provider catalog was read, the same record renews the registry-wide
+# `review_by` (the catalog review); selection review dates are owner decisions and
+# are never renewed here.
+#
 # This does NOT change model selection and does NOT touch the sync workflow.
 
 on:
@@ -34,6 +41,7 @@ jobs:
       rc: ${{ steps.gate.outputs.rc }}
       has_advisory: ${{ steps.gate.outputs.has_advisory }}
       discovery_drift: ${{ steps.discovery.outputs.drift || 'false' }}
+      baselines_changed: ${{ steps.discovery.outputs.baselines_changed || 'false' }}
     permissions:
       contents: read
     steps:
@@ -89,8 +97,13 @@ jobs:
           CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: |
           set +e
-          python3 tools/discover_model_catalog.py --output catalog-discovery.json
+          python3 tools/discover_model_catalog.py --output catalog-discovery.json --record-baselines
           rc=$?
+          if git diff --quiet -- config/model_registry.json; then
+            echo "baselines_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "baselines_changed=true" >> "$GITHUB_OUTPUT"
+          fi
           if [ "$rc" = "1" ]; then
             echo "drift=true" >> "$GITHUB_OUTPUT"
           else
@@ -115,6 +128,15 @@ jobs:
           name: model-catalog-discovery-${{ github.run_id }}
           path: catalog-discovery.json
           if-no-files-found: ignore
+
+      - name: Upload recorded catalog baselines
+        if: steps.discovery.outputs.baselines_changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          retention-days: 30
+          name: model-catalog-baselines-${{ github.run_id }}
+          path: config/model_registry.json
+          if-no-files-found: error
 
   tracking-issue:
     if: >-
@@ -157,6 +179,7 @@ jobs:
             exit 2
           fi
           has_advisory=$(python3 -c "import json;print('true' if json.load(open('freshness.json')).get('advisory') else 'false')") || exit 2
+          added=$(python3 -c "import json;print(sum(len(p.get('added_candidates') or []) for p in json.load(open('catalog-discovery.json')).get('providers') or []))") || exit 2
           if [ "$freshness_rc" = "1" ] || [ "$discovery_rc" = "1" ] || [ "$has_advisory" = "true" ]; then
             echo "has_findings=true" >> "$GITHUB_OUTPUT"
             message="Freshness or catalog findings persist after recheck."
@@ -164,6 +187,15 @@ jobs:
             echo "has_findings=false" >> "$GITHUB_OUTPUT"
             message="Freshness and catalog findings cleared before issue update."
           fi
+          # Notify (comment) only on news: a model a provider added since the recorded
+          # baseline, or a structural finding. Cadence findings and removals update the
+          # issue body in place, so a finding that has not changed is not re-announced.
+          if [ "$freshness_rc" = "1" ] || [ "$added" -gt 0 ]; then
+            echo "notify=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "notify=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "added_candidates=$added" >> "$GITHUB_OUTPUT"
           echo "::notice::$message"
           printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
 
@@ -171,6 +203,7 @@ jobs:
         if: steps.reports.outputs.has_findings == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY: ${{ steps.reports.outputs.notify }}
         run: |
           TITLE="LLM model registry needs evidence review"
           BODY_FILE=issue_body.md
@@ -192,6 +225,21 @@ jobs:
             cat catalog-discovery.json
             echo '```'
             echo ""
+            echo "**What clears each finding:**"
+            echo "- \`review_overdue\` (the registry-wide catalog review): renewed by the"
+            echo "  auto-merged \`model-catalog-baselines/auto\` PR whenever a Maint 77 run reads"
+            echo "  every provider catalog. If it stays overdue, a catalog was not read: see the"
+            echo "  provider marked \`skipped\` above (missing credential or unreachable API)."
+            echo "- \`provisional_overdue\` / \`selection_review_overdue\`: an owner decision's"
+            echo "  review date passed. Only updating that selection's \`review_by\` clears it."
+            echo "- \`added_candidates\`: recorded as the new baseline by this run's baseline PR,"
+            echo "  so each addition is announced once. Candidates only; Maint 78 plans their"
+            echo "  evaluation."
+            echo "- Structural (blocking) findings: fix the registry; the PR gate fails on them."
+            echo ""
+            echo "This body is rewritten each run. A comment is added only when a provider"
+            echo "added a model since the recorded baseline, or on a structural finding."
+            echo ""
             echo "_Run:_ ${{ github.server_url }}/${{ github.repository }}/actions/runs/"
             echo "${{ github.run_id }}"
           } > "$BODY_FILE"
@@ -200,9 +248,14 @@ jobs:
           if [ -n "$EXISTING" ]; then
             gh issue edit "$EXISTING" \
               --add-label "automated" \
-              --add-label "tracker:durable"
-            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
-            echo "::warning::Refreshed existing freshness issue #$EXISTING"
+              --add-label "tracker:durable" \
+              --body-file "$BODY_FILE"
+            if [ "$NOTIFY" = "true" ]; then
+              gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+              echo "::warning::New catalog candidates or a structural finding; commented on #$EXISTING"
+            else
+              echo "::notice::Findings unchanged in kind; refreshed the body of #$EXISTING without a comment"
+            fi
           else
             gh issue create \
               --title "$TITLE" \
@@ -210,6 +263,166 @@ jobs:
               --label "automated,tracker:durable"
             echo "::warning::Opened model-registry freshness issue"
           fi
+
+  record-baselines:
+    # Same mechanism as Maint 79's corpus PR: create-pull-request with OWNER_PR_PAT,
+    # a seven-minute review window on an unchanged head, required checks, no active
+    # review threads, then auto-merge pinned to the validated head.
+    if: >-
+      github.event_name != 'pull_request' &&
+      needs.freshness.outputs.baselines_changed == 'true'
+    needs: freshness
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download recorded catalog baselines
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: model-catalog-baselines-${{ github.run_id }}
+          path: config
+
+      - name: Open auto-merging catalog-baseline PR
+        id: cpr
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
+        with:
+          token: ${{ secrets.OWNER_PR_PAT }}
+          branch: model-catalog-baselines/auto
+          base: main
+          title: "registry: record observed provider model catalogs"
+          commit-message: "registry: record observed provider model catalogs"
+          labels: "automation,model-selection"
+          delete-branch: true
+          add-paths: config/model_registry.json
+          body: |
+            <!-- workflow-source:automation_run -->
+            <!-- workflow-source-ref:maint-77-model-registry-freshness -->
+            <!-- workflow-lifecycle:recurring_data_job -->
+            <!-- workflow-automation:catalog_baseline -->
+            Automated record of the provider model catalogs Maint 77 observed.
+
+            Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Changes only `catalog_baselines` and, when every provider catalog was
+            read, the registry-wide `review_by`. No selection, model fact or
+            selection review date changes. Newly observed models were reported as
+            candidates by the same run; recording them means the next run reports
+            only later additions.
+
+      - name: Enforce review window before auto-merge
+        if: steps.cpr.outputs.pull-request-number
+        id: review_window
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          set -uo pipefail
+
+          initial_head="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          if [ -z "$initial_head" ]; then
+            echo "::warning::Unable to identify the baseline PR head; auto-merge remains disabled."
+            exit 0
+          fi
+
+          # Same window as Maint 79: seven full minutes on an unchanged head.
+          sleep 420
+
+          current_head="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          if [ "$current_head" != "$initial_head" ]; then
+            echo "::notice::Baseline PR head changed during the review window; auto-merge remains disabled."
+            exit 0
+          fi
+
+          # Wait for required checks to report and pass on the unchanged head. A
+          # timeout leaves the PR for the next run (the branch is reused), rather
+          # than merging on an incomplete signal.
+          if ! required_checks="$(bash .github/scripts/wait_for_required_checks.sh "$PR_NUMBER" 2400 1200 30)"; then
+            printf '%s\n' "$required_checks"
+            echo "::notice::Required checks are incomplete or failing; auto-merge remains disabled."
+            exit 0
+          fi
+
+          echo "initial_head=$initial_head" >> "$GITHUB_OUTPUT"
+          echo "checks_passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Re-read exact head and active review threads
+        if: steps.review_window.outputs.checks_passed == 'true'
+        id: review_gate
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          INITIAL_HEAD: ${{ steps.review_window.outputs.initial_head }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT }}
+          script: |
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'model-catalog-baseline-review-gate',
+              capabilities: ['pulls:read'],
+            });
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            const number = Number(process.env.PR_NUMBER);
+            const query = `
+              query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    headRefOid
+                    mergeStateStatus
+                    reviewThreads(first: 100, after: $cursor) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes { isResolved isOutdated }
+                    }
+                  }
+                }
+              }
+            `;
+            let cursor = null;
+            let activeThreads = 0;
+            let headRefOid = null;
+            let mergeStateStatus = null;
+            do {
+              const data = await withRetry((client) => client.graphql(query, {
+                owner,
+                repo,
+                number,
+                cursor,
+              }));
+              const pr = data.repository.pullRequest;
+              headRefOid = pr.headRefOid;
+              mergeStateStatus = pr.mergeStateStatus;
+              const reviewThreads = pr.reviewThreads;
+              activeThreads += reviewThreads.nodes.filter(
+                (thread) => !thread.isResolved && !thread.isOutdated,
+              ).length;
+              cursor = reviewThreads.pageInfo.hasNextPage ? reviewThreads.pageInfo.endCursor : null;
+            } while (cursor);
+            if (activeThreads !== 0) {
+              core.notice(`${activeThreads} active review thread(s) remain; auto-merge remains disabled.`);
+              return;
+            }
+            if (headRefOid !== process.env.INITIAL_HEAD || mergeStateStatus !== 'CLEAN') {
+              core.notice('Baseline PR changed or is not clean after gate re-read; auto-merge remains disabled.');
+              return;
+            }
+            core.setOutput('review_window_passed', 'true');
+            core.setOutput('validated_head', headRefOid);
+
+      - name: Enable auto-merge
+        if: steps.review_gate.outputs.review_window_passed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+          VALIDATED_HEAD: ${{ steps.review_gate.outputs.validated_head }}
+        run: gh pr merge "$PR_NUMBER" --squash --auto --match-head-commit "$VALIDATED_HEAD"
 
   dispatch-evaluation-pilot:
     if: >-

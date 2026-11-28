@@ -20,26 +20,52 @@ def test_model_registry_evidence_issue_is_labeled_durable_on_create_and_refresh(
     assert source.count('--label "automated,tracker:durable"') == 1
 
 
+EDIT_ONLY = ["issue list", "issue edit"]
+EDIT_AND_COMMENT = ["issue list", "issue edit", "issue comment"]
+
+
 @pytest.mark.parametrize(
-    ("freshness_rc", "advisory", "discovery_rc", "expected_rc", "expected_message", "writes"),
+    (
+        "freshness_rc",
+        "advisory",
+        "discovery_rc",
+        "added",
+        "expected_rc",
+        "expected_message",
+        "calls",
+    ),
     [
-        (0, False, 0, 0, "findings cleared", False),
-        (0, True, 0, 0, "findings persist", True),
-        (1, False, 0, 0, "findings persist", True),
-        (0, False, 1, 0, "findings persist", True),
-        (2, False, 0, 2, "configuration error", False),
-        (0, False, 2, 2, "configuration error", False),
+        (0, False, 0, [], 0, "findings cleared", []),
+        # Round-3 M2: a cadence finding that has not changed rewrites the body only;
+        # 21 weekly comments on the same overdue date (since 2026-08) announced nothing.
+        (0, True, 0, [], 0, "findings persist", EDIT_ONLY),
+        (1, False, 0, [], 0, "findings persist", EDIT_AND_COMMENT),
+        (0, False, 1, ["new-model"], 0, "findings persist", EDIT_AND_COMMENT),
+        (0, True, 1, ["new-model"], 0, "findings persist", EDIT_AND_COMMENT),
+        (0, False, 1, [], 0, "findings persist", EDIT_ONLY),  # removal only
+        (2, False, 0, [], 2, "configuration error", []),
+        (0, False, 2, [], 2, "configuration error", []),
     ],
-    ids=["clear", "advisory", "structural", "catalog-drift", "freshness-error", "catalog-error"],
+    ids=[
+        "clear",
+        "advisory",
+        "structural",
+        "catalog-addition",
+        "advisory-and-addition",
+        "catalog-removal",
+        "freshness-error",
+        "catalog-error",
+    ],
 )
 def test_tracking_issue_uses_rechecked_findings(
     tmp_path: Path,
     freshness_rc: int,
     advisory: bool,
     discovery_rc: int,
+    added: list[str],
     expected_rc: int,
     expected_message: str,
-    writes: bool,
+    calls: list[str],
 ) -> None:
     steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["tracking-issue"]["steps"]
     reports = next(step for step in steps if step.get("id") == "reports")
@@ -73,7 +99,12 @@ def test_tracking_issue_uses_rechecked_findings(
         "GH_LOG": str(gh_log),
         "FRESHNESS_JSON": json.dumps({"advisory": ["review overdue"] if advisory else []}),
         "FRESHNESS_RC": str(freshness_rc),
-        "DISCOVERY_JSON": json.dumps({"drift": discovery_rc == 1}),
+        "DISCOVERY_JSON": json.dumps(
+            {
+                "drift": discovery_rc == 1,
+                "providers": [{"provider": "openai", "added_candidates": added}],
+            }
+        ),
         "DISCOVERY_RC": str(discovery_rc),
     }
     result = subprocess.run(
@@ -95,10 +126,51 @@ def test_tracking_issue_uses_rechecked_findings(
             .replace("${{ github.repository }}", "stranske/Workflows")
             .replace("${{ github.run_id }}", "37269067774")
         )
+        env["NOTIFY"] = decision.get("notify", "")
         subprocess.run(["bash", "-e", "-c", shell], cwd=tmp_path, env=env, check=True)
-    calls = gh_log.read_text().splitlines() if gh_log.exists() else []
+        body = (tmp_path / "issue_body.md").read_text()
+        assert "What clears each finding" in body
+    assert writer["env"]["NOTIFY"] == "${{ steps.reports.outputs.notify }}"
+    made = gh_log.read_text().splitlines() if gh_log.exists() else []
     assert result.returncode == expected_rc
-    assert calls == (["issue list", "issue edit", "issue comment"] if writes else [])
+    assert made == calls
     assert expected_message in result.stdout
     if expected_rc == 0:
         assert expected_message in summary.read_text()
+
+
+def test_scheduled_runs_record_baselines_through_the_maint_79_merge_path() -> None:
+    """The observed catalog becomes the baseline via an auto-merged PR, never a push."""
+    workflow = yaml.safe_load(WORKFLOW.read_text())
+    jobs = workflow["jobs"]
+    discovery = next(s for s in jobs["freshness"]["steps"] if s.get("id") == "discovery")
+    assert "--record-baselines" in discovery["run"]
+    assert "baselines_changed=true" in discovery["run"]
+    assert discovery["if"] == "github.event_name != 'pull_request'"
+
+    record = jobs["record-baselines"]
+    assert "github.event_name != 'pull_request'" in record["if"]
+    assert "needs.freshness.outputs.baselines_changed == 'true'" in record["if"]
+    assert record["permissions"] == {"contents": "read"}
+
+    maint79 = yaml.safe_load(
+        Path(".github/workflows/maint-79-verifier-corpus-harvest.yml").read_text()
+    )["jobs"]["harvest"]["steps"]
+    ours = record["steps"]
+
+    def uses(steps: list[dict], prefix: str) -> str:
+        return next(s["uses"] for s in steps if str(s.get("uses", "")).startswith(prefix))
+
+    assert uses(ours, "peter-evans/create-pull-request") == uses(
+        maint79, "peter-evans/create-pull-request"
+    )
+    cpr = next(s for s in ours if s.get("id") == "cpr")
+    assert cpr["with"]["token"] == "${{ secrets.OWNER_PR_PAT }}"
+    assert cpr["with"]["add-paths"] == "config/model_registry.json"
+    assert "<!-- workflow-source:automation_run -->" in cpr["with"]["body"]
+    window = next(s for s in ours if s.get("id") == "review_window")["run"]
+    assert "sleep 420" in window
+    assert "wait_for_required_checks.sh" in window
+    merge = next(s for s in ours if s.get("name") == "Enable auto-merge")["run"]
+    theirs = next(s for s in maint79 if s.get("name") == "Enable auto-merge")["run"]
+    assert merge == theirs
