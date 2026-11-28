@@ -133,8 +133,8 @@ Use the [shared opener and closer](https://github.com/stranske/Workflows/blob/ma
 | `agents:formatted` | Issue has been formatted |
 | `agents:keepalive` | Keepalive is monitoring this PR |
 | `agent:needs-attention` | Human intervention required |
-| `agents:auto-pilot-pause` | Auto-pilot paused |
-| `agents:auto-pilot-failed` | Auto-pilot stopped due to errors |
+| `agents:auto-pilot-pause` | Issue-format hold: the body did not validate; the opener lane rewrites it and clears the label |
+| `agents:auto-pilot-failed` | Legacy marker from the retired Auto-Pilot; nothing writes it now |
 | `agents:allow-change` | Permission signal for `agents-guard`; bypasses guard-level CODEOWNER approval only for dependency-only `uses:` reference updates from Dependabot/Renovate or repository owner/member/collaborator PRs. Workflows applies it to dependency-bot PRs through the label job in `maint-auto-lock-deps.yml`; arbitrary workflow logic edits still require review. |
 | `needs-human` | Escalated to human |
 | `follow-up` | Created as follow-up to another issue/PR |
