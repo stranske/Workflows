@@ -1,8 +1,7 @@
-"""Shared tools, hosted research CLIs and templates must not carry Python 3.12 (3.14 first, 3.13 backup).
+"""Reject Python 3.12 in shared assets and covered CLIs (3.14 first, 3.13 backup).
 
-The reusable CI pins are guarded elsewhere; this covers the assets that ship to every consumer or
-run in hosted research jobs or act as starter files: shared tools, starter workflows, the integration template and the version env.
-A hit here means a consumer inherits a retired runtime default, label or required-job rule.
+The reusable CI pins are guarded elsewhere. This scan covers shared tools, starter files,
+hosted research CLIs and selected operator checks.
 """
 
 from __future__ import annotations
@@ -27,6 +26,7 @@ SCANNED = sorted(
         *ROOT.glob("templates/consumer-repo/.github/workflows/ci-python-versions.env"),
         *ROOT.glob(".github/workflows/ci-python-versions.env"),
         ROOT / "scripts" / "check_test_dependencies.sh",
+        ROOT / "scripts/keepalive/validate_subscription_analysis_evidence.py",
     }
 )
 
@@ -42,6 +42,7 @@ def _hits(text: str) -> list[str]:
 def test_scan_covers_the_shared_assets() -> None:
     paths = {path.relative_to(ROOT).as_posix() for path in SCANNED}
     assert {
+        "scripts/keepalive/validate_subscription_analysis_evidence.py",
         "scripts/model_eval/run_model_eval_pilot.py",
         "scripts/verifier/run_verify_paired.py",
     } <= paths
