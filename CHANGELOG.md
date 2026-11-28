@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.20](https://github.com/stranske/Workflows/compare/v1.52.19...v1.52.20) (2026-11-28)
+
+
+### Bug Fixes
+
+* **deps:** align closer PyYAML floor, faiss-cpu, and Codex CLI 0.172.0 pins ([[#5354](https://github.com/stranske/Workflows/issues/5354)](https://github.com/stranske/Workflows/pull/5354)) ([f0f0244](https://github.com/stranske/Workflows/commit/f0f024421fbf3b39113129732bb3800a84d54fab))
+* **deps:** exclude frozen trial Codex CLI pin from Renovate ([#5361](https://github.com/stranske/Workflows/issues/5361)) ([#5364](https://github.com/stranske/Workflows/issues/5364)) ([fa94238](https://github.com/stranske/Workflows/commit/fa94238197867bf5a012e7dee96a6bdf2106e024))
+* stop Renovate bumping the pinned trial Codex CLI ([#5352](https://github.com/stranske/Workflows/issues/5352)) ([#5362](https://github.com/stranske/Workflows/issues/5362)) ([4c94915](https://github.com/stranske/Workflows/commit/4c949150767f94f87ed3dab9f719c9a70bfa18c2))
+* **tokens:** isolate exclusive tokens from general API rotation ([#5414](https://github.com/stranske/Workflows/issues/5414)) ([c0f7463](https://github.com/stranske/Workflows/commit/c0f7463c46114407d2089e3705a97ada55a156bd))
+* **trial:** isolate model profile trial on Codex CLI 0.153.2 lockfile ([[#5354](https://github.com/stranske/Workflows/issues/5354)](https://github.com/stranske/Workflows/pull/5354)) ([f0f0244](https://github.com/stranske/Workflows/commit/f0f024421fbf3b39113129732bb3800a84d54fab))
+
 ## [1.52.19](https://github.com/stranske/Workflows/compare/v1.52.18...v1.52.19) (2026-11-27)
 
 
