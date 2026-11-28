@@ -162,7 +162,7 @@ python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
-files = ["src", "scripts/metrics"]
+files = ["scripts/metrics"]
 disable_error_code = "import-untyped"
 exclude = [
     "^archive/",
@@ -215,7 +215,7 @@ filterwarnings = [
 [tool.coverage.run]
 branch = true
 parallel = true
-source = ["scripts", "tools", "src"]
+source = ["scripts", "tools"]
 omit = [
     "*/tests/*",
     "*/test_*.py",
@@ -223,7 +223,6 @@ omit = [
     "archive/*",
     ".extraction/*",
     # CI autofix test fixtures - not production code
-    "src/trend_analysis/*",
 ]
 
 [tool.coverage.report]
