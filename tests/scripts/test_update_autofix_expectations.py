@@ -61,3 +61,20 @@ def test_update_constant_rewrites_matching_constant(tmp_path: Path) -> None:
 
     assert update_autofix_expectations._update_constant(module, target) is True
     assert "EXPECTED = 'new'" in module_path.read_text(encoding="utf-8")
+
+
+def test_update_autofix_expectations_main_noops_with_empty_targets() -> None:
+    assert update_autofix_expectations.main([]) == 0
+
+
+def test_update_autofix_expectations_update_constant_handles_missing_callable() -> None:
+    class DummyModule:
+        __file__ = None
+
+    target = update_autofix_expectations.AutofixTarget(
+        module="dummy.module",
+        callable_name="missing_callable",
+        constant_name="EXPECTED_VALUE",
+    )
+
+    assert update_autofix_expectations._update_constant(DummyModule, target) is False
