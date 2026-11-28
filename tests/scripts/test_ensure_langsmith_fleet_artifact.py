@@ -413,3 +413,25 @@ def test_main_emits_structured_ensure_failed_for_malformed_registry(tmp_path: Pa
     assert result["repository"] == "stranske/example-repo"
     assert "Expecting property name enclosed in double quotes" in result["error"]
     assert "::warning::LangSmith fleet fallback artifact ensure failed" in captured.err
+
+
+def test_live_registry_never_writes_a_ci_fallback_for_workflows(tmp_path: Path) -> None:
+    """Round-2 B1: maint-85 is the Workflows producer; Gate must not upload a fallback."""
+    artifact = tmp_path / "artifacts" / "langsmith" / "langsmith-fleet.ndjson"
+
+    result = ensure_langsmith_fleet_artifact.ensure_artifact(
+        artifact_path=artifact,
+        registry_path=REGISTRY,
+        repository="stranske/Workflows",
+        run_id="1",
+        run_attempt="1",
+        workflow="Gate",
+        job="python-ci",
+        python_version="3.14",
+        sha="abc123",
+        event_name="pull_request",
+    )
+
+    assert result["status"] == "skipped"
+    assert result["reason"].startswith("rollout_status_")
+    assert not artifact.exists()
