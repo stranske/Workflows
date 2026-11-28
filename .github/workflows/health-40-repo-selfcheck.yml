@@ -133,7 +133,12 @@ jobs:
         if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
         # --check exits 1 on drift. That must not skip the signal collection
         # below: the drift is reported as a warning check instead, and the next
-        # step dispatches Health 44 (the only writer) to apply the config.
+        # step dispatches Health 44 (the only writer) when it can fix it.
+        #
+        # No --no-clean here (cohesion review round 2, D9): with it the checker
+        # folds the current contexts into the target, so an UNEXPECTED required
+        # context (one no longer in required-contexts.json) could never show.
+        # Health 41 caught those; it is retired, so this comparison is exact.
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ steps.branch-token.outputs.token }}
@@ -144,7 +149,6 @@ jobs:
             --check \
             --config .github/config/required-contexts.json \
             --allow-non-strict \
-            --no-clean \
             --snapshot repo-health-branch-protection.json
 
       # The drain for protection drift (cohesion review round 2, A6). Health 44
@@ -153,6 +157,10 @@ jobs:
       # named a run that did not happen. The self-check that measures the drift
       # now starts the writer itself; workflow_dispatch on main is a caller
       # Health 44's snapshot pointer accepts.
+      #
+      # Health 44 applies with --no-clean: it adds missing contexts and the
+      # strict flag, but never removes an extra context. Dispatch it only when
+      # it can fix something; extra contexts are named for a person instead.
       - name: Dispatch Health 44 to apply the drift
         id: protection-apply
         if: ${{ steps.protection-snapshot.outcome == 'failure' }}
@@ -161,8 +169,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          fixable=true
+          if [ -f repo-health-branch-protection.json ]; then
+            fixable=$(jq -r '((.to_add // []) | length) > 0
+              or ((.changes_required // true) and ((.to_remove // []) | length) == 0)' \
+              repo-health-branch-protection.json)
+          fi
+          if [ "${fixable}" != "true" ]; then
+            echo "dispatched=false" >> "$GITHUB_OUTPUT"
+            echo "Only unexpected contexts differ; Health 44 keeps extra contexts, so it is not dispatched."
+            exit 0
+          fi
           gh workflow run health-44-gate-branch-protection.yml \
             --repo "${GITHUB_REPOSITORY}" --ref "${DEFAULT_BRANCH:-main}"
+          echo "dispatched=true" >> "$GITHUB_OUTPUT"
           echo "Dispatched Health 44 on ${DEFAULT_BRANCH:-main} to apply .github/config/required-contexts.json."
 
       - name: Collect repository signals
@@ -173,6 +193,7 @@ jobs:
           BRANCH_PROTECTION_TOKEN: ${{ steps.branch-token.outputs.token }}
           PROTECTION_SNAPSHOT_OUTCOME: ${{ steps.protection-snapshot.outcome }}
           PROTECTION_APPLY_OUTCOME: ${{ steps.protection-apply.outcome }}
+          PROTECTION_DISPATCHED: ${{ steps.protection-apply.outputs.dispatched }}
         with:
           github-token: ${{ steps.branch-token.outputs.token || github.token }}
           script: |
@@ -406,11 +427,31 @@ jobs:
             const snapshotOutcome = (process.env.PROTECTION_SNAPSHOT_OUTCOME || '').trim();
             if (snapshotOutcome === 'failure') {
               const applyOutcome = (process.env.PROTECTION_APPLY_OUTCOME || '').trim();
-              const drain =
-                applyOutcome === 'success'
-                  ? 'This run dispatched Health 44 to apply the file; the next self-check shows whether it cleared.'
-                  : `Dispatching Health 44 failed (${applyOutcome || 'step did not run'}); ` +
-                    'run `gh workflow run health-44-gate-branch-protection.yml` to apply the file.';
+              const dispatched = (process.env.PROTECTION_DISPATCHED || '').trim();
+              let unexpected = [];
+              try {
+                const snap = JSON.parse(fs.readFileSync('repo-health-branch-protection.json', 'utf8'));
+                unexpected = Array.isArray(snap.to_remove) ? snap.to_remove : [];
+              } catch (error) {
+                core.info(`No protection snapshot to read: ${error.message}`);
+              }
+              const parts = [];
+              if (dispatched === 'true') {
+                parts.push('This run dispatched Health 44 to apply the file; the next self-check shows whether it cleared.');
+              } else if (dispatched !== 'false') {
+                parts.push(
+                  `Dispatching Health 44 failed (${applyOutcome || 'step did not run'}); ` +
+                    'run `gh workflow run health-44-gate-branch-protection.yml` to apply the file.',
+                );
+              }
+              if (unexpected.length > 0) {
+                parts.push(
+                  `Unexpected required contexts: ${unexpected.join(', ')}. Health 44 keeps extra ` +
+                    'contexts, so it will not remove them: delete them from the default-branch ' +
+                    'ruleset if obsolete, or add them to .github/config/required-contexts.json.',
+                );
+              }
+              const drain = parts.join(' ');
               checks.push({
                 key: 'protection-drift',
                 title: 'Required status checks',

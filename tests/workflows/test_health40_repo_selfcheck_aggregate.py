@@ -203,3 +203,70 @@ def test_protection_drift_does_not_skip_signal_collection() -> None:
     assert "snapshotOutcome === 'failure'" in script
     assert "key: 'protection-drift'" in script
     assert "status: 'warn'" in script.split("key: 'protection-drift'")[1][:200]
+
+
+# --- Cohesion review round 2, D9: exact context comparison after Health 41 -------
+
+
+def test_protection_snapshot_compares_contexts_exactly() -> None:
+    """--no-clean folds current contexts into the target, hiding unexpected ones."""
+    run = _workflow_step("Snapshot branch protection state")["run"]
+    assert "--check" in run
+    assert "--no-clean" not in run
+
+
+def _run_dispatch(tmp_path: Path, snapshot: dict | None) -> tuple[str, str]:
+    import json
+    import os
+    import subprocess
+
+    step = _workflow_step("Dispatch Health 44 to apply the drift")
+    if snapshot is not None:
+        (tmp_path / "repo-health-branch-protection.json").write_text(json.dumps(snapshot))
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    gh = bindir / "gh"
+    gh.write_text('#!/bin/sh\necho "$@" >> gh-calls.txt\n')
+    gh.chmod(0o755)
+    output = tmp_path / "out"
+    subprocess.run(
+        ["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", step["run"]],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_OUTPUT": str(output),
+            "GITHUB_REPOSITORY": "stranske/Workflows",
+            "DEFAULT_BRANCH": "main",
+        },
+        check=True,
+        timeout=20,
+    )
+    calls = tmp_path / "gh-calls.txt"
+    return output.read_text(), calls.read_text() if calls.exists() else ""
+
+
+def test_only_extra_contexts_are_named_not_dispatched(tmp_path: Path) -> None:
+    out, calls = _run_dispatch(
+        tmp_path, {"to_add": [], "to_remove": ["old-check"], "changes_required": True}
+    )
+    assert out == "dispatched=false\n"
+    assert calls == ""
+
+
+def test_missing_contexts_dispatch_health_44(tmp_path: Path) -> None:
+    out, calls = _run_dispatch(
+        tmp_path, {"to_add": ["summary"], "to_remove": ["old-check"], "changes_required": True}
+    )
+    assert out == "dispatched=true\n"
+    assert "workflow run health-44-gate-branch-protection.yml" in calls
+
+
+def test_collect_names_unexpected_contexts() -> None:
+    collect = _workflow_step("Collect repository signals")
+    assert collect["env"]["PROTECTION_DISPATCHED"] == (
+        "${{ steps.protection-apply.outputs.dispatched }}"
+    )
+    script = collect["with"]["script"]
+    assert "Unexpected required contexts:" in script
+    assert "repo-health-branch-protection.json" in script
