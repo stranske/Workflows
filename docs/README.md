@@ -16,8 +16,8 @@ This folder contains the source-of-truth documentation for this repository.
 
 ## Structure
 
-Every `docs/` subdirectory (and every other directory in the repository) is listed, one
-line each, in the [repository map](STRUCTURE.md#directory-index). Contributors: see
+Every first- and second-level directory that holds tracked files (so every `docs/`
+subdirectory) is listed, one line each, in the [repository map](STRUCTURE.md#directory-index). Contributors: see
 [CONTRIBUTING.md](CONTRIBUTING.md) and the [templates](templates/).
 
 ## Documentation Guidelines
@@ -50,7 +50,7 @@ Follow the [workflow example contribution checklist](CONTRIBUTING.md#workflow-ex
 1. Use the appropriate template from [templates/](templates/)
 2. Keep examples runnable and aligned with the current workflow interfaces
 3. Use the current first-party consumer standard (`@main`) in consumer-facing examples unless you are explicitly documenting a pinned-SHA or alternate-ref strategy
-4. Cross-link related docs, and add a new directory to the [repository map](STRUCTURE.md#directory-index)
+4. Cross-link related docs, and add a new first- or second-level directory to the [repository map](STRUCTURE.md#directory-index) (deeper directories are not listed)
 
 ## See Also
 

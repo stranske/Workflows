@@ -9,6 +9,7 @@ tracked files at depth one and two, and the other two documents link to it.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -20,9 +21,15 @@ PATTERNS = ((re.compile(r"^evidence/issue-\d+$"), "evidence/issue-<number>"),)
 
 
 def _tracked_directories() -> set[str]:
-    files = subprocess.run(
-        ["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True
-    ).stdout.splitlines()
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"}
+    }
+    output = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, env=env, check=True, capture_output=True
+    ).stdout
+    files = [path for path in output.decode("utf-8").split("\0") if path]
     dirs: set[str] = set()
     for path in files:
         parts = path.split("/")
