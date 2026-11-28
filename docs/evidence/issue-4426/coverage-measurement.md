@@ -5,9 +5,9 @@
 `target_snapshot_comparison` in `coverage-measurement.json` now retains the
 six targets' original and final counters together. The same computed record
 and a rendered table are included in `ranking.json` and `ranking.md` without
-overwriting either historical ranking. Reproduce the records with
-`compare_target_snapshots` in `tests/docs/test_issue_4426_coverage_measurement.py`
-and `build_ranking_record` in `tests/docs/test_issue_4426_ranking.py`.
+overwriting either historical ranking. The preserved
+`compare_target_snapshots` and `build_ranking_record` implementations are
+available in the [historical suite replay](#replay-the-historical-suites).
 
 Both original runtimes give the same per-target baseline units. In the
 preserved issue order, the baseline/final/difference values are:
@@ -180,10 +180,33 @@ still fails local DNS resolution. `attributable_round_reduction` and the
 **comparable** original-round baseline remain null. Task 1 stays incomplete
 until comparable artifacts establish attribution against the about-180 rule.
 
-Reproduce the offline counter and identity checks:
+## Replay the historical suites
+
+The coverage measurement, mutation receipt, and ranking suites validate this
+issue's recorded inputs and calculations. Their original test paths and all
+issue evidence are recoverable from the
+[#5306 revision](https://github.com/stranske/Workflows/commit/c96e0ab40b5b696561aaec3133b44d4472e3313f).
+The current branch-coverage and source-root contract runs in
+[`tests/docs/test_live_coverage_config.py`](../../../tests/docs/test_live_coverage_config.py).
+
+From a Workflows clone containing that revision, use a Python environment with
+`pytest` and `coverage` installed:
 
 ```bash
-python -m pytest -q tests/docs/test_issue_4426_coverage_measurement.py tests/docs/test_issue_4426_ranking.py -m 'not slow'
+replay="$(mktemp -d)"
+git archive --output="$replay/source.tar" c96e0ab40b5b696561aaec3133b44d4472e3313f \
+  pyproject.toml docs/evidence/issue-4426 \
+  tests/docs/test_issue_4426_coverage_measurement.py \
+  tests/docs/test_issue_4426_mutation_receipts.py \
+  tests/docs/test_issue_4426_ranking.py
+tar -xf "$replay/source.tar" -C "$replay"
+(
+  cd "$replay"
+  "${PYTHON:-python}" -m pytest -q \
+    tests/docs/test_issue_4426_coverage_measurement.py \
+    tests/docs/test_issue_4426_mutation_receipts.py \
+    tests/docs/test_issue_4426_ranking.py
+)
 ```
 
 
