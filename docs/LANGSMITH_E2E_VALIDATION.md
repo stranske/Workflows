@@ -329,7 +329,7 @@ The dashboard file was committed back to the PR branch by the workflow itself.
 ## Related Documentation
 
 - [LangSmith Integration Status](./LANGSMITH_INTEGRATION_STATUS.md) - Overall progress tracker
-- [LangSmith Integration Skill](./../.claude/skills/langsmith-integration/skill.md) - Developer guide
+- [LangSmith Integration Skill](./../.claude/skills/langsmith-integration/SKILL.md) - Developer guide
 - Issue #974 - Original feature request
 - PR #1533 - Metadata standardization
 - PR #1536 - Core trace extraction

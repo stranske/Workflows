@@ -1,5 +1,6 @@
 """Keep the consumer label guide bound to its consumer-specific source."""
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -19,6 +20,46 @@ def test_consumer_template_labels_doc_is_the_manifest_source() -> None:
             "description": "Label definitions and usage",
         }
     ]
+
+
+# The consumer guide is a deliberate SUBSET of the Workflows guide: consumers receive
+# templates/consumer-repo/docs/LABELS.md (manifest `source_tree: template`), and Health 68
+# compares consumers against that copy, not against docs/LABELS.md. These are the labels
+# only the Workflows copy documents. Adding a label to the Workflows copy alone requires
+# adding it here, which makes the divergence a decision rather than drift. A label in the
+# consumer copy that the Workflows copy lacks always fails.
+WORKFLOWS_ONLY_LABELS = {
+    "agent-high-privilege",
+    "agent:copilot",
+    "agents",
+    "agents:activated",
+    "agents:pause",
+    "autofix:applied",
+    "cross-repo",
+    "epic",
+    "priority:high",
+    "refactor",
+    "reminder",
+    "risk:low",
+    "testgen",
+    "tracker:durable",
+    "autofix:patch",
+}
+
+
+def _documented_labels(path: str) -> set[str]:
+    text = Path(path).read_text(encoding="utf-8")
+    headings = re.findall(r"^### `([^`]+)`", text, re.M)
+    rows = re.findall(r"^\| `([^`]+)` ", text, re.M)
+    return set(headings) | set(rows)
+
+
+def test_labels_divergence_between_workflows_and_consumer_copy_is_declared() -> None:
+    root = _documented_labels("docs/LABELS.md")
+    template = _documented_labels("templates/consumer-repo/docs/LABELS.md")
+
+    assert template - root == set(), "consumer LABELS.md documents labels the Workflows copy lacks"
+    assert root - template == WORKFLOWS_ONLY_LABELS
 
 
 def test_consumer_template_labels_exclude_workflows_only_retry_surfaces() -> None:
