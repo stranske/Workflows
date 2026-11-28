@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import pytest
-
-from src import cli_parser
+from scripts.metrics import cli_parser
 
 
 def test_cli_parser_requires_repo_sources(capsys: pytest.CaptureFixture[str]) -> None:

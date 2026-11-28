@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from src import percentile_calculator
+from scripts.metrics import percentile_calculator
 
 
 def as_number(value: Any) -> float | None:

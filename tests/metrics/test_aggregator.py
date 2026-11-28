@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import pytest
-
-from src import aggregator
+from scripts.metrics import aggregator
 
 
 def test_group_entries_handles_missing_and_extra_fields() -> None:

@@ -108,25 +108,26 @@ Run the grouped metrics tests from the repo root with `python -m pytest -q tests
 
 ## Python imports from a full checkout
 
-Use qualified imports such as `from src.ndjson_parser import read_ndjson_file`.
-A full Workflows checkout on `PYTHONPATH` now exposes qualified imports without
-automatically adding its `src/` directory. Existing commands that use bare
-imports can set an explicit path for a single invocation:
+The metrics helpers live in `scripts/metrics/` next to the CLIs that use them (moved from
+`src/` on 2026-11-28). Import them qualified, such as
+`from scripts.metrics.ndjson_parser import read_ndjson_file`, with the repository root on
+`PYTHONPATH`. Commands that use the bare names can set an explicit path for a single
+invocation:
 
 ```sh
 workflows_root=/absolute/path/to/Workflows
 workflows_python=/absolute/path/to/selected/python
-PYTHONPATH="$workflows_root/src:$workflows_root" \
-  "$workflows_python" -B -P -c 'import aggregator, cli_parser, ndjson_parser, percentile_calculator, trend_analysis'
+PYTHONPATH="$workflows_root/scripts/metrics:$workflows_root" \
+  "$workflows_python" -B -P -c 'import aggregator, cli_parser, ndjson_parser, percentile_calculator'
 ```
 
 Use both paths: the `aggregator` module itself uses the qualified
-`src.percentile_calculator` import. The `-P` flag keeps the working directory
+`scripts.metrics.percentile_calculator` import. The `-P` flag keeps the working directory
 from taking precedence over those paths. The examples replace the inherited
 `PYTHONPATH` for the command. Use the interpreter with your dependencies
 installed. Python's `-I` and `-E` ignore
 `PYTHONPATH`. The reusable verifier uses its own sparse checkout with
-`PYTHONPATH=.workflows-lib`. Use a full checkout for the legacy bare imports.
+`PYTHONPATH=.workflows-lib`. Use a full checkout for the bare imports.
 
 If a command needs the original startup hook, use this pinned checkout for
 that command. If your checkout is shallow and lacks this revision, first
