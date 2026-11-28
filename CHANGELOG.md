@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.52.21](https://github.com/stranske/Workflows/compare/v1.52.20...v1.52.21) (2026-11-28)
+
+
+### Bug Fixes
+
+* **health-85:** code-only ci-budget criteria and a one-window refile hold ([#5570](https://github.com/stranske/Workflows/issues/5570)) ([b5c95f9](https://github.com/stranske/Workflows/commit/b5c95f9770df4a85c0efd9c8bfd35a1f81b4096b))
+* **tests:** call validate_template_sync from consumer_sync/ after [#5568](https://github.com/stranske/Workflows/issues/5568) ([#5572](https://github.com/stranske/Workflows/issues/5572)) ([f8e30b6](https://github.com/stranske/Workflows/commit/f8e30b6585014b56fc3acd416a743fcab32e2389))
+
 ## [1.52.20](https://github.com/stranske/Workflows/compare/v1.52.19...v1.52.20) (2026-11-28)
 
 
