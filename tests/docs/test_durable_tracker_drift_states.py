@@ -44,6 +44,7 @@ def test_tracker_doc_documents_every_state_the_checker_emits() -> None:
         "blocked",
         "converged",
         "covered",
+        "pending_delivery",
         "stale",
         "untracked_drift",
     }, "the checker state contract changed; update this gate and the alert documentation"
