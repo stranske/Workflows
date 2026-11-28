@@ -85,6 +85,9 @@ const SOURCE_WORKFLOWS = new Set([
   // Named promotions add a title marker and carry unchanged rows in the continuation job.
   // Canary source resolution, checkout, validation and plan publication are unchanged.
   '83bb655d8a247196b56601fe5daaa451e058850693364f3c6a9c32865e7ef468',
+  // The sync-label step only checks that labels-core.yml labels exist (no create/recolour).
+  // Source resolution, checkout, validation and plan publication are unchanged.
+  '3870fdb0ef26b2a0015e23b5e0868f2320c7be913c235bb21a4c4788da78dfe6',
 ]);
 
 async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {

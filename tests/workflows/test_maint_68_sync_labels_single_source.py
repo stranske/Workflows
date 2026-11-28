@@ -39,9 +39,7 @@ def _core_names() -> list[str]:
 
 def _label_step() -> dict:
     workflow = yaml.safe_load(MAINT_68.read_text(encoding="utf-8"))
-    return next(
-        step for step in workflow["jobs"]["sync"]["steps"] if step.get("id") == "labels"
-    )
+    return next(step for step in workflow["jobs"]["sync"]["steps"] if step.get("id") == "labels")
 
 
 def test_formerly_force_created_labels_are_defined_once_in_labels_core() -> None:
@@ -91,9 +89,9 @@ def _run_label_step(tmp_path: Path, present: list[str]) -> subprocess.CompletedP
     gh = bin_dir / "gh"
     gh.write_text(
         "#!/usr/bin/env bash\n"
-        'if [ "$1 $2" = "label list" ]; then printf "%s\\n" ' + " ".join(
-            f'"{label}"' for label in present
-        ) + "; exit 0; fi\n"
+        'if [ "$1 $2" = "label list" ]; then printf "%s\\n" '
+        + " ".join(f'"{label}"' for label in present)
+        + "; exit 0; fi\n"
         'echo "unexpected gh call: $*" >&2; exit 9\n',
         encoding="utf-8",
     )
@@ -114,7 +112,13 @@ def _run_label_step(tmp_path: Path, present: list[str]) -> subprocess.CompletedP
 def test_label_check_passes_when_all_present(tmp_path: Path) -> None:
     result = _run_label_step(
         tmp_path,
-        ["sync", "automated", "workflow:source-sync", "sync:delivery-staging", "sync:delivery-ready"],
+        [
+            "sync",
+            "automated",
+            "workflow:source-sync",
+            "sync:delivery-staging",
+            "sync:delivery-ready",
+        ],
     )
     assert result.returncode == 0, result.stderr
     assert "Required sync labels: 5; present: 5; missing: 0" in result.stdout
