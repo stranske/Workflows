@@ -259,7 +259,7 @@ def test_sealed_execution_rejects_undeclared_files(tmp_path, source_commit, extr
 def test_packaged_producer_keeps_trusted_workflow_matrix_definitions(
     tmp_path, monkeypatch, source_commit, producer_kind
 ):
-    from tests import test_check_checks_reported as contract
+    from tests.scripts import test_check_checks_reported as contract
 
     descriptor = core_pkg.build_public_descriptor(ROOT, source_commit=source_commit)
     root = tmp_path / "pkg"
