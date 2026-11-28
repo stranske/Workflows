@@ -231,6 +231,35 @@ def test_retired_decompose_workflow_is_removed_without_losing_issue_shaping() ->
         assert shared_path not in removals
 
 
+def test_retired_autopilot_scripts_are_removed_without_stale_timer_tests() -> None:
+    root = Path(__file__).parents[2]
+    planned = compile_manifest(root / ".github" / "sync-manifest.yml", repo_root=root).to_plan()
+    entries = {item["target"]: item for item in planned["entries"]}
+    removals = {item["target"] for item in planned["removals"]}
+
+    retired_targets = (
+        ".github/workflows/agents-auto-pilot.yml",
+        "scripts/autopilot_summary_environment.py",
+        "scripts/autopilot_step_timer.py",
+        "scripts/autopilot_metrics_collector.py",
+    )
+    for target in retired_targets:
+        assert target not in entries
+        assert target in removals
+        assert not (root / target).exists()
+        assert not (root / "templates/consumer-repo" / target).exists()
+
+    retired_test_modules = (
+        "tests/scripts/test_autopilot_step_timer.py",
+        "tests/scripts/test_autopilot_step_timer_failure_handling.py",
+        "tests/scripts/test_autopilot_metrics_collector.py",
+        "tests/scripts/test_autopilot_metrics_file_io_and_env_handling.py",
+    )
+    for test_module in retired_test_modules:
+        assert not (root / test_module).exists()
+        assert test_module not in entries
+
+
 @pytest.mark.parametrize(
     "field,value",
     [
@@ -720,6 +749,9 @@ def test_real_manifest_compiles_every_declared_copy_entry() -> None:
         ".github/scripts/verifier_correction_seed.js",
         ".github/scripts/verifier_correction_artifact_sdk/package.json",
         ".github/scripts/verifier_correction_artifact_sdk/package-lock.json",
+        "scripts/autopilot_summary_environment.py",
+        "scripts/autopilot_step_timer.py",
+        "scripts/autopilot_metrics_collector.py",
     } <= removals
     assert all(entry["source_tree"] in {"root", "template"} for entry in plan["entries"])
     assert all(entry["resolved_source"] for entry in plan["entries"])
