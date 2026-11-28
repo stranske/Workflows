@@ -766,7 +766,6 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 3. Is applied by keepalive on a tasks-complete success terminal when appropriate.
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
-`.github/scripts/merge_manager.js`,
 `templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml`.
 
 ---
@@ -796,11 +795,10 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 
 **Effect:**
 1. Classifies PR change risk (`risk:low` = small/safe automerge candidate, `risk:medium` = moderate change, `risk:high` = large or sensitive change).
-2. `risk:low` is checked by guarded automerge (`merge_manager.js`) and included in `health-40-repo-selfcheck.yml`'s `REQUIRED_LABELS`.
+2. `risk:low` is included in `health-40-repo-selfcheck.yml`'s `REQUIRED_LABELS`. (The `merge_manager.js` automerge check that read it had no caller and was removed on 2026-11-28.)
 3. Defined in `.github/labels.yml`.
 
-**Consumers:** `.github/scripts/merge_manager.js`,
-`.github/workflows/health-40-repo-selfcheck.yml`.
+**Consumers:** `.github/workflows/health-40-repo-selfcheck.yml`.
 
 ---
 
@@ -832,8 +830,7 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
    `from:claude`, `from:cursor`, `from:muse`, `from:gemini`, `from:copilot`, or `from:auto`.
 2. Helps merge and verifier tooling distinguish agent-origin PRs from manual PRs.
 
-**Consumers:** `.github/scripts/merge_manager.js`,
-`.github/workflows/agents-verify-to-new-pr.yml`,
+**Consumers:** `.github/workflows/agents-verify-to-new-pr.yml`,
 `.github/workflows/agents-verify-to-issue-v2.yml`,
 `.github/workflows/reusable-agents-verifier.yml`.
 

@@ -694,7 +694,6 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 3. Is applied by keepalive on a tasks-complete success terminal when appropriate.
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
-`.github/scripts/merge_manager.js`,
 `.github/workflows/agents-81-gate-followups.yml`.
 
 ---
@@ -727,8 +726,7 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
    `from:claude`, or `from:auto`.
 2. Helps merge and verifier tooling distinguish agent-origin PRs from manual PRs.
 
-**Consumers:** `.github/scripts/merge_manager.js`,
-`.github/workflows/agents-verify-to-new-pr.yml`,
+**Consumers:** `.github/workflows/agents-verify-to-new-pr.yml`,
 `.github/workflows/agents-verify-to-issue-v2.yml`,
 `.github/workflows/reusable-agents-verifier.yml`.
 

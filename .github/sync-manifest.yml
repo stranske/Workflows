@@ -177,6 +177,20 @@ workflows:
 
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:
+  - target: .github/scripts/checkout_source.js
+    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+  - target: .github/scripts/agent_stall_rotation.js
+    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+  - target: .github/scripts/keepalive_worker_gate.js
+    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+  - target: .github/scripts/keepalive_prompt_composer.js
+    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+  - target: .github/scripts/error_diagnostics.js
+    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+  - target: .github/scripts/merge_manager.js
+    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+  - target: .github/scripts/agents_belt_scan.js
+    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/workflows/agents-autofix-dispatcher.yml
     description: "Remove the retired autofix dispatch bridge; Gate no longer sends autofix_gate_failure, and agents-81 starts Gate-driven repair from workflow_run"
   - target: .github/workflows/agents-decompose.yml
@@ -401,9 +415,6 @@ scripts:
   - source: .github/scripts/gate-docs-only.js
     description: "Gate check for docs-only changes to skip full CI"
 
-  - source: .github/scripts/checkout_source.js
-    description: "Source checkout utilities for CI workflows"
-
   - source: .github/scripts/package.json
     description: "Node package manifest for .github scripts (vendored minimatch)"
     skip_repos:
@@ -427,9 +438,6 @@ scripts:
 
   - source: .github/scripts/agent_delegation_policy.js
     description: "Agent delegation policy - system-driven routing for agent:auto label"
-
-  - source: .github/scripts/agent_stall_rotation.js
-    description: "Auto-pilot stall rotation - registry-driven bounded belt-agent rotation before needs-human"
 
   - source: .github/scripts/node_modules/minimatch/
     is_directory: true
@@ -528,18 +536,12 @@ scripts:
   - source: .github/scripts/keepalive_gate.js
     description: "Gate evaluation logic for keepalive workflow"
 
-  - source: .github/scripts/keepalive_worker_gate.js
-    description: "Worker gate logic for keepalive workflow"
-
   - source: .github/scripts/keepalive_orchestrator_gate_runner.js
     source_tree: template
     description: "Orchestrator gate runner for keepalive"
 
   - source: .github/scripts/keepalive_post_work.js
     description: "Post-work handling for keepalive rounds"
-
-  - source: .github/scripts/keepalive_prompt_composer.js
-    description: "Composes prompts for keepalive Codex calls"
 
   - source: .github/scripts/capability_bundle.js
     description: "Validates and selects capability-bundle/v1 fragments for keepalive prompts and metrics"
@@ -568,17 +570,11 @@ scripts:
   - source: .github/scripts/error_classifier.js
     description: "Classifies CI errors for agent handling"
 
-  - source: .github/scripts/error_diagnostics.js
-    description: "Diagnostic utilities for error analysis"
-
   - source: .github/scripts/failure_comment_formatter.js
     description: "Formats failure comments for PR status updates"
 
   - source: .github/scripts/conflict_detector.js
     description: "Conflict detector - identifies merge conflicts for targeted resolution"
-
-  - source: .github/scripts/merge_manager.js
-    description: "Manages PR merge operations"
 
   - source: .github/scripts/runtime_ac_merge_guard.js
     description: "Blocks external merge lanes for PRs that require local Orchestrator runtime acceptance checks"
@@ -685,9 +681,6 @@ scripts:
   - source: .github/scripts/agents_dispatch_summary.js
     source_tree: template
     description: "Summarizes agent dispatch operations"
-
-  - source: .github/scripts/agents_belt_scan.js
-    description: "Scans agent belt for available tools"
 
   # Agent helper scripts and copy-delivered LangChain workflow support
   #
