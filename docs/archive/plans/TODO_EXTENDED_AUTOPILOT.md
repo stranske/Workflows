@@ -1,3 +1,5 @@
+> **Archived 2026-11-28.** The Auto-Pilot workflow this plan extended was retired in #5379; kept as history.
+
 # TODO: Extended Auto-Pilot Implementation
 
 **Status**: Planned, not yet started

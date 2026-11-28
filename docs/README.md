@@ -39,7 +39,7 @@ This folder contains the source-of-truth documentation for this repository.
 
 ### Workflow Documentation
 
-Each workflow should have its own file in `workflows/` using the template from `templates/WORKFLOW_TEMPLATE.md`:
+Each workflow should have its own file under `docs/workflows/`, using the template at `docs/templates/WORKFLOW_TEMPLATE.md`:
 
 - Clear description of purpose
 - Complete input/output documentation

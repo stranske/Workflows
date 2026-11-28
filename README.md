@@ -95,41 +95,29 @@ is sufficient after the quiet period, and a bounded timeout keeps an unavailable
 from making delivery immortal. Explicit review-skip, not-reviewed, and capacity statuses
 do not count as the one response.
 
-## Auto-Pilot Pipeline
+## Agent Pipeline
 
-The `agents:auto-pilot` label triggers a fully automated issue-to-merge pipeline.
-This is the primary automation system for both the Workflows repo and all consumer repos.
+Auto-Pilot, the former single-label pipeline, was retired in #5379. Work now moves through
+separate, event-driven pieces, and the three local lanes drive it (see
+[`docs/ops/LOCAL_LANES.md`](docs/ops/LOCAL_LANES.md)):
 
 ```
-Issue created ──▶ Format ──▶ Optimize ──▶ Apply ──▶ Capability Check
-                                                         │
-                                                         ▼
-                          ◀── Verify ◀── Merge ◀── Keepalive ◀── Create PR
-                          │
-                    ┌─────┴──────┐
-                    │ PASS       │ CONCERNS/FAIL
-                    ▼            ▼
-                  Done     Label-triggered follow-up
+Issue filed ──▶ Format guard / optimizer ──▶ Opener lane starts an agent ──▶ Agent PR
+                (agents:format, agents:optimize)   (hosted keepalive or local)     │
+                                                                                   ▼
+        Follow-up issue ◀── CONCERNS/FAIL ◀── Verify ◀── Merge ◀── Keepalive + Gate
+                                                │ PASS
+                                                ▼
+                                          Closer lane closes the issue
 ```
 
-### Pipeline Stages
-
-| Stage | What Happens |
-|-------|-------------|
-| **Format** | `issue_formatter.py` + `task_decomposer.py` restructure the issue into Why / Scope / Tasks / Acceptance Criteria |
-| **Optimize** | `issue_optimizer.py` analyzes the repo codebase and adds file paths, patterns, and conflict warnings |
-| **Apply** | Enriches issue tasks with optimizer suggestions |
-| **Capability Check** | Validates issue suitability for automation; assigns the registry-backed `agent:<name>` label (default `agent:codex`, overridable via `runner:<name>`) |
-| **Create PR** | Creates a registry-prefixed issue branch (default `codex/issue-*`) with issue context in PR body |
-| **Keepalive** | Event-driven loop (Gate completion → task appendix → registry-backed agent dispatch → push → repeat) |
-| **Verify** | LLM-based evaluation of PR against acceptance criteria (PASS / CONCERNS / FAIL) |
-| **Follow-up** | On CONCERNS/FAIL, maintainers or automation apply `verify:create-issue` for an issue-only follow-up or `verify:create-new-pr` for a bootstrapped follow-up PR; the new-PR path enforces the chain-depth cap |
-
-### Self-Dispatch Mechanism
-
-Auto-pilot uses `workflow_dispatch` with a `force_step` input to chain stages sequentially.
-This eliminates label-trigger race conditions that plagued earlier designs.
-Each stage completes, then dispatches auto-pilot again with the next step name.
+| Stage | What happens | Owner |
+|-------|--------------|-------|
+| **Format / optimize** | `issue_formatter.py`, `task_decomposer.py` and `issue_optimizer.py` restructure the issue into Why / Scope / Tasks / Acceptance Criteria and add file paths. A body that does not validate gets `agents:auto-pilot-pause` (the format-guard hold; the name is kept from Auto-Pilot) until the opener lane rewrites it | `agents-issue-format-guard.yml`, `agents-issue-optimizer.yml` |
+| **Start** | The opener lane picks the agent and mode from the `agent:*` label and the registry, then starts hosted keepalive or a local delegate | opener lane |
+| **Keepalive** | Event-driven loop: Gate completion → task appendix → registry-backed agent dispatch → push → repeat | `agents-81-gate-followups.yml` (consumers), keepalive loop (this repo) |
+| **Merge, verify, close** | The closer lane merges green PRs, applies `verify:compare`, reads the verdict, files bounded follow-ups, and closes the issue | closer lane, `agents-verifier.yml` |
+| **Follow-up** | On CONCERNS/FAIL, `verify:create-issue` makes an issue-only follow-up and `verify:create-new-pr` a bootstrapped follow-up PR; the new-PR path enforces the chain-depth cap. Both label follow-ups through `verification_followup_labels.js` | `agents-verify-to-issue-v2.yml`, `agents-80-pr-event-hub.yml` |
 
 ### Key Design Decisions
 
@@ -140,7 +128,7 @@ Each stage completes, then dispatches auto-pilot again with the next step name.
 
 ### Verification Pipeline
 
-After PR merge, applying a `verify:*` label (typically `verify:evaluate` via auto-pilot, or `verify:compare` for dual-model mode) triggers the verifier. In `compare` mode, the configured LLM providers (gpt-6.1-sol + claude-sonnet-5-5) evaluate the diff against acceptance criteria. The default `evidence_profile=standard` aggregates the available result rows without requiring both configured provider slots to be present: a single completed judge can yield PASS. Reported FAIL/CONCERNS verdicts, unavailable/error results, and CI/evidence floors still withhold PASS. A standard PASS alone does not prove two judges ran. Explicit dispatch recovery with `evidence_profile=expanded` requires a complete, error-free boolean `used_llm=true` PASS from both provider slots. Expanded recovery is eligible only after a real verifier truncation report, as described in the [workflow guide](docs/WORKFLOW_GUIDE.md#how-to-trigger-verification). A PASS does not prove the reports contain no advisory concerns. Operators must inspect both provider results before claiming dual-model acceptance. On CONCERNS or FAIL, maintainers or automation can apply the `verify:create-new-pr` label to trigger a 4-round LLM pipeline that generates a follow-up issue (analyze -> tasks -> acceptance criteria -> format).
+After PR merge, applying a `verify:*` label (`verify:compare` for dual-model mode, which the closer lane applies to merged agent PRs, or `verify:evaluate`, which a person applies by hand) triggers the verifier. In `compare` mode, the configured LLM providers (gpt-6.1-sol + claude-sonnet-5-5) evaluate the diff against acceptance criteria. The default `evidence_profile=standard` aggregates the available result rows without requiring both configured provider slots to be present: a single completed judge can yield PASS. Reported FAIL/CONCERNS verdicts, unavailable/error results, and CI/evidence floors still withhold PASS. A standard PASS alone does not prove two judges ran. Explicit dispatch recovery with `evidence_profile=expanded` requires a complete, error-free boolean `used_llm=true` PASS from both provider slots. Expanded recovery is eligible only after a real verifier truncation report, as described in the [workflow guide](docs/WORKFLOW_GUIDE.md#how-to-trigger-verification). A PASS does not prove the reports contain no advisory concerns. Operators must inspect both provider results before claiming dual-model acceptance. On CONCERNS or FAIL, maintainers or automation can apply the `verify:create-new-pr` label to trigger a 4-round LLM pipeline that generates a follow-up issue (analyze -> tasks -> acceptance criteria -> format).
 
 **Live verifier and pipeline metrics** are surfaced through the weekly summary tracker — see [issue #2211](https://github.com/stranske/Workflows/issues/2211) (durable auto-bot tracker, posted Mondays at 06:00 UTC) and the [LangSmith dashboard issue #2415](https://github.com/stranske/Workflows/issues/2415), generated by [`maint-80-langsmith-metrics-dashboard.yml`](.github/workflows/maint-80-langsmith-metrics-dashboard.yml). The workflow publishes to the durable issue and retained artifacts rather than pushing generated files to `main`. The original Feb 2026 baseline (40-PR sample, first-fix 35%, avg chain depth 2.7) is preserved at [`docs/analysis/verify-compare-40pr-evaluation-feb-2026.md`](docs/analysis/verify-compare-40pr-evaluation-feb-2026.md) for historical comparison.
 
@@ -159,17 +147,38 @@ After PR merge, applying a `verify:*` label (typically `verify:evaluate` via aut
 
 - Gate: `pr-00-gate.yml` (single PR-required check)
 - Maintenance & health: `maint-*`, `health-*`
-- Agents: `agents-*` (auto-pilot, verifier, keepalive, issue-intake, pr-meta)
+- Agents: `agents-*` (verifier, keepalive, issue-intake, pr-meta, issue format guard and optimizer)
 - Model-profile canary: `agents-model-profile-trial.yml` dispatches exactly one
   pinned, read-only Astra/Sol/Terra/Luna arm and uploads quarantine-only identity
   telemetry. It cannot commit, push, comment, refresh auth, or score the arm.
 
 ### Composite Actions (.github/actions)
 
+Thirteen composite actions, each with an `action.yml`:
+
+- `agent-event-eligibility/` - Decide whether an agent workflow event warrants running before expensive setup
+- `agent-reference-packs/` - Validate and materialize reference packs for reusable agent runners
+- `agent-run-base/` - Shared setup for the reusable agent runner workflows (checkout, Node, API client, Workflows scripts)
+- `artifact-cache/` - Restore, discover, and cache workflow artifacts by run window
 - `autofix/` - Formatting and hygiene automation
-- `signature-verify/` - Signature/manifest verification helpers
-- `codex-bootstrap-lite/` - Lightweight bootstrap utilities for agent runs
+- `build-pr-comment/` - Assemble the autofix status comment from residual reports and trend artifacts
+- `codex-bootstrap-lite/` - Lightweight issue → branch → PR bootstrap for agent runs
+- `export-load-balancer-tokens/` - Export token rotation secrets for the token load balancer
+- `generated-delivery-seal/` - Enforce the stable sync-delivery seal from Workflows-owned code
+- `path-classifier/` - Classify changed PR paths into workflow relevance categories
+- `resolve-default-branch/` - Resolve a repository default branch with the shared retry helper
 - `setup-api-client/` - Token export and API client initialization
+- `signature-verify/` - Signature/manifest verification helpers
+
+Three more folders hold pinned CLI installs (`package.json` + lockfile, no `action.yml`):
+`maint78-codex-cli/`, `trial-codex-cli/`, `verifier-codex-cli/`.
+
+### Other Top-level Code Homes
+
+- `tools/` - shared importable Python modules (the LLM library, files delivered to consumers) plus research CLIs for the verifier and model evaluation
+- `src/` - four metrics modules used by `scripts/*metrics*`, and deliberately broken autofix samples (`src/trend_analysis/`) that the fleet path classifier names
+- `packages/` - versioned packages (`app-baseline-kit`, `stranske_pdf_extract`)
+- `evidence/` - records kept per issue (`evidence/issue-<number>/`), separate from `docs/evidence`
 
 ### Scripts
 

@@ -7,7 +7,6 @@
 AGENTS.md
 CHANGELOG.md
 CLAUDE.md
-Issues.txt
 LICENSE
 README.md
 pyproject.toml
@@ -15,4 +14,3 @@ release-please-config.json
 renovate.json
 requirements.lock
 requirements.txt
-workloop-state.md

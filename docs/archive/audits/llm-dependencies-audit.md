@@ -1,3 +1,5 @@
+> **Archived 2026-11-28.** This audit covers the retired `agents-auto-pilot.yml`; kept as history.
+
 # LLM Dependencies Audit
 
 Last audited: February 7, 2026

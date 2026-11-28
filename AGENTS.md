@@ -58,7 +58,7 @@ validate consumer integration, and preserve real production and security checks.
 
 ## Keepalive And Agent Surfaces
 
-- Keepalive, autofix, verifier, and auto-pilot are multi-agent surfaces. Do not hard-code provider-specific behavior where routing should come from registry/config.
+- Keepalive, autofix, and the verifier are multi-agent surfaces. Do not hard-code provider-specific behavior where routing should come from registry/config.
 - Read `docs/keepalive/Agents.md` before touching keepalive logic.
 - Read `docs/guides/ADD_NEW_AGENT.md` before adding or changing agent support.
 - The current consumer default entry points are `agents-issue-intake.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-verifier.yml`, `autofix.yml`, `ci.yml`, and `pr-00-gate.yml`.
