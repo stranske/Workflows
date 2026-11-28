@@ -443,12 +443,18 @@ def test_daily_report_runs_only_while_the_shadow_is_enabled():
     switch = "\n".join(step.get("run", "") for step in jobs["daily-switch"]["steps"])
     assert "config/verifier_shadow.json" in switch and '"enabled"' in switch
     assert jobs["report"]["needs"] == "daily-switch"
-    # the free collection and the ledger renewal run while the shadow is off ...
+    # the ledger renewal runs while the shadow is off ...
     assert "enabled" not in jobs["report"]["if"]
     steps = {step.get("name", step.get("uses", "")): step for step in jobs["report"]["steps"]}
     on = "needs.daily-switch.outputs.enabled == 'true'"
     for free in ("Fetch the previous ledger", "Collect shadow records and evaluate the criteria"):
         assert "if" not in steps[free]
+    # ... but cross-repo collection follows the switch (cohesion review B13)
+    collect = steps["Collect shadow records and evaluate the criteria"]
+    assert collect["env"]["SHADOW_ENABLED"] == "${{ needs.daily-switch.outputs.enabled }}"
+    assert 'if [ "$SHADOW_ENABLED" = "true" ]; then' in collect["run"]
+    assert 'repos=""' in collect["run"]
+    assert "0 comparison artifacts read" in collect["run"]
     upload = next(step for name, step in steps.items() if "upload-artifact" in name)
     assert upload["with"]["name"] == "verifier-shadow-ledger" and on not in upload["if"]
     # ... and only the paid judging, the adjudication and the issue follow the switch
@@ -469,3 +475,59 @@ def test_daily_report_runs_only_while_the_shadow_is_enabled():
     assert "gh issue close" in closing and "Trialling a new candidate" in closing
     # the corpus trial never waits on the daily switch
     assert "needs" not in jobs["corpus"]
+
+
+def _run_collect_step(tmp_path, enabled: str, ledger: list) -> tuple[str, list, list]:
+    """Run the workflow's real collect step with a fake gh that logs every call."""
+    import os
+    import subprocess
+
+    import yaml
+
+    wf = yaml.safe_load(
+        (ROOT / ".github/workflows/maint-89-verifier-shadow-report.yml").read_text()
+    )
+    step = next(
+        s
+        for s in wf["jobs"]["report"]["steps"]
+        if s.get("name") == "Collect shadow records and evaluate the criteria"
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    calls = tmp_path / "gh-calls.log"
+    (bin_dir / "gh").write_text(
+        f'#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "{calls}"\necho "[]"\n'
+    )
+    (bin_dir / "gh").chmod(0o755)
+    work = tmp_path / "work"
+    work.mkdir()
+    for name in ("tools", "scripts", "config", ".github"):
+        (work / name).symlink_to(ROOT / name, target_is_directory=True)
+    (work / "ledger.json").write_text(json.dumps(ledger))
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}:{os.environ['PATH']}",
+        "SHADOW_ENABLED": enabled,
+        "GITHUB_STEP_SUMMARY": str(tmp_path / "summary.md"),
+        "PYTHONPATH": str(work),
+    }
+    out = subprocess.run(
+        ["bash", "-c", step["run"]], cwd=work, env=env, capture_output=True, text=True
+    )
+    assert out.returncode == 0, out.stderr
+    gh_calls = calls.read_text().splitlines() if calls.exists() else []
+    return out.stdout, gh_calls, json.loads((work / "ledger.json").read_text())
+
+
+def test_shadow_off_reads_no_artifacts_and_keeps_the_ledger(tmp_path):
+    previous = [{"run_id": "1", "repository": "o/r", "evaluations": []}]
+    stdout, gh_calls, ledger = _run_collect_step(tmp_path, "false", previous)
+    assert gh_calls == []  # no cross-repo listing or download
+    assert "0 comparison artifacts read" in stdout
+    assert ledger == previous  # re-uploaded unchanged by the upload step
+
+
+def test_shadow_on_still_collects_across_repos(tmp_path):
+    stdout, gh_calls, _ = _run_collect_step(tmp_path, "true", [])
+    assert any("agents-verifier.yml/runs" in call for call in gh_calls), gh_calls
+    assert "comparison artifact(s) in the window" in stdout

@@ -94,9 +94,13 @@ jobs:
           echo "Closed report issue #$num." >> "$GITHUB_STEP_SUMMARY"
 
   report:
-    # Runs daily either way: collecting production records and renewing the ledger artifact cost no
-    # API calls, and skipping them would let the records and the 90-day ledger expire while off.
-    # Only the paid judging, the adjudication and the report issue follow the switch.
+    # Runs daily either way so the 90-day ledger artifact is renewed while the shadow is off.
+    # Cross-repo collection is NOT free: on 2026-11-27 it read 45 comparison artifacts from 17
+    # repos on the shared OWNER_PR_PAT REST quota, with no candidate judging to use them. So while
+    # the shadow is off the previous ledger is re-uploaded unchanged and collection is skipped
+    # (cohesion review B13); comparison records from the off period expire with their 7-day
+    # artifacts. Candidates are trialled on the labelled corpus instead.
+    # The paid judging, the adjudication and the report issue also follow the switch.
     needs: daily-switch
     if: ${{ !inputs.corpus }}
     runs-on: ubuntu-latest
@@ -140,9 +144,16 @@ jobs:
         env:
           # Cross-repo artifact read; github.token is scoped to this repository only.
           GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          SHADOW_ENABLED: ${{ needs.daily-switch.outputs.enabled }}
         run: |
           set -euo pipefail
-          repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
+          if [ "$SHADOW_ENABLED" = "true" ]; then
+            repos="stranske/Workflows,$(python scripts/list_registered_consumer_repos.py --separator ',')"
+          else
+            # Empty --repos: the tool reads no artifacts and rewrites the previous ledger as is.
+            repos=""
+            echo "Shadow off (enabled: false in config/verifier_shadow.json): cross-repo collection skipped, 0 comparison artifacts read; re-uploading the previous ledger."
+          fi
           python -m tools.verifier_shadow_report --ledger ledger.json --repos "$repos" \
             --markdown report.md --json report.json
           cat report.md >> "$GITHUB_STEP_SUMMARY"
