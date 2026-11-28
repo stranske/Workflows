@@ -12,7 +12,9 @@
 const TRACKER_TITLE = '[health] repository self-check failed';
 const TRACKER_LABEL = 'health:repo';
 
-const passthrough = (fn) => fn();
+// Callers pass the withRetry returned by createTokenAwareRetry
+// (github-api-with-retry.js), so every call below gets retries and token
+// rotation; the default only serves unit tests with a fake client.
 
 function labelNames(issue) {
   return (issue?.labels || []).map((label) => (typeof label === 'string' ? label : label?.name));
@@ -45,21 +47,21 @@ async function recordTrackerFailure({
   source,
   detail = '',
   runUrl = '',
-  withRetry = passthrough,
+  withRetry = (fn) => fn(github),
   title = TRACKER_TITLE,
   label = TRACKER_LABEL,
 }) {
   if (!source) throw new Error('source is required');
   // One page, filtered by the tracker label: the issue always carries it.
-  const listed = await withRetry(() =>
-    github.rest.issues.listForRepo({ owner, repo, labels: label, state: 'all', per_page: 100 })
+  const listed = await withRetry((client) =>
+    client.rest.issues.listForRepo({ owner, repo, labels: label, state: 'all', per_page: 100 })
   );
   const target = pickTracker(listed?.data || [], title);
   const body = failureComment({ source, detail, runUrl });
 
   if (!target) {
-    const created = await withRetry(() =>
-      github.rest.issues.create({ owner, repo, title, body, labels: [label] })
+    const created = await withRetry((client) =>
+      client.rest.issues.create({ owner, repo, title, body, labels: [label] })
     );
     return { action: 'created', number: created?.data?.number ?? null };
   }
@@ -68,8 +70,8 @@ async function recordTrackerFailure({
   if (target.state !== 'open') {
     const labels = new Set(labelNames(target).filter(Boolean));
     labels.add(label);
-    await withRetry(() =>
-      github.rest.issues.update({
+    await withRetry((client) =>
+      client.rest.issues.update({
         owner,
         repo,
         issue_number: target.number,
@@ -79,8 +81,8 @@ async function recordTrackerFailure({
     );
     action = 'reopened';
   }
-  await withRetry(() =>
-    github.rest.issues.createComment({ owner, repo, issue_number: target.number, body })
+  await withRetry((client) =>
+    client.rest.issues.createComment({ owner, repo, issue_number: target.number, body })
   );
   return { action, number: target.number };
 }

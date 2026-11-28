@@ -768,18 +768,27 @@ jobs:
               countOpenAlerts,
               renderMarkdown,
             } = require('./.github/scripts/zizmor_alert_snapshot.js');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            // env: {} pins the calls to the workflow token: only it carries the
+            // security-events: read permission this workflow declares.
+            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: {},
+              task: 'repo-health-zizmor-count',
+            });
             const { owner, repo } = context.repo;
-            const current = await countOpenAlerts({ github, owner, repo });
+            const current = await countOpenAlerts({ github, owner, repo, paginateWithRetry });
             let previousBody = '';
             let previousAt = '';
             try {
-              const { data } = await github.rest.issues.listForRepo({
+              const { data } = await withRetry((client) => client.rest.issues.listForRepo({
                 owner,
                 repo,
                 labels: 'health:repo',
                 state: 'open',
                 per_page: 100,
-              });
+              }));
               const prior = data.find((issue) => issue.title === '[health] repository self-check');
               previousBody = prior?.body || '';
               previousAt = prior?.updated_at || '';

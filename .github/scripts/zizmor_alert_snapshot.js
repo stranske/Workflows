@@ -14,7 +14,8 @@
 const COUNT_MARKER = 'Open zizmor alerts:';
 const COUNT_PATTERN = /Open zizmor alerts:\*?\s*`(\d+)`/;
 
-const passthrough = (fn) => fn();
+// Callers pass the paginateWithRetry returned by createTokenAwareRetry
+// (github-api-with-retry.js); the default only serves unit tests.
 
 function severityOf(alert) {
   return (
@@ -24,17 +25,21 @@ function severityOf(alert) {
   ).toLowerCase();
 }
 
-async function countOpenAlerts({ github, owner, repo, tool = 'zizmor', withRetry = passthrough }) {
+async function countOpenAlerts({
+  github,
+  owner,
+  repo,
+  tool = 'zizmor',
+  paginateWithRetry = (method, params) => github.paginate(method, params),
+}) {
   try {
-    const alerts = await withRetry(() =>
-      github.paginate(github.rest.codeScanning.listAlertsForRepo, {
-        owner,
-        repo,
-        state: 'open',
-        tool_name: tool,
-        per_page: 100,
-      })
-    );
+    const alerts = await paginateWithRetry(github.rest.codeScanning.listAlertsForRepo, {
+      owner,
+      repo,
+      state: 'open',
+      tool_name: tool,
+      per_page: 100,
+    });
     const bySeverity = {};
     for (const alert of alerts || []) {
       const severity = severityOf(alert);

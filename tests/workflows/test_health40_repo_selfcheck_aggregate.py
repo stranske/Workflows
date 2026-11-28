@@ -139,7 +139,9 @@ def test_selfcheck_snapshot_is_read_only() -> None:
     step = _workflow_step("Snapshot branch protection state")
     assert "--check" in step["run"]
     assert "--apply" not in step["run"]
-    names = {s.get("name") for s in yaml.safe_load(WORKFLOW.read_text())["jobs"]["repo-health"]["steps"]}
+    names = {
+        s.get("name") for s in yaml.safe_load(WORKFLOW.read_text())["jobs"]["repo-health"]["steps"]
+    }
     assert "Enforce branch protection policy" not in names
     assert "'enforce+verify'" not in WORKFLOW.read_text(encoding="utf-8")
 

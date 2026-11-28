@@ -503,7 +503,11 @@ def test_health41_failure_is_routed_to_the_self_check_tracker_once() -> None:
     assert "failure()" in report["if"]
     assert "needs.weekly-sweep.result == 'failure'" in report["if"]
     assert report["permissions"]["issues"] == "write"
-    scripts = [step["with"]["script"] for step in report["steps"] if "with" in step and "script" in step["with"]]
+    scripts = [
+        step["with"]["script"]
+        for step in report["steps"]
+        if "with" in step and "script" in step["with"]
+    ]
     assert len(scripts) == 1
     assert "recordTrackerFailure" in scripts[0]
     assert "Health 41 Repo Health" in scripts[0]

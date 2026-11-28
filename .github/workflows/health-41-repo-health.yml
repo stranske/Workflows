@@ -702,6 +702,9 @@ jobs:
         with:
           sparse-checkout: |
             .github/scripts/health_tracker_issue.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/error_classifier.js
+            .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
       - name: Update the self-check tracker issue
@@ -712,6 +715,14 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const { recordTrackerFailure } = require('./.github/scripts/health_tracker_issue.js');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-41-tracker-issue',
+              capabilities: ['issues:write'],
+            });
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const result = await recordTrackerFailure({
               github,
@@ -720,5 +731,6 @@ jobs:
               source: 'Health 41 Repo Health',
               detail: process.env.FAILURE_DETAIL || '',
               runUrl,
+              withRetry,
             });
             core.info(`Tracker issue #${result.number}: ${result.action}.`);
