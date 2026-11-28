@@ -42,16 +42,146 @@ function formatPrefixCounts(report, limit = 8) {
   return lines.length ? lines : ['- No path-prefix details were reported.'];
 }
 
-function followUpLines(report) {
-  const followUp = report && report.follow_up ? report.follow_up : {};
-  const lines = [];
-  if (followUp.all_repos_command) {
-    lines.push(`- All repos: \`${followUp.all_repos_command}\``);
+const DEFAULT_LEASE_HOURS = 36;
+const MAINT_68_RUNS_URL =
+  'https://github.com/stranske/Workflows/actions/workflows/maint-68-sync-consumer-repos.yml';
+
+function parseIssueMarker(body) {
+  const match = String(body || '').match(ISSUE_MARKER_RE);
+  if (!match) {
+    return null;
   }
-  if (followUp.targeted_repos_command) {
-    lines.push(`- Top repos first: \`${followUp.targeted_repos_command}\``);
+  try {
+    const payload = JSON.parse(match[0].slice(ISSUE_MARKER_PREFIX.length, -' -->'.length));
+    return payload && payload.schema === ISSUE_MARKER_SCHEMA ? payload : null;
+  } catch (error) {
+    return null;
   }
-  return lines.length ? lines : ['- Run Maint 68 Sync Consumer Repos from the Workflows repo.'];
+}
+
+function validTimestamp(value, nowMs) {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) && parsed <= nowMs ? parsed : null;
+}
+
+/**
+ * Split drift into what an open delivery PR already covers and what nothing covers.
+ *
+ * Maint 68 runs daily and on every template push, so uncovered drift younger than the
+ * coverage lease is still being delivered and needs nobody. Only uncovered drift older
+ * than the lease is blocking. Ages come from `uncovered_since`, carried forward in this
+ * issue's own marker; a new episode (new issue) starts every repo at "now".
+ * Returns `measured: false` when the report has no per-repo states, so "unmeasured" can
+ * never read as "zero uncovered".
+ */
+function coverageLedger(report, options = {}) {
+  const remediation = report && report.sync_remediation ? report.sync_remediation : {};
+  const leaseHours = Number(remediation.coverage_lease_hours) > 0
+    ? Number(remediation.coverage_lease_hours)
+    : DEFAULT_LEASE_HOURS;
+  const nowMs = options.now ? Date.parse(options.now) : Date.now();
+  const repoStates = remediation.repo_states;
+  const globalErrors = Array.isArray(remediation.global_errors) ? remediation.global_errors : [];
+  const unmeasured = (reason) => ({
+    measured: false, reason, leaseHours, covered: [], uncovered: [], blocking: [], draining: [], uncoveredSince: {},
+  });
+  if (!repoStates || typeof repoStates !== 'object' || Array.isArray(repoStates)) {
+    return unmeasured('the drift report has no per-repo remediation states');
+  }
+  // A comparison that failed globally (for example an empty consumer roster) compared
+  // nothing; its empty or blocked states must not read as a drained fleet.
+  if (globalErrors.length > 0) {
+    return unmeasured(`the comparison failed: ${globalErrors.slice(0, 3).join('; ')}`);
+  }
+  if (Object.keys(repoStates).length === 0) {
+    return unmeasured('the drift report compared no repositories');
+  }
+  const previous = options.previousMarker && options.previousMarker.coverage
+    ? options.previousMarker.coverage.uncovered_since || {}
+    : {};
+  const covered = [];
+  const uncovered = [];
+  const uncoveredSince = {};
+  for (const repo of Object.keys(repoStates).sort()) {
+    const entry = repoStates[repo] || {};
+    const state = String(entry.state || 'unknown');
+    if (state === 'converged') {
+      continue;
+    }
+    if (state === 'covered') {
+      covered.push({ repo, pr: entry.pr || null });
+      continue;
+    }
+    const sinceMs = validTimestamp(previous[repo], nowMs) ?? nowMs;
+    const since = new Date(sinceMs).toISOString();
+    uncoveredSince[repo] = since;
+    const ageHours = (nowMs - sinceMs) / 3600000;
+    // A stale PR has already outlived its own lease without moving: blocking at once.
+    const blocking = state === 'stale' || ageHours >= leaseHours;
+    uncovered.push({
+      repo,
+      state,
+      reason: String(entry.reason || ''),
+      pr: entry.pr || null,
+      since,
+      ageHours,
+      blocking,
+    });
+  }
+  return {
+    measured: true,
+    leaseHours,
+    covered,
+    uncovered,
+    blocking: uncovered.filter((item) => item.blocking),
+    draining: uncovered.filter((item) => !item.blocking),
+    uncoveredSince,
+  };
+}
+
+function coverageLine(ledger) {
+  if (!ledger.measured) {
+    return `**Coverage:** unmeasured (${ledger.reason})`;
+  }
+  return `**Coverage:** covered by an open delivery PR: ${ledger.covered.length}, ` +
+    `uncovered: ${ledger.uncovered.length} ` +
+    `(blocking, past the ${ledger.leaseHours}h lease: ${ledger.blocking.length}; ` +
+    `draining, within the lease: ${ledger.draining.length})`;
+}
+
+function blockingActionLine(item) {
+  const age = `${Math.floor(item.ageHours)}h`;
+  if (item.state === 'stale' && item.pr) {
+    const prLabel = item.pr.number ? `${item.repo}#${item.pr.number}` : item.repo;
+    return `- \`${prLabel}\`: the delivery PR has not moved for over the lease. ` +
+      'Read its checks and the Maint 71 / Maint 82 runs for it.';
+  }
+  if (item.state === 'blocked') {
+    return `- \`${item.repo}\`: comparison blocked for ${age} (${item.reason || 'unknown reason'}). ` +
+      'Read the latest Health 68 run log for this repo.';
+  }
+  return `- \`${item.repo}\`: drift with no delivery PR for the current plan for ${age}, ` +
+    `although Maint 68 runs daily. Read its latest run for this repo: ${MAINT_68_RUNS_URL}`;
+}
+
+function requiredActionLines(ledger) {
+  if (!ledger.measured) {
+    return [
+      `- Coverage could not be measured (${ledger.reason}). Read the \`consumer-sync-drift-report\` ` +
+        'artifact and the Health 68 run log; an unmeasured comparison is a defect, not a clean fleet.',
+    ];
+  }
+  if (ledger.blocking.length === 0) {
+    return ['- None. Uncovered drift younger than the lease is still being delivered by the daily Maint 68 run.'];
+  }
+  return ledger.blocking.map(blockingActionLine);
+}
+
+function formatUncovered(ledger, limit = 20) {
+  return ledger.uncovered.slice(0, limit).map((item) => {
+    const kind = item.blocking ? 'blocking' : 'draining';
+    return `- ${item.repo}: ${item.state}, uncovered since ${item.since} (${Math.floor(item.ageHours)}h, ${kind})`;
+  });
 }
 
 function formatOpenSyncPrs(report, limit = 10) {
@@ -76,7 +206,6 @@ function limitedArray(value, limit) {
 
 function compactMarkerPayload(report, options = {}) {
   const counts = report && report.counts ? report.counts : {};
-  const followUp = report && report.follow_up ? report.follow_up : {};
   return {
     schema: ISSUE_MARKER_SCHEMA,
     updated_at: options.updatedAt || new Date().toISOString(),
@@ -112,11 +241,20 @@ function compactMarkerPayload(report, options = {}) {
       open_prs: [],
       lookup_errors: [],
     },
-    follow_up: {
-      workflow: followUp.workflow || 'maint-68-sync-consumer-repos.yml',
-      all_repos_command: followUp.all_repos_command || '',
-      targeted_repos_command: followUp.targeted_repos_command || '',
-    },
+    coverage: (() => {
+      const ledger = options.ledger || coverageLedger(report, options);
+      // Unmeasured is null, never 0: only a measured zero is good news.
+      const count = (items) => (ledger.measured ? items.length : null);
+      return {
+        measured: ledger.measured,
+        lease_hours: ledger.leaseHours,
+        covered: count(ledger.covered),
+        uncovered: count(ledger.uncovered),
+        blocking: count(ledger.blocking),
+        draining: count(ledger.draining),
+        uncovered_since: ledger.uncoveredSince,
+      };
+    })(),
   };
 }
 
@@ -132,6 +270,9 @@ function formatIssueBody(report, options = {}) {
 
   const remediation = report && report.sync_remediation ? report.sync_remediation : {};
   const isCovered = report && report.status === 'covered';
+  const ledger = coverageLedger(report, options);
+  const markerOptions = { ...options, ledger };
+  const uncoveredLines = formatUncovered(ledger);
   const lines = [
     '## Consumer Repo Drift Detected',
     '',
@@ -143,6 +284,7 @@ function formatIssueBody(report, options = {}) {
     '',
     `**Check Details:** ${runLink}`,
     `**Counts:** ${countsLine(report)}`,
+    coverageLine(ledger),
     '',
     '### Highest-impact repos',
     ...formatRepoGaps(report),
@@ -151,11 +293,15 @@ function formatIssueBody(report, options = {}) {
     ...formatPrefixCounts(report),
     '',
     '### Required Actions',
-    ...followUpLines(report),
-    '- Review `consumer-sync-drift-report` for exact file paths.',
-    '- Health 68 closes this issue automatically after a clean comparison.',
+    ...requiredActionLines(ledger),
+    '',
+    '- Exact file paths are in the `consumer-sync-drift-report` artifact.',
+    '- Health 68 closes this issue automatically after a clean or fully covered comparison.',
     '',
   ];
+  if (uncoveredLines.length > 0) {
+    lines.splice(lines.indexOf('### Required Actions'), 0, '### Uncovered repos', ...uncoveredLines, '');
+  }
   if (remediation.expected_branch) {
     lines.splice(lines.indexOf('### Required Actions'), 0,
       '### Remediation state',
@@ -175,7 +321,7 @@ function formatIssueBody(report, options = {}) {
     `- Files marked with \`sync_mode: create_only\` are excluded from drift classification; ${report && report.counts ? report.counts.unmeasured_create_only || 0 : 0} positions are not measured (${unmeasuredCreateOnlyTargets(report).join(', ') || 'no affected targets'}).`,
     '- Workflows-Integration-Tests is validated separately by Health 67.',
     '',
-    formatIssueMarker(report, options),
+    formatIssueMarker(report, markerOptions),
   );
   return lines.join('\n');
 }
@@ -197,6 +343,11 @@ function formatIssueComment(report, options = {}) {
   if (report && report.status === 'covered') {
     return '';
   }
+  const ledger = coverageLedger(report, options);
+  if (ledger.measured && ledger.blocking.length === 0) {
+    // Nothing needs a person; the refreshed body already carries the counts.
+    return '';
+  }
   const runUrl = options.runUrl || '';
   const runNumber = options.runNumber || '';
   const runLink = runUrl && runNumber ? `[run #${runNumber}](${runUrl})` : runUrl || 'latest run';
@@ -210,8 +361,10 @@ function formatIssueComment(report, options = {}) {
     'Highest-impact repos:',
     ...formatRepoGaps(report, 5),
     '',
-    'Follow-up:',
-    ...followUpLines(report),
+    coverageLine(ledger).replace(/\*\*/g, ''),
+    '',
+    'Required actions:',
+    ...requiredActionLines(ledger),
   ];
   if (openSyncPrs.length > 0) {
     lines.push('', 'Open sync PRs:', ...openSyncPrs);
@@ -221,6 +374,9 @@ function formatIssueComment(report, options = {}) {
 
 module.exports = {
   countsLine,
+  coverageLedger,
+  coverageLine,
+  parseIssueMarker,
   compactMarkerPayload,
   formatOpenSyncPrs,
   formatIssueBody,
