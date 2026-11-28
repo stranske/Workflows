@@ -1,6 +1,6 @@
 # Compatibility Policy
 
-This repository follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for all reusable workflows, composite actions, and helper scripts. The policy below explains what constitutes a breaking change, how long versions are supported, and how consumers are notified about upcoming changes.
+The [integration guide](INTEGRATION_GUIDE.md#versioning-strategy) defines supported consumer pins. The [earlier version-support proposal](https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/COMPATIBILITY.md) is historical.
 
 ## What is a breaking change?
 
@@ -14,37 +14,30 @@ Breaking changes are any change that can alter a consumer’s behavior without t
 
 ## Version support window
 
-We support at least two major versions at any given time:
-
-- **Current major (v1.x)** – Actively maintained with fixes and backward-compatible enhancements. First-party consumer templates currently track this line via `@main`.
-- **Previous major** – Remains supported for a minimum of 12 months after a new major is released. Only critical fixes and security updates are provided.
-- **Older majors** – Enter end-of-life (EOL) after the 12-month overlap window.
+`@main` is the single supported consumer pin for reusable workflows. A commit
+SHA can be used for a one-off reproducible build or a controlled rollout, but
+standard helper checkouts still default to `main`. The floating `@v1` tag is
+not a supported consumer pin. See the [versioning strategy](INTEGRATION_GUIDE.md#versioning-strategy)
+for the exact scope and tradeoffs.
 
 ### Compatibility matrix
 
-| Major version | Status | Support level | Notes |
-| --- | --- | --- | --- |
-| v2 (future) | Planned | Pre-release planning only | Breaking changes land here after deprecation periods end. |
-| v1 (current) | Active | Full support | Receives all fixes and backward-compatible enhancements. |
-| v0 (legacy) | EOL | No updates | Superseded by v1. Upgrade required. |
+The integration guide is the current matrix for supported pins; it does not
+promise a parallel supported previous major or a fixed overlap period.
 
 ## Deprecation and removal timeline
 
-1. **Mark and warn** – Deprecated inputs, outputs, or behaviors gain a clear “deprecated” label in documentation and emit workflow warnings when used.
-2. **Document the window** – The removal target is documented in the changelog and here (typically deprecated in v1.x, removed no earlier than v2.0.0).
-3. **Removal** – The deprecated surface is removed in the next major release after the published deprecation window elapses.
+Consult the current integration guidance and the specific change's documentation
+for migration and deprecation details. A release number alone does not establish
+a promised removal window.
 
 ## Notification channels
 
-Consumers are notified of breaking changes and deprecations via:
-
-- **CHANGELOG.md** – Every release notes section calls out breaking changes with a `BREAKING` marker.
-- **Release notes** – GitHub releases summarize new features, deprecations, and removals.
-- **Repository Discussions/Announcements** – Used for major-impact changes or migration guides.
-- **Workflow warnings** – Deprecated inputs emit warnings directly in workflow logs to surface changes during CI runs.
+Review the change documentation, release notes and relevant workflow warnings
+when assessing a migration.
 
 ## Recommended consumption strategy
 
 - Use `@main` when you want the current first-party consumer behavior.
 - Pin to a specific commit SHA when you need reproducibility; monitor changelog warnings before upgrading.
-- Start migration while a deprecated feature still emits warnings to avoid surprises when the next major release arrives.
+- Follow the specific change documentation and verify consumer compatibility before migrating.

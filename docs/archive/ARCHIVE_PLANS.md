@@ -219,7 +219,7 @@ The former paths under `docs/keepalive/` were retired. The Gap Assessment and Sy
 
 | Path | Reason |
 |------|--------|
-| Other files under `docs/plans/` | Independent rollout or upgrade plans still referenced by operators |
+| Remaining substantive files under `docs/plans/` | Independent design or rollout context; selected historical plans are now short entry points to their pinned originals. |
 
 ## Archived 2026-11-28 (Auto-Pilot retired in #5379)
 
