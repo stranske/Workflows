@@ -44,9 +44,15 @@ def test_langchain_helper_modules_are_importable() -> None:
         importlib.import_module(module_name)
 
 
-def test_synced_consumer_tree_imports_langchain_helpers(tmp_path: Path) -> None:
+def _synced_consumer_tree(tmp_path: Path) -> Path:
+    """Template scaffold plus every root-owned manifest source, as a sync delivers it.
+
+    templates/consumer-repo carries no tools/ and no langchain copy (cohesion C1): consumers and
+    stranske/Template receive those files from the root through the manifest.
+    """
     consumer = tmp_path / "consumer"
     shutil.copytree(TEMPLATE, consumer)
+    assert not (consumer / "scripts" / "langchain").exists() and not (consumer / "tools").exists()
 
     for source in _manifest_sources():
         source_path = ROOT / source
@@ -55,6 +61,11 @@ def test_synced_consumer_tree_imports_langchain_helpers(tmp_path: Path) -> None:
         destination = consumer / source
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_path, destination)
+    return consumer
+
+
+def test_synced_consumer_tree_imports_langchain_helpers(tmp_path: Path) -> None:
+    consumer = _synced_consumer_tree(tmp_path)
 
     module_names = sorted(
         f"scripts.langchain.{path.stem}"
@@ -83,9 +94,8 @@ def test_synced_consumer_tree_imports_langchain_helpers(tmp_path: Path) -> None:
     )
 
 
-def test_raw_consumer_scaffold_handles_capability_text_blocks(tmp_path: Path) -> None:
-    consumer = tmp_path / "consumer"
-    shutil.copytree(TEMPLATE, consumer)
+def test_synced_consumer_tree_handles_capability_text_blocks(tmp_path: Path) -> None:
+    consumer = _synced_consumer_tree(tmp_path)
     script = dedent("""
         import sys
         from types import ModuleType, SimpleNamespace

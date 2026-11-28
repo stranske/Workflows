@@ -270,23 +270,19 @@ def test_validator_ignores_non_js_files(tmp_path):
     assert "✅ All template files in sync" in result.stdout
 
 
-def test_validator_checks_exact_template_sync_script_entries(tmp_path):
-    """Validator should check non-.github scripts marked for exact template sync."""
+@pytest.mark.parametrize("source", ["scripts/aggregate_agent_metrics.py", "tools/llm_registry.py"])
+def test_validator_rejects_exact_template_sync_for_root_only_code(tmp_path, source):
+    """scripts/ and tools/ are delivered from the root; an exact template copy is refused (C1)."""
     create_test_structure(tmp_path)
-    source = tmp_path / "scripts"
-    template = tmp_path / "templates" / "consumer-repo" / "scripts"
-    source.mkdir(parents=True, exist_ok=True)
-    template.mkdir(parents=True, exist_ok=True)
-
-    (source / "aggregate_agent_metrics.py").write_text("SOURCE = True\n", encoding="utf-8")
-    (template / "aggregate_agent_metrics.py").write_text("SOURCE = False\n", encoding="utf-8")
+    (tmp_path / source).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / source).write_text("SOURCE = True\n", encoding="utf-8")
     write_raw_manifest(
         tmp_path,
         "\n".join(
             [
                 "version: 1",
                 "scripts:",
-                "  - source: scripts/aggregate_agent_metrics.py",
+                f"  - source: {source}",
                 "    description: test",
                 "    template_sync: exact",
                 "",
@@ -302,33 +298,17 @@ def test_validator_checks_exact_template_sync_script_entries(tmp_path):
     )
 
     assert result.returncode == 1
-    assert "scripts/aggregate_agent_metrics.py" in result.stdout
-    assert "git add templates/consumer-repo/scripts/aggregate_agent_metrics.py" in result.stdout
+    assert f"{source}: template_sync exact is not allowed for root-only code" in result.stdout
 
 
-def test_validator_checks_exact_template_sync_tool_entries(tmp_path):
-    """Validator should detect drift in exact-synced consumer tools."""
+@pytest.mark.parametrize("shadow", ["scripts/langchain/pr_verifier.py", "tools/llm_registry.py"])
+def test_validator_rejects_undelivered_shadow_copies(tmp_path, shadow):
+    """Any file under templates/consumer-repo/{scripts,tools} is an undelivered shadow (C1)."""
     create_test_structure(tmp_path)
-    source = tmp_path / "tools"
-    template = tmp_path / "templates" / "consumer-repo" / "tools"
-    source.mkdir(parents=True, exist_ok=True)
-    template.mkdir(parents=True, exist_ok=True)
-
-    (source / "llm_registry.py").write_text("MODEL = 'reviewed'\n", encoding="utf-8")
-    (template / "llm_registry.py").write_text("MODEL = 'stale'\n", encoding="utf-8")
-    write_raw_manifest(
-        tmp_path,
-        "\n".join(
-            [
-                "version: 1",
-                "scripts:",
-                "  - source: tools/llm_registry.py",
-                "    description: test",
-                "    template_sync: exact",
-                "",
-            ]
-        ),
-    )
+    write_manifest(tmp_path, [])
+    copy = tmp_path / "templates" / "consumer-repo" / shadow
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    copy.write_text("STALE = True\n", encoding="utf-8")
 
     result = subprocess.run(
         [sys.executable, "scripts/validate_template_sync.py"],
@@ -338,8 +318,61 @@ def test_validator_checks_exact_template_sync_tool_entries(tmp_path):
     )
 
     assert result.returncode == 1
-    assert "tools/llm_registry.py" in result.stdout
-    assert "git add templates/consumer-repo/tools/llm_registry.py" in result.stdout
+    assert "Undelivered shadow copies" in result.stdout
+    assert f"• {shadow} (delete it" in result.stdout
+
+    copy.unlink()
+    clean = subprocess.run(
+        [sys.executable, "scripts/validate_template_sync.py"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert clean.returncode == 0, clean.stdout
+
+
+def test_repository_has_no_root_only_template_copies() -> None:
+    """The live tree: zero shadow copies, and no exact flag on root-only manifest entries."""
+    repo_root = Path(__file__).resolve().parents[2]
+    template_root = repo_root / "templates" / "consumer-repo"
+    assert vts._root_only_shadow_copies(template_root) == []
+    compiled = compile_manifest(repo_root / ".github" / "sync-manifest.yml", repo_root=repo_root)
+    assert vts._root_only_exact_entries(compiled) == []
+    exact = {
+        entry.source for entry in compiled.section("scripts") if entry.template_sync == "exact"
+    }
+    for source in vts.ROOT_ONLY_EXACT_EXCEPTIONS:
+        assert source in exact
+        assert (template_root / source).read_bytes() == (repo_root / source).read_bytes()
+
+
+def test_kept_exception_without_exact_flag_is_a_shadow(tmp_path):
+    """Dropping `exact` from the kept exception must not let its copy drift unchecked."""
+    create_test_structure(tmp_path)
+    source = "scripts/check_deliberate_break.py"
+    (tmp_path / source).write_text("ROOT = True\n", encoding="utf-8")
+    copy = tmp_path / "templates" / "consumer-repo" / source
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    copy.write_text("ROOT = True\n", encoding="utf-8")
+    manifest = ["version: 1", "scripts:", f"  - source: {source}", "    description: test"]
+    write_raw_manifest(tmp_path, "\n".join([*manifest, "    template_sync: exact", ""]))
+    ok = subprocess.run(
+        [sys.executable, "scripts/validate_template_sync.py"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert ok.returncode == 0, ok.stdout
+
+    write_raw_manifest(tmp_path, "\n".join([*manifest, ""]))
+    unchecked = subprocess.run(
+        [sys.executable, "scripts/validate_template_sync.py"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert unchecked.returncode == 1
+    assert f"• {source} (delete it" in unchecked.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -447,10 +480,10 @@ def test_manifest_template_sync_sources_requires_exact_flag_elsewhere(
     tmp_path: Path,
 ) -> None:
     """Sources outside .github/scripts/ need an explicit template_sync: exact."""
-    plain_dir = tmp_path / "scripts"
+    plain_dir = tmp_path / "config"
     plain_dir.mkdir(parents=True)
-    (plain_dir / "plain.py").write_text("x", encoding="utf-8")
-    (plain_dir / "exact.py").write_text("x", encoding="utf-8")
+    (plain_dir / "plain.json").write_text("x", encoding="utf-8")
+    (plain_dir / "exact.json").write_text("x", encoding="utf-8")
 
     write_raw_manifest(
         tmp_path,
@@ -458,9 +491,9 @@ def test_manifest_template_sync_sources_requires_exact_flag_elsewhere(
             [
                 "version: 1",
                 "scripts:",
-                "  - source: scripts/plain.py",
+                "  - source: config/plain.json",
                 "    description: not template-synced",
-                "  - source: scripts/exact.py",
+                "  - source: config/exact.json",
                 "    description: template-synced",
                 "    template_sync: exact",
                 "",
@@ -471,7 +504,7 @@ def test_manifest_template_sync_sources_requires_exact_flag_elsewhere(
     compiled = compile_manifest(tmp_path / ".github" / "sync-manifest.yml")
     sources = vts._manifest_template_sync_sources(compiled)
 
-    assert sources == ["scripts/exact.py"]
+    assert sources == ["config/exact.json"]
 
 
 def test_format_stage_paths_prefixes_template_root() -> None:

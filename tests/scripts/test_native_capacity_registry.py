@@ -272,11 +272,11 @@ def test_exact_registry_lookup_rejects_unsupported(provider, model, monkeypatch)
 
 def test_native_facts_and_helper_are_managed_with_exact_template_parity():
     manifest = (ROOT / ".github/sync-manifest.yml").read_text()
-    for name in (
-        "config/model_registry.json",
-        "tools/llm_registry.py",
-        "scripts/langchain/pr_verifier.py",
-    ):
+    for name in ("tools/llm_registry.py", "scripts/langchain/pr_verifier.py"):
+        # Delivered from the root; no template copy since cohesion C1.
+        assert f"- source: {name}" in manifest
+        assert not (ROOT / "templates/consumer-repo" / name).exists()
+    for name in ("config/model_registry.json",):
         assert f"- source: {name}" in manifest
         source_bytes = (ROOT / name).read_bytes()
         template_bytes = (ROOT / "templates/consumer-repo" / name).read_bytes()

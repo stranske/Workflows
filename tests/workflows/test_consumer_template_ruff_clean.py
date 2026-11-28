@@ -13,7 +13,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE = ROOT / "templates" / "consumer-repo" / "scripts" / "langchain" / "pr_verifier.py"
+# Consumers receive the root copy through the sync manifest (no template shadow since C1).
+TEMPLATE = ROOT / "scripts" / "langchain" / "pr_verifier.py"
 CONSUMER_SELECT = "E,F,I,N,W,UP,B,C4,SIM"
 
 

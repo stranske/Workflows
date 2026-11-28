@@ -10,7 +10,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = [
     "scripts/sync_test_dependencies.py",
-    "templates/consumer-repo/scripts/sync_test_dependencies.py",
 ]
 
 

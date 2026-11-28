@@ -30,8 +30,6 @@ SKIP_FILES = {
     ROOT / "docs" / "evidence" / "issue-4369" / "observe-maint68.js",
     ROOT / "docs" / "evidence" / "issue-4623" / "verify-observation.js",
     ROOT / "tools" / "verifier_proof_resource_plan.py",
-    ROOT / "templates" / "consumer-repo" / "tools" / "verifier_proof_resource_plan.py",
-    ROOT / "templates" / "consumer-repo" / "scripts" / "api_client.py",
     ROOT / "tools" / "enforce_gate_branch_protection.py",
     ROOT / ".github" / "workflows" / "maint-80-langsmith-metrics-dashboard.yml",
     # Health/diagnostic workflows that intentionally test raw API auth

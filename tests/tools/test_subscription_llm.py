@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.util
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,17 +12,9 @@ from tools import subscription_llm
 ROOT = Path(__file__).resolve().parents[2]
 
 
-@pytest.fixture(params=("source", "template"))
-def claude_client(request, monkeypatch, tmp_path):
+@pytest.fixture
+def claude_client(monkeypatch, tmp_path):
     transport = subscription_llm
-    if request.param == "template":
-        name = "subscription_llm_availability_template"
-        spec = importlib.util.spec_from_file_location(
-            name, ROOT / "templates/consumer-repo/tools/subscription_llm.py"
-        )
-        transport = importlib.util.module_from_spec(spec)
-        monkeypatch.setitem(sys.modules, name, transport)
-        spec.loader.exec_module(transport)
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)

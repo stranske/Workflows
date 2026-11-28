@@ -305,7 +305,6 @@ def test_manifest_change_requires_full_scope() -> None:
     [
         "scripts/sync_status_file_ignores.py",
         "templates/consumer-repo/.gitignore",
-        "templates/consumer-repo/scripts/sync_status_file_ignores.py",
     ],
 )
 def test_status_ignore_change_requires_full_scope(changed_path: str) -> None:

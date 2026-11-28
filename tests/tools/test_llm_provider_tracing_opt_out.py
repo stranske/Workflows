@@ -25,13 +25,13 @@ def test_setup_langsmith_preserves_explicit_tracing_opt_out() -> None:
         assert os.environ["LANGCHAIN_TRACING_V2"] == "false"
 
 
-def test_raw_consumer_template_preserves_explicit_tracing_opt_out(
+def test_delivered_provider_preserves_explicit_tracing_opt_out(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    source = Path(__file__).resolve().parents[2] / "templates/consumer-repo/tools/llm_provider.py"
+    source = Path(__file__).resolve().parents[2] / "tools/llm_provider.py"
     copied = tmp_path / "llm_provider.py"
     copyfile(source, copied)
-    spec = spec_from_file_location("_consumer_template_llm_provider", copied)
+    spec = spec_from_file_location("_delivered_llm_provider", copied)
     assert spec is not None and spec.loader is not None
     provider = module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, provider)

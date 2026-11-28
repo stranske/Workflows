@@ -33,6 +33,13 @@
 #       registered consumer; it cannot overlap skip_repos.
 #   - overwrite_repos: Optional list of repos that should ignore create_only and
 #       stay byte-aligned with the canonical template (for example stranske/Template).
+#   - template_sync: Optional `exact`; validate_template_sync.py then requires the copy under
+#       templates/consumer-repo/ to match the root source byte for byte. Root-owned `scripts/`
+#       and `tools/` sources have NO template copy (deleted 2026-11-28, cohesion C1): consumers
+#       and stranske/Template receive them from the root through this manifest, so never add
+#       a templates/consumer-repo/{scripts,tools} copy or mark such an entry `exact`. One named
+#       exception, scripts/check_deliberate_break.py, stays `exact` because the issue-3743
+#       evidence replays bind its template path; it retires with the records move (cohesion C3).
 
 version: 1
 
@@ -282,19 +289,14 @@ scripts:
   # Dev dependency sync script
   - source: scripts/sync_dev_dependencies.py
     description: "Syncs every marker-qualified dev-tool pin and safely regenerates transitive uv requirements locks with their recorded scope"
-    template_sync: exact
   - source: scripts/check_agents_md_freshness.py
     description: "Warns when the generated Orchestrator AGENTS.md playbook section cites stale repo paths or commands"
-    template_sync: exact
   - source: scripts/check_docs_drift.py
     description: "Detects workflow-inventory and repository-path documentation drift for the docs drift fix agent"
-    template_sync: exact
   - source: scripts/docs_drift_fix_agent.py
     description: "Builds bounded deterministic documentation-drift repair plans and idempotent issue batches"
-    template_sync: exact
   - source: scripts/sync_status_file_ignores.py
     description: "Validates and updates the managed consumer .gitignore status-file block, including legacy conflict cleanup"
-    template_sync: exact
   - source: .github/scripts/issue_format.py
     description: "Pure-stdlib validator for AGENT_ISSUE_FORMAT compliance. Single fleet definition of agent-processable; used by agents-issue-format-guard.yml and callable directly by local filers to pre-flight before gh issue create (non-zero exit = unfit). Do not fork per repo."
     template_sync: exact
@@ -303,7 +305,6 @@ scripts:
 
   - source: tools/requirements-llm.txt
     description: "Pinned LLM dependencies - exact-sync guarded for agent workflows"
-    template_sync: exact
 
   - source: tools/coverage_trend.py
     description: "Generates coverage trend summaries - required by reusable CI workflow"
@@ -316,7 +317,6 @@ scripts:
 
   - source: tools/ci_failure_triage.py
     description: "Classifies CI failure logs - required by pr-00-gate.yml summary generation"
-    template_sync: exact
 
   - source: tools/post_ci_summary.py
     description: "Builds consolidated Gate summary comments - required by pr-00-gate.yml"
@@ -332,7 +332,7 @@ scripts:
     description: "Changed-artifact belt ledger completion helpers imported by scripts/ledger_validate.py (duplicate_artifact_errors); delivered with it so the Gate ledger-validation job can import"
 
   - source: scripts/check_deliberate_break.py
-    template_sync: exact
+    template_sync: exact  # sole kept template copy: issue-3743 evidence replays bind it by path
     description: "Opt-in Gate helper that proves named deliberate-break acceptance tests fail against the base implementation"
 
   - source: scripts/reference_packs.py
@@ -347,7 +347,6 @@ scripts:
 
   - source: scripts/aggregate_agent_metrics.py
     description: "Aggregates downloaded weekly agent metrics - required by agents-weekly-metrics.yml"
-    template_sync: exact
 
   - source: scripts/coverage_history_append.py
     description: "Appends coverage data to history file - required by reusable CI workflow"
@@ -703,7 +702,6 @@ scripts:
   # (they live under `runtime_fetched:` below); see
   # tests/workflows/test_sync_manifest_delivery.py.
   - source: scripts/api_client.py
-    template_sync: exact
     description: "Shared GitHub API client used by synced Python automation scripts"
 
   # Issue optimization (Phase 1) - agents-issue-optimizer.yml
@@ -733,7 +731,6 @@ scripts:
   - source: scripts/langchain/response_content.py
     description: "Shared provider response text-block extraction"
     delivery: copy
-    template_sync: exact
 
   - source: scripts/langchain/_llm_client.py
     description: "Shared LangChain chat-client construction (get_llm_client/get_llm_clients)"
@@ -748,7 +745,6 @@ scripts:
   - source: scripts/langchain/checklist_utils.py
     description: "Shared checklist parsing helpers for issue and follow-up generation"
     delivery: copy
-    template_sync: exact
 
   - source: scripts/langchain/issue_formatter.py
     description: "Issue formatter - converts raw text to AGENT_ISSUE_TEMPLATE format"
@@ -756,7 +752,6 @@ scripts:
     # (format step: `python scripts/langchain/issue_formatter.py`), which does NOT
     # runtime-fetch scripts/langchain. Must stay copy-synced.
     delivery: copy
-    template_sync: exact
 
   - source: scripts/langchain/issue_pr_context.py
     description: "Issue/PR context assembly helper with shared token budget caps"
@@ -945,7 +940,6 @@ scripts:
 
   - source: tools/subscription_llm.py
     description: "Subscription CLI-only keepalive analysis transport; no API fallback"
-    template_sync: exact
 
   - source: tools/llm_provider.py
     description: "LLM provider configuration - GitHub Models and OpenAI client setup"
@@ -955,28 +949,22 @@ scripts:
 
   - source: tools/llm_registry.py
     description: "LLM model registry helper - shared selection/blocked-model enforcement plus exact optional native capacity facts; missing records raise the stable public NativeCapacityUnavailable exception (including naming-rule compatibility), malformed facts raise ValueError"
-    template_sync: exact
 
   # Raw UTF-8 and CRLF identities must match loaded semantic inputs without newline normalization.
   - source: tools/verifier_gzip_assets.py
     description: "Validate exact Git gzip evidence identities, bounded single-member UTF-8 views and complete review coverage"
-    template_sync: exact
 
   - source: tools/verifier_artifact_capture.py
     description: "Verify immutable raw artifact sidecars independently from bounded rendering"
-    template_sync: exact
 
   - source: tools/verifier_capture_obligation_manifest.py
     description: "Capture obligations and context-bound snapshots; optional typed unrenderable media is availability, required media and integrity failures remain blocking"
-    template_sync: exact
 
   - source: tools/verifier_semantic_acceptance.py
     description: "Reviewed semantic closure, proof joins and exact judge matrix admission"
-    template_sync: exact
 
   - source: tools/verifier_semantic_rules.py
     description: "Fixed source-owned reviewed byte-span rules, grouped shared joins and complete per-package prompts"
-    template_sync: exact
 
   - source: config/verifier_semantic_rules.json
     description: "Reviewed immutable semantic decomposition registry; unknown captures retain an all-input residual"
@@ -984,15 +972,12 @@ scripts:
 
   - source: tools/verifier_semantic_execution.py
     description: "Frozen all-cell native preflight and runner-owned semantic execution ledger"
-    template_sync: exact
 
   - source: tools/verifier_proof_resource_plan.py
     description: "Offline full-capture archive resource accounting; no semantic/native admission"
-    template_sync: exact
 
   - source: tools/embedding_provider.py
     description: "Embedding provider registry used by synced semantic matching helpers"
-    template_sync: exact
 
   - source: tools/check_model_registry_freshness.py
     description: "Model-registry freshness gate - validates dated decisions, evidence, lifecycle, and profile-based slots"

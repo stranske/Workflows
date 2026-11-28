@@ -27,22 +27,10 @@ def test_import_exceptions_map_to_package_names_in_repo_script():
     assert {"html", "http", "secrets"}.issubset(module.STDLIB_MODULES)
 
 
-def test_import_exceptions_map_to_package_names_in_consumer_template():
-    module = _load_module(
-        "sync_test_dependencies_consumer_template",
-        Path("templates/consumer-repo/scripts/sync_test_dependencies.py"),
-    )
-
-    assert module.MODULE_TO_PACKAGE["pptx"] == "python-pptx"
-    assert module.MODULE_TO_PACKAGE["docx"] == "python-docx"
-    assert module.MODULE_TO_PACKAGE["jwt"] == "PyJWT"
-
-
 @pytest.mark.parametrize(
     "script",
     [
         "scripts/sync_test_dependencies.py",
-        "templates/consumer-repo/scripts/sync_test_dependencies.py",
     ],
 )
 def test_python_docx_import_is_not_reported_as_undeclared(tmp_path, monkeypatch, script):
@@ -81,20 +69,10 @@ def test_stdlib_imports_from_sync_pr_logs_are_ignored_in_repo_script():
     assert {"email", "html", "http", "secrets"}.issubset(module.STDLIB_MODULES)
 
 
-def test_stdlib_imports_from_sync_pr_logs_are_ignored_in_consumer_template():
-    module = _load_module(
-        "sync_test_dependencies_consumer_template_stdlib",
-        Path("templates/consumer-repo/scripts/sync_test_dependencies.py"),
-    )
-
-    assert {"email", "html", "http", "secrets"}.issubset(module.STDLIB_MODULES)
-
-
-def test_base_project_modules_exclude_retired_trend_packages_in_source_and_template():
+def test_base_project_modules_exclude_retired_trend_packages_in_delivered_source():
     removed = {"trend_portfolio_app", "trend_model"}
     scripts = {
         "repo": Path("scripts/sync_test_dependencies.py"),
-        "consumer_template": Path("templates/consumer-repo/scripts/sync_test_dependencies.py"),
     }
 
     for name, path in scripts.items():

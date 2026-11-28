@@ -473,7 +473,7 @@ def test_pinned_interpreter_forms_normalize_and_bare_forms_stay():
 
 @pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
 @pytest.mark.parametrize("passes", [False, True], ids=["failed-gate", "passing-gate"])
-@pytest.mark.parametrize("surface", ["source", "consumer-template"])
+@pytest.mark.parametrize("surface", ["source"])
 @pytest.mark.parametrize("markup", ["inline", "fenced"])
 @pytest.mark.parametrize("companion", [False, True], ids=["single-gate", "passing-companion"])
 def test_normalized_gate_matches_authored_acceptance_checkbox(
@@ -566,7 +566,7 @@ def test_normalized_gate_matches_authored_acceptance_checkbox(
 
 @pytest.mark.parametrize("failure", ["timeout", "missing-executable"])
 @pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
-@pytest.mark.parametrize("surface", ["source", "consumer-template"])
+@pytest.mark.parametrize("surface", ["source"])
 def test_normalized_gate_execution_error_unchecks_authored_criterion(
     tmp_path, monkeypatch, failure, interpreter, surface
 ):
@@ -625,7 +625,7 @@ def test_normalized_gate_execution_error_unchecks_authored_criterion(
 
 @pytest.mark.parametrize("failure", ["venv", "install"])
 @pytest.mark.parametrize("interpreter", ["/opt/anaconda3/bin/python", "python3.11"])
-@pytest.mark.parametrize("surface", ["source", "consumer-template"])
+@pytest.mark.parametrize("surface", ["source"])
 def test_normalized_gate_preparation_failure_preserves_authored_command(
     tmp_path, monkeypatch, gate_venv_is_test_python, failure, interpreter, surface
 ):

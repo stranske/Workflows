@@ -35,8 +35,8 @@ Before starting, ensure you have:
 > you're adding workflow system to an existing repository.
 
 - [ ] Create the consumer repo from your chosen template source:
-  - [ ] Preferred: start from the consumer repo template under `stranske/Workflows/templates/consumer-repo/` (copied into a new repo)
-  - [ ] Alternative: use a dedicated template repo (for example [stranske/Template](https://github.com/stranske/Template)) if your org maintains one
+  - [ ] Preferred: use the GitHub template repo [stranske/Template](https://github.com/stranske/Template). The sync manifest keeps it current, including `scripts/` and `tools/` copied from the Workflows root
+  - [ ] Do not copy `stranske/Workflows/templates/consumer-repo/` on its own. It holds the workflow, docs and `.github/scripts` sources but no `scripts/` or `tools/`: those are delivered from the Workflows root by Maint 68 once the repo is registered
 - [ ] Create via GitHub CLI (the UI "Use this template" path still works too):
   ```bash
   gh repo create stranske/<your-repo> --public --template stranske/Template \

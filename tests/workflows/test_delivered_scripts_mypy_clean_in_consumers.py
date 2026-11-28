@@ -264,7 +264,6 @@ def test_delivered_ledger_scripts_type_check_in_a_consumer_layout(tmp_path):
     "source_path",
     [
         "tools/llm_registry.py",
-        "templates/consumer-repo/tools/llm_registry.py",
         pytest.param(
             "tests/fixtures/issue_4506/llm_registry.py.txt",
             id="trip-planner-1957-head-7ca6deb8",

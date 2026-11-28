@@ -38,6 +38,41 @@ def hash_directory(path: Path) -> str:
     return h.hexdigest()
 
 
+# Root-owned code homes that have no copy under templates/consumer-repo/ (cohesion C1,
+# 2026-11-28). The manifest delivers them to consumers straight from the root, so a template
+# copy is an undelivered shadow that silently drifts; 20 of 50 had drifted when deleted.
+ROOT_ONLY_PREFIXES = ("scripts/", "tools/")
+# The one kept copy: issue-3743 evidence replays (docs/evidence/issue-3743) bind this template
+# path, so it stays a byte-identical `template_sync: exact` copy until that record moves (C3).
+ROOT_ONLY_EXACT_EXCEPTIONS = frozenset({"scripts/check_deliberate_break.py"})
+
+
+def _root_only_shadow_copies(template_root: Path) -> list[Path]:
+    shadows: list[Path] = []
+    for prefix in ROOT_ONLY_PREFIXES:
+        folder = template_root / prefix.rstrip("/")
+        if folder.exists():
+            shadows.extend(
+                path.relative_to(template_root)
+                for path in sorted(folder.rglob("*"))
+                if (path.is_file() or path.is_symlink())
+                and path.relative_to(template_root).as_posix() not in ROOT_ONLY_EXACT_EXCEPTIONS
+            )
+    return shadows
+
+
+def _root_only_exact_entries(compiled: CompiledManifest) -> list[str]:
+    return sorted(
+        {
+            entry.source
+            for entry in compiled.section("scripts")
+            if entry.template_sync == "exact"
+            and entry.source.startswith(ROOT_ONLY_PREFIXES)
+            and entry.source not in ROOT_ONLY_EXACT_EXCEPTIONS
+        }
+    )
+
+
 def _manifest_template_sync_sources(compiled: CompiledManifest) -> list[str]:
     sources: list[str] = []
     for entry in compiled.section("scripts"):
@@ -60,6 +95,15 @@ def _compiled_template_sync_sources(repo_root: Path) -> list[str]:
     if not manifest_path.exists():
         raise FileNotFoundError(f"sync-manifest.yml not found: {manifest_path}")
     compiled = compile_manifest(manifest_path, repo_root=repo_root)
+    root_only_exact = _root_only_exact_entries(compiled)
+    if root_only_exact:
+        raise ManifestCompileError(
+            [
+                f"{source}: template_sync exact is not allowed for root-only code "
+                f"({', '.join(ROOT_ONLY_PREFIXES)}); consumers receive it from the root"
+                for source in root_only_exact
+            ]
+        )
     sources = _manifest_template_sync_sources(compiled)
     for source in sources:
         if any(character in source for character in ("\0", "\n", "\r")):
@@ -96,6 +140,19 @@ def main(*, print_sources: bool = False) -> int:
         manifest_sources = _compiled_template_sync_sources(repo_root)
     except (OSError, ManifestCompileError) as exc:
         print(f"❌ Manifest is invalid:\n{exc}")
+        return 1
+
+    shadows = _root_only_shadow_copies(template_root)
+    # A kept exception is only safe while the manifest keeps it byte-checked.
+    shadows.extend(
+        Path(source)
+        for source in sorted(ROOT_ONLY_EXACT_EXCEPTIONS)
+        if (template_root / source).exists() and source not in manifest_sources
+    )
+    if shadows:
+        print("❌ Undelivered shadow copies under templates/consumer-repo/:\n")
+        for path in shadows:
+            print(f"  • {path} (delete it; the root copy is the delivered source)")
         return 1
 
     mismatches = []

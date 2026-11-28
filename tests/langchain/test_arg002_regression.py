@@ -19,7 +19,6 @@ ROOT = Path(__file__).resolve().parents[2]
 ARG002_SOURCES = (
     "scripts/langchain/_llm_client.py",
     "scripts/langchain/pr_verifier.py",
-    "templates/consumer-repo/scripts/langchain/pr_verifier.py",
 )
 
 
@@ -35,10 +34,10 @@ def _ruff_arg002(path: Path) -> subprocess.CompletedProcess[str]:
 @pytest.mark.parametrize(
     "source_path",
     ARG002_SOURCES,
-    ids=["subscription-source", "verifier-source", "verifier-template"],
+    ids=["subscription-source", "verifier-source"],
 )
 def test_no_arg002_violations(source_path: str) -> None:
-    """Check shipped sources and the verifier template with the consumer's rule."""
+    """Check the shipped sources (consumers receive these root copies) with the consumer's rule."""
     result = _ruff_arg002(ROOT / source_path)
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -54,12 +53,8 @@ def test_no_arg002_violations(source_path: str) -> None:
             "scripts/langchain/pr_verifier.py",
             "def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:  # noqa: ARG002",
         ),
-        (
-            "templates/consumer-repo/scripts/langchain/pr_verifier.py",
-            "def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:  # noqa: ARG002",
-        ),
     ],
-    ids=["subscription-source", "verifier-source", "verifier-template"],
+    ids=["subscription-source", "verifier-source"],
 )
 def test_reintroducing_unused_config_fails_arg002(
     tmp_path: Path, source_path: str, restore_needle: str

@@ -38,7 +38,6 @@ FULL_SCOPE_ONLY_PATHS = frozenset(
     {
         "scripts/sync_status_file_ignores.py",
         "templates/consumer-repo/.gitignore",
-        "templates/consumer-repo/scripts/sync_status_file_ignores.py",
     }
 )
 

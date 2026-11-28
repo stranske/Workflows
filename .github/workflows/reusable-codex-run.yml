@@ -280,7 +280,6 @@ on:
     paths:
       - '.github/workflows/reusable-codex-run.yml'
       - 'tools/subscription_llm.py'
-      - 'templates/consumer-repo/tools/subscription_llm.py'
       - 'tests/workflows/test_subscription_llm_pinned_cli_canary.py'
 
 permissions:

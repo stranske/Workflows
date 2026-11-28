@@ -204,7 +204,7 @@ def test_langchain_workflows_and_canonical_requirements_share_delivery_plan() ->
         if entry.target == "tools/requirements-llm.txt"
     )
     assert requirements.source_tree == "root"
-    assert requirements.template_sync == "exact"
+    assert requirements.template_sync is None  # root-only since cohesion C1: no template copy
     assert requirements.delivery == "copy"
 
 
