@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Daily advisory CI budget, with durable observations and a seven-day drain.
+"""Daily advisory CI budget, with durable observations and a one-window drain.
 
 Durations are minutes. Each Gate run contributes its slowest executed job;
 short setup/summary jobs must not dilute the test matrix's bottleneck.
 Workflows also reports advisory wall-clock timing through the Gate summary.
+
+Filed issues ask an agent for the code change only; the multi-day series is
+this job's observation, never an acceptance criterion. After a fix closes an
+issue, refiling waits one series window so the trailing p50 holds only
+post-fix runs.
 Run with ``python -m scripts.ci_time_budget`` from the Workflows checkout.
 """
 
@@ -30,7 +35,16 @@ DOUBLING_DISTANCE = 0.25
 MAX_SHARE = 0.5
 TARGET_MINUTES = 10.0
 WALL_CLOCK_THRESHOLD_MINUTES = 10.0
-RECOVERY_DAYS = 7
+# ONE series window, defined once and consumed by every window this job applies:
+# the trailing Gate measurement, the consecutive healthy daily p50s that close an
+# issue, and the refile hold after a fix closes an issue. A shared name cannot
+# drift; a matching pair of literals can (latched-gate rule).
+SERIES_WINDOW_DAYS = 7
+# This job posts RECOVERY_CLOSE_TEXT before its recovery PATCH and, once the PATCH
+# succeeds, a RECOVERY_CLOSE_MARK comment naming the exact closed_at it produced.
+RECOVERY_CLOSE_TEXT = "Closing after confirmed recovery."
+RECOVERY_CLOSES_KEEP = 50  # recovery closes kept in the report row, newest last
+RECOVERY_CLOSE_MARK = re.compile(r"<!-- ci-time-budget:recovery-close closed_at=(\S+) -->")
 REPORT_PATH = Path("docs/reports/ci-budget.json")
 REPORT_BRANCH = "ci-time-budget"
 SOURCE_REPO = "stranske/Workflows"
@@ -188,7 +202,7 @@ def percentile(values: list[float], fraction: float) -> float:
 def measure(repo: str, *, api: GitHub, now: datetime) -> dict:
     if is_owner_excluded(repo):
         raise ValueError("Repository is excluded")
-    start = now - timedelta(days=7)
+    start = now - timedelta(days=SERIES_WINDOW_DAYS)
     samples: list[float] = []
     longest: dict = {}
     wall_clock: list[float] = []
@@ -232,7 +246,9 @@ def measure(repo: str, *, api: GitHub, now: datetime) -> dict:
                     attempt = run.get("run_attempt")
                     matched_reruns += int(type(attempt) is int and attempt > 1)
     if not samples:
-        raise RuntimeError("No completed executed Gate jobs in the trailing seven days")
+        raise RuntimeError(
+            f"No completed executed Gate jobs in the trailing {SERIES_WINDOW_DAYS} days"
+        )
     result: dict = {
         "p50": percentile(samples, 0.5),
         "p90": percentile(samples, 0.9),
@@ -263,10 +279,10 @@ def observation(
     history = {
         day: value
         for day, value in sorted(history.items())
-        if today - timedelta(days=RECOVERY_DAYS - 1) <= date.fromisoformat(day) <= today
+        if today - timedelta(days=SERIES_WINDOW_DAYS - 1) <= date.fromisoformat(day) <= today
     }
     healthy = 0
-    for offset in range(RECOVERY_DAYS):
+    for offset in range(SERIES_WINDOW_DAYS):
         p50 = history.get((today - timedelta(days=offset)).isoformat())
         if p50 is None or p50 > TARGET_MINUTES:
             break
@@ -282,7 +298,7 @@ def observation(
             "run_id": int(run_id),
             "run_attempt": int(os.environ.get("GITHUB_RUN_ATTEMPT", "1")),
             "measured_at": now.isoformat(),
-            "window_start": (now - timedelta(days=7)).isoformat(),
+            "window_start": (now - timedelta(days=SERIES_WINDOW_DAYS)).isoformat(),
             "source_run_url": f"https://github.com/{SOURCE_REPO}/actions/runs/{run_id}",
         }
     observations = {
@@ -301,7 +317,7 @@ def observation(
         "target": TARGET_MINUTES,
         "distance": distance,
         "share": share(distance) if distance is not None else None,
-        "drainable_in": RECOVERY_DAYS - healthy,
+        "drainable_in": SERIES_WINDOW_DAYS - healthy,
         "p50_series": history,
         "daily_observations": observations,
         "measured_at": now.isoformat(),
@@ -321,35 +337,62 @@ def observation(
     return row
 
 
-def issue_body(repo: str, row: dict) -> str:
+def issue_body(repo: str, row: dict, previous: dict | None = None) -> str:
+    """Acceptance criteria are the code slice only: checkable on the fix PR itself.
+
+    The multi-day series is Health 85's observation. It sits in its own section,
+    stated as context, because an agent PR can never produce it and the closer
+    judges every acceptance criterion at merge.
+    """
     job = row["longest_job"]
+    window = SERIES_WINDOW_DAYS
+    earlier = ""
+    if previous:
+        earlier = (
+            f"\nPrevious `ci-budget` issue: #{previous['number']}, closed "
+            f"{previous['closed_at']}. One {window}-day series window has passed since "
+            "then and the p50 is still over target.\n"
+        )
     return f"""## Why
 
-The trailing-seven-day Gate p50 is {row['p50']:.2f} min against a
+The trailing-{window}-day Gate p50 is {row['p50']:.2f} min against a
 {row['target']:g} min target. Longest observed job: [{job['name']}]({job['url']})
 ({job['minutes']:.2f} min), in `.github/workflows/pr-00-gate.yml`.
 Current share: {row['share']:.2%}; distance: {row['distance']:.3f};
 drainable_in: {row['drainable_in']} days.
-
+{earlier}
 ## Scope
 
 Reduce the measured `{job['name']}` bottleneck in {repo}'s Gate without weakening checks.
+The deliverable is the code change and its measured effect on this PR's own Gate run.
 
 ## Non-Goals
 
-Do not waive required checks or block merges on duration. Scaffold-only or partial
-completion does not count: a plan without a measured reduction is unfinished.
+Do not waive required checks or block merges on duration. Do not wait for, or
+report on, the multi-day Health 85 series: it is not part of this issue's
+acceptance. Scaffold-only or partial completion does not count: a plan without a
+code change to the named job is unfinished.
 
 ## Tasks
 
-- [ ] Inspect `{job['name']}` in `.github/workflows/pr-00-gate.yml` and its called workflow using the linked run; identify the duration bottleneck.
-- [ ] Implement a bounded change to that job or its invoked tests, preserving required validation.
-- [ ] Compare Gate durations before/after and attach run URLs and measurements.
+- [ ] Inspect the `{job['name']}` job in `.github/workflows/pr-00-gate.yml` and the workflow it calls, using the linked run; identify the duration bottleneck.
+- [ ] Change the `{job['name']}` job, its called workflow, or the tests it runs to remove that bottleneck, keeping every required check.
+- [ ] Record in the PR body the `{job['name']}` job duration from the PR head's Gate run (`gh run view <run-id> --json jobs`) next to the linked run's {job['minutes']:.2f} min, with both run URLs.
 
 ## Acceptance Criteria
 
-- [ ] `pr-00-gate.yml` passes with required checks preserved after the change.
-- [ ] Health 85 reports trailing-seven-day Gate p50 at or below {row['target']:g} min for seven consecutive daily measurements, then closes this issue with the dated p50 series.
+- [ ] The PR diff changes the `{job['name']}` job, its called workflow, or the tests it runs, and the PR body names the bottleneck the change removes.
+- [ ] `pr-00-gate.yml` passes on the PR head with the same required check names as the base branch, verified with `gh pr checks <pr-number>`.
+- [ ] The PR body lists the `{job['name']}` duration from the PR head's own Gate run, read with `gh run view <run-id> --json jobs`, next to the linked over-target run's {job['minutes']:.2f} min, with both run URLs.
+
+## Observation (Health 85 owns it; not an acceptance criterion)
+
+Whether the change holds is measured by Health 85 over a {window}-day series, not by
+this issue or its PR. Health 85 closes this issue itself after {window} consecutive
+daily p50s at or below {row['target']:g} min. If this issue is closed when the fix
+merges, Health 85 does not refile for one {window}-day series window after that
+close, so its trailing window holds only post-fix runs; after that it refiles only
+if the p50 is still over target, citing this issue.
 
 ## Implementation Notes
 
@@ -361,8 +404,76 @@ First over-target measurement: {row.get('first_over_target_at', 'unknown')}.
 """
 
 
+def is_recovery_close(api: GitHub, root: str, issue: dict, persisted: dict) -> bool:
+    """Was the issue's current close this job's recovery close?
+
+    After its recovery PATCH succeeds, the job records the exact `closed_at` that
+    PATCH produced twice: in the report row (`recovery_closes`, set before any
+    further write) and in a marked comment on the issue. Either record proves the
+    close; each covers the other's failure (a failed final publish, a failed
+    marker POST). Only a close with that `closed_at` matches: a fix close after a
+    reopen has a different `closed_at`, and a recovery comment whose PATCH failed
+    has no record at all.
+    """
+    closed = timestamp(issue["closed_at"])
+    recorded_at = persisted.get(str(issue["number"]))
+    try:
+        if recorded_at and timestamp(recorded_at) == closed:
+            return True
+    except ValueError:
+        pass
+    for comment in api.pages(f"{root}/issues/{issue['number']}/comments", since=issue["closed_at"]):
+        for recorded in RECOVERY_CLOSE_MARK.findall(comment.get("body") or ""):
+            try:
+                if timestamp(recorded) == closed:
+                    return True
+            except ValueError:
+                continue
+    return False
+
+
+def last_fixed_issue(api: GitHub, root: str, row: dict) -> dict | None:
+    """Newest `ci-budget` issue closed as completed, unless that close was this job's recovery.
+
+    The closer closes an issue when its fix PR merges, so `closed_at` is at or
+    after the merge: a hold anchored on it ends at or after merge + one window.
+    When the newest close is this job's recovery close, a full healthy window has
+    already been observed since any earlier fix, so nothing holds.
+    `not_planned`/`duplicate` closes had no fix.
+    """
+    closed = [
+        issue
+        for issue in api.pages(f"{root}/issues", state="closed", labels="ci-budget")
+        if "pull_request" not in issue
+        and issue.get("closed_at")
+        and issue.get("state_reason") not in {"not_planned", "duplicate"}
+    ]
+    newest = max(closed, key=lambda issue: timestamp(issue["closed_at"]), default=None)
+    if newest is None or is_recovery_close(api, root, newest, row.get("recovery_closes", {})):
+        return None
+    return newest
+
+
+def refile_hold(previous: dict | None, now: datetime) -> dict | None:
+    """Blocking quantity and clear time together; None when nothing holds."""
+    if previous is None:
+        return None
+    clears = timestamp(previous["closed_at"]) + timedelta(days=SERIES_WINDOW_DAYS)
+    remaining = (clears - now).total_seconds() / 86400
+    if remaining <= 0:
+        return None
+    return {
+        "previous_issue": previous["number"],
+        "fix_closed_at": previous["closed_at"],
+        "window_days": SERIES_WINDOW_DAYS,
+        "remaining_days": round(remaining, 2),
+        "clears_at": clears.isoformat(),
+    }
+
+
 def reconcile(api: GitHub, repo: str, row: dict) -> None:
     """Idempotent filing and recovery; an unknown measurement authorizes no mutation."""
+    row.pop("refile_hold", None)  # recomputed below; never shown from an earlier day
     if row["share"] is None:
         return
     root = f"/repos/{repo}"
@@ -372,6 +483,22 @@ def reconcile(api: GitHub, repo: str, row: dict) -> None:
         if "pull_request" not in issue
     ]
     if row["share"] > 0:
+        previous = None
+        if not issues:
+            previous = last_fixed_issue(api, root, row)
+            hold = refile_hold(previous, timestamp(row["measured_at"]))
+            if hold:
+                # The fix's series window has not elapsed: the trailing p50 still
+                # contains pre-fix runs. The same daily run that measures clears it.
+                row["refile_hold"] = hold
+                row["issue_numbers"] = []
+                print(
+                    f"{repo}: refile held: ci-budget #{hold['previous_issue']} closed "
+                    f"{hold['fix_closed_at']} (fix merged); series window "
+                    f"{hold['window_days']} d; hold {hold['remaining_days']:.2f} d; "
+                    f"clears_at={hold['clears_at']}; share={row['share']:.2%}"
+                )
+                return
         if not issues:
             for label, color in (("ci-budget", "1d76db"), ("priority:high", "b60205")):
                 if api.optional(f"{root}/labels/{quote(label, safe='')}") is None:
@@ -382,11 +509,16 @@ def reconcile(api: GitHub, repo: str, row: dict) -> None:
                     f"{root}/issues",
                     {
                         "title": f"perf(ci): reduce Gate p50 toward {row['target']:g} min",
-                        "body": issue_body(repo, row),
+                        "body": issue_body(repo, row, previous),
                         "labels": ["ci-budget", "priority:high"],
                     },
                 )
             ]
+            if previous:
+                print(
+                    f"{repo}: hold 0 d (series window after #{previous['number']} ended); "
+                    f"refiled #{issues[0]['number']}"
+                )
         filed = min(issue["created_at"] for issue in issues)
         row["issue_filed_at"] = filed
         first = row.get("first_over_target_at")
@@ -404,11 +536,25 @@ def reconcile(api: GitHub, repo: str, row: dict) -> None:
                 "POST",
                 f"{root}/issues/{issue['number']}/comments",
                 {
-                    "body": f"Seven consecutive under-target daily p50s: {series}.\n"
-                    "share=0, drainable_in=0. Closing after confirmed recovery."
+                    "body": f"{SERIES_WINDOW_DAYS} consecutive under-target daily p50s: "
+                    f"{series}.\n"
+                    f"share=0, drainable_in=0. {RECOVERY_CLOSE_TEXT}"
                 },
             )
-            api.request("PATCH", f"{root}/issues/{issue['number']}", {"state": "closed"})
+            closure = api.request("PATCH", f"{root}/issues/{issue['number']}", {"state": "closed"})
+            # Record the exact close this PATCH produced; only that close is ours.
+            closed_at = (closure or {}).get("closed_at")
+            if closed_at:
+                closes = {**row.get("recovery_closes", {}), str(issue["number"]): closed_at}
+                row["recovery_closes"] = dict(list(closes.items())[-RECOVERY_CLOSES_KEEP:])
+                api.request(
+                    "POST",
+                    f"{root}/issues/{issue['number']}/comments",
+                    {
+                        "body": f"Recovery close recorded: closed_at={closed_at}.\n"
+                        f"<!-- ci-time-budget:recovery-close closed_at={closed_at} -->"
+                    },
+                )
         row["issue_numbers"] = []
         row["drained_at"] = row["measured_at"]
         print(f"{repo}: share=0, issue closed; p50_series={series}")
@@ -513,7 +659,8 @@ def run(api: GitHub, repos: list[str], now: datetime) -> int:
             f"{repo}: p50={row['p50']} p90={row['p90']} target={row['target']} "
             f"distance={row['distance']} share={row['share']} drainable_in={row['drainable_in']} "
             f"filing_latency_hours={row.get('filing_latency_hours')} "
-            f"filed_under_24h={row.get('filed_under_24h')} issues={row.get('issue_numbers', [])}"
+            f"filed_under_24h={row.get('filed_under_24h')} issues={row.get('issue_numbers', [])} "
+            f"refile_hold_clears_at={(row.get('refile_hold') or {}).get('clears_at')}"
         )
         if timing := row.get("gate_wall_clock"):
             print(

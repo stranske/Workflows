@@ -509,6 +509,42 @@ and `first_over_target_at`, `issue_filed_at`, `filing_latency_hours`, and
 `filed_under_24h` make the campaign's under-24-hour filing criterion observable
 in both JSON and the job summary. Failure to file is an error, not success.
 
+The issue's acceptance criteria are the code slice only, checkable on the fix PR
+itself: a change to the named job, its called workflow or the tests it runs;
+`pr-00-gate.yml` passing on the PR head with the base branch's required check
+names (`gh pr checks`); and the job's duration from the PR head's own Gate run
+(`gh run view <run-id> --json jobs`) next to the linked over-target run. The
+multi-day series is Health 85's observation, stated in a separate
+`Observation (Health 85 owns it; not an acceptance criterion)` section with no
+checkbox. The closer judges every acceptance criterion at merge, and no agent PR
+can produce a seven-day series; before this split (owner decision 2026-11-28)
+the closer closed the issue at merge and the job refiled it the next morning
+(Workflows#4619 closed 2026-11-11 01:47, #4642 filed 11:49), or the closer filed
+a duplicate `[backlog]` observation (Ready#703 to Ready#711).
+
+Refile hold: when a repo is over target with no open `ci-budget` issue, the job
+reads the newest closed `ci-budget` issue that was closed as completed
+(`not_planned` and `duplicate` closes had no fix). If that close was the job's
+own recovery close, nothing holds. That is read from GitHub, not from the report:
+after its recovery PATCH succeeds, the job records the exact `closed_at` that
+PATCH produced in the report row (`recovery_closes`) and in a comment
+(`<!-- ci-time-budget:recovery-close closed_at=... -->`). Only a close with that
+`closed_at` is a recovery close, and either record proves it, so a failed final
+publish or a failed comment alone does not lose it. A fix close of a reopened
+issue has a different `closed_at`, and a recovery comment whose PATCH failed has
+no record, so both start a hold. If both records fail, the close is treated as a
+fix close: the refile waits at most one window, and the run fails visibly. If the close is a fix close less than one series
+window old, the job does not refile: the trailing p50 still holds pre-fix runs. The closer closes at merge, so `closed_at` is at or after the merge
+and the hold ends at or after merge plus one window. The report row carries
+`refile_hold` (`previous_issue`, `fix_closed_at`, `window_days`,
+`remaining_days`, `clears_at`) and the log prints
+`refile held: ci-budget #N closed <time> (fix merged); series window 7 d; hold
+<remaining> d; clears_at=<time>`. After the window, a repo still over target is
+refiled citing the previous issue, and the log prints
+`hold 0 d (series window after #N ended); refiled #M`. `SERIES_WINDOW_DAYS` is
+defined once in `scripts/ci_time_budget.py` and is the trailing measurement
+window, the consecutive healthy days that close an issue, and the refile hold.
+
 Latched-gate answers:
 
 - **What decrements?** Falling trailing-seven-day p50 sets `share=0`; each
@@ -520,6 +556,12 @@ Latched-gate answers:
   do not accelerate the drain; gaps, unknowns and renewed breaches reset it.
 - **Drained print?** `share=0, issue closed` in the log after confirmed closure and
   `share=0`, `drainable_in=0`, empty `issue_numbers` in the report.
+- **Refile hold: what clears it?** The same daily Health 85 run that measures
+  the p50, once `clears_at` (fix close plus `SERIES_WINDOW_DAYS`) has passed.
+  It clears while held, because holding forbids only filing, not measuring. The
+  hold and the trailing window are one constant. Held, it prints the remaining
+  days and `clears_at` together; cleared, it prints `hold 0 d ... refiled #M`,
+  or nothing is held because `share=0`.
 
 Missing/failed API evidence yields `status=unknown`, null metrics/share and no
 issue mutations; it never counts toward recovery. Other repos still proceed,
