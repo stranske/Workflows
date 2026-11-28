@@ -180,3 +180,14 @@ def test_routine_observability_retention_is_bounded() -> None:
         for step in _steps(name):
             if "actions/upload-artifact@" in step.get("uses", ""):
                 assert step["with"]["retention-days"] == 30, (name, step.get("name"))
+
+
+def test_discovery_errors_make_missing_rows_unknown_and_block_enforcement() -> None:
+    steps = _steps("maint-80-langsmith-metrics-dashboard.yml")
+    names = [step.get("name") for step in steps]
+    build = steps[names.index("Build fleet conformance report")]["run"]
+    assert "if [ -s .metrics-tmp/fleet/fleet_errors.log ]; then" in build
+    assert "LANGSMITH_FLEET_DISCOVERY_ERRORS=true" in build
+    assert "may be UNKNOWN" in build
+    enforce = steps[names.index("Enforce conformance")]["if"]
+    assert "env.LANGSMITH_FLEET_DISCOVERY_ERRORS != 'false'" in enforce

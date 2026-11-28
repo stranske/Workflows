@@ -344,6 +344,20 @@ jobs:
             .metrics-tmp/langsmith-fleet-conformance.json)"
           echo "LANGSMITH_FLEET_NON_VALID_COUNT=${non_valid_count}" >> "$GITHUB_ENV"
 
+          # The download above treats a failed lookup as "no artifact". A missing
+          # row is only proof of absence when discovery logged no errors; otherwise
+          # it is UNKNOWN, and enforcement refuses to pass on it.
+          if [ -s .metrics-tmp/fleet/fleet_errors.log ]; then
+            echo "LANGSMITH_FLEET_DISCOVERY_ERRORS=true" >> "$GITHUB_ENV"
+            echo "::warning title=LangSmith fleet discovery incomplete::artifact lookups logged errors; a missing row may be UNKNOWN (see fleet_errors.log)"
+            {
+              echo ""
+              echo "> Discovery logged errors (fleet_errors.log): a \`missing\` row above may be UNKNOWN, not absent."
+            } | tee -a .metrics-tmp/langsmith-fleet-conformance.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "LANGSMITH_FLEET_DISCOVERY_ERRORS=false" >> "$GITHUB_ENV"
+          fi
+
       - name: Upload conformance report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -579,8 +593,10 @@ jobs:
       - name: Enforce conformance
         if: >
           inputs.enforce_conformance == true &&
-          env.LANGSMITH_FLEET_NON_VALID_COUNT != '0'
+          (env.LANGSMITH_FLEET_NON_VALID_COUNT != '0' ||
+           env.LANGSMITH_FLEET_DISCOVERY_ERRORS != 'false')
         run: |
           echo "LangSmith fleet conformance found"
-          echo "${LANGSMITH_FLEET_NON_VALID_COUNT} non-valid row(s)."
+          echo "${LANGSMITH_FLEET_NON_VALID_COUNT:-unknown} non-valid row(s);"
+          echo "discovery errors: ${LANGSMITH_FLEET_DISCOVERY_ERRORS:-unknown}."
           exit 1
