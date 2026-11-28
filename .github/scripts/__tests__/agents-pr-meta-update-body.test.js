@@ -2376,7 +2376,9 @@ test('closing-keyword and branch sources retain closing intent across two body s
 });
 
 test('keepalive-gate-citation survives status refresh only for the current acceptance plan', async (t) => {
-  for (const [name, sync] of [['Workflows source', run], ['consumer template', templateRun]]) {
+  // Runs scripts/runner_lib/acceptance_gate.py beside the module; the consumer copy of this
+  // byte-identical module has no template copy of that script since cohesion C1.
+  for (const [name, sync] of [['Workflows source', run]]) {
     await t.test(name, () => assertGateCitationRefresh(sync));
   }
 });

@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / ".github" / "sync-manifest.yml"
 PR_VERIFIER = ROOT / "scripts" / "langchain" / "pr_verifier.py"
 API_CLIENT = ROOT / "scripts" / "api_client.py"
-TEMPLATE_API_CLIENT = ROOT / "templates" / "consumer-repo" / "scripts" / "api_client.py"
 
 
 def _manifest_sources() -> set[str]:
@@ -45,26 +44,15 @@ def test_pr_verifier_imports_api_client_from_synced_manifest() -> None:
     assert "scripts/api_client.py" in sources
 
 
-def test_pr_verifier_api_client_is_available_in_consumer_template() -> None:
-    assert TEMPLATE_API_CLIENT.exists()
-    template_bytes = TEMPLATE_API_CLIENT.read_bytes()
-    source_bytes = API_CLIENT.read_bytes()
-    digests_match = (
-        hashlib.sha256(template_bytes).hexdigest() == hashlib.sha256(source_bytes).hexdigest()
-    )
-    assert digests_match, "managed source and template SHA-256 digests differ"
-    assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(encoding="utf-8")
-
-
-def test_pr_verifier_source_and_consumer_template_are_identical() -> None:
-    template = ROOT / "templates/consumer-repo/scripts/langchain/pr_verifier.py"
-    # Compare digests first to avoid difflib assertion hangs on multi-thousand-line files (Workflows#4619).
-    digests_match = (
-        hashlib.sha256(template.read_bytes()).hexdigest()
-        == hashlib.sha256(PR_VERIFIER.read_bytes()).hexdigest()
-    )
-    assert digests_match, "managed source and template SHA-256 digests differ"
-    assert template.read_bytes() == PR_VERIFIER.read_bytes()
+def test_pr_verifier_and_api_client_are_delivered_from_the_root() -> None:
+    """Consumers receive both files from the root copy; no template shadow may exist (C1)."""
+    compiled = compile_manifest(MANIFEST, repo_root=ROOT)
+    entries = {entry.source: entry for entry in compiled.section("scripts")}
+    for source in ("scripts/langchain/pr_verifier.py", "scripts/api_client.py"):
+        assert entries[source].source_tree == "root"
+        assert entries[source].resolved_source == source
+        assert not (ROOT / "templates" / "consumer-repo" / source).exists()
+    assert API_CLIENT.is_file()
 
 
 @pytest.mark.parametrize("mode", ["full", "source-delta"])
@@ -102,16 +90,11 @@ def test_verifier_fix_remains_in_travel_plan_permission_generation(mode: str) ->
     assert source in evidence["matched_changed_paths"]
 
 
-def test_capture_obligation_dependency_is_managed_and_identical() -> None:
+def test_capture_obligation_dependency_is_managed_from_the_root() -> None:
     source = "tools/verifier_capture_obligation_manifest.py"
     assert source in _manifest_sources()
-    template_bytes = (ROOT / "templates/consumer-repo" / source).read_bytes()
-    source_bytes = (ROOT / source).read_bytes()
-    digests_match = (
-        hashlib.sha256(template_bytes).hexdigest() == hashlib.sha256(source_bytes).hexdigest()
-    )
-    assert digests_match, "managed source and template SHA-256 digests differ"
-    assert template_bytes == source_bytes
+    assert (ROOT / source).is_file()
+    assert not (ROOT / "templates/consumer-repo" / source).exists()
 
 
 def test_pr_verifier_copy_delivery_includes_doc_lineage() -> None:

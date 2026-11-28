@@ -106,9 +106,10 @@ Consumer repos must include these scripts for the reusable Python CI workflow:
    - `scripts/`
    - `tools/`
 
-2. **Copy reference scripts** from templates:
-   - `templates/consumer-repo/scripts/sync_test_dependencies.py` → `scripts/sync_test_dependencies.py`
-   - `templates/consumer-repo/tools/resolve_mypy_pin.py` → `tools/resolve_mypy_pin.py`
+2. **Get the reference scripts** from the Workflows root (Maint 68 delivers them to registered
+   repos; this folder keeps no `scripts/` or `tools/` copy):
+   - `scripts/sync_test_dependencies.py` → `scripts/sync_test_dependencies.py`
+   - `tools/resolve_mypy_pin.py` → `tools/resolve_mypy_pin.py`
 
 ### For Agent Workflows (Codex)
 Agent workflows require additional configuration files:

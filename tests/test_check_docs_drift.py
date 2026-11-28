@@ -22,7 +22,7 @@ from scripts.check_docs_drift import (  # noqa: E402
 
 
 def _load_consumer_checker():
-    consumer_path = ROOT / "templates/consumer-repo/scripts/check_docs_drift.py"
+    consumer_path = ROOT / "scripts/check_docs_drift.py"
     spec = importlib.util.spec_from_file_location("consumer_check_docs_drift", consumer_path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None

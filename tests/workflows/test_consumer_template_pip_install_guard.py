@@ -250,10 +250,7 @@ def test_backplane_editable_install_requires_real_project_metadata(
 
 
 def test_canonical_llm_requirements_include_faiss_runtime() -> None:
-    for path in (
-        REPO_ROOT / "tools" / "requirements-llm.txt",
-        REPO_ROOT / "templates" / "consumer-repo" / "tools" / "requirements-llm.txt",
-    ):
+    for path in (REPO_ROOT / "tools" / "requirements-llm.txt",):
         requirements = path.read_text(encoding="utf-8").splitlines()
         assert "faiss-cpu==1.16.0" in requirements
 

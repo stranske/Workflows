@@ -11,9 +11,6 @@ on:
       - 'scripts/validate_template_sync.py'
       - 'tools/requirements-llm.txt'
       - 'templates/consumer-repo/.github/scripts/**/*.js'
-      - 'templates/consumer-repo/scripts/aggregate_agent_metrics.py'
-      - 'templates/consumer-repo/scripts/langchain/checklist_utils.py'
-      - 'templates/consumer-repo/tools/requirements-llm.txt'
   push:
     branches: [main]
     paths:
@@ -25,9 +22,6 @@ on:
       - 'scripts/validate_template_sync.py'
       - 'tools/requirements-llm.txt'
       - 'templates/consumer-repo/.github/scripts/**/*.js'
-      - 'templates/consumer-repo/scripts/aggregate_agent_metrics.py'
-      - 'templates/consumer-repo/scripts/langchain/checklist_utils.py'
-      - 'templates/consumer-repo/tools/requirements-llm.txt'
 
 permissions:
   contents: write

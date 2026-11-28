@@ -722,7 +722,10 @@ test('deterministic gate failure unchecks only its acceptance criterion', () => 
   assert.match(rendered, /- \[x\] `ruff check .`/);
 });
 
-for (const surface of ['source', 'consumer-template']) {
+// The consumer copy of keepalive_loop.js is byte-identical (exact template sync) and resolves
+// scripts/runner_lib/acceptance_gate.py beside itself; consumers receive that script from the
+// root (no template copy since cohesion C1), so these gate-execution cases run on the source.
+for (const surface of ['source']) {
   const { renderDeterministicGates: render, acceptanceGatePlan: planFor } = surface === 'source'
     ? require('../keepalive_loop.js')
     : require('../../../templates/consumer-repo/.github/scripts/keepalive_loop.js');

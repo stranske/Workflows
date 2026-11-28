@@ -137,11 +137,8 @@ def _assert_digest_guards(
 def test_synced_large_file_parity_checks_guard_against_difflib_hangs() -> None:
     """Require each managed-file equality to follow a digest equality for the same pair."""
     parity_test_functions = {
-        "tests/scripts/test_pr_verifier_sync_manifest.py": (
-            "test_pr_verifier_api_client_is_available_in_consumer_template",
-            "test_pr_verifier_source_and_consumer_template_are_identical",
-            "test_capture_obligation_dependency_is_managed_and_identical",
-        ),
+        # tests/scripts/test_pr_verifier_sync_manifest.py no longer compares template bytes:
+        # those copies were deleted (cohesion C1) and consumers receive the root files.
         "tests/scripts/test_native_capacity_registry.py": (
             "test_native_facts_and_helper_are_managed_with_exact_template_parity",
         ),

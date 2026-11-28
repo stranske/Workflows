@@ -1021,10 +1021,7 @@ CAPABILITY_CHECK_WORKFLOW_PATHS = (
     / "workflows"
     / "agents-capability-check.yml",
 )
-CAPABILITY_CHECK_SCRIPT_PATHS = (
-    REPO_ROOT / "scripts" / "langchain" / "capability_check.py",
-    REPO_ROOT / "templates" / "consumer-repo" / "scripts" / "langchain" / "capability_check.py",
-)
+CAPABILITY_CHECK_SCRIPT_PATHS = (REPO_ROOT / "scripts" / "langchain" / "capability_check.py",)
 
 
 class TestCheckCapabilityAliasRemoved:

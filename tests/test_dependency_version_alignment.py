@@ -257,13 +257,13 @@ def test_maint68_delivered_script_resolves_reported_wasm_pytest_mismatch(tmp_pat
     entry = matches[0]
     assert entry.target == "scripts/sync_dev_dependencies.py"
     assert entry.source_tree == "root"
-    assert entry.template_sync == "exact"
+    assert entry.template_sync is None  # root-only since cohesion C1: no template copy
     assert entry.delivery == "copy"
     assert "stranske/Trend_Model_Project" not in {rule.repo for rule in entry.skip_repos}
     delivered_source = root / entry.resolved_source
-    template_copy = root / "templates/consumer-repo" / entry.source
     assert delivered_source.is_file()
-    assert template_copy.read_bytes() == delivered_source.read_bytes()
+    assert entry.resolved_source == entry.source
+    assert not (root / "templates/consumer-repo" / entry.source).exists()
 
     consumer = tmp_path / "consumer"
     workflow_dir = consumer / ".github" / "workflows"

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import sys
@@ -14,19 +13,10 @@ import pytest
 from tools import langchain_client, llm_registry
 
 
-@pytest.fixture(params=["root", "consumer-template"])
-def client_implementation(request, monkeypatch: pytest.MonkeyPatch):
-    """Exercise the same provider-selection contract in both distributed copies."""
-    if request.param == "root":
-        return langchain_client
-    path = Path(__file__).resolve().parents[2] / "templates/consumer-repo/tools/langchain_client.py"
-    name = "_issue_4426_consumer_langchain_client"
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, name, module)
-    spec.loader.exec_module(module)
-    return module
+@pytest.fixture
+def client_implementation():
+    """The delivered provider-selection module (consumers receive the root copy)."""
+    return langchain_client
 
 
 def _reviewed_model(provider: str) -> str:
@@ -1136,9 +1126,7 @@ def test_build_anthropic_pins_max_tokens_for_claude5_family():
         assert "max_tokens" not in _build_anthropic(model).kwargs, model
 
 
-@pytest.mark.parametrize(
-    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
-)
+@pytest.mark.parametrize("relative", ["tools/langchain_client.py"])
 def test_template_anthropic_builder_matches_root(relative):
     import runpy
     from pathlib import Path
@@ -1156,9 +1144,7 @@ def test_build_anthropic_keeps_temperature_for_incumbent():
     assert client.kwargs["temperature"] == 0.1
 
 
-@pytest.mark.parametrize(
-    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
-)
+@pytest.mark.parametrize("relative", ["tools/langchain_client.py"])
 def test_astra_client_uses_high_reasoning_responses_without_sampling_controls(relative):
     import runpy
     from pathlib import Path
@@ -1180,9 +1166,7 @@ def test_astra_client_uses_high_reasoning_responses_without_sampling_controls(re
     assert "top_p" not in received
 
 
-@pytest.mark.parametrize(
-    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
-)
+@pytest.mark.parametrize("relative", ["tools/langchain_client.py"])
 @pytest.mark.parametrize(
     "model", ["gpt-5.6-terra", "gpt-5.6-sol", "openai/gpt-5.6-terra", "openai/o3-mini"]
 )
@@ -1204,9 +1188,7 @@ def test_gpt56_clients_omit_unsupported_temperature(relative, model):
     assert received["model"] == model
 
 
-@pytest.mark.parametrize(
-    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
-)
+@pytest.mark.parametrize("relative", ["tools/langchain_client.py"])
 @pytest.mark.parametrize("model", ["gpt-6.1-sol", "gpt-6-luna"])
 def test_gpt6_clients_use_responses_without_sampling_controls(relative, model):
     import runpy
@@ -1226,9 +1208,7 @@ def test_gpt6_clients_use_responses_without_sampling_controls(relative, model):
     assert "temperature" not in received
 
 
-@pytest.mark.parametrize(
-    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
-)
+@pytest.mark.parametrize("relative", ["tools/langchain_client.py"])
 def test_prefixed_ordinary_openai_model_keeps_temperature(relative):
     import runpy
     from pathlib import Path
@@ -1247,9 +1227,7 @@ def test_prefixed_ordinary_openai_model_keeps_temperature(relative):
     assert received["temperature"] == 0.1
 
 
-@pytest.mark.parametrize(
-    "relative", ["tools/langchain_client.py", "templates/consumer-repo/tools/langchain_client.py"]
-)
+@pytest.mark.parametrize("relative", ["tools/langchain_client.py"])
 @pytest.mark.parametrize("model", ["gpt-6.1-sol", "gpt-6-luna"])
 def test_gpt6_github_clients_omit_unsupported_temperature(relative, model):
     import runpy

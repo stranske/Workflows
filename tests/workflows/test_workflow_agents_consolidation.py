@@ -596,10 +596,7 @@ def test_auto_label_templates_use_the_shared_issue_safe_auto_apply_gate():
         assert "issue_auto_apply_matches" in text
         assert "auto_apply = issue_auto_apply_matches(matches, threshold=auto_threshold)" in text
 
-    for matcher in (
-        Path("scripts/langchain/label_matcher.py"),
-        Path("templates/consumer-repo/scripts/langchain/label_matcher.py"),
-    ):
+    for matcher in (Path("scripts/langchain/label_matcher.py"),):
         text = matcher.read_text(encoding="utf-8")
         assert "DEFAULT_LABEL_AUTO_APPLY_MARGIN = 0.05" in text
         assert "def bounded_diverse_matches" in text
@@ -794,7 +791,6 @@ def test_weekly_metrics_aggregate_script_is_synced_to_consumers():
     assert "scripts/aggregate_agent_metrics.py" in template_workflow_text
     assert "scripts/aggregate_agent_metrics.py" in manifest_sources
     assert Path("scripts/aggregate_agent_metrics.py").is_file()
-    assert Path("templates/consumer-repo/scripts/aggregate_agent_metrics.py").is_file()
 
 
 def test_keepalive_metrics_emit_compact_ndjson():
