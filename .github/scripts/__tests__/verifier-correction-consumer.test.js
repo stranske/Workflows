@@ -41,7 +41,7 @@ test('typed test specs and existing selectors are data; no executable command fi
 });
 test('issue-created and dispatch-ack cannot claim actual continuation; unknown never grants retry or closure',()=>{
   const value=request();
-  assert.throws(()=>receipt(value,{state:'accepted_with_exact_issue_and_actual_autopilot_run_attempt',issue:value.incumbent.issue,consumer,reason:'HTTP 204'}),/continuation/);
+  assert.throws(()=>receipt(value,{issue:value.incumbent.issue,continuation:{run_id:'901'},consumer,reason:'HTTP 204'}),/continuation/);
   for(const state of ['confirmed_not_started','outcome_unknown']) {
     const result=receipt(value,{state,issue:value.incumbent.issue,consumer,reason:'inert fixture'});
     assert.equal(result.retry_authorized,false);assert.equal(result.act_authorized,false);assert.equal(result.source_closure_authorized,false);
@@ -117,13 +117,9 @@ test('authored collection job emits refusal receipts without entering legacy iss
   assert.equal(JSON.parse(files['agent-metrics/verifier-terminal-disposition.ndjson']).correction_receipt.receipt_sha256,ledger.receipt_sha256);
 });
 
-test('exact authenticated accepted receipts deduplicate; unknown/missing history never repeats effects',()=>{
+test('unknown/missing history never repeats effects',()=>{
   const {reconcileCorrection}=require('../verifier_correction_consumer');
   const value=request();
-  const continuation={workflow:'agents-auto-pilot.yml',run_id:'901',run_attempt:'1',request_sha256:value.request_sha256,issue_node_id:value.incumbent.issue.node_id};
-  const accepted=receipt(value,{state:'accepted_with_exact_issue_and_actual_autopilot_run_attempt',reason:'authenticated inert continuation',issue:value.incumbent.issue,continuation,consumer});
-  const duplicate=reconcileCorrection(value,[accepted,accepted],consumer);
-  assert.equal(duplicate.effect_state,accepted.effect_state);assert.equal(duplicate.continuation.run_id,'901');
   for(const history of [[],[receipt(value,{state:'outcome_unknown',reason:'timeout after intent',consumer})],[receipt(value,{reason:'collection only',consumer})]]) {
     const result=reconcileCorrection(value,history,consumer);
     assert.equal(result.effect_state,'outcome_unknown');assert.equal(result.retry_authorized,false);
@@ -131,9 +127,8 @@ test('exact authenticated accepted receipts deduplicate; unknown/missing history
   const other=request();other.required_tests[0].specification='Another exact requirement';
   const rebound=receipt(seal(other),{reason:'same key different scope',consumer});
   assert.throws(()=>reconcileCorrection(value,[rebound],consumer),/idempotency key rebound/);
-  assert.throws(()=>reconcileCorrection(value,[{...accepted,reason:'tampered'}],consumer),/corrupt/);
-  const conflict=receipt(value,{state:accepted.effect_state,reason:'other run',issue:value.incumbent.issue,continuation:{...continuation,run_id:'902'},consumer});
-  assert.throws(()=>reconcileCorrection(value,[accepted,conflict],consumer),/Conflicting/);
+  const plain=receipt(value,{reason:'collection only',consumer});
+  assert.throws(()=>reconcileCorrection(value,[{...plain,reason:'tampered'}],consumer),/corrupt/);
 });
 
 test('declared no-incumbent variant fabricates no issue/owner and cannot grant receipt ownership',()=>{

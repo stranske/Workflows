@@ -26,7 +26,6 @@ are synthetic, not claims about real GitHub provenance or workflow execution:
 - `seed.json`: original verifier source/finding/event scope, excluding later
   Closer operation, incumbent and required-test decision fields.
 - `no-incumbent-ownership.json`: synthetic trusted collector output.
-- `accepted-no-incumbent-receipt.json`: synthetic exact issue/run/attempt receipt.
 
 Canonical JSON uses `verification_event.canonical`: sorted keys, UTF-8, no
 whitespace, significant array order. Request/receipt hashes exclude their own
@@ -131,8 +130,9 @@ actor and complete competing-work inventory. Existing live incumbent work is
 reconciled without dispatching a second writer. Security/conflicting-authority
 scope remains outside this substantive correction lane.
 
-`closer-correction-receipt/v1` distinguishes `confirmed_not_started`,
-`accepted_with_exact_issue_and_actual_autopilot_run_attempt` and `outcome_unknown`.
+`closer-correction-receipt/v1` distinguishes `confirmed_not_started`
+and `outcome_unknown`. The former accepted state (an exact Auto-Pilot run attempt) was removed with
+Auto-Pilot in #5379; no effect producer is wired.
 It retains the original declared request/digest and consumer run/attempt. An
 additive `ownership` contains the trusted collector's bound proof context. For
 no-incumbent ownership, actual created issue/node may differ from the declared
