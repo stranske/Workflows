@@ -76,8 +76,8 @@ def corpus_cases(path: Path = CORPUS) -> list[dict[str, Any]]:
     UNVERIFIABLE_INPUT without calling any model, for every judge alike (2026-10-29: 44 of 62
     cases), so those cases cost a dispatch and measure nothing about a judge.
     """
-    from tools.generate_mutation_cases import coverage_sufficient
-    from tools.run_judge_backend_screen import corpus_cases_with_snapshots
+    from scripts.model_eval.run_judge_backend_screen import corpus_cases_with_snapshots
+    from scripts.verifier.generate_mutation_cases import coverage_sufficient
 
     cases = corpus_cases_with_snapshots(json.loads(path.read_text(encoding="utf-8")), ROOT)
     for case in cases:

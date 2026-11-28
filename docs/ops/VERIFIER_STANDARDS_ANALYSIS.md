@@ -1,7 +1,7 @@
 # Verification standards: what they cost, what they buy, and what an approval standard should be
 
 Date: 2026-10-18 (Workflows, evidence under `docs/evidence/judge-screen-20261017/`).
-Reproduce the numbers with `python -m tools.verifier_standards_model --operating-points docs/evidence/verifier-standards/operating-points-35-cases.json` and the data scripts named below.
+Reproduce the numbers with `python -m scripts.verifier.verifier_standards_model --operating-points docs/evidence/verifier-standards/operating-points-35-cases.json` and the data scripts named below.
 
 [Download the original Word edition](https://raw.githubusercontent.com/stranske/Workflows/9ea942aa52aed7ae2f91e1fab881c63ac63640d0/docs/ops/VERIFIER_STANDARDS_ANALYSIS.docx).
 
@@ -153,4 +153,4 @@ Under these rules gpt-6-luna would qualify today (0 of 19 against 2 of 19, 3 of 
 | Later breakage of PRs merged after a PASS against after a non-PASS, by PR class | at least 100 runs per class, re-run of the Brain query |
 | Shadow disagreements between candidate and incumbent | listed per PR, any candidate-misses-incumbent-catches triggers rollback |
 
-*Sources: Brain `outcomes` and `runs` (feedback database); the 161-PR sample from `gh pr list` keepalive state comments; the [57-case approval set and 18-case pilot](../evidence/judge-screen-20261017/PROVENANCE.md#october-17-approval-set-and-pilot-results); `tools/verifier_standards_model.py`; the verifier workflow `reusable-agents-verifier.yml` (CI floor).*
+*Sources: Brain `outcomes` and `runs` (feedback database); the 161-PR sample from `gh pr list` keepalive state comments; the [57-case approval set and 18-case pilot](../evidence/judge-screen-20261017/PROVENANCE.md#october-17-approval-set-and-pilot-results); `scripts/verifier/verifier_standards_model.py`; the verifier workflow `reusable-agents-verifier.yml` (CI floor).*

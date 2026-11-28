@@ -249,7 +249,7 @@ jobs:
 
       - name: Refresh pilot candidates from registry
         run: >-
-          python3 -m tools.refresh_model_eval_candidates --write
+          python3 -m scripts.model_eval.refresh_model_eval_candidates --write
           --catalog-discovery catalog-discovery.json
 
       - name: Upload pilot candidates for MAINT-78

@@ -6270,7 +6270,7 @@
   ],
   "evidence_reproduction": {
     "artifact": "docs/evidence/judge-screen-20261017/standard-muse13-observations.json",
-    "command": "python -m tools.reproduce_muse13_screen --check",
+    "command": "python -m scripts.model_eval.reproduce_muse13_screen --check",
     "source_revision": "e888a4b159a8076882c94c5f309b73aee86a13cd",
     "offline": true,
     "policy": "docs/evidence/judge-screen-20261017/current-prompt-ensemble-policy.json",

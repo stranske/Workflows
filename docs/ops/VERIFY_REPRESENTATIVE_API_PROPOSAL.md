@@ -144,7 +144,7 @@ gh workflow run maint-78-model-evaluation-pilot.yml \
   --repo stranske/Workflows --ref main -f mode=verify-paired
 ```
 
-The job invokes `python -m tools.run_verify_paired --execute` inside the existing
+The job invokes `python -m scripts.verifier.run_verify_paired --execute` inside the existing
 frozen runtime, under the 600-second hard timeout. Neither `--execute` nor any
 caller environment value overrides source policy. Source enablement is not a
 one-shot token: limits apply per invocation, and the coordinator issues only the

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from time import monotonic
 
-from tools.run_verify_paired import ROOT, load_packet, source_descriptor
+from scripts.verifier.run_verify_paired import ROOT, load_packet, source_descriptor
 
 
 @dataclass

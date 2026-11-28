@@ -1,0 +1,492 @@
+#!/usr/bin/env python3
+"""No-spend readiness report for verifier model cost/quality selection."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from collections import Counter
+from pathlib import Path
+from statistics import NormalDist
+from typing import Any
+
+from tools.evaluate_model_benchmark import wilson_interval
+from tools.model_eval_snapshots import coverage_blockers, screen_cases
+
+ROOT = Path(__file__).resolve().parents[2]
+SCREEN_HARNESS_FILES = (
+    ".github/workflows/maint-78-model-evaluation-pilot.yml",
+    ".github/actions/maint78-codex-cli/package-lock.json",
+    "scripts/langchain/pr_verifier.py",
+    "scripts/langchain/prompts/pr_evaluation.md",
+    "scripts/langchain/verifier_config.py",
+    "scripts/langchain/issue_pr_context.py",
+    "scripts/langchain/structured_output.py",
+    "scripts/langchain/injection_guard.py",
+    "scripts/model_eval/run_model_eval_pilot.py",
+    "scripts/model_eval/run_model_eval_cli_screen.py",
+    "tools/model_eval_snapshots.py",
+)
+
+
+def screen_harness_fingerprint() -> str:
+    """Bind a screen to its prompt, parser, case fetcher and CLI harness.
+
+    The API confirmer is intentionally excluded: fixing its request adapter
+    must not force another subscription screen of unchanged model inputs.
+    """
+    digest = hashlib.sha256()
+    for name in SCREEN_HARNESS_FILES:
+        path = ROOT / name
+        digest.update(name.encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _zero_error_denominator(maximum_rate: float, confidence_level: float) -> int:
+    """Smallest sample whose Wilson upper bound passes with zero errors."""
+    if not 0 < maximum_rate < 1 or not 0 < confidence_level < 1:
+        raise ValueError("quality gate rates and confidence must be between 0 and 1")
+    z = NormalDist().inv_cdf((1 + confidence_level) / 2)
+    return next(
+        count for count in range(1, 100_001) if wilson_interval(0, count, z=z)[1] <= maximum_rate
+    )
+
+
+def _evaluable_counts(corpus: dict[str, Any], count_stable: bool = True) -> dict[str, int]:
+    """PASS and NON_PASS cases a judge can be fairly scored on.
+
+    A case is evaluable when a prompt can be built for it (a snapshot reference or mutation recipe,
+    or a captured screen case) and the production prompt's own coverage check calls the input
+    sufficient. Historical cases without a snapshot cannot be replayed, and an insufficient input
+    makes every correct judge answer UNVERIFIABLE_INPUT, which measures the capture.
+    """
+    from tools.model_eval_snapshots import verifier_prompt_coverage
+
+    counts = {"pass": 0, "non_pass": 0}
+    seen: set[str] = set()
+
+    def count(case: dict[str, Any], ok: bool) -> None:
+        if ok and case["case_id"] not in seen:
+            seen.add(case["case_id"])
+            counts["pass" if case.get("expected_verdict") == "PASS" else "non_pass"] += 1
+
+    for case in corpus.get("screen_cases", []):
+        try:
+            ok = bool(verifier_prompt_coverage(case["production_snapshot"])["sufficient"])
+        except (KeyError, TypeError, ValueError):
+            ok = False
+        count(case, ok)
+    for case in corpus.get("cases", []):
+        if case.get("provenance") == "stable-merge" and not count_stable:
+            continue
+        replayable = bool(case.get("snapshot_ref") or case.get("mutation_recipe"))
+        count(case, replayable and case.get("coverage_sufficient") is True)
+    return counts
+
+
+def build_plan(
+    corpus: dict[str, Any],
+    registry: dict[str, Any],
+    policy: dict[str, Any],
+    candidates: dict[str, Any] | None = None,
+    cli_catalog: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    profile = policy["profiles"]["verifier-balanced"]
+    candidate_stage = profile["candidate_stage"]
+    approval = profile["approval_stage"]
+    # Owner decision 2026-10-30: automatic approval can be retired. The shortfalls below are still
+    # measured and reported, but they describe the corpus, not a path that can ever open.
+    approval_retired = approval.get("status") == "retired"
+    # Diagnostic-only cases (the failed-CI mutants: the verifier workflow already floors a red CI at
+    # CONCERNS deterministically, so a model miss there costs nothing) are kept for reporting but
+    # never count toward any floor.
+    diagnostic_cases = sum(bool(case.get("diagnostic_only")) for case in corpus["cases"])
+    cases = [case for case in corpus["cases"] if not case.get("diagnostic_only")]
+    counts = Counter(str(case["category"]) for case in cases)
+    minimum = int(approval["minimum_adjudicated_cases"])
+    stable_policy = approval.get("stable_merge_pass") or {}
+    stable_cases = sum(
+        case.get("expected_verdict") == "PASS" and case.get("provenance") == "stable-merge"
+        for case in cases
+    )
+    # Stable-merge PASS cases count only while the policy allows that label source.
+    positive_cases = sum(case.get("expected_verdict") == "PASS" for case in cases) - (
+        0 if stable_policy.get("enabled") else stable_cases
+    )
+    mutation_policy = approval.get("controlled_mutation") or {}
+    all_non_pass = sum(case.get("expected_verdict") == "NON_PASS" for case in cases)
+    mutation_cases = sum(
+        case.get("expected_verdict") == "NON_PASS"
+        and case.get("provenance") == "controlled-mutation"
+        for case in cases
+    )
+    real_non_pass = all_non_pass - mutation_cases
+    # Controlled-mutation cases count toward the false-PASS bound only when the policy says so.
+    negative_cases = (
+        all_non_pass if mutation_policy.get("counts_toward_false_pass_bound") else real_non_pass
+    )
+    false_pass_floor = _zero_error_denominator(
+        float(approval["quality_gates"]["false_pass_rate_wilson_upper_bound"]),
+        float(approval["confidence_level"]),
+    )
+    false_fail_floor = _zero_error_denominator(
+        float(approval["quality_gates"]["false_fail_rate_wilson_upper_bound"]),
+        float(approval["confidence_level"]),
+    )
+    additional_non_pass = max(0, false_pass_floor - negative_cases)
+    evaluable = _evaluable_counts(
+        {**corpus, "cases": cases}, count_stable=bool(stable_policy.get("enabled"))
+    )
+    minimum_real_non_pass = int(mutation_policy.get("minimum_real_non_pass_cases", 0))
+    additional_pass = max(0, false_fail_floor - positive_cases)
+    best_case_total = len(cases) + additional_non_pass + additional_pass
+    confidence_label = f"{float(approval['confidence_level']):.0%}"
+    default_category_minimum = int(approval["minimum_cases_per_category"])
+    overrides = approval.get("minimum_cases_per_category_overrides", {})
+    category_shortfalls = {
+        category: max(0, int(overrides.get(category, default_category_minimum)) - counts[category])
+        for category in candidate_stage["required_case_categories"]
+    }
+    category_shortfalls = {key: value for key, value in category_shortfalls.items() if value}
+    provisional = profile["provisional_stage"]
+    selected_cases, snapshot_blockers = screen_cases(corpus, provisional)
+    screen_category_shortfalls = sorted(
+        set(provisional["required_screen_categories"])
+        - {case["category"] for case in selected_cases}
+    )
+    if screen_category_shortfalls:
+        snapshot_blockers.append(
+            f"Selected screen cases omit required categories: {screen_category_shortfalls}."
+        )
+    screen_corpus_ready = (
+        len(selected_cases) == int(provisional["screen_cases"]) and not snapshot_blockers
+    )
+    input_alignment_ready = (
+        corpus.get("screen_input_status") == "production_context_adjudicated"
+        and not snapshot_blockers
+    )
+    current_models = [
+        model
+        for model in registry["models"]
+        if model.get("provider") == "openai"
+        and model.get("lifecycle") == "current"
+        and not model.get("blocked", False)
+    ]
+    priced = [
+        model
+        for model in current_models
+        if isinstance(model.get("pricing"), dict)
+        and all(
+            key in model["pricing"]
+            for key in ("input_per_million_tokens", "output_per_million_tokens")
+        )
+    ]
+    unpriced = [model["model_id"] for model in current_models if model not in priced]
+    catalog_advisory = [
+        str(entry["model_id"])
+        for entry in (candidates or {}).get("candidates", [])
+        if entry.get("provider") == "openai" and entry.get("role") == "catalog-advisory"
+    ]
+    unpriced_advisory = [
+        model for model in catalog_advisory if model not in {entry["model_id"] for entry in priced}
+    ]
+    listed_cli_models = {
+        str(model.get("slug"))
+        for model in (cli_catalog or {}).get("models", [])
+        if model.get("visibility") == "list" and model.get("supported_in_api") is True
+    }
+    cli_unavailable = (
+        [model["model_id"] for model in priced if model["model_id"] not in listed_cli_models]
+        if cli_catalog is not None
+        else []
+    )
+    incumbent = next(
+        (
+            selection["model_id"]
+            for selection in registry["selections"]
+            if selection.get("profile") == "verifier-balanced"
+            and selection.get("provider") == "openai"
+        ),
+        None,
+    )
+    screen_model_ids = {
+        model["model_id"]
+        for model in priced
+        if cli_catalog is None or model["model_id"] in listed_cli_models
+    }
+    screen_ready = (
+        screen_corpus_ready
+        and input_alignment_ready
+        and incumbent in screen_model_ids
+        and len(screen_model_ids) >= 2
+    )
+    screen_coverage, complex_counts, confirmation_blockers = coverage_blockers(
+        selected_cases, provisional
+    )
+    screen_blockers = []
+    if not screen_corpus_ready:
+        screen_blockers.append(
+            f"Candidate screen needs {provisional['screen_cases']} separately adjudicated paired "
+            f"cases, at least {provisional['minimum_non_pass_cases']} NON_PASS cases, "
+            f"and every required category; missing categories: {screen_category_shortfalls}."
+        )
+    if not input_alignment_ready:
+        screen_blockers.append(
+            "The historical labels describe later issue disposition, while the CLI screen "
+            "did not receive the production verifier's exact context and diff summary. "
+            "Capture production verifier inputs and independently adjudicate a small paired "
+            "PASS/NON_PASS set before another model screen."
+        )
+        screen_blockers.extend(snapshot_blockers)
+    if incumbent not in screen_model_ids or len(screen_model_ids) < 2:
+        screen_blockers.append(
+            "Candidate screen needs the priced incumbent and at least one priced alternative "
+            "in the pinned Codex CLI catalog."
+        )
+    reasons = []
+    if len(cases) < minimum:
+        reasons.append(f"Corpus has {len(cases)} adjudicated cases; approval requires {minimum}.")
+    if additional_non_pass:
+        reasons.append(
+            f"Even with zero false passes, the {confidence_label} Wilson gate needs {false_pass_floor} "
+            f"NON_PASS cases; only {negative_cases} exist ({additional_non_pass} more needed)."
+        )
+    if real_non_pass < minimum_real_non_pass:
+        reasons.append(
+            f"Only {real_non_pass} real-outcome NON_PASS cases exist; the policy requires at "
+            f"least {minimum_real_non_pass} alongside {mutation_cases} controlled-mutation cases."
+        )
+    if evaluable["non_pass"] < false_pass_floor:
+        reasons.append(
+            f"Only {evaluable['non_pass']} of the {negative_cases} NON_PASS cases are evaluable "
+            "(a captured input the production prompt calls sufficient; the rest would make a judge "
+            f"abstain on missing evidence, not on its own quality); the gate needs {false_pass_floor}."
+        )
+    if evaluable["pass"] < false_fail_floor:
+        reasons.append(
+            f"Only {evaluable['pass']} of the {positive_cases} PASS cases are evaluable; the "
+            f"false-fail gate needs {false_fail_floor}."
+        )
+    if additional_pass:
+        reasons.append(
+            f"Even with zero false fails, the {confidence_label} Wilson gate needs {false_fail_floor} "
+            f"PASS cases; only {positive_cases} exist ({additional_pass} more needed)."
+        )
+    maximum_corpus = int(profile["corpus_growth"]["max_corpus_size"])
+    if max(minimum, best_case_total) > maximum_corpus:
+        reasons.append(
+            f"Best-case sample needs at least {max(minimum, best_case_total)} cases, above the "
+            f"configured corpus cap of {maximum_corpus}."
+        )
+    if category_shortfalls:
+        reasons.append(f"Category minimums are unmet: {category_shortfalls}.")
+    if incumbent not in {model["model_id"] for model in priced}:
+        reasons.append("The OpenAI incumbent is missing or has no verified price.")
+    if len(priced) < 2:
+        reasons.append("At least one priced alternative to the incumbent is required.")
+    if unpriced or unpriced_advisory:
+        reasons.append(
+            "Current or newly discovered OpenAI models lack verified prices: "
+            f"{sorted(set(unpriced + unpriced_advisory))}."
+        )
+    if cli_unavailable:
+        reasons.append(
+            "Priced models absent from the pinned Codex CLI catalog need a separate, "
+            f"bounded API compatibility check: {cli_unavailable}."
+        )
+    if not corpus.get("cases"):
+        reasons.append("No adjudicated cases are available.")
+    benchmark_inputs_ready = not reasons
+    reasons.append(
+        "MAINT-78 has no paired production API benchmark with measured tokens and cost; "
+        "a model selection cannot be approved from the existing pilot artifacts."
+    )
+    fingerprint_input = {
+        "corpus": corpus,
+        "policy": profile,
+        "models": current_models,
+        "catalog_advisory": catalog_advisory,
+        "cli_available": sorted(listed_cli_models) if cli_catalog is not None else None,
+        "incumbent": incumbent,
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(fingerprint_input, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return {
+        "schema": "workflows-verifier-model-eval-plan/v1",
+        "objective": "Find a cost-efficient verifier model quickly, then review a reversible provisional choice with explicit quality limits.",
+        "input_fingerprint": fingerprint,
+        "screen_harness_fingerprint": screen_harness_fingerprint(),
+        "provisional_thresholds": {
+            key: profile["provisional_stage"][key]
+            for key in (
+                "maximum_false_passes",
+                "maximum_schema_errors",
+                "minimum_accuracy_delta_vs_incumbent",
+                "minimum_pass_recall",
+            )
+        },
+        "approval_ready": False,
+        "approval_path": "owner_trial" if approval_retired else "automatic",
+        "approval_retired_note": approval.get("retired_note") if approval_retired else None,
+        "screen_ready": screen_ready,
+        "input_alignment_ready": input_alignment_ready,
+        "screen_case_kinds": {
+            case["case_id"]: case.get("production_snapshot", {}).get("input_kind")
+            for case in selected_cases
+        },
+        "screen_blockers": screen_blockers,
+        "screen_input_coverage": screen_coverage,
+        "complex_case_counts": complex_counts,
+        "confirmation_ready": screen_ready and not confirmation_blockers,
+        "confirmation_blockers": confirmation_blockers,
+        "benchmark_inputs_ready": benchmark_inputs_ready,
+        "approval_blockers": reasons,
+        "corpus_cases": len(cases),
+        "expected_pass_cases": positive_cases,
+        "expected_non_pass_cases": negative_cases,
+        "diagnostic_only_cases": diagnostic_cases,
+        "stable_merge_pass_cases": stable_cases if stable_policy.get("enabled") else 0,
+        "evaluable_pass_cases": evaluable["pass"],
+        "evaluable_non_pass_cases": evaluable["non_pass"],
+        "real_non_pass_cases": real_non_pass,
+        "controlled_mutation_non_pass_cases": mutation_cases,
+        "zero_error_false_pass_denominator": false_pass_floor,
+        "zero_error_false_fail_denominator": false_fail_floor,
+        "additional_non_pass_cases_for_best_case_gate": additional_non_pass,
+        "best_case_minimum_corpus_cases": max(minimum, best_case_total),
+        "approval_minimum_cases": minimum,
+        "category_counts": dict(sorted(counts.items())),
+        "category_shortfalls": category_shortfalls,
+        "incumbent": incumbent,
+        "priced_openai_models": [model["model_id"] for model in priced],
+        "unpriced_openai_models": unpriced,
+        "catalog_advisory_models": catalog_advisory,
+        "pinned_cli_unavailable_models": cli_unavailable,
+        "automatic_api_calls": 0,
+        "screen_limit": {
+            "cases": int(provisional["screen_cases"]),
+            "models": 4,
+            "maximum_cli_calls": 4 * int(provisional["screen_cases"]),
+            "api_calls": 0,
+        },
+        "next_action": (
+            "Trial any candidate on the labelled corpus (docs/ops/VERIFIER_SHADOW.md, "
+            '"Trialling a new candidate"); a verifier-balanced selection changes only by the '
+            "owner's decision on that trial."
+            if approval_retired
+            else (
+                "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
+                "priced candidates. Advance any candidate that meets the provisional-stage "
+                "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
+                "per accepted review in a small capped "
+                "API confirmation; review a provisional selection without waiting for the "
+                "long-term statistical approval sample."
+                if screen_ready
+                else "Resolve the candidate screen blockers, then compare the incumbent with "
+                "priced alternatives."
+            )
+        ),
+    }
+
+
+def markdown(plan: dict[str, Any]) -> str:
+    lines = [
+        "## MAINT-78 current verifier model decision",
+        "",
+        f"**Objective:** {plan['objective']}",
+        f"**Eight-case subscription screen ready:** {'yes' if plan['screen_ready'] else 'no'}",
+        f"**Next action:** {plan['next_action']}",
+        f"**Automatic API calls:** {plan['automatic_api_calls']}",
+        "**Decision horizon:** Produce a retain-or-advance result from the bounded screen; "
+        "do not wait for the statistical approval sample.",
+        f"**Input fingerprint:** `{plan['input_fingerprint']}`",
+        f"**Screen harness fingerprint:** `{plan['screen_harness_fingerprint']}`",
+        f"**Priced OpenAI models:** {', '.join(plan['priced_openai_models']) or 'none'}",
+    ]
+    if plan["unpriced_openai_models"]:
+        lines.append("**Models missing prices:** " + ", ".join(plan["unpriced_openai_models"]))
+    if plan["catalog_advisory_models"]:
+        lines.append(
+            "**New catalog models needing review:** " + ", ".join(plan["catalog_advisory_models"])
+        )
+    if plan["pinned_cli_unavailable_models"]:
+        lines.append(
+            "**Absent from pinned CLI catalog:** "
+            + ", ".join(plan["pinned_cli_unavailable_models"])
+        )
+    if plan["screen_blockers"]:
+        lines += ["", "### Candidate screen blockers", ""]
+        lines += [f"- {reason}" for reason in plan["screen_blockers"]]
+    lines.append(
+        "**Paid API confirmation ready:** "
+        + ("yes" if plan["confirmation_ready"] else "no")
+        + f" (complex PASS {plan['complex_case_counts']['PASS']}, "
+        f"complex NON_PASS {plan['complex_case_counts']['NON_PASS']})"
+    )
+    if plan["confirmation_blockers"]:
+        lines += ["", "### Paid confirmation blockers (prompt coverage)", ""]
+        lines += [f"- {reason}" for reason in plan["confirmation_blockers"]]
+    if plan.get("approval_path") == "owner_trial":
+        lines += [
+            "",
+            "### Automatic approval: retired",
+            "",
+            str(plan["approval_retired_note"]),
+            "",
+            "Corpus measurements against the retired bounds (informational, not blockers):",
+            "",
+            f"**Historical corpus:** {plan['corpus_cases']} / {plan['approval_minimum_cases']} cases",
+        ]
+        lines += [f"- {reason}" for reason in plan["approval_blockers"]]
+        lines.append("")
+        return "\n".join(lines)
+    lines += [
+        "",
+        "### Separate long-term statistical approval",
+        "",
+        f"**Ready:** {'yes' if plan['approval_ready'] else 'no'}",
+        f"**Benchmark inputs ready:** {'yes' if plan['benchmark_inputs_ready'] else 'no'}",
+        f"**Historical corpus:** {plan['corpus_cases']} / {plan['approval_minimum_cases']} cases",
+        f"**Best-case statistical floor:** {plan['best_case_minimum_corpus_cases']} total "
+        f"including {plan['zero_error_false_pass_denominator']} NON_PASS cases",
+    ]
+    lines += [f"- {reason}" for reason in plan["approval_blockers"]]
+    lines.append("")
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--corpus", type=Path, default=ROOT / "config/model_eval_pilot.json")
+    parser.add_argument("--registry", type=Path, default=ROOT / "config/model_registry.json")
+    parser.add_argument("--policy", type=Path, default=ROOT / "config/model_selection_policy.json")
+    parser.add_argument(
+        "--candidates", type=Path, default=ROOT / "config/model_eval_candidates.json"
+    )
+    parser.add_argument("--cli-catalog", type=Path)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--summary", type=Path)
+    args = parser.parse_args(argv)
+    plan = build_plan(
+        json.loads(args.corpus.read_text()),
+        json.loads(args.registry.read_text()),
+        json.loads(args.policy.read_text()),
+        json.loads(args.candidates.read_text()),
+        json.loads(args.cli_catalog.read_text()) if args.cli_catalog else None,
+    )
+    args.output.write_text(json.dumps(plan, indent=2) + "\n")
+    if args.summary:
+        with args.summary.open("a") as stream:
+            stream.write(markdown(plan))
+    else:
+        print(markdown(plan))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

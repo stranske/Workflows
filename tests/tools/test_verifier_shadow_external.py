@@ -232,7 +232,7 @@ def test_no_run_starts_when_a_whole_judge_timeout_no_longer_fits(monkeypatch):
 
 
 def test_reserve_is_derived_from_the_judge_timeout_not_a_second_literal():
-    from tools.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
+    from scripts.model_eval.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
 
     assert ext.RUN_RESERVE_SECONDS > JUDGE_TIMEOUT_SECONDS
 
@@ -311,7 +311,7 @@ def test_a_run_cannot_make_a_judge_call_that_would_outlive_its_time_budget(monke
 
 
 def test_the_run_budget_covers_more_than_one_sequential_judge_call():
-    from tools.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
+    from scripts.model_eval.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
 
     assert ext.RUN_BUDGET_SECONDS >= 2 * JUDGE_TIMEOUT_SECONDS
     assert ext.RUN_RESERVE_SECONDS == ext.RUN_BUDGET_SECONDS

@@ -51,7 +51,7 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           rc=0
-          python -m tools.prepare_model_promotion \
+          python -m scripts.model_eval.prepare_model_promotion \
             --benchmark "$BENCHMARK_PATH" \
             --mode "$MODE" \
             --write config/model_registry.json > prepare.log || rc=$?

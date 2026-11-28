@@ -19,7 +19,7 @@ adjudicated verifier corpus and all approval-stage gates.
 a model: zero-error Wilson bounds on a corpus this size approve only a perfect judge
 (`docs/ops/VERIFIER_STANDARDS_ANALYSIS.md`). `approval_stage.status` is `retired`, so MAINT-78
 reports the approval path as `owner_trial` and lists the corpus shortfalls as information, not
-blockers, and `tools/prepare_model_promotion.py` prepares rollbacks on a gate breach but no
+blockers, and `scripts/model_eval/prepare_model_promotion.py` prepares rollbacks on a gate breach but no
 promotions. A verifier selection changes when the owner decides after a corpus trial
 (`docs/ops/VERIFIER_SHADOW.md`, "Trialling a new candidate"), as gpt-6.1-sol did on 2026-10-30.
 The `approval_stage` fields still drive corpus generation (controlled mutations, stable-merge PASS
@@ -61,7 +61,7 @@ the runtime model. Other current bundled pins and an explicitly supplied
 Run MAINT-78 `capture`, `screen`, and `confirm` from the matching
 `stranske/Workflows` checkout and its `maint-78-model-evaluation-pilot.yml`
 workflow. This policy is copied to consumers for guidance, but its
-`tools.create_model_eval_snapshot` helper, candidate inputs, and dispatch
+`scripts.model_eval.create_model_eval_snapshot` helper, candidate inputs, and dispatch
 workflow are Workflows-owned and are not installed in consumer checkouts.
 
 The `verifier-balanced` policy is defined in
@@ -104,7 +104,7 @@ kind in screen and confirmation reports. A provisional change based mainly
 on retrospective or controlled cases needs closer live monitoring.
 
 Download a completed comparison artifact and use
-`python -m tools.create_model_eval_snapshot ARTIFACT_DIR --case-id ID
+`python -m scripts.model_eval.create_model_eval_snapshot ARTIFACT_DIR --case-id ID
 --expected-verdict PASS --category clean-pass --adjudication-evidence URL
 --adjudicated-by REVIEWER --adjudication-rationale TEXT --output case.json`
 to verify the captured hashes and prepare a case for review. For a controlled
@@ -193,7 +193,7 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   from realized downstream outcomes — `stale-verifier-claim`,
   `review-thread-debt`, `missing-acceptance-criterion` — are exempted from the
   10-case floor via `approval_stage.minimum_cases_per_category_overrides` and
-  need only be *represented* (≥1 adjudicated case). `tools/harvest_verifier_corpus.py`
+  need only be *represented* (≥1 adjudicated case). `scripts/verifier/harvest_verifier_corpus.py`
   can never produce them, so holding them to the machine-harvestable floor made
   approval unreachable without hand-labelling roughly 22 cases. The 75-case total
   and every statistical gate still apply to the whole corpus; raise these floors
@@ -216,7 +216,7 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   reports `real_non_pass_cases` and `controlled_mutation_non_pass_cases` separately. Human approval
   of any promotion is unchanged.
 
-  **Generated cases (issue #4113).** `tools/generate_mutation_cases.py` builds them from captured
+  **Generated cases (issue #4113).** `scripts/verifier/generate_mutation_cases.py` builds them from captured
   verifier inputs with two mutations: `drop-named-file` removes the diff of a file the plan requires
   (a newly added file named anywhere in Tasks or Acceptance Criteria, or a modified source file a
   Tasks line names with a change verb; a modified file merely named in a run command is never
@@ -299,7 +299,7 @@ quality gate and an explicit approval update.
 
 ### Prepared promotions and rollbacks
 
-`tools/prepare_model_promotion.py` (run by `maint-86`) can *prepare* a selection
+`scripts/model_eval/prepare_model_promotion.py` (run by `maint-86`) can *prepare* a selection
 change from a passing benchmark, but never applies one on its own. Candidates
 must pass every benchmark quality gate and have known, finite, nonnegative costs.
 Same-family candidates (e.g. openai `gpt-5.x`, anthropic `claude-<line>`) costing
