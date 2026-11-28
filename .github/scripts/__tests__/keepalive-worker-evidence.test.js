@@ -82,3 +82,53 @@ test('originating registry revision classifies a removed provider rather than re
   };
   assert.equal(await getWorkerExecutionEvidence(github, 'stranske', 'Workflows', 124, 1, headSha), 'started');
 });
+
+// Cohesion B1: a cancelled attempt with zero jobs is the only "unknown" the reporter may treat
+// as not applicable. Both helper copies are exercised.
+for (const directory of ['..', '../../../templates/consumer-repo/.github/scripts']) {
+  const label = directory === '..' ? 'root' : 'consumer';
+  const helper = require(`${directory}/keepalive_worker_evidence.js`);
+  const headSha = 'b'.repeat(40);
+  const ids = { runId: 777, runAttempt: 1, runHeadSha: headSha };
+  const cancelled = { id: 777, run_attempt: 1, head_sha: headSha,
+    status: 'completed', conclusion: 'cancelled' };
+
+  test(`${label}: cancelled-before-start needs the exact cancelled attempt and zero jobs`, () => {
+    const classify = helper.classifyCancelledBeforeStart;
+    assert.equal(classify(cancelled, [], ids), 'cancelled-before-start');
+    // Any job at all: something may have run, so the alarm stays.
+    assert.equal(classify(cancelled, [{ name: 'evaluate', status: 'completed',
+      conclusion: 'cancelled', steps: [] }], ids), 'unproven');
+    for (const change of [
+      { conclusion: 'failure' }, { conclusion: 'timed_out' }, { conclusion: null },
+      { status: 'in_progress' }, { id: 778 }, { run_attempt: 2 }, { head_sha: 'c'.repeat(40) },
+    ]) {
+      assert.equal(classify({ ...cancelled, ...change }, [], ids), 'unproven',
+        JSON.stringify(change));
+    }
+    assert.equal(classify(cancelled, null, ids), 'unproven');
+    assert.equal(classify(null, [], ids), 'unproven');
+  });
+
+  test(`${label}: cancelled-before-start reads the exact attempt and fails toward unproven`, async () => {
+    const calls = [];
+    const github = {
+      request: async (route, params) => { calls.push([route, params]); return { data: cancelled }; },
+      rest: { actions: { listJobsForWorkflowRunAttempt: () => {} } },
+      paginate: async (_endpoint, params) => { calls.push(['jobs', params]); return []; },
+    };
+    assert.equal(await helper.getCancelledBeforeStartEvidence(
+      github, 'stranske', 'Manager-Database', 777, 1, headSha), 'cancelled-before-start');
+    assert.deepEqual(calls[0], [
+      'GET /repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt_number}',
+      { owner: 'stranske', repo: 'Manager-Database', run_id: 777, attempt_number: 1 },
+    ]);
+    assert.deepEqual(calls[1], ['jobs', { owner: 'stranske', repo: 'Manager-Database',
+      run_id: 777, attempt_number: 1, per_page: 100 }]);
+    github.paginate = async () => { throw new Error('rate-limited'); };
+    assert.equal(await helper.getCancelledBeforeStartEvidence(
+      github, 'stranske', 'Manager-Database', 777, 1, headSha), 'unproven');
+    assert.equal(await helper.getCancelledBeforeStartEvidence(
+      github, 'stranske', 'Manager-Database', 777, 1, ''), 'unproven');
+  });
+}
