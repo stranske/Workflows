@@ -200,7 +200,8 @@ const requireStub = (name) => {
     withRetry, paginateWithRetry,
     createTokenAwareRetry: async () => ({withRetry, paginateWithRetry})};
   if (name.endsWith('agent_registry.js')) return {
-    loadAgentRegistry: () => ({agents: {codex: {}}}), resolveAgentFromLabels: () => 'codex'};
+    loadAgentRegistry: () => ({agents: {codex: {}}}), resolveAgentFromLabels: () => 'codex',
+    isLocalLoopOwned: (labels) => labels.includes('agents:local-loop')};
   throw Error('Unexpected dependency: ' + name);
 };
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
