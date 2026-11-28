@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Helpers for maint-50 tool version reporting."""
+"""PyPI freshness report for the dev tools autofix-versions.env pins.
+
+Run by the "Tool version report" step of maint-auto-update-pypi-versions.yml (Maint 50
+ran it as a separate workflow until 2026-11-28).
+"""
 
 from __future__ import annotations
 

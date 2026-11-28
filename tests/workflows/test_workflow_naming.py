@@ -293,7 +293,6 @@ EXPECTED_NAMES = {
     "maint-88-verifier-runtime-comparison.yml": "Maint 88 Verifier Runtime Comparison",
     "maint-89-verifier-shadow-report.yml": "Maint 89 Verifier Shadow Report",
     "maint-90-sync-finding-assessment.yml": "Maint 90 Sync Finding Assessment",
-    "maint-50-tool-version-check.yml": "Maint 50 Tool Version Check",
     "maint-sync-action-versions.yml": "Maint Sync Action Versions",
     "maint-sync-env-from-pyproject.yml": "Maint - Sync pyproject from versions.env",
     "maint-52-validate-workflows.yml": "Maint 52 Validate Workflows",

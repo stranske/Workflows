@@ -502,9 +502,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
 - **Maint Sync Action Versions** – `.github/workflows/maint-sync-action-versions.yml`
   syncs action version pins from `.github/workflows` into workflow templates after
   Dependabot updates land.
-- **Maint 50 Tool Version Check** – `.github/workflows/maint-50-tool-version-check.yml`
-  runs weekly (Mondays 8:00 AM UTC) to check PyPI for new versions of CI/autofix tools
-  (black, ruff, mypy, pytest, etc.) and publishes read-only freshness evidence.
 - **Maint 39 Test LLM Providers** – `.github/workflows/maint-39-test-llm-providers.yml`
   is a manual workflow that smoke-tests OpenAI credentials and reports Anthropic
   and regex fallback availability via `tools.llm_provider.check_providers()`
@@ -681,7 +678,6 @@ resolve existing reservations before removing the receiver's issuer variable.
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | After the Gate CI jobs | Report the combined result and request follow-up for eligible failures. | ✅ Required | [Gate job map](WORKFLOWS.md#gate-job-map) |
 | [PR 11 - Minimal invariant CI](WORKFLOWS.md#minimal-invariant-ci) | Push and PR to `main`, manual dispatch | Inspect workflow YAML and script syntax failures. | ⚪ Supplemental | [Workflow runs](https://github.com/stranske/Workflows/actions/workflows/pr-11-ci-smoke.yml) |
 | **PR 46 Dependency Repair Contract** (`pr-46-dependency-repair-contract.yml`, PR checks bucket) | `pull_request_target` for dependency-bot and marked promotion PRs | Keep bot branches classified and verify the bot-delta first commit before agent repair commits. | ✅ Required for dependency repair lanes | [Dependency repair contract runs](https://github.com/stranske/Workflows/actions/workflows/pr-46-dependency-repair-contract.yml) |
-| **Maint 50 Tool Version Check** (`maint-50-tool-version-check.yml`, maintenance bucket) | `schedule` (Mondays 8:00 AM UTC), `workflow_dispatch` | Publish read-only PyPI freshness evidence for the canonical dev-tool pin set. | ⚪ Scheduled | [Maint 50 version checks](https://github.com/stranske/Workflows/actions/workflows/maint-50-tool-version-check.yml) |
 | **Auto-lock dependency PRs** (`maint-auto-lock-deps.yml`, maintenance bucket) | `pull_request_target` for opens and `pull_request` for lock-input changes to main | The trusted open event applies `agents:allow-change` to Dependabot and Renovate PRs without checking out code. The separate lock path regenerates `requirements.lock` from its recorded command and publishes only to the checked same-repository bot head. | ⚪ Supplemental | [Dependency PR runs](https://github.com/stranske/Workflows/actions/workflows/maint-auto-lock-deps.yml) |
 | **Maint Sync pyproject.toml from versions.env** (`maint-sync-env-from-pyproject.yml`, maintenance bucket) | `workflow_dispatch` on a selected non-default branch | Align source files to `autofix-versions.env` and commit any repairs back to that branch. Gate checks source alignment before merge. | ⚪ Manual topic-branch repair | [Maint sync env runs](https://github.com/stranske/Workflows/actions/workflows/maint-sync-env-from-pyproject.yml) |
 | **Maint 52 Validate Workflows** (`maint-52-validate-workflows.yml`, maintenance bucket) | `pull_request`, `push` (`main`) | Parse every workflow file with `yq`, honour the Actionlint allowlist, and fail fast when syntax errors or lint violations appear. | ⚪ Automatic on PR/main | [Maint 52 workflow validations](https://github.com/stranske/Workflows/actions/workflows/maint-52-validate-workflows.yml) |

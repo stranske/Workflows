@@ -78,7 +78,7 @@ def test_render_issue_body_has_expected_update_instructions() -> None:
     body = check.render_issue_body(
         report="## Tool Version Status\n\n| Tool | Current | Latest | Status |",
         updates="- **ruff**: 0.13.2 -> 0.14.10",
-        workflow_url="https://github.com/stranske/Workflows/actions/workflows/maint-50.yml",
+        workflow_url="https://github.com/stranske/Workflows/actions/workflows/maint-auto-update-pypi-versions.yml",
         timestamp="2026-05-06T12:00:00+00:00",
     )
 
