@@ -1,6 +1,45 @@
 # Authoritative coverage and mutation reconciliation — issue #3956
 
-## Current acceptance repair readback (2026-11-07 UTC)
+## Current manual replay
+
+The [receipt auditor](audit_followup_mutations.py) lives beside the issue
+records. Its [unit suite](../../../tests/docs/test_audit_followup_mutations.py)
+runs with the repository's regular tests. The auditor reads stored commands as
+data and checks their source hashes and recorded results.
+
+From a Workflows checkout, use the repository-selected Python. Set
+`WORKFLOWS_PYTHON` to its absolute path if the checkout has no virtual environment.
+A shallow checkout needs the two pinned revisions below before the replay.
+
+```sh
+repo=$(git rev-parse --show-toplevel)
+cd "$repo"
+py=${WORKFLOWS_PYTHON:-"$repo/.venv/bin/python"}
+packet=docs/evidence/issue-3956
+python_test=tests/langchain/test_followup_issue_generator.py
+node_source=.github/scripts/agents_pr_meta_update_body.js
+node_test=.github/scripts/__tests__/agents-pr-meta-update-body.test.js
+baseline=94d9f952dad19f4f8048ae82bb8301bc6baf6ef5
+node_revision=db91da15d7c44e34dca7d4f3d74e5cae62fff62c
+replay=$(mktemp -d)
+
+git show "$baseline:tests/test_followup_issue_generator.py" > "$replay/baseline.py"
+"$py" -m pytest -o addopts= -p no:cacheprovider --collect-only -q \
+  -m 'not quarantine and not slow' "$python_test" > "$replay/collected.txt"
+git archive HEAD -- scripts/langchain/followup_issue_generator.py "$python_test" \
+  "$node_test" "$packet" | tar -xf - -C "$replay"
+git show "$node_revision:$node_source" > "$replay/$node_source"
+"$py" "$packet/audit_followup_mutations.py" --root "$replay" \
+  --baseline-tests "$replay/baseline.py" --collected-tests "$replay/collected.txt"
+```
+
+The result reports 35 added functions, 45 collected cases, 50 Python receipts
+and two Node receipts. The pinned Node source is the input named in the retained
+checklist receipts. Auditing the current checkout directly reports the two
+historical Node source and mutation-position mismatches. The dated commands
+below record their original source and test paths.
+
+## Accepted-source readback (2026-11-07 UTC)
 
 **Outcome 1: PARTIAL.** PR #4518 merged as
 `5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44`, confirmed by a fresh main fetch.

@@ -13,6 +13,26 @@ const {
 const { classifyFiles, loadConfig } = require('../../actions/path-classifier/classify.js');
 const { resolve } = require('node:path');
 
+const consumerDetectChanges = require('../../../templates/consumer-repo/.github/scripts/detect-changes.js').detectChanges;
+
+for (const [name, detect] of [['Workflows', detectChanges], ['consumer', consumerDetectChanges]]) {
+  for (const [file, runCore] of [
+    ['scripts/audit_followup_mutations.py', true],
+    ['tests/scripts/test_audit_followup_mutations.py', true],
+    ['docs/evidence/issue-3956/audit_followup_mutations.py', true],
+    ['tests/docs/test_audit_followup_mutations.py', true],
+    ['docs/evidence/issue-3956/authoritative-reconciliation.md', false],
+    ['tests/docs/README.md', false],
+  ]) {
+    test(`${name} Gate standalone path: ${file}`, async () => {
+      const { outputs } = await detect({ context: { eventName: 'pull_request' }, files: [file] });
+      assert.equal(outputs.run_core, String(runCore));
+      assert.equal(outputs.doc_only, String(!runCore));
+      assert.equal(outputs.reason, runCore ? 'code_changes' : 'docs_only');
+    });
+  }
+}
+
 test('classifies documentation files', () => {
   assert.equal(isDocumentationFile('docs/README.md'), true);
   assert.equal(isDocumentationFile('guides/setup.txt'), true);
