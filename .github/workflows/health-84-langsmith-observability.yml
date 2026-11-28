@@ -45,34 +45,30 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p .observability-health
-          for spec in \
-            "dashboard:maint-80-langsmith-metrics-dashboard.yml" \
-            "conformance:maint-81-langsmith-fleet-conformance.yml"; do
-            name="${spec%%:*}"
-            workflow="${spec#*:}"
-            output=".observability-health/${name}-runs.json"
-            raw_output=".observability-health/${name}-runs-raw.json"
-            if gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow "$workflow" \
-              --status completed \
-              --limit 20 \
-              --json conclusion,createdAt,databaseId,status,url \
-              > "$raw_output"; then
-              jq \
-                '{workflow_runs: [.[] | {
-                  conclusion,
-                  created_at: .createdAt,
-                  id: .databaseId,
-                  status,
-                  html_url: .url
-                }]}' \
-                "$raw_output" > "$output"
-            else
-              printf '{"workflow_runs":[],"fetch_error":"GitHub API request failed for %s"}\n' \
-                "$workflow" > "$output"
-            fi
-          done
+          # One workflow: fleet conformance is a step of maint-80 (cohesion review B14).
+          workflow="maint-80-langsmith-metrics-dashboard.yml"
+          output=".observability-health/dashboard-runs.json"
+          raw_output=".observability-health/dashboard-runs-raw.json"
+          if gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow "$workflow" \
+            --status completed \
+            --limit 20 \
+            --json conclusion,createdAt,databaseId,status,url \
+            > "$raw_output"; then
+            jq \
+              '{workflow_runs: [.[] | {
+                conclusion,
+                created_at: .createdAt,
+                id: .databaseId,
+                status,
+                html_url: .url
+              }]}' \
+              "$raw_output" > "$output"
+          else
+            printf '{"workflow_runs":[],"fetch_error":"GitHub API request failed for %s"}\n' \
+              "$workflow" > "$output"
+          fi
 
       - name: Evaluate observability health
         env:
@@ -83,7 +79,6 @@ jobs:
           set -uo pipefail
           if ! python scripts/langsmith_observability_health.py \
             --dashboard-runs .observability-health/dashboard-runs.json \
-            --conformance-runs .observability-health/conformance-runs.json \
             --workflow-max-age-hours "$WORKFLOW_MAX_AGE_HOURS" \
             --trace-max-age-hours "$TRACE_MAX_AGE_HOURS" \
             --failure-threshold 2 \

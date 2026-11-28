@@ -16,6 +16,11 @@ on:
         required: false
         default: true
         type: boolean
+      enforce_conformance:
+        description: 'Fail when a registered repo is missing, invalid, or stale'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   actions: read
@@ -307,6 +312,65 @@ jobs:
             echo "::warning title=LangSmith fleet artifacts incomplete::$warning"
           fi
 
+      # Fleet conformance used to be maint-81, which downloaded the same fleet
+      # artifacts a second time 30 minutes later. It now reads the files the
+      # step above already extracted (cohesion review B14). The records root is
+      # maint-81's own (.metrics-tmp/fleet/<owner>__<repo>/), so the report's
+      # artifact_path values, and therefore the JSON, are unchanged.
+      - name: Build fleet conformance report
+        if: always()
+        run: |
+          set -euo pipefail
+          python scripts/stage_langsmith_conformance_records.py \
+            --registry config/langsmith_fleet_registry.json \
+            --extracted-root .metrics-tmp/fleet/extracted \
+            --records-root .metrics-tmp/fleet
+          python scripts/langsmith_fleet_conformance.py \
+            --records-root .metrics-tmp/fleet \
+            --format json \
+            > .metrics-tmp/langsmith-fleet-conformance.json
+          python scripts/langsmith_fleet_conformance.py \
+            --records-root .metrics-tmp/fleet \
+            --format markdown \
+            > .metrics-tmp/langsmith-fleet-conformance.md
+          cat .metrics-tmp/langsmith-fleet-conformance.md >> "$GITHUB_STEP_SUMMARY"
+
+          jq -r '.rows[] | select(.status == "missing" or .status == "invalid" or .status == "stale") |
+            "::warning title=LangSmith fleet conformance \(.status)::" +
+            "\(.repo)/\(.surface): \(.first_error // "no artifact uploaded")"' \
+            .metrics-tmp/langsmith-fleet-conformance.json
+
+          non_valid_count="$(jq '[.rows[] | select(.status == "missing" or .status == "invalid" or .status == "stale")] | length' \
+            .metrics-tmp/langsmith-fleet-conformance.json)"
+          echo "LANGSMITH_FLEET_NON_VALID_COUNT=${non_valid_count}" >> "$GITHUB_ENV"
+
+          # The download above treats a failed lookup as "no artifact". A missing
+          # row is only proof of absence when discovery logged no errors; otherwise
+          # it is UNKNOWN, and enforcement refuses to pass on it.
+          if [ -s .metrics-tmp/fleet/fleet_errors.log ]; then
+            echo "LANGSMITH_FLEET_DISCOVERY_ERRORS=true" >> "$GITHUB_ENV"
+            echo "::warning title=LangSmith fleet discovery incomplete::artifact lookups logged errors; a missing row may be UNKNOWN (see fleet_errors.log)"
+            {
+              echo ""
+              echo "> Discovery logged errors (fleet_errors.log): a \`missing\` row above may be UNKNOWN, not absent."
+            } | tee -a .metrics-tmp/langsmith-fleet-conformance.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "LANGSMITH_FLEET_DISCOVERY_ERRORS=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Upload conformance report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: langsmith-fleet-conformance-${{ github.run_id }}
+          path: |
+            .metrics-tmp/langsmith-fleet-conformance.json
+            .metrics-tmp/langsmith-fleet-conformance.md
+            .metrics-tmp/fleet/*__*
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
+
       - name: Generate metrics report
         run: |
           : > .metrics-tmp/report.md
@@ -525,3 +589,14 @@ jobs:
               echo "::warning title=Missing metrics artifacts::Runs found; no artifacts."
             fi
           fi
+
+      - name: Enforce conformance
+        if: >
+          inputs.enforce_conformance == true &&
+          (env.LANGSMITH_FLEET_NON_VALID_COUNT != '0' ||
+           env.LANGSMITH_FLEET_DISCOVERY_ERRORS != 'false')
+        run: |
+          echo "LangSmith fleet conformance found"
+          echo "${LANGSMITH_FLEET_NON_VALID_COUNT:-unknown} non-valid row(s);"
+          echo "discovery errors: ${LANGSMITH_FLEET_DISCOVERY_ERRORS:-unknown}."
+          exit 1

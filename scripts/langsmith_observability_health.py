@@ -349,7 +349,6 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if now is None:
         raise ValueError("--now must be an ISO timestamp")
     dashboard_runs, dashboard_error = load_workflow_runs(args.dashboard_runs)
-    conformance_runs, conformance_error = load_workflow_runs(args.conformance_runs)
     registry = json.loads(args.registry.read_text(encoding="utf-8"))
 
     api_key = (os.environ.get("LANGSMITH_API_KEY") or "").strip()
@@ -378,14 +377,6 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             failure_threshold=args.failure_threshold,
             fetch_error=dashboard_error,
         ),
-        evaluate_workflow_runs(
-            conformance_runs,
-            name="fleet_conformance",
-            now=now,
-            max_age_hours=args.workflow_max_age_hours,
-            failure_threshold=args.failure_threshold,
-            fetch_error=conformance_error,
-        ),
         evaluate_trace_freshness(
             latest_trace,
             now=now,
@@ -394,6 +385,22 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         ),
         evaluate_pauses(registry, now=now),
     ]
+    # Fleet conformance is a step of the dashboard workflow since cohesion
+    # review B14, so dashboard_publication already covers its freshness. A
+    # separate conformance history is still evaluated when one is supplied.
+    if args.conformance_runs is not None:
+        conformance_runs, conformance_error = load_workflow_runs(args.conformance_runs)
+        components.insert(
+            1,
+            evaluate_workflow_runs(
+                conformance_runs,
+                name="fleet_conformance",
+                now=now,
+                max_age_hours=args.workflow_max_age_hours,
+                failure_threshold=args.failure_threshold,
+                fetch_error=conformance_error,
+            ),
+        )
     return {
         "schema_version": "langsmith-observability-health/v1",
         "generated_at": now.isoformat(),
@@ -412,7 +419,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dashboard-runs", type=Path, required=True)
-    parser.add_argument("--conformance-runs", type=Path, required=True)
+    parser.add_argument("--conformance-runs", type=Path, default=None)
     parser.add_argument(
         "--registry", type=Path, default=Path("config/langsmith_fleet_registry.json")
     )

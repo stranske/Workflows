@@ -238,12 +238,22 @@ def main() -> None:
         default="json",
         help="Report output format",
     )
+    parser.add_argument(
+        "--now",
+        help="ISO timestamp override, so the same input yields a byte-identical report",
+    )
     args = parser.parse_args()
 
+    now = None
+    if args.now:
+        now = datetime.fromisoformat(args.now.replace("Z", "+00:00"))
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=UTC)
     registry = langsmith_fleet.load_registry(args.registry)
     report = build_conformance_report(
         artifact_paths_from_root(args.records_root, registry),
         registry=registry,
+        now=now,
     )
     if args.format == "markdown":
         print(format_conformance_markdown(report), end="")

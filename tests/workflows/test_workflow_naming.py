@@ -327,7 +327,6 @@ EXPECTED_NAMES = {
     "maint-78-model-evaluation-pilot.yml": "Maint 78 Verifier Model Cost and Quality",
     "maint-79-verifier-corpus-harvest.yml": "Maint 79 Verifier Corpus Harvest",
     "maint-80-langsmith-metrics-dashboard.yml": "LangSmith Metrics Dashboard",
-    "maint-81-langsmith-fleet-conformance.yml": "LangSmith Fleet Conformance",
     "maint-82-sync-dependency-campaign.yml": "Sync/Dependency Campaign",
     "maint-83-bootstrap-consumer.yml": "Maint 83 Bootstrap Consumer",
     "maint-72-fix-pr-body-conflicts.yml": "Maint 72 Fix PR Body Conflicts",
