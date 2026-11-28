@@ -189,19 +189,19 @@ removals:
     description: "Retire the receiver helper after its hosted callers moved or retired"
     skip_repos:
       - repo: stranske/Trend_Model_Project
-        reason: "The receiver owns agents-pr-meta-keepalive.test.js, which still imports this helper (Workflows #5525)."
+        reason: "The receiver owns agents-pr-meta-keepalive.test.js, which still imports this helper."
   - target: .github/scripts/checkout_source.js
     description: "Retire the receiver helper after its hosted callers moved or retired"
     skip_repos:
       - repo: stranske/Trend_Model_Project
-        reason: "The receiver owns checkout_source.test.js, which still imports this helper (Workflows #5525)."
+        reason: "The receiver owns checkout_source.test.js, which still imports this helper."
   - target: .github/scripts/agent_stall_rotation.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/keepalive_worker_gate.js
     description: "Retire the receiver helper after its hosted callers moved or retired"
     skip_repos:
       - repo: stranske/Trend_Model_Project
-        reason: "The receiver owns keepalive-worker-gate.test.js, which still imports this helper (Workflows #5525)."
+        reason: "The receiver owns keepalive-worker-gate.test.js, which still imports this helper."
   - target: .github/scripts/keepalive_prompt_composer.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/capability_bundle.js
@@ -214,7 +214,7 @@ removals:
     description: "Retire the receiver helper after its hosted callers moved or retired"
     skip_repos:
       - repo: stranske/Trend_Model_Project
-        reason: "The receiver owns agents-belt-scan.test.js, which still imports this helper (Workflows #5525)."
+        reason: "The receiver owns agents-belt-scan.test.js, which still imports this helper."
   - target: .github/workflows/agents-autofix-dispatcher.yml
     description: "Remove the retired autofix dispatch bridge; Gate no longer sends autofix_gate_failure, and agents-81 starts Gate-driven repair from workflow_run"
   - target: .github/workflows/agents-decompose.yml
