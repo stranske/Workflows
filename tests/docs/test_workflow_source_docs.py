@@ -146,9 +146,9 @@ def test_keepalive_routes_match_the_workflow_docs_and_policy() -> None:
 def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
     """Cohesion B2: a failed Gate starts the autofix loop exactly once, via workflow_run."""
     doc = WORKFLOWS_DOC.read_text(encoding="utf-8")
-    template_gate = (
-        Path("templates/consumer-repo/.github/workflows/pr-00-gate.yml")
-    ).read_text(encoding="utf-8")
+    template_gate = (Path("templates/consumer-repo/.github/workflows/pr-00-gate.yml")).read_text(
+        encoding="utf-8"
+    )
     gate = (WORKFLOWS_DIR / "pr-00-gate.yml").read_text(encoding="utf-8")
     loop_text = (WORKFLOWS_DIR / "agents-autofix-loop.yml").read_text(encoding="utf-8")
     loop = yaml.safe_load(loop_text)
@@ -169,8 +169,9 @@ def test_workflows_doc_names_gate_autofix_dispatch_path() -> None:
         r'gate\s*-->\s*autofix\["Reusable 18 Autofix',
         doc,
     )
-    assert 'gate --> autofixDispatch' not in doc
+    assert "gate --> autofixDispatch" not in doc
     assert 'gate -- "workflow_run (failed)" --> autofixLoop["Agents Autofix Loop' in doc
+
 
 def test_workflows_doc_explains_coverage_guard_tolerance_and_recovery() -> None:
     doc = WORKFLOWS_DOC.read_text(encoding="utf-8")
