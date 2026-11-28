@@ -849,7 +849,7 @@ jobs:
         # Scorecard line counts only regressions (unpinned third-party actions,
         # downloadThenRun, DangerousWorkflow not in
         # config/scorecard-dangerous-workflow-allowlist.json), reading alert
-        # lines from this checkout.
+        # lines at the commit Scorecard analysed (contents: read).
         if: always()
         continue-on-error: true
         uses: actions/github-script@v9

@@ -122,21 +122,40 @@ function parseScorecardAllowlist(text) {
   return entries;
 }
 
-// Reads one line of a workflow file from the checked-out tree; null when the
-// file or line cannot be read.
-function workspaceLineReader(root = process.cwd()) {
-  const fs = require('fs');
-  const path = require('path');
+function alertCommit(alert) {
+  return alert?.most_recent_instance?.commit_sha || '';
+}
+
+// Reads one line of a workflow file at the commit Scorecard analysed (the
+// alert's most recent instance), so a later push cannot shift the line under
+// it. Returns null when the file or line cannot be read. One API call per
+// (file, commit).
+function apiLineReader({ github, owner, repo }) {
   const cache = new Map();
-  return (filePath, line) => {
-    if (!cache.has(filePath)) {
-      try {
-        cache.set(filePath, fs.readFileSync(path.join(root, filePath), 'utf8').split('\n'));
-      } catch (_error) {
-        cache.set(filePath, null);
-      }
+  return async (filePath, line, ref) => {
+    const key = `${ref}\n${filePath}`;
+    if (!cache.has(key)) {
+      cache.set(
+        key,
+        (async () => {
+          try {
+            const { data } = await github.rest.repos.getContent({
+              owner,
+              repo,
+              path: filePath,
+              ...(ref ? { ref } : {}),
+            });
+            if (typeof data?.content !== 'string') return null;
+            return Buffer.from(data.content, data.encoding || 'base64')
+              .toString('utf8')
+              .split('\n');
+          } catch (_error) {
+            return null;
+          }
+        })()
+      );
     }
-    const lines = cache.get(filePath);
+    const lines = await cache.get(key);
     return lines && line >= 1 && line <= lines.length ? lines[line - 1] : null;
   };
 }
@@ -144,13 +163,13 @@ function workspaceLineReader(root = process.cwd()) {
 // Returns the counted class of one alert, or null when it is not counted.
 // `allowance` is a Map of "path\nfinding" -> remaining allowed count; it is
 // decremented, so an allowlist entry never covers more alerts than it names.
-function classifyScorecardAlert(alert, { readLine, allowance }) {
+async function classifyScorecardAlert(alert, { readLine, allowance }) {
   const ruleId = alert?.rule?.id || '';
   const finding = scorecardFinding(alert);
   const { path, line } = alertLocation(alert);
   if (ruleId === 'PinnedDependenciesID') {
     if (finding.startsWith('third-party GitHubAction not pinned by hash')) {
-      const source = readLine(path, line);
+      const source = await readLine(path, line, alertCommit(alert));
       if (source === null || source === undefined) {
         return SCORECARD_CLASS.thirdPartyUnreadable;
       }
@@ -178,9 +197,10 @@ async function countScorecardRegressions({
   owner,
   repo,
   paginateWithRetry = (method, params) => github.paginate(method, params),
-  readLine = workspaceLineReader(),
+  readLine,
   allowlistText,
 }) {
+  const lineAt = readLine || apiLineReader({ github, owner, repo });
   let entries;
   try {
     const text =
@@ -216,7 +236,7 @@ async function countScorecardRegressions({
   const byClass = {};
   const counted = [];
   for (const alert of alerts || []) {
-    const cls = classifyScorecardAlert(alert, { readLine, allowance });
+    const cls = await classifyScorecardAlert(alert, { readLine: lineAt, allowance });
     if (cls) {
       byClass[cls] = (byClass[cls] || 0) + 1;
       const { path, line } = alertLocation(alert);
@@ -356,7 +376,7 @@ module.exports = {
   countScorecardRegressions,
   parseScorecardAllowlist,
   scorecardFinding,
-  workspaceLineReader,
+  apiLineReader,
   countMarker,
   countOpenAlerts,
   parsePreviousCount,

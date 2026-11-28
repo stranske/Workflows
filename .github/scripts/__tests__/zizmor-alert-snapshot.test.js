@@ -312,3 +312,54 @@ test('Scorecard: every allowlisted checkout still exists in the named workflow',
     assert.ok(entry.reason.length > 40, `${entry.path} needs a real reason`);
   }
 });
+
+test('Scorecard: action lines are read at the commit Scorecard analysed, not the checkout', async () => {
+  const { countScorecardRegressions } = require('../zizmor_alert_snapshot.js');
+  const contentCalls = [];
+  const filesAt = {
+    'abc123\n.github/workflows/own.yml': 'jobs:\n  x:\n    uses: stranske/Workflows/.github/workflows/r.yml@main\n',
+    'abc123\n.github/workflows/tag.yml': 'steps:\n  - uses: peter-evans/create-pull-request@v8\n',
+  };
+  const listAlertsForRepo = { name: 'listAlertsForRepo' };
+  const github = {
+    rest: {
+      codeScanning: { listAlertsForRepo },
+      repos: {
+        getContent: async (params) => {
+          contentCalls.push(params);
+          const text = filesAt[`${params.ref}\n${params.path}`];
+          if (text === undefined) {
+            const error = new Error('Not Found');
+            error.status = 404;
+            throw error;
+          }
+          return { data: { content: Buffer.from(text).toString('base64'), encoding: 'base64' } };
+        },
+      },
+    },
+    paginate: async () =>
+      [
+        ['.github/workflows/own.yml', 3],
+        ['.github/workflows/own.yml', 3],
+        ['.github/workflows/tag.yml', 2],
+        ['.github/workflows/missing.yml', 4],
+      ].map(([file, line], i) => {
+        const alert = scorecardAlert(i, 'PinnedDependenciesID', 'score is 2: third-party GitHubAction not pinned by hash', file, line);
+        alert.most_recent_instance.commit_sha = 'abc123';
+        return alert;
+      }),
+  };
+  const current = await countScorecardRegressions({
+    github,
+    owner: 'o',
+    repo: 'r',
+    allowlistText: ALLOWLIST_TEXT,
+  });
+  assert.deepEqual(current.alerts.map((a) => a.path), [
+    '.github/workflows/tag.yml',
+    '.github/workflows/missing.yml',
+  ]);
+  assert.ok(contentCalls.every((call) => call.ref === 'abc123'));
+  // One call per file and commit, however many alerts share it.
+  assert.equal(contentCalls.length, 3);
+});
