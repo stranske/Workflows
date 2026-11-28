@@ -173,7 +173,7 @@ def test_scheduled_runs_record_baselines_through_the_maint_79_merge_path() -> No
     # Health 72 mirrors the registry into the consumer template; the baseline PR must
     # carry both copies or Health 72's sync push moves the head inside the window.
     mirrored = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py", "--print-sources"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py", "--print-sources"],
         check=True,
         capture_output=True,
         text=True,
