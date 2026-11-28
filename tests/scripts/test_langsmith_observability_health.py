@@ -1,5 +1,6 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from pathlib import Path
 
 import pytest
 from scripts import langsmith_observability_health as health
@@ -63,7 +64,7 @@ def test_langsmith_endpoint_normalizes_trailing_slash() -> None:
     )
 
 
-def test_overdue_pause_is_advisory() -> None:
+def test_overdue_pause_review_degrades_the_component() -> None:
     registry = {
         "repos": [
             {
@@ -80,10 +81,50 @@ def test_overdue_pause_is_advisory() -> None:
 
     component = health.evaluate_pauses(registry, now=NOW)
 
-    assert component["status"] == "healthy"
+    assert component["status"] == "degraded"
     assert component["paused_entries"][0]["pause_owner"] == "stranske/Workflows#2150"
+    assert component["advisories"] == []
+    (reason,) = component["reasons"]
+    overdue = (NOW.date() - date(2026, 8, 1)).days
+    assert reason.startswith(
+        f"stranske/Workflows pause review is {overdue} days overdue (review_by 2026-08-01)"
+    )
+    # the reason names both drains: resume, or record a new review date
+    assert "resuming once producer artifact is available" in reason
+    assert "new review_by in config/langsmith_fleet_registry.json" in reason
+
+
+def test_pause_inside_its_review_window_stays_healthy() -> None:
+    registry = {
+        "repos": [
+            {
+                "repo": "stranske/Workflows",
+                "rollout_status": "paused",
+                "paused_at": "2026-06-13T13:36:33Z",
+                "pause_reason": "artifact rollout paused",
+                "pause_owner": "stranske/Workflows#2150",
+                "resume_condition": "producer artifact is available",
+                "review_by": NOW.date().isoformat(),
+            }
+        ]
+    }
+    component = health.evaluate_pauses(registry, now=NOW)
+    assert component["status"] == "healthy"
     assert component["reasons"] == []
-    assert component["advisories"] == ["stranske/Workflows pause review was due 2026-08-01"]
+
+
+def test_live_registry_pause_reports_degraded_until_reviewed() -> None:
+    """The real registry: the Workflows pause (review_by 2026-09-15) must not read healthy."""
+    registry = json.loads(
+        (Path(__file__).resolve().parents[2] / "config/langsmith_fleet_registry.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    paused = [e for e in registry["repos"] if e.get("rollout_status") == "paused"]
+    component = health.evaluate_pauses(registry, now=datetime(2026, 11, 28, tzinfo=UTC))
+    overdue = [e for e in paused if date.fromisoformat(e["review_by"]) < date(2026, 11, 28)]
+    assert (component["status"] == "degraded") == bool(overdue)
+    assert len(component["reasons"]) >= len(overdue)
 
 
 @pytest.mark.parametrize(

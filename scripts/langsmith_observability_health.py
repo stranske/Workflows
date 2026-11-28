@@ -176,7 +176,18 @@ def evaluate_pauses(registry: dict[str, Any], *, now: datetime) -> dict[str, Any
         if paused_at and review_by and review_by < paused_at.date():
             reasons.append(f"{repo} review_by cannot predate paused_at")
         if review_by and review_by < now.date():
-            advisories.append(f"{repo} pause review was due {review_by.isoformat()}")
+            # An overdue review is a latched pause, not a healthy one (cohesion
+            # review A6): the Workflows pause sat 73 days past review_by while
+            # this component read "healthy". Degraded only labels the durable
+            # FYI issue; nothing blocks on it. The reason names what clears it.
+            overdue_days = (now.date() - review_by).days
+            resume = normalized_metadata.get("resume_condition") or "the resume condition"
+            reasons.append(
+                f"{repo} pause review is {overdue_days} days overdue "
+                f"(review_by {review_by.isoformat()}); clear it by resuming once "
+                f"{resume.rstrip('.')}, or by recording a new review_by in "
+                "config/langsmith_fleet_registry.json"
+            )
         paused_entries.append(
             {
                 "repo": repo,
