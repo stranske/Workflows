@@ -50,6 +50,8 @@ def test_formerly_force_created_labels_are_defined_once_in_labels_core() -> None
 
 def test_maint_68_label_step_creates_nothing() -> None:
     run = str(_label_step()["run"])
+    # The ../workflows checkout is the frozen source payload, not the deployed catalog.
+    assert "../workflows/.github/labels-core.yml" not in run
     assert "gh label create" not in run
     assert "--force" not in run
     assert "--color" not in run
@@ -97,8 +99,11 @@ def _run_label_step(tmp_path: Path, present: list[str]) -> subprocess.CompletedP
     )
     gh.chmod(gh.stat().st_mode | stat.S_IEXEC)
     (tmp_path / "consumer").mkdir()
+    # An older frozen payload: its labels-core.yml predates the sync-label definitions.
     (tmp_path / "workflows" / ".github").mkdir(parents=True)
-    (tmp_path / "workflows" / ".github" / "labels-core.yml").write_bytes(LABELS_CORE.read_bytes())
+    (tmp_path / "workflows" / ".github" / "labels-core.yml").write_text(
+        '- name: agent:codex\n  color: "0e8a16"\n  description: x\n', encoding="utf-8"
+    )
     return subprocess.run(
         ["bash", "-e", "-o", "pipefail", "-c", str(_label_step()["run"])],
         cwd=tmp_path,

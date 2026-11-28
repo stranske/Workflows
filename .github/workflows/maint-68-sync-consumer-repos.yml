@@ -1180,9 +1180,12 @@ jobs:
           cd consumer
 
           # Labels this workflow applies to sync PRs. Their only definition is
-          # .github/labels-core.yml, written to every consumer by Maint 69 Sync Labels
+          # .github/labels-core.yml on main, written to every consumer by Maint 69 Sync Labels
           # (on change and daily) and by Maint 83 bootstrap. This step checks that they
-          # exist; it never creates or recolours a label.
+          # exist; it never creates or recolours a label. It deliberately does not read
+          # labels-core.yml from ../workflows: that checkout is the frozen source payload,
+          # which for an older campaign predates these definitions. A test pins that each
+          # name below is defined in labels-core.yml.
           required_labels=(
             "sync"
             "automated"
@@ -1190,14 +1193,9 @@ jobs:
             "sync:delivery-staging"
             "sync:delivery-ready"
           )
-          core_file="../workflows/.github/labels-core.yml"
           present_labels="$(gh label list --limit 1000 --json name -q '.[].name')"
           missing=()
           for label in "${required_labels[@]}"; do
-            if ! grep -qxF -- "- name: ${label}" "$core_file"; then
-              echo "::error::Sync label '${label}' is not defined in .github/labels-core.yml"
-              exit 1
-            fi
             if ! grep -qxF -- "$label" <<<"$present_labels"; then
               missing+=("$label")
             fi

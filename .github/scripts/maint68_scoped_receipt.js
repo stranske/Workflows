@@ -87,7 +87,7 @@ const SOURCE_WORKFLOWS = new Set([
   '83bb655d8a247196b56601fe5daaa451e058850693364f3c6a9c32865e7ef468',
   // The sync-label step only checks that labels-core.yml labels exist (no create/recolour).
   // Source resolution, checkout, validation and plan publication are unchanged.
-  '3870fdb0ef26b2a0015e23b5e0868f2320c7be913c235bb21a4c4788da78dfe6',
+  '927b1c666fcfc0290cda1b4edd146fedf5cc5f35d3c944334ec0984a2fb1872d',
 ]);
 
 async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {
