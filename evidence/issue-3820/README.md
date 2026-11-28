@@ -159,3 +159,43 @@ copy-managed template remain identical; existing manifest entries cover both cha
 surfaces, with no managed addition, rename or scope change. The existing v2 fingerprint
 contract is retained within this unmerged PR. Parent owns hosted checks, review
 disposition, merge and campaign continuation.
+
+## Recover the October 11 validation packets
+
+The following completed validation packets are recoverable from their first
+publishing commit. The guides describe what each run verified.
+
+| Packet | Original files |
+| --- | --- |
+| [Acceptance-source discovery](discovery-guard-20261011/README.md) | [Publishing tree](https://github.com/stranske/Workflows/tree/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6/evidence/issue-3820/discovery-guard-20261011) |
+| [Configured FAIL preservation](fail-preservation-20261011/README.md) | [Publishing tree](https://github.com/stranske/Workflows/tree/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6/evidence/issue-3820/fail-preservation-20261011) |
+| [Historical all-arms recovery validation](historical-all-arms-recovery-20261011/README.md) | [Publishing tree](https://github.com/stranske/Workflows/tree/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6/evidence/issue-3820/historical-all-arms-recovery-20261011) |
+| [Raw capture byte inventory](raw-byte-inventory-20261011/README.md) | [Publishing tree](https://github.com/stranske/Workflows/tree/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6/evidence/issue-3820/raw-byte-inventory-20261011) |
+| [Capture reassembly dependency contract](reassembly-contract-20261011/README.md) | [Publishing tree](https://github.com/stranske/Workflows/tree/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6/evidence/issue-3820/reassembly-contract-20261011) |
+| [Resource admission accounting](resource-admission-20261011/README.md) | [Publishing tree](https://github.com/stranske/Workflows/tree/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6/evidence/issue-3820/resource-admission-20261011) |
+
+From a Workflows checkout, run the command below. It retrieves the publishing
+commit if needed and prints a fresh temporary directory with the original
+repository-relative paths. The current semantic recovery fixture and the
+resource-plan input are available directly in the checkout.
+
+```bash
+(
+  set -e
+  revision=8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 origin "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-3820-evidence.XXXXXX")
+  git archive --output="$recovered/evidence.tar" "$revision" -- \
+    evidence/issue-3820/discovery-guard-20261011 \
+    evidence/issue-3820/fail-preservation-20261011 \
+    evidence/issue-3820/historical-all-arms-recovery-20261011 \
+    evidence/issue-3820/raw-byte-inventory-20261011 \
+    evidence/issue-3820/reassembly-contract-20261011 \
+    evidence/issue-3820/resource-admission-20261011
+  tar -xf "$recovered/evidence.tar" -C "$recovered"
+  rm "$recovered/evidence.tar"
+  printf '%s\n' "$recovered"
+)
+```

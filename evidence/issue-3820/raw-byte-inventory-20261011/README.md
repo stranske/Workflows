@@ -1,5 +1,7 @@
 # Raw captured byte inventory foundation
 
+Recover the original validation outputs from the [October 11 packet index](../README.md#recover-the-october-11-validation-packets).
+
 Existing PR3831/source3820, based on 1c6fe324df93cfcc017b1bd4479a6c9987fa746b.
 
 The existing CLI snapshot recording path now indexes all supplied raw context/diff
