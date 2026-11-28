@@ -11,9 +11,14 @@ on:
 permissions:
   contents: write
 
+# One group for every tag (cohesion review round 2, D11): per-tag groups let an
+# older tag's run finish after a newer one's. A running push is never
+# interrupted. GitHub may still cancel a PENDING run when a third one queues, so
+# each run moves v1 to the highest v1.x tag it can see, not to its own tag:
+# whichever run survives reconciles to the newest release.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-floating-tag
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -30,7 +35,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          scripts/update-floating-tag.sh v1 v1. "$GITHUB_SHA"
+          scripts/update-floating-tag.sh v1 v1.
 
       # No release step: release-please (maint-61) already creates the GitHub
       # release for every tag it pushes. A second writer here (softprops) only
