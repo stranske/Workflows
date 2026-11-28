@@ -211,7 +211,7 @@ may have started.
 Focused checks:
 
 ```sh
-node --test tests/scripts/test_verification_event.js .github/scripts/__tests__/agents-verifier-context.test.js
+node --test .github/scripts/__tests__/verification-event.test.js .github/scripts/__tests__/agents-verifier-context.test.js
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/workflows/test_repeat_verification_lifecycle.py -q -o addopts=''
 ```
 

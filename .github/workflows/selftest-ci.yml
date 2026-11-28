@@ -98,6 +98,11 @@ jobs:
         with:
           node-version: '24'
 
+      # Two verifier tests spawn system python3 children that import pydantic;
+      # keep the runner's python3 (it already has pyyaml) and add only that pin.
+      - name: Install pydantic for the verifier tests that spawn python3
+        run: python3 -m pip install --user --break-system-packages "$(grep -E '^pydantic==' requirements.txt)"
+
       - name: Run JavaScript tests
         timeout-minutes: 5
         run: |

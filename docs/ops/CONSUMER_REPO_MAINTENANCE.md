@@ -1798,8 +1798,8 @@ report `UNKNOWN`, never zero. A successful promotion is still separate from the
 later fleet commit and consumer acceptance.
 
 The focused local gate is
-`node --test tests/scripts/test_maint71_promote_dispatch.js`; Selftest CI loads
-it through `.github/scripts/__tests__/maint71_promote_dispatch.test.js`. Its
+`node --test .github/scripts/__tests__/maint71_promote_dispatch.test.js`, which Gate
+and Selftest CI run through their `__tests__` glob. Its
 parser regression executes the actual Maint 68 scope-resolution shell and jq
 filters for both evidence envelopes and both immutable plan scopes.
 Maint 82 matches configured review-bot identities case-insensitively after

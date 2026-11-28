@@ -5,9 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { collectDismissable } = require('../.github/scripts/bot-comment-dismiss');
+const { collectDismissable } = require('../bot-comment-dismiss');
 
-const fixturesDir = path.join(__dirname, '..', '.github', 'scripts', '__tests__', 'fixtures', 'bot_comment_dismiss');
+const fixturesDir = path.join(__dirname, 'fixtures', 'bot_comment_dismiss');
 
 function readFixture(name) {
   const filePath = path.join(fixturesDir, name);

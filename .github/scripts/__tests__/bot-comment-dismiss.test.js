@@ -552,7 +552,3 @@ describe('bot-comment-dismiss', () => {
     ]);
   });
 });
-
-// Register the visible dismissal suites with the hosted test selection.
-require('../../../tests/bot-comment-dismiss-contract.test.js');
-require('../../../tests/bot-comment-dismiss.test.js');

@@ -3,23 +3,23 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('fs'), os=require('os'), path=require('path');
 const {createHash}=require('crypto');
-const {parseRecoverySelector,assessmentIdentity}=require('../../.github/scripts/verification_event.js');
-const {acquireRetainedExecution,guardRecoveryHistory,publishRetainedReport}=require('../../.github/scripts/verifier_pending_execution.js');
-const {verification_event:event}=require('../fixtures/verification_event/canonical.json');
+const {parseRecoverySelector,assessmentIdentity}=require('../verification_event.js');
+const {acquireRetainedExecution,guardRecoveryHistory,publishRetainedReport}=require('../verifier_pending_execution.js');
+const {verification_event:event}=require('../../../tests/fixtures/verification_event/canonical.json');
 const assessment=assessmentIdentity({mode:'evaluate',provider:'anthropic'});
 const selector={run_id:10,run_attempt:1,artifact_id:30};
 const sha=b=>createHash('sha256').update(b).digest('hex');
-const {retainedExecutionFixture,step}=require('./fixtures/retained_execution');
+const {retainedExecutionFixture,step}=require('../../../tests/scripts/fixtures/retained_execution');
 const fixture=change=>retainedExecutionFixture(event,change);
 
 // The native GET observations and original ZIP are retained evidence. Transport,
 // current-run identity and validator content below are mocks, never live authority.
 function exact4509OriginFixture(change = () => {}) {
- const fixtures = path.join(__dirname, '../../.github/scripts/__tests__/fixtures');
+ const fixtures = path.join(__dirname, './fixtures');
  const data = JSON.parse(fs.readFileSync(path.join(fixtures, 'verifier-4509-origin-trace.json')));
  data.artifact = JSON.parse(fs.readFileSync(path.join(fixtures, 'verifier-4509-capture-identity.json'))).capture;
  const archive = fs.readFileSync(path.join(fixtures, 'verifier-4509-capture.zip'));
- const {readRetainedArchive} = require('../../.github/scripts/verifier_pending_execution.js');
+ const {readRetainedArchive} = require('../verifier_pending_execution.js');
  const members = readRetainedArchive(archive);
  const manifest = JSON.parse(members.get('verification-event-manifest.json'));
  const source = Buffer.from('// Inert validator source for mocked transport.\n');
@@ -106,11 +106,11 @@ test('exact #4509 origin witness authenticates the squash merge while retaining 
 }));
 
 test('exact #4509 admission bridge produces a keyed native origin through the witness', async () => inDirectory(async dir => {
- const {admitOrigin} = require('../../tools/verifier_retained_origin');
+ const {admitOrigin} = require('../../../tools/verifier_retained_origin');
  const w = exact4509OriginFixture();
  const proof = await admitOrigin({github:w.github, manifest:w.manifest,
   selector:w.args.selector, currentRun:w.args.currentRun, directory:dir});
- const {digest} = require('../../.github/scripts/verification_event');
+ const {digest} = require('../verification_event');
  assert.equal(proof.recovery_key, digest({schema:'retained-revalidation-key/v1',
   event_id:w.manifest.verification_event.event_id,
   assessment:w.manifest.assessment_identity, selector:w.args.selector}));
@@ -120,14 +120,14 @@ test('exact #4509 admission bridge produces a keyed native origin through the wi
 }));
 
 test('exact #4509 native origin feeds Python admission and preserves later evaluation history', {timeout:30000}, async () => inDirectory(async dir => {
- const {admitOrigin} = require('../../tools/verifier_retained_origin');
+ const {admitOrigin} = require('../../../tools/verifier_retained_origin');
  const {spawn} = require('child_process');
  const w = exact4509OriginFixture();
  fs.writeFileSync(path.join(dir, 'verification-event-manifest.json'),
   w.members.get('verification-event-manifest.json'));
  const proof = await admitOrigin({github:w.github, manifest:w.manifest,
   selector:w.args.selector, currentRun:w.args.currentRun, directory:dir});
- const env = {...process.env, PYTHONPATH:path.resolve(__dirname, '../..'),
+ const env = {...process.env, PYTHONPATH:path.resolve(__dirname, '../../..'),
   GITHUB_REPOSITORY:'stranske/Workflows', GITHUB_RUN_ID:String(w.args.currentRun),
   GITHUB_RUN_ATTEMPT:'1', VERIFICATION_RECOVERY:JSON.stringify(w.args.selector)};
  for (const name of ['VERIFIER_MODEL','VERIFIER_MODEL2','LANGCHAIN_MODEL','LANGCHAIN_SLOT_CONFIG','GITHUB_OUTPUT']) delete env[name];
@@ -270,7 +270,7 @@ test('canonical merged wrapper bytes remain eligible through a release-branch al
 }));
 
 test('lost recovery terminal is reconciled only from authoritative skipped publication',async()=>{
- const {executionBinding,guardRetainedRecoveryHistory}=require('../../.github/scripts/verifier_pending_execution.js');
+ const {executionBinding,guardRetainedRecoveryHistory}=require('../verifier_pending_execution.js');
  for(const published of [false,true]) {
   const {github}=fixture(d=>{
    d.job.steps.find(step=>step.name==='Run LLM evaluation').conclusion='skipped';
@@ -309,7 +309,7 @@ test('publication marks possible effect before POST, never for failed preflight'
 });
 
 test('same-run recovery retry can reconcile older skipped POST while current publisher is pre-POST',async()=>{
- const {executionBinding,guardRetainedRecoveryHistory}=require('../../.github/scripts/verifier_pending_execution.js');
+ const {executionBinding,guardRetainedRecoveryHistory}=require('../verifier_pending_execution.js');
  const {github,data}=fixture(d=>{
   d.job.steps.find(step=>step.name==='Run LLM evaluation').conclusion='skipped';
   d.job.steps.push({...step('Publish retained revalidation through verifier lifecycle',43,'10','11'),conclusion:'skipped'});
@@ -344,8 +344,8 @@ test('confirmed admitted POST with incomplete lifecycle can finish without model
 });
 
 test('V2 retained identity supports skipped publication but holds unknown write and forged identity',async()=>{
- const {executionBinding,guardRetainedRecoveryHistory,reconcilePendingExecution}=require('../../.github/scripts/verifier_pending_execution.js');
- const {digest}=require('../../.github/scripts/verification_event.js');
+ const {executionBinding,guardRetainedRecoveryHistory,reconcilePendingExecution}=require('../verifier_pending_execution.js');
+ const {digest}=require('../verification_event.js');
  const selector={run_id:1,run_attempt:1,artifact_id:30};
  const proof={schema:'retained-revalidation/v2',recovery_key:digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector}),source_run_id:'1',source_run_attempt:'1',artifact_id:30,provider_generation_performed:false};
  for(const published of [false,true]) {
@@ -363,7 +363,7 @@ test('V2 retained identity supports skipped publication but holds unknown write 
 });
 
 test('V2 lost acknowledged publication deduplicates without repeating generation or POST',async()=>{
- const {digest}=require('../../.github/scripts/verification_event.js');
+ const {digest}=require('../verification_event.js');
  const selector={run_id:1,run_attempt:1,artifact_id:30};
  const proof={schema:'retained-revalidation/v2',recovery_key:digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector}),source_run_id:'1',source_run_attempt:'1',artifact_id:30,provider_generation_performed:false};
  const pending=comment(10,{retained_revalidation:proof});
@@ -376,14 +376,14 @@ test('V2 lost acknowledged publication deduplicates without repeating generation
 });
 
 test('no-selector ordinary evaluation cannot replay provider after retained no-POST recovery',()=>{
- const {guardExistingEvent,digest}=require('../../.github/scripts/verification_event.js');
+ const {guardExistingEvent,digest}=require('../verification_event.js');
  const original=comment(10,{status:'incomplete',retry_kind:'recover_existing_evaluation',retryable:false,failure_cause:'retained_provider_evaluation'});
  for(const schema of ['retained-revalidation/v1','retained-revalidation/v2']) {
   const selector={run_id:10,run_attempt:1,artifact_id:30};
   const proof={schema,recovery_key:digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector}),source_run_id:'10',source_run_attempt:'1',artifact_id:30,provider_generation_performed:false,publication_effect:'none'};
   const stopped=comment(20,{status:'incomplete',retry_kind:'known_no_evaluation',retryable:true,failure_cause:'retained_revalidation_before_publication',retained_revalidation:proof});
   assert.throws(()=>guardExistingEvent(event,[original,stopped],assessment),/recover retained execution/);
-  const pending=comment(20,{execution_binding:{...require('../../.github/scripts/verifier_pending_execution.js').executionBinding('evaluate'),retained_revalidation:true},retained_revalidation:proof});
+  const pending=comment(20,{execution_binding:{...require('../verifier_pending_execution.js').executionBinding('evaluate'),retained_revalidation:true},retained_revalidation:proof});
   assert.throws(()=>guardExistingEvent(event,[original,pending],assessment),error=>error.code!=='VERIFIER_PENDING_EXECUTION' && /recover retained execution/.test(error.message));
  }
  const ordinary=comment(20,{status:'incomplete',retry_kind:'known_no_evaluation',retryable:true,failure_cause:'evaluator_step_not_invoked'});

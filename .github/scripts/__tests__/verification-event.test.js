@@ -2,8 +2,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
-const { buildVerificationEvent, validateEvent, completedEvent, digest } = require('../../.github/scripts/verification_event.js');
-const expected = require('../fixtures/verification_event/canonical.json');
+const { buildVerificationEvent, validateEvent, completedEvent, digest } = require('../verification_event.js');
+const expected = require('../../../tests/fixtures/verification_event/canonical.json');
 const args = () => ({ repository:'stranske/Example', pull:{number:7,body:'Original complete request.',head:{sha:'a'.repeat(40)},merge_commit_sha:'b'.repeat(40)},issues:[],fullDiffBytes:Buffer.from('authentic diff\n'),evidence:{comments:{records:[]},event_history:{complete:true,records:[]},diagnostics:{archive_inventory:[]}} });
 const assessment = {mode:'evaluate',provider:'anthropic',model:'',model2:'',canonical:true};
 const comment = (event, override={}) => ({author:'github-actions[bot]',url:'https://github.com/stranske/example/pull/7#issuecomment-1',body:`<!-- verifier-corpus-decision/v1 ${JSON.stringify({schema:'verifier-corpus-decision/v1',repo:event.repo,pr:event.pr,head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,run_id:'10',run_attempt:'1',ci_failed:false,provider_verdicts:['CONCERNS'],verdict:'NON_PASS',verification_event:event,assessment_identity:assessment,...override})} -->`});
@@ -84,7 +84,7 @@ test('authenticated required CI progress changes material; optional job summarie
 });
 
 test('same-attempt incomplete dominates pending and terminal regardless arrival order',()=> {
- const {guardExistingEvent}=require('../../.github/scripts/verification_event.js');
+ const {guardExistingEvent}=require('../verification_event.js');
  const event=expected.verification_event,terminal=comment(event);
  const state=(status,retry_kind)=>({...terminal,body:`<!-- verifier-event-state/v1 ${JSON.stringify({schema:'verifier-event-state/v1',repo:event.repo,pr:event.pr,head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,run_id:'10',run_attempt:'1',verification_event:event,assessment_identity:assessment,status,retry_kind,retryable:retry_kind==='known_no_evaluation',failure_cause:'retained-original-cause'})} -->`});
  for(const kind of ['known_no_evaluation','recover_existing_evaluation','uncertain_execution']) {
@@ -112,13 +112,13 @@ test('unselected gzip transport progress preserves event while required content 
 });
 
 test('launch basis is inert, optional and strictly typed',()=>{
- const {requestBasis}=require('../../.github/scripts/verification_event.js');
+ const {requestBasis}=require('../verification_event.js');
  assert.equal(requestBasis(undefined),null);assert.equal(requestBasis(''),null);
  assert.equal(requestBasis('a'.repeat(64)),'a'.repeat(64));
  for(const bad of [null,42,'A'.repeat(64),'a'.repeat(63),' a'.repeat(32)]) assert.throws(()=>requestBasis(bad),/Invalid/);
 });
 test('duplicate correlation references latest exact authenticated terminal without a new verdict',()=>{
- const {terminalCorrelation}=require('../../.github/scripts/verification_event.js');
+ const {terminalCorrelation}=require('../verification_event.js');
  const event=expected.verification_event,basis='e'.repeat(64),old=comment(event),latest=comment(event,{run_id:'12',run_attempt:'2'});
  const receipt=terminalCorrelation({event,comments:[latest,old],assessment,basis,runId:'20',runAttempt:'1'});
  assert.equal(receipt.schema,'verifier-request-correlation/v1');
@@ -131,7 +131,7 @@ test('duplicate correlation references latest exact authenticated terminal witho
  }
 });
 test('correlation cannot bypass newer uncertainty, ambiguity or changed assessment',()=>{
- const {terminalCorrelation}=require('../../.github/scripts/verification_event.js');
+ const {terminalCorrelation}=require('../verification_event.js');
  const event=expected.verification_event,basis='e'.repeat(64),terminal=comment(event);
  const state=(kind)=>({...terminal,body:`<!-- verifier-event-state/v1 ${JSON.stringify({schema:'verifier-event-state/v1',repo:event.repo,pr:event.pr,head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,run_id:'11',run_attempt:'1',verification_event:event,assessment_identity:assessment,status:kind,retry_kind:'uncertain_execution',retryable:false})} -->`});
  const make=comments=>terminalCorrelation({event,comments,assessment,basis,runId:'20',runAttempt:'1'});
@@ -142,7 +142,7 @@ test('correlation cannot bypass newer uncertainty, ambiguity or changed assessme
 
 
 test('correlation applies the existing lifecycle ID bounds to referenced terminal records',()=>{
- const {terminalCorrelation}=require('../../.github/scripts/verification_event.js');
+ const {terminalCorrelation}=require('../verification_event.js');
  const event=expected.verification_event;
  for(const invalid of [{run_id:'1'.repeat(21)},{run_attempt:'1'.repeat(11)},{run_id:'010'}]) {
   assert.equal(terminalCorrelation({event,comments:[comment(event,invalid)],assessment,basis:'e'.repeat(64),runId:'20',runAttempt:'1'}),null);
