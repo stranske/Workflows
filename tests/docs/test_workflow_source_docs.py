@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from pathlib import Path
 
 import yaml
@@ -23,6 +24,22 @@ ACTIVE_VERIFIER_DOCS = (
     Path("docs/ci/WORKFLOWS.md"),
     Path("docs/LABELS.md"),
 )
+
+
+def test_gate_job_map_lists_every_workflow_job_once() -> None:
+    gate = yaml.safe_load((WORKFLOWS_DIR / "pr-00-gate.yml").read_text(encoding="utf-8"))
+    catalog = WORKFLOWS_DOC.read_text(encoding="utf-8")
+    section = catalog.partition("\n#### Gate job map\n")[2]
+    section = re.split(r"^#{1,6} ", section, maxsplit=1, flags=re.MULTILINE)[0]
+    documented = Counter(re.findall(r"^[ \t]*\|[ \t]*`([^`]+)`[ \t]*\|", section, re.MULTILINE))
+    expected = set(gate["jobs"])
+    missing = sorted(expected - documented.keys())
+    unexpected = sorted(documented.keys() - expected)
+    duplicated = sorted(job for job, count in documented.items() if count > 1)
+
+    assert not (
+        missing or unexpected or duplicated
+    ), f"Gate job map mismatch: missing={missing}, unexpected={unexpected}, duplicated={duplicated}"
 
 
 def _default_compare_models() -> tuple[str, str]:

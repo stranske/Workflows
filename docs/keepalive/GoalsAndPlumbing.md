@@ -512,7 +512,7 @@ fresh exact-merge CI. Failed, stale or missing gate results and empty, failed,
 stale or missing CI keep the issue open. The closer logs one outcome and deciding
 rule per linked issue, even when nothing closes or the verdict is CONCERNS/FAIL.
 Gate-job failures retain per-issue diagnostics without granting closure.
-CONCERNS and FAIL never use this exception. Auto-pilot's closed-issue step requests verification without changing issue state.
+CONCERNS and FAIL never use this exception. After merge, the [closer requests verification](../../README.md#verification-pipeline) by applying `verify:compare` to the PR. Operators can request `verify:evaluate` on a merged PR.
 The intake seed-replay reopen path recognizes named verifier closure receipts
 authored by `github-actions[bot]` and preserves those closed issues; arbitrary
 user comments cannot suppress reopening. A merge by itself is insufficient for closure. Consumer

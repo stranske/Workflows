@@ -11,7 +11,7 @@ Workflows owns the GitHub Actions definitions that test a change, continue an ag
 
 ## Follow a task
 
-- **Test a PR.** Open Gate's required `summary` on the current head. Trace its job dependencies to find the check that failed or skipped. [Gate job map](ci/WORKFLOWS.md#gate-job-map)
+- **Test a PR.** Open Gate's required `summary` on the current head and trace its job dependencies. For live JavaScript tests under [`.github/scripts/__tests__/`](../.github/scripts/__tests__/), open the separate `github scripts tests` result. The Python matrix and verifier grammar suites run in separate jobs. [Gate job map](ci/WORKFLOWS.md#gate-job-map)
 - **Continue an unfinished task.** A completed Gate can wake the Keepalive evaluator. Workflows uses its own loop and consumers use Gate Followups. Labels, head, outstanding work and holds determine whether a runner gets a turn. The sweep can revisit an eligible PR when there is no new Gate event. [Keepalive implementation](keepalive/GoalsAndPlumbing.md)
 - **Verify a merge.** The closer or an operator requests verification on the merged PR. The verifier wrapper calls the reusable verifier, publishes its verdict and provides evidence for the closer or a follow-up issue. [Verification contract](../README.md#verification-pipeline)
 - **Deliver new shared files.** Maint 68 prepares the consumer diff, Maint 71 handles eligible sync PRs, and Maint 82 coordinates the campaign. The receiving head is where a copied wrapper takes effect. [Distribution procedure](ops/SYNC_DEPENDENCY_CAMPAIGN.md)
