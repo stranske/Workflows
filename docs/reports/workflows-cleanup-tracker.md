@@ -7,6 +7,25 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Verified playbook repair and 16 receiving deletions
+
+Stage 3 has **714/752 files and 39/43 folders** accepted. Stage 4 has **1,449/1,540 files and 156/177 folders** accepted. Across the original inventory this pass added **12 file and 3 folder decisions**.
+
+**Verified on the receiving branches.** Maint 71 merged all 16 PRs that removed the retired Auto-Pilot cycle-metrics helper. The signed plan was `8d761df1fbd1`, source `d57b89562c68`, artifact `15253836796`. Every receiving default contains its merge and omits the obsolete file. All 16 still contain the canonical dependency script and CI playbook. The prior promotion run reported a summary-step rate limit after opening the remaining 13 receiving PRs. The native controller completed delivery after the last receiver’s required checks passed. [Final campaign](https://github.com/stranske/Workflows/actions/runs/46120367391).
+
+**Verified on Workflows main.** The new playbook test landed in [#5471](https://github.com/stranske/Workflows/pull/5471) at `7ee895f52` and passed on the installed tree. It resolves the real manifest destination and checks the published anchors. The two authenticated JUnit files each contain 16,609 cases, including the repaired case. The Python 3.13 job took **481 seconds** and 3.14 took **335 seconds** against the 600-second limit. The consumer docs folder and triage suite are accepted again. [Ordinary Gate](https://github.com/stranske/Workflows/actions/runs/46116890828).
+
+| Placement or change | Evidence and disposition |
+|---|---|
+| Campaign discovery tests | Keep the 57-case suite in the JavaScript directory shared by local discovery, Gate and Selftest. The alternative needed an additional selector in all three. In the installed [#5449](https://github.com/stranske/Workflows/pull/5449), the [scheduled run](https://github.com/stranske/Workflows/actions/runs/46119311978) listed each of the 16 registered receivers once. The previous implementation made two traversals on the same eligible input. |
+| Tool tests | Keep `tests/tools`. Moving all 48 files to `tools/tests` kept all 1,508 case identities and marks in both ordinary discovery and Gate main, after changing six discovery, import and regression-test readers. The move eliminated no files. |
+| Health 85 and its historical evidence | Keep the public observation command and six original JSON inputs grouped with issue 4619. The alternate module layout needed two compatibility entry points. Relocating the six inputs to test fixtures left the original command without its data. Repointing reproduced the identical completion decision and passed 19 issue tests. The broader source comparison passed 109 checks. |
+| Issue 4426 tests | [#5476](https://github.com/stranske/Workflows/pull/5476) removes 1,989 lines and adds 41. A clean Git archive recovered all 65 historical cases. Default and Gate core each drop those 65 and gain one live coverage-configuration test. Changing either the branch-coverage setting or a source root failed the new test. Hosted acceptance and merge are pending. |
+| Consumer model configuration | Three same-content files can use the root source. This preserves fresh placement and all 16 current installations in a scoped replay. A later root-only edit changed compiled bytes while Maint 82’s campaign hash stayed fixed. Include the authoritative sources in campaign detection and the push triggers before consolidating. The separately authored receiver selection policy changes approval behavior if replaced with the root policy. |
+| Keepalive dashboard | Five actual terminal records contained three tasks-complete rounds. The legacy CLI reported 0/5 successes and no useful iteration count. The deployed weekly reader classified the records correctly. Archive the obsolete CLI with its 11 tests, keep the separately documented generic dashboard, and move its 31 unit cases alongside the two existing metrics tests. The [guide owner](https://github.com/stranske/Workflows/pull/5473#issuecomment-7235938493) has the evidence. These changes are awaiting implementation. |
+
+Seven existing branches have the verified playbook fix and fresh exact-head review requests: [#5445](https://github.com/stranske/Workflows/pull/5445), [#5455](https://github.com/stranske/Workflows/pull/5455), [#5465](https://github.com/stranske/Workflows/pull/5465), [#5466](https://github.com/stranske/Workflows/pull/5466), [#5467](https://github.com/stranske/Workflows/pull/5467), [#5468](https://github.com/stranske/Workflows/pull/5468), [#5474](https://github.com/stranske/Workflows/pull/5474). Their new CI results and default installations count separately. The refreshed integration validator review found that a valid pin for one Python version could hide an invalid pin for another. The repair is active on the original PR. [Exact review finding](https://github.com/stranske/Workflows/pull/5465#discussion_r4726005784). Stage 1A remains 198/198 and 1B remains 27/27. The original delivery checklist has 26 production passes and two replay-verified no-demand dispositions.
+
 ### November 28 · Playbook regression and operator cleanup
 
 Stage 3 has **711/752 files and 39/43 folders**. Stage 4 has **1,446/1,540 files and 154/177 folders**. Across the original inventory the net change this session is **+6 accepted files and −1 folder**. The consumer documentation folder reopened when both hosted Python jobs exposed a regression.
@@ -523,13 +542,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 711/752 | 39/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,446/1,540 | 154/177 | — |
+| 2 · Evidence and archives | 1,951/2,901 | 119/220 | — |
+| 3 · Scripts, tools and packages | 714/752 | 39/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,449/1,540 | 156/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 204/334 | 26/47 | — |
-| **Total** | **4,333/5,554** | **337/487** | **198/198** |
+| **Total** | **4,345/5,554** | **340/487** | **198/198** |
 
-**Directory organization.** 4,121 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 4,133 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
