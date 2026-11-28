@@ -96,7 +96,7 @@ still requires the corresponding cloud trace to remain retained and accessible.
 `health-84-langsmith-observability.yml` runs daily and supports manual
 dispatch. It independently checks:
 
-- the dashboard and conformance workflows have a success within 192 hours,
+- the dashboard workflow (which also builds the conformance report) has a success within 192 hours,
 - neither workflow has two consecutive non-successful completed runs,
 - `workflows-agents` has a cloud trace within 24 hours, and
 - every intentional pause has valid ownership and resumption metadata. An overdue
@@ -132,10 +132,12 @@ Validation must fail for malformed records, including:
 - unsafe raw payload values,
 - invalid status values.
 
-Workflows runs a fleet conformance check from
-`.github/workflows/maint-81-langsmith-fleet-conformance.yml`. The check reads
-each registry entry, downloads the latest per-repo `langsmith-fleet.ndjson`
-artifact when one exists, and validates it with `scripts/langsmith_fleet.py`.
+Workflows runs a fleet conformance check as the `Build fleet conformance
+report` step of `.github/workflows/maint-80-langsmith-metrics-dashboard.yml`
+(it was the separate maint-81 until cohesion review B14, which fetched the same
+artifacts a second time). The step stages the per-repo `langsmith-fleet.ndjson`
+files the dashboard already downloaded (`scripts/stage_langsmith_conformance_records.py`)
+and validates them with `scripts/langsmith_fleet_conformance.py`.
 The scheduled path is warning-only: missing, stale, or invalid rows emit
 workflow warnings and a machine-readable report artifact, but they do not block
 the weekly run. Manual dispatch can set `enforce_block=true` to fail the
@@ -197,8 +199,7 @@ These upload-level limits do not delete existing artifacts or change repository
 settings, LangSmith storage, source archives or local metrics rollups. Future
 artifact callers must use filtered/bounded discovery even when retention is set.
 
-Validation: `node --test .github/scripts/__tests__/langsmith-fleet-artifacts.test.js`
-and `python3 -m pytest tests/workflows/test_langsmith_fleet_conformance_workflow.py
+Validation: `python3 -m pytest tests/scripts/test_stage_langsmith_conformance_records.py
  tests/workflows/test_langsmith_observability_health_workflow.py
  tests/scripts/test_langsmith_observability_health.py -q -o addopts=`. The authored
 workflow test executes the production download script against a >30k-inventory

@@ -174,7 +174,7 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
         ),
         (
             ".github/workflows/maint-80-langsmith-metrics-dashboard.yml",
-            "generate-dashboard/step-9/run",
+            "generate-dashboard/step-11/run",
             "inputs.days_back || '7'",
         ),
         (

@@ -16,7 +16,9 @@ def test_observability_health_is_independent_and_non_mutating() -> None:
     assert "workflow_dispatch:" in source
     assert "workflow_run:" not in source
     assert "maint-80-langsmith-metrics-dashboard.yml" in source
-    assert "maint-81-langsmith-fleet-conformance.yml" in source
+    # one workflow since cohesion review B14: conformance is a maint-80 step
+    assert "maint-81" not in source
+    assert "--conformance-runs" not in source
     assert "contents: read" in source
     assert "contents: write" not in source
     assert "persist-credentials: false" in source

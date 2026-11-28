@@ -45,9 +45,9 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p .observability-health
+          # One workflow: fleet conformance is a step of maint-80 (cohesion review B14).
           for spec in \
-            "dashboard:maint-80-langsmith-metrics-dashboard.yml" \
-            "conformance:maint-81-langsmith-fleet-conformance.yml"; do
+            "dashboard:maint-80-langsmith-metrics-dashboard.yml"; do
             name="${spec%%:*}"
             workflow="${spec#*:}"
             output=".observability-health/${name}-runs.json"
@@ -83,7 +83,6 @@ jobs:
           set -uo pipefail
           if ! python scripts/langsmith_observability_health.py \
             --dashboard-runs .observability-health/dashboard-runs.json \
-            --conformance-runs .observability-health/conformance-runs.json \
             --workflow-max-age-hours "$WORKFLOW_MAX_AGE_HOURS" \
             --trace-max-age-hours "$TRACE_MAX_AGE_HOURS" \
             --failure-threshold 2 \
