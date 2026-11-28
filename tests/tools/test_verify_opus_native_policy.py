@@ -19,6 +19,10 @@ def test_documented_opus_facts_do_not_invent_separate_input_limit(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def deny_unmocked_network(monkeypatch):
+    # The native client is real, so keep its LangSmith callbacks offline as well.
+    monkeypatch.setenv("LANGSMITH_TRACING", "false")
+    monkeypatch.setenv("LANGCHAIN_TRACING_V2", "false")
+
     def refuse(*args, **kwargs):
         pytest.fail("native policy tests require inert transports; live network is forbidden")
 
