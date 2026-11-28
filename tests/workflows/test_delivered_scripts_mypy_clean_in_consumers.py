@@ -232,6 +232,27 @@ def test_identify_mutation_targets_by_log_pattern():
     _assert_consumer_mypy_receipt(observation)
 
 
+def test_manifest_synced_helpers_typecheck_without_repo_overrides(tmp_path: Path) -> None:
+    """Keep consumer-delivered helpers clean under a consumer mypy run."""
+    from mypy import api as mypy_api
+
+    config = tmp_path / "mypy.ini"
+    config.write_text("[mypy]\n", encoding="utf-8")
+
+    stdout, stderr, status = mypy_api.run(
+        [
+            "--config-file",
+            str(config),
+            "--cache-dir",
+            str(tmp_path / "mypy-cache"),
+            str(ROOT / "scripts/check_docs_drift.py"),
+            str(ROOT / "scripts/sync_status_file_ignores.py"),
+        ]
+    )
+
+    assert status == 0, stdout + stderr
+
+
 @pytest.mark.skipif(not mypy_available, reason="mypy is not installed")
 def test_delivered_ledger_scripts_type_check_in_a_consumer_layout(tmp_path):
     package = tmp_path / "scripts"
@@ -338,7 +359,6 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
             'expected "str"  [arg-type]'
         ) in errors[0]
     else:
-        # Zero exit code is the shipment gate; keep it explicit like other consumer
-        # typecheck regressions (tests/scripts/test_consumer_script_typecheck.py).
+        # Zero exit code is the shipment gate.
         assert result.returncode == 0, result.stdout + result.stderr
         assert "Success: no issues found" in result.stdout
