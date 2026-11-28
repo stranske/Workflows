@@ -3,6 +3,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// One owner per PR (docs/LABELS.md `agents:local-loop`): the Orchestrator's local loop
+// sets this label when it starts a PR on the owner's machine and removes it when it hands
+// the PR to hosted keepalive. Hosted keepalive and hosted autofix read this one constant.
+const LOCAL_LOOP_LABEL = 'agents:local-loop';
+
 const ALLOWED_CAPACITY_WINDOWS = new Set(['5h', 'weekly', 'daily']);
 const ALLOWED_CODEX_REASONING_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -296,6 +301,11 @@ function normalizeLabel(label) {
   return '';
 }
 
+function isLocalLoopOwned(labels) {
+  const labelList = Array.isArray(labels) ? labels : [];
+  return labelList.map(normalizeLabel).includes(LOCAL_LOOP_LABEL);
+}
+
 function resolveAgentRoutingFromLabels(labels, options = {}) {
   const { registryPath } = normalizeRegistryOptions(options);
   const registry = loadAgentRegistry({ registryPath });
@@ -464,6 +474,8 @@ module.exports = {
   getKeepaliveMarkerPrefix,
   getReadinessCandidates,
   getRunnerWorkflow,
+  isLocalLoopOwned,
+  LOCAL_LOOP_LABEL,
   loadAgentRegistry,
   parseRegistryYaml,
   resolveExecutionProfile,
