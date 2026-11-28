@@ -1,10 +1,8 @@
 """Keep the consumer label guide bound to its consumer-specific source."""
 
-import os
 import subprocess
 from pathlib import Path
 
-import pytest
 import yaml
 
 
