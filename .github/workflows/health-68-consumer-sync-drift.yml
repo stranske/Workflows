@@ -28,11 +28,22 @@ permissions:
   actions: read
 
 concurrency:
-  # A scoped manual report must not interrupt a fleet comparison.
+  # Concurrency is applied before the job `if`, so a run that will not measure still
+  # joins whatever group it names. Three groups:
+  # - a scoped manual report gets its own group and never interrupts a fleet comparison;
+  # - a measuring run (the check-drift `if` below, repeated verbatim and pinned equal by
+  #   tests/workflows/test_health_68_liveness.py) joins the fleet group;
+  # - every other run (the Maint 71 continuations, several an hour, that end `skipped`)
+  #   gets a per-run group, so it can never cancel or displace a comparison.
+  # Measuring runs queue behind each other instead of cancelling an in-flight comparison.
   group: >-
     ${{ inputs.repos != '' && format('health-68-consumer-sync-drift-scoped-{0}', github.run_id) ||
-        'health-68-consumer-sync-drift' }}
-  cancel-in-progress: true
+        (github.event_name != 'workflow_run' ||
+         (github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.event == 'schedule')) && 'health-68-consumer-sync-drift' ||
+        format('health-68-consumer-sync-drift-unmeasured-{0}', github.run_id) }}
+  cancel-in-progress: false
 
 jobs:
   check-drift:
