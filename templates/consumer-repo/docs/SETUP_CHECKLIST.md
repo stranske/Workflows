@@ -1149,11 +1149,12 @@ inputs:
 
 ## Phase 10: Register for Automatic Sync (Recommended)
 
-> **Critical**: Your repo needs to be registered in **THREE** sync workflows to
-> receive all updates. Missing any of these means missing important updates.
+> **Critical**: Your repo needs to be in the **one** registered-consumer list
+> (§10.1) to receive all updates. Maint 68 (workflows, scripts, docs including
+> `docs/LABELS.md`) and Maint 52 (dev-tool versions) both read that list.
 
 To receive automatic updates when workflow templates, documentation, and tool
-versions change, add your repo to these three workflows:
+versions change, register your repo once (§10.1); the rest of this phase confirms it:
 
 ### 10.1 Workflow & Script Sync
 
@@ -1185,10 +1186,10 @@ versions change, add your repo to these three workflows:
 and derives the set from §10.1 (see maint-52 lines ~85-86). The label guide
 (§10.2) travels with the Maint 68 sync itself.
 
-**So the "THREE workflows" framing above is out of date: there is ONE list
-(§10.1) and one derived consumer.** Corrected 2026-08-21 while onboarding
-`stranske/Orchestrator`, where following the old instruction would have meant
-editing a `REGISTERED_CONSUMER_REPOS` block that no longer exists in maint-52.
+**There is ONE list (§10.1) and one derived consumer.** An earlier
+"THREE workflows" framing was corrected on 2026-08-21 while onboarding
+`stranske/Orchestrator`, where following it would have meant editing a
+`REGISTERED_CONSUMER_REPOS` block that no longer exists in maint-52.
 
 - [ ] Confirmed `maint-52` derives from §10.1 (no separate edit required)
 
@@ -1210,7 +1211,7 @@ gh workflow run "Maint 52 Sync Dev Versions" \
   -f dry_run=true
 ```
 
-- [ ] All three sync workflows tested successfully
+- [ ] Both sync workflows (Maint 68 and Maint 52) tested successfully
 
 **Note**: Repos with custom Gate workflows should still be registered—only
 the thin caller workflows are synced, not custom implementations.
