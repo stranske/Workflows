@@ -26,7 +26,8 @@ Validation commands and process exits are in `3770-validation.json`:
 For each of root and template, replace only that resolver with the incumbent base
 bytes: the conflict assertions fail (exit1). Restore the exact candidate bytes:
 the same command passes (exit0). Raw console logs are retained independently for
-each side. Console captures are losslessly gzip-compressed to preserve their
+each side in the [original validation packet](#recover-the-focused-and-full-console-transcripts).
+Console captures are losslessly gzip-compressed to preserve their
 original bytes without trailing-whitespace diffs. `decoded-captures.json` retains
 decoded names, lengths and SHA256; use `gzip -dc <capture.log.gz>` to read them.
 These are executed production mutations, not a test-only mock.
@@ -62,7 +63,7 @@ Before the review-fix push, main advanced to
 `b4c5c6bb9` (merged3797). Rebased onto that main, preserved all current mutated
 production-source hashes, then re-ran the complete JavaScript suite:2,057PASS,
 1existingSkip,0failures. `3770-rebased-validation.json` records full base/tested
-head, exact command and exit. The rebased console is in the [original transcript
+head, exact command and exit. The rebased console is in the [original packet
 recovery](#recover-the-focused-and-full-console-transcripts).
 The earlier2028/2029 full-scope counts above are historical pre-rebase receipts,
 not final-tree counts. No tested implementation bytes changed when adding this
@@ -70,17 +71,14 @@ receipt. Final staged/base diff checks pass.
 
 ### Recover the focused and full console transcripts
 
-The original and current focused transcripts and the three full JavaScript
-transcripts are preserved at their publishing revision. The other receipts and
-both original hash manifests remain alongside this guide.
+The [original validation packet](https://github.com/stranske/Workflows/tree/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict)
+contains all 35 files from the title-conflict, negation and rebased validation
+runs. Its `sha256.json` checks the captured files, and
+`decoded-captures.json` checks the uncompressed console bytes.
 
-- [3770-focused.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-focused.log.gz)
-- [3770-current-focused.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-current-focused.log.gz)
-- [3770-full-js.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-full-js.log.gz)
-- [3770-current-full-js.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-current-full-js.log.gz)
-- [3770-rebased-full-js.log.gz](https://github.com/stranske/Workflows/blob/00f43f81e51c4f8b9a057ac51f7e3c2d870d7769/docs/evidence/issue-3770/title-metadata-conflict/3770-rebased-full-js.log.gz)
-
-Run from a Workflows checkout. The command prints the verified temporary directory.
+Run this from a Workflows checkout. It prints a new temporary directory with
+the original repository-relative paths. The publishing revision is fetched
+if the checkout lacks it.
 
 ```bash
 (
@@ -90,20 +88,10 @@ Run from a Workflows checkout. The command prints the verified temporary directo
   if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
     git fetch --no-tags --depth=1 origin "$revision"
   fi
-  recovered=$(mktemp -d "${TMPDIR:-/tmp}/title-metadata-console.XXXXXX")
-  for name in 3770-focused.log.gz 3770-current-focused.log.gz 3770-full-js.log.gz 3770-current-full-js.log.gz 3770-rebased-full-js.log.gz; do
-    git show "$revision:$directory/$name" > "$recovered/$name"
-  done
-  (
-    cd "$recovered"
-    shasum -a 256 -c <<'CHECKSUMS'
-f9f6d090f23c8ec923cebaab183a21725be0f275fbe027776fefc2a4a603080f  3770-focused.log.gz
-9bc0b2bd5706946eae45c2e6628ac7044c383c8f0e84bf836aebcfac19b00f3e  3770-current-focused.log.gz
-12d3ecd89e35bf8b3cc59c61d8e31f668a195ab18175760e1c604f3ad4b912dd  3770-full-js.log.gz
-7783935400e29c82a0b570120b1801b3e7c2eb42e13cd8c3d57a8ad6fb36526a  3770-current-full-js.log.gz
-e2e36b6fc07da0c61b47d880578ccedcd3ab497993e89901206fef6cc87f7cd4  3770-rebased-full-js.log.gz
-CHECKSUMS
-  )
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-3770-evidence.XXXXXX")
+  git archive --output="$recovered/evidence.tar" "$revision" -- "$directory"
+  tar -xf "$recovered/evidence.tar" -C "$recovered"
+  rm "$recovered/evidence.tar"
   printf '%s\n' "$recovered"
 )
 ```
