@@ -252,7 +252,7 @@ def test_standard_compare_counts_full_request_before_any_model_invocation(monkey
 
 
 def test_chunked_evaluation_preserves_minimum_policy_and_final_synthesis(monkeypatch):
-    from tests.scripts.test_pr_verifier_file_chunks import Client, patch
+    from tests.scripts.pr_verifier.test_pr_verifier_file_chunks import Client, patch
 
     monkeypatch.setenv("VERIFIER_DIFF_BUDGET_TOKENS", "16000")
     monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
@@ -468,7 +468,7 @@ def test_large_optional_diagnostics_do_not_spend_required_comment_budget(monkeyp
 
 @pytest.mark.parametrize("final_verdict", ["PASS", "FAIL"])
 def test_optional_tail_does_not_return_in_chunk_synthesis(monkeypatch, final_verdict):
-    from tests.scripts.test_pr_verifier_file_chunks import Client, patch
+    from tests.scripts.pr_verifier.test_pr_verifier_file_chunks import Client, patch
 
     monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
     monkeypatch.setenv("VERIFIER_DIFF_BUDGET_TOKENS", "16000")
@@ -707,7 +707,7 @@ def test_real_selected_baseline_collector_manifest_reaches_evaluate_prompt(
     raw = subprocess.check_output(
         [
             "node",
-            str(Path(__file__).parent / "fixtures/selected_baseline_collector.js"),
+            str(Path(__file__).parents[1] / "fixtures/selected_baseline_collector.js"),
             *(["--complete"] if mandatory_complete else []),
         ],
         text=True,
@@ -749,7 +749,7 @@ def test_retained_canary_incidental_coverage_is_not_required_capture(monkeypatch
 
     from tools.verifier_capture_obligation_manifest import build_capture_obligation_manifest
 
-    directory = Path(__file__).parents[1] / "fixtures/verifier_incidental_coverage"
+    directory = Path(__file__).parents[2] / "fixtures/verifier_incidental_coverage"
     source = json.loads((directory / "SOURCE.json").read_text())
     for name, expected in source["files_sha256"].items():
         assert hashlib.sha256((directory / name).read_bytes()).hexdigest() == expected

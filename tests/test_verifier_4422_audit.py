@@ -252,7 +252,7 @@ def test_tracked_locations_use_actual_paths_and_keep_missing_root_intake_absent(
         "scripts/langchain/pr_verifier.py",
         "templates/consumer-repo/scripts/langchain/pr_verifier.py",
         "scripts/langchain/verifier_config.py",
-        "tests/scripts/test_pr_verifier_compare.py",
+        "tests/scripts/pr_verifier/test_pr_verifier_compare.py",
         ".github/scripts/agents_verifier_context.js",
         "templates/consumer-repo/.github/scripts/agents_verifier_context.js",
         ".github/scripts/verifier_closure.js",
@@ -273,7 +273,7 @@ def test_tracked_locations_use_actual_paths_and_keep_missing_root_intake_absent(
     assert resolved["agents-issue-intake.yml"] == [
         "templates/consumer-repo/.github/workflows/agents-issue-intake.yml"
     ]
-    assert "tests/scripts/test_pr_verifier_compare.py" not in resolved["pr_verifier.py"]
+    assert "tests/scripts/pr_verifier/test_pr_verifier_compare.py" not in resolved["pr_verifier.py"]
 
 
 def test_workflow_parser_maps_the_reusable_invocation_away_from_the_template_copy() -> None:

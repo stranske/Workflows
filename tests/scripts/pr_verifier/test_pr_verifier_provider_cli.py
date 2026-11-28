@@ -117,7 +117,7 @@ def test_authored_evaluate_cli_arguments_reach_native_evaluation_without_paid_ca
 def test_authored_command_subprocess_imports_and_routes_provider_offline(
     tmp_path, provider, canonical
 ):
-    root = Path(__file__).resolve().parents[2]
+    root = Path(__file__).resolve().parents[3]
     (tmp_path / ".workflows-lib").symlink_to(root, target_is_directory=True)
     (tmp_path / "verifier-context.md").write_text("## PR #4175\nOriginal request.\n")
     (tmp_path / "verifier-pr-diff.patch").write_text("+exact changed code\n")

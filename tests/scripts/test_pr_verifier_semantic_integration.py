@@ -392,7 +392,7 @@ def test_native_preflight_admits_only_verified_full_patch_for_truncated_code(mon
 
 
 def test_semantic_capture_uses_lossless_coverage_but_preserves_missing_proof(monkeypatch):
-    from tests.scripts.test_verifier_evaluate_evidence_minimum import replace_inventory
+    from tests.scripts.pr_verifier.test_verifier_evaluate_evidence_minimum import replace_inventory
 
     context = _context()
     first = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n"
