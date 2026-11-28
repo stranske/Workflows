@@ -42,14 +42,11 @@ ORIGINAL_ROUTES = {
     "docs/WORKFLOW_AUDIT_2026-01-09.md": "january-audit-original",
 }
 
-ACTIVE_PLANS = [
-    "docs/REVIEW_EXTENDED_AUTOPILOT.md",
-]
-
 # Archived 2026-11-28 when Auto-Pilot was retired (#5379).
 ARCHIVED_WITH_AUTOPILOT = {
     "docs/TODO_EXTENDED_AUTOPILOT.md": "docs/archive/plans/TODO_EXTENDED_AUTOPILOT.md",
     "docs/llm-dependencies-audit.md": "docs/archive/audits/llm-dependencies-audit.md",
+    "docs/REVIEW_EXTENDED_AUTOPILOT.md": "docs/archive/plans/REVIEW_EXTENDED_AUTOPILOT.md",
 }
 
 
@@ -115,13 +112,6 @@ def test_compatibility_stubs_exist() -> None:
         assert path.is_file(), relative
         stub = path.read_text(encoding="utf-8")
         assert "archive" in stub.lower()
-
-
-def test_extended_autopilot_docs_remain_active() -> None:
-    for relative in ACTIVE_PLANS:
-        path = REPO_ROOT / relative
-        assert path.is_file(), relative
-        assert "archived stub" not in path.read_text(encoding="utf-8").lower()
 
 
 def test_auto_pilot_documents_moved_to_archive() -> None:

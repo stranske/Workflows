@@ -211,7 +211,6 @@ The former paths under `docs/keepalive/` were retired. The Gap Assessment and Sy
 
 | Path | Reason |
 |------|--------|
-| `docs/REVIEW_EXTENDED_AUTOPILOT.md` | Current design review for extended auto-pilot (2026-02-17) |
 | Other files under `docs/plans/` | Independent rollout or upgrade plans still referenced by operators |
 
 ## Archived 2026-11-28 (Auto-Pilot retired in #5379)
@@ -220,6 +219,7 @@ The former paths under `docs/keepalive/` were retired. The Gap Assessment and Sy
 |------|-------------|
 | `docs/archive/plans/TODO_EXTENDED_AUTOPILOT.md` | `docs/TODO_EXTENDED_AUTOPILOT.md` (planned `agents-auto-pilot-extended.yml`, never shipped) |
 | `docs/archive/audits/llm-dependencies-audit.md` | `docs/llm-dependencies-audit.md` (audit of the retired `agents-auto-pilot.yml`) |
+| `docs/archive/plans/REVIEW_EXTENDED_AUTOPILOT.md` | `docs/REVIEW_EXTENDED_AUTOPILOT.md` (design review of the never-shipped extended Auto-Pilot) |
 
 ## Rollback
 

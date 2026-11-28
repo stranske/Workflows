@@ -273,7 +273,7 @@ jobs:
             REPO="${{ github.repository }}"
             DOCS_URL="https://github.com/${REPO}"
             DOCS_URL+="/blob/${DEFAULT_BRANCH}/WORKFLOW_USER_GUIDE.md"
-            DOCS_URL+="#auto-pilot-recovery-procedures"
+            DOCS_URL+="#issue-format-hold-recovery-procedures"
             printf '%s\n' \
               "## ⚠️ Optimizer Paused" \
               "" \
@@ -289,7 +289,7 @@ jobs:
               "3. If issue body is corrupted, close and recreate with clean body" \
               "4. Remove \`agents:auto-pilot-pause\` label to retry after fixing" \
               "" \
-              "Auto-pilot has been paused. See [recovery procedures](${DOCS_URL})." \
+              "The optimizer is paused for this issue. See [recovery procedures](${DOCS_URL})." \
               > /tmp/recursion_guard_comment.md
             sed -i "s/__COUNT__/${count}/g" /tmp/recursion_guard_comment.md
             gh issue comment "$ISSUE_NUMBER" --body-file /tmp/recursion_guard_comment.md

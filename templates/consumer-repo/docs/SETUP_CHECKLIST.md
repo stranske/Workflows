@@ -173,7 +173,7 @@ Create these labels in **Settings** → **Labels** (exact names required):
 | `agent:retry` | `#D93F0B` | Optional recovery-request marker; does not trigger a retry by itself | Operator visibility |
 | `agent:needs-attention` | `#D93F0B` | Agent needs human help | Error recovery |
 | `agents:keepalive` | `#0E8A16` | Enables keepalive automation | PR keepalive loops |
-| `runner:<agent>` | `#6f42c1` | Optional auto-pilot override (`runner:claude`, etc.) without triggering the issue intake workflow | Issue automation |
+| `runner:<agent>` | `#6f42c1` | Retired with Auto-Pilot; no live workflow reads it (kept so existing issues keep their label) | Issue automation |
 | `agents:format` | `#5319E7` | Triggers direct issue formatting | Issue formatting |
 | `agents:optimize` | `#5319E7` | Triggers issue analysis/suggestions | Issue optimization |
 | `agents:apply-suggestions` | `#5319E7` | Applies optimizer suggestions | Issue optimization |
@@ -211,7 +211,7 @@ gh label create "agent:codex" --color "0052CC" --description "Assigns Codex agen
 gh label create "agent:retry" --color "D93F0B" --description "Marks a requested keepalive recovery" --repo "$REPO" 2>/dev/null || echo "agent:retry exists"
 gh label create "agent:needs-attention" --color "D93F0B" --description "Agent needs human help" --repo "$REPO" 2>/dev/null || echo "agent:needs-attention exists"
 gh label create "agents:keepalive" --color "0E8A16" --description "Enables keepalive automation" --repo "$REPO" 2>/dev/null || echo "agents:keepalive exists"
-gh label create "runner:codex" --color "6f42c1" --description "Auto-pilot runner override: codex" --repo "$REPO" 2>/dev/null || echo "runner:codex exists"
+gh label create "runner:codex" --color "6f42c1" --description "Retired runner override: codex" --repo "$REPO" 2>/dev/null || echo "runner:codex exists"
 gh label create "agents:format" --color "5319E7" --description "Formats issue into template" --repo "$REPO" 2>/dev/null || echo "agents:format exists"
 gh label create "agents:optimize" --color "5319E7" --description "Analyzes issue and posts suggestions" --repo "$REPO" 2>/dev/null || echo "agents:optimize exists"
 gh label create "agents:apply-suggestions" --color "5319E7" --description "Applies optimizer suggestions" --repo "$REPO" 2>/dev/null || echo "agents:apply-suggestions exists"

@@ -1,3 +1,5 @@
+> **Archived 2026-11-28.** This reviewed an extension of the Auto-Pilot workflow, which was retired in #5379; kept as history.
+
 # Extended Auto-Pilot Design Review
 
 **Status**: Ready for final review before implementation
