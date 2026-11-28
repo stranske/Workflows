@@ -1328,6 +1328,8 @@ runtime_fetched:
 
 
 excluded:
+  - path: .github/copilot-skills/
+    reason: "Existing numbered Markdown notes are receiver-owned. Managed Copilot instructions link the immutable Workflows archive."
 
   - path: .github/scripts/sync_tracker_state
     reason: "The full plan removes the former managed index.js leaf. The old directory stays outside sync ownership so receiver-owned siblings are preserved."
@@ -1346,8 +1348,3 @@ excluded:
 copilot_config:
   - source: .github/copilot-instructions.md
     description: "Repository-specific instructions for GitHub Copilot"
-
-  # Skills folder - synced as a directory
-  - source: .github/copilot-skills/
-    is_directory: true
-    description: "Copilot skill definitions - patterns for CI, GitHub ops, etc."
