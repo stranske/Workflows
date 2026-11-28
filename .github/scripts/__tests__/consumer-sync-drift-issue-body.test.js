@@ -276,3 +276,27 @@ test('a future or malformed carried timestamp restarts the age at now', () => {
     assert.equal(ledger.blocking.length, 0);
   }
 });
+
+test('a globally failed comparison (empty roster) is unmeasured, not a drained fleet', () => {
+  const report = {
+    status: 'drift',
+    counts: { drift: 0, missing: 0, errors: 0, obsolete: 0, unmeasured_create_only: 0 },
+    sync_remediation: {
+      coverage_lease_hours: 36,
+      repo_states: {},
+      global_errors: ['no registered consumer repositories supplied'],
+    },
+  };
+  const ledger = coverageLedger(report, { now: NOW });
+  assert.equal(ledger.measured, false);
+  const body = formatIssueBody(report, { now: NOW });
+  assert.match(body, /\*\*Coverage:\*\* unmeasured \(the comparison failed: no registered consumer repositories supplied\)/);
+  assert.doesNotMatch(body, /- None\./);
+  assert.notEqual(formatIssueComment(report, { now: NOW }), '');
+  assert.equal(parseIssueMarker(body).coverage.uncovered, null);
+});
+
+test('an empty repo_states map without errors is still unmeasured', () => {
+  const ledger = coverageLedger({ sync_remediation: { repo_states: {} } }, { now: NOW });
+  assert.equal(ledger.measured, false);
+});

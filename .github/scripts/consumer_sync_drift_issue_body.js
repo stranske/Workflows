@@ -81,8 +81,20 @@ function coverageLedger(report, options = {}) {
     : DEFAULT_LEASE_HOURS;
   const nowMs = options.now ? Date.parse(options.now) : Date.now();
   const repoStates = remediation.repo_states;
+  const globalErrors = Array.isArray(remediation.global_errors) ? remediation.global_errors : [];
+  const unmeasured = (reason) => ({
+    measured: false, reason, leaseHours, covered: [], uncovered: [], blocking: [], draining: [], uncoveredSince: {},
+  });
   if (!repoStates || typeof repoStates !== 'object' || Array.isArray(repoStates)) {
-    return { measured: false, leaseHours, covered: [], uncovered: [], blocking: [], draining: [], uncoveredSince: {} };
+    return unmeasured('the drift report has no per-repo remediation states');
+  }
+  // A comparison that failed globally (for example an empty consumer roster) compared
+  // nothing; its empty or blocked states must not read as a drained fleet.
+  if (globalErrors.length > 0) {
+    return unmeasured(`the comparison failed: ${globalErrors.slice(0, 3).join('; ')}`);
+  }
+  if (Object.keys(repoStates).length === 0) {
+    return unmeasured('the drift report compared no repositories');
   }
   const previous = options.previousMarker && options.previousMarker.coverage
     ? options.previousMarker.coverage.uncovered_since || {}
@@ -129,7 +141,7 @@ function coverageLedger(report, options = {}) {
 
 function coverageLine(ledger) {
   if (!ledger.measured) {
-    return '**Coverage:** unmeasured (the drift report has no per-repo remediation states)';
+    return `**Coverage:** unmeasured (${ledger.reason})`;
   }
   return `**Coverage:** covered by an open delivery PR: ${ledger.covered.length}, ` +
     `uncovered: ${ledger.uncovered.length} ` +
@@ -155,8 +167,8 @@ function blockingActionLine(item) {
 function requiredActionLines(ledger) {
   if (!ledger.measured) {
     return [
-      '- Coverage could not be measured. Read the `consumer-sync-drift-report` artifact of this run; ' +
-        'a report without `sync_remediation.repo_states` is a Health 68 defect.',
+      `- Coverage could not be measured (${ledger.reason}). Read the \`consumer-sync-drift-report\` ` +
+        'artifact and the Health 68 run log; an unmeasured comparison is a defect, not a clean fleet.',
     ];
   }
   if (ledger.blocking.length === 0) {
