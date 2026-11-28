@@ -30,6 +30,7 @@ jobs:
       - name: Checkout alert helper
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github/actions/auth-alert-issue
             .github/scripts/resolve_alert_issue.py
