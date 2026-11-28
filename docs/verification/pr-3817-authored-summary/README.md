@@ -4,6 +4,17 @@ Actual compare38073044299 returned CONCERNS/CONCERNS for merged3817, including a
 
 The fallback now refuses to infer a generated section when its visible content contains an explicit checkbox obligation. Marked bot sections still use their existing explicit wrappers; ordinary marker-less generated bullet summaries remain filtered. Existing nested task/acceptance boundaries remain intact. Ambiguous checklists are conservatively retained, which may keep a copied generated checkbox instead of silently dropping real work. This patch does not claim semantic provenance for arbitrary prose under that heading.
 
-Production sensitivity was independently rechecked after the repair: both parser copies were temporarily restored to their actual main implementation, all six new named tests failed, then the repaired bytes were restored exactly and all249parser/keepalive tests passed. Source hashes and full RED/GREEN consoles are adjacent. No check, scope, floor or exclusion was weakened. Root/template source bytes are identical; sync-manifest existing entry description now records the behavior. No workflow permission/secret/routing/model surface changed.
+Production sensitivity was independently rechecked after the repair: both parser copies were temporarily restored to their actual main implementation, all six new named tests failed, then the repaired bytes were restored exactly and all249parser/keepalive tests passed. The [proof receipt](https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/verification/pr-3817-authored-summary/wf3817-authored-proof.json), [RED console](https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/verification/pr-3817-authored-summary/wf3817-production-mutant-red.txt), and [GREEN console](https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/verification/pr-3817-authored-summary/wf3817-production-restored-green.txt) are retained at an immutable revision. No check, scope, floor or exclusion was weakened. Root/template source bytes are identical; sync-manifest existing entry description now records the behavior. No workflow permission/secret/routing/model surface changed.
 
 Related to source3743; bounded follow-up to merged3817 only. The broader coverage initiative remains OPEN. Hosted checks, review floor, active threads, guarded squash and actual post-merge comparison remain required. Neither the original provider verdict nor this local evidence is relabeled providerPASS.
+
+## Recover the original captures
+
+Extract into an empty directory from a checkout with the pinned commit:
+
+```sh
+git archive 0c0334c6e92588c158f1c9362f1409062477de09 -- \
+  docs/verification/pr-3817-authored-summary/wf3817-authored-proof.json \
+  docs/verification/pr-3817-authored-summary/wf3817-production-mutant-red.txt \
+  docs/verification/pr-3817-authored-summary/wf3817-production-restored-green.txt | tar -xf -
+```
