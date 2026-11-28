@@ -19,16 +19,6 @@ from scripts.check_deliberate_break import (
 )
 
 
-@pytest.fixture(autouse=True)
-def isolate_deliberate_break_worker_subprocesses(
-    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    if hasattr(request.config, "workerinput"):
-        # These child pytest runs use synthetic conftests. Leave the archived
-        # serial comparison's plugin environment intact.
-        monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
-
-
 def _run(repo: Path, *args: str) -> None:
     subprocess.run(args, cwd=repo, check=True, text=True, capture_output=True)
 
