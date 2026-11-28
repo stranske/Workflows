@@ -1852,6 +1852,13 @@ jobs:
                   .map((label) => (label?.name || '').toLowerCase())
                   .filter(Boolean)
               : [];
+            // One owner per PR (docs/LABELS.md `agents:local-loop`): the local loop fixes
+            // CI on its own PRs, so hosted autofix stops before any label write or runner
+            // reservation.
+            const { isLocalLoopOwned } = require('./.github/scripts/agent_registry.js');
+            if (isLocalLoopOwned(labels)) {
+              return stop('agents:local-loop owns this pull request', 'local_loop');
+            }
             const nonRoutingAgentLabels = new Set([
               'agent:rate-limited',
               'agent:needs-attention',
@@ -1860,26 +1867,30 @@ jobs:
             const hasAgentLabel = labels.some(
               l => l.startsWith('agent:') && !nonRoutingAgentLabels.has(l)
             );
-            const routingLabelObjects = Array.isArray(prData.labels)
-              ? prData.labels.filter((label) => {
-                  const normalized = (label?.name || '').toLowerCase();
-                  if (!normalized.startsWith('agent:')) {
-                    return true;
-                  }
-                  return !nonRoutingAgentLabels.has(normalized);
-                })
-              : [];
 
-            // Resolve agent type from PR labels (for routing autofix to correct runner)
+            // Decide the autofix agent from registry capabilities.pr_autofix BEFORE the
+            // runner reservation (Check runner dispatch debounce). Keepalive reserves the
+            // same PR/head/agent key, so a slot held for an agent autofix cannot run (gemini,
+            // or an unknown label such as agent:vibe that used to fall back to codex) would
+            // refuse that PR's own keepalive round as a duplicate for 30 minutes.
+            let autofixAgent;
             try {
-              const { resolveAgentFromLabels } = require('./.github/scripts/agent_registry.js');
-              outputs.agent_type = resolveAgentFromLabels(routingLabelObjects, {
+              const { resolveAutofixAgent } = require('./.github/scripts/agent_registry.js');
+              autofixAgent = resolveAutofixAgent(prData.labels, {
                 registryPath: './.github/agents/registry.yml',
               });
             } catch (err) {
-              core.warning(`Failed to resolve agent type: ${err.message}; defaulting to codex`);
-              outputs.agent_type = 'codex';
+              const reason = `registry_error: ${err.message}`;
+              autofixAgent = { eligible: false, agentKey: '', reason };
             }
+            if (!autofixAgent.eligible) {
+              return stop(
+                `agent ${autofixAgent.agentKey || '(none)'} has no hosted autofix ` +
+                  `(${autofixAgent.reason})`,
+                'autofix_unsupported',
+              );
+            }
+            outputs.agent_type = autofixAgent.agentKey;
 
             outputs.has_high_privilege = String(labels.includes('agent-high-privilege'));
 

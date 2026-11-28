@@ -122,7 +122,7 @@ def test_label_sync_paginates_all_existing_labels_before_creating() -> None:
 # Checking the PyYAML-parsed value cannot catch this, because PyYAML is the loader
 # that gets it right, so these tests read the raw text.
 
-LABEL_FILES = (Path(".github/labels-core.yml"), Path(".github/labels.yml"))
+LABEL_FILES = (Path(".github/labels-core.yml"),)
 
 _COLOR_LINE = re.compile(r"^\s*color:\s*(\S+)\s*$", re.MULTILINE)
 # What a YAML 1.2 core-schema loader would resolve to a number rather than a str.
@@ -170,3 +170,61 @@ def test_label_colours_are_six_hex_digits() -> None:
             assert re.fullmatch(
                 r"[0-9a-fA-F]{6}", bare
             ), f"{path}: {value!r} is not a bare six-hex-digit colour"
+
+
+def _target_repos(tmp_path, input_repos: str) -> list[str]:
+    import json
+    import os
+    import stat
+    import subprocess
+
+    step = _step("Determine target repos")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake_python = bin_dir / "python"
+    fake_python.write_text(
+        "#!/bin/sh\necho 'stranske/Template,stranske/Counter_Risk'\n", encoding="utf-8"
+    )
+    fake_python.chmod(fake_python.stat().st_mode | stat.S_IEXEC)
+    output = tmp_path / "out"
+    env_block = dict(step["env"])
+    env_block["LABEL_SYNC_EXTRA_REPOS"] = env_block["LABEL_SYNC_EXTRA_REPOS"].replace(
+        "${{ github.repository }}", "stranske/Workflows"
+    )
+    env_block["INPUT_REPOS"] = input_repos
+    subprocess.run(
+        ["bash", "-c", step["run"]],
+        env={
+            **os.environ,
+            **env_block,
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_OUTPUT": str(output),
+        },
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    line = output.read_text(encoding="utf-8").strip()
+    return json.loads(line.split("=", 1)[1])
+
+
+def test_all_targets_include_the_repos_that_run_label_reading_automation(tmp_path) -> None:
+    """Round-2 A5: Workflows and WIT read these labels but were not label-sync targets."""
+    repos = _target_repos(tmp_path, "all")
+    assert "stranske/Workflows" in repos
+    assert "stranske/Workflows-Integration-Tests" in repos
+    assert {"stranske/Template", "stranske/Counter_Risk"} <= set(repos)
+    assert len(repos) == len(set(repos))
+
+
+def test_explicit_repo_selection_is_not_widened(tmp_path) -> None:
+    assert _target_repos(tmp_path, "stranske/Counter_Risk") == ["stranske/Counter_Risk"]
+
+
+def test_core_labels_are_the_only_label_inventory() -> None:
+    assert not Path(".github/labels.yml").exists(), "labels.yml had no reader; keep one inventory"
+    core = yaml.safe_load(Path(".github/labels-core.yml").read_text(encoding="utf-8"))
+    names = [label["name"] for label in core]
+    assert len(names) == len(set(names))
+    for name in ("agent-high-privilege", "risk:low", "risk:medium", "risk:high", "reminder"):
+        assert name in names

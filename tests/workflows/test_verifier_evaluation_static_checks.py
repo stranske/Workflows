@@ -132,3 +132,23 @@ def test_receipt_sources_have_no_conflict_markers() -> None:
         text = path.read_text(encoding="utf-8")
         assert "<<<<<<<" not in text, path
         assert ">>>>>>>" not in text, path
+
+
+def test_llm_evaluation_passes_no_dead_issue_creation_flags() -> None:
+    """pr_verifier.py hard-codes issue creation off (cohesion round 2, D4).
+
+    The evaluate step used to pass --create-issue and three --issue-label values that the
+    script could never act on; follow-up issues come from the verify-to-issue path.
+    """
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = [
+        step
+        for job in workflow["jobs"].values()
+        for step in job.get("steps") or []
+        if step.get("name") == "Run LLM evaluation"
+    ]
+    assert len(steps) == 1
+    run = steps[0]["run"]
+    assert "pr_verifier.py" in run
+    assert "--create-issue" not in run
+    assert "--issue-label" not in run
