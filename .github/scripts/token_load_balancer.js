@@ -422,6 +422,7 @@ function registerToken(tokenInfo) {
       reset: Date.now() + 3600000,
       checked: 0,
       percentUsed: 0,
+      percentRemaining: 100,
     },
   });
 }
@@ -760,7 +761,7 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
       if (spec.exclusive && spec.primaryTasks.includes(task) && !excludeSources.includes(id)) {
         const tokenInfo = tokenRegistry.tokens.get(id);
         const budget = rateResource === 'graphql' ? tokenInfo?.graphqlRateLimit : tokenInfo?.rateLimit;
-        if (tokenInfo && (budget?.remaining ?? 0) >= minRemaining) {
+        if (tokenInfo && !tokenInfo.rateLimit?.invalidAuth && (budget?.remaining ?? 0) >= minRemaining) {
           core?.info?.(`Using exclusive token ${id} for task '${task}'`);
           let token = tokenInfo.token;
           if (tokenInfo.type === 'APP' && !token) {
@@ -798,6 +799,13 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
   
   for (const [id, tokenInfo] of tokenRegistry.tokens) {
     if (excludeSources.includes(id)) continue;
+    const spec = TOKEN_SPECIALIZATIONS[id];
+    if (spec?.exclusive && (!task || !spec.primaryTasks.includes(task))) {
+      core?.debug?.(
+        `Skipping ${id}: exclusive token reserved for ${spec.primaryTasks.join(', ')}`
+      );
+      continue;
+    }
     if (tokenInfo.rateLimit?.invalidAuth) {
       core?.debug?.(`Skipping ${id}: credentials marked invalid`);
       continue;
@@ -827,7 +835,6 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
     
     // Boost score if token is primary for this task
     let taskBonus = 0;
-    const spec = TOKEN_SPECIALIZATIONS[id];
     if (task && spec && spec.primaryTasks.includes(task)) {
       taskBonus = 30; // Strong preference for primary tokens
       core?.debug?.(`${id} is primary for task '${task}', +30 bonus`);
