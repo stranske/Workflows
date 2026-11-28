@@ -1,6 +1,19 @@
-# Archived GitHub Workflows (updated 2027-02-15)
+# Workflow retirements and renames
 
-This document records the archival and eventual deletion of legacy agent-related workflows now replaced by consolidated reusable pipelines. The most recent sweep (Issue #1419) retired the reusable agent matrix in favour of the focused assigner/watchdog pair. The follow-up sweep for Issue #1669 removed the on-disk archive directory so the history now lives exclusively in git along with this ledger.
+Use this ledger to translate an old filename or identify what replaced a retired workflow. The [current catalog](../ci/WORKFLOWS.md) gives the Actions name, source and purpose of each maintained workflow.
+
+## November 2026 WFv1 filename changes
+
+These six workflows moved within Workflows. Use the new filename for a CLI dispatch or Actions link. Historical run receipts retain the filename used at the time. The [pre-migration tree](https://github.com/stranske/Workflows/tree/114af08b46ed714e139691b6691d465fb16ac567/.github/workflows) preserves their original definitions.
+
+| Previous filename | Current filename |
+| --- | --- |
+| `health-codex-auth-check.yml` | [`health-46-codex-auth-check.yml`](../../.github/workflows/health-46-codex-auth-check.yml) |
+| `health-cursor-auth-check.yml` | [`health-77-cursor-auth-check.yml`](../../.github/workflows/health-77-cursor-auth-check.yml) |
+| `health-muse-auth-check.yml` | [`health-79-muse-auth-check.yml`](../../.github/workflows/health-79-muse-auth-check.yml) |
+| `maint-metrics-retention.yml` | [`maint-91-metrics-retention.yml`](../../.github/workflows/maint-91-metrics-retention.yml) |
+| `maint-sync-action-versions.yml` | [`maint-92-sync-action-versions.yml`](../../.github/workflows/maint-92-sync-action-versions.yml) |
+| `maint-sync-env-from-pyproject.yml` | [`maint-93-sync-pyproject-from-env.yml`](../../.github/workflows/maint-93-sync-pyproject-from-env.yml) |
 
 ## Archived
 

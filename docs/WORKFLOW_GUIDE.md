@@ -45,7 +45,7 @@ The filename is used in `jobs.<id>.uses`, file-path filters, dispatch commands a
 
 Add the exact name and purpose to the [catalog](ci/WORKFLOWS.md) and the expected name in [the naming tests](../tests/workflows/test_workflow_naming.py). Update the [dependency map](ci/WORKFLOW_SYSTEM.md#topology-at-a-glance) when a call, event, condition or output changes. Run `python -m pytest tests/workflows/test_workflow_naming.py tests/docs/test_workflow_source_docs.py`.
 
-See [published naming exceptions](#published-naming-exceptions) for existing identities that callers and operators use.
+See [published naming exceptions](#published-naming-exceptions) for existing identities that callers and operators use. Find the new path for an old dispatch command in the [filename migration table](archive/ARCHIVE_WORKFLOWS.md#november-2026-wfv1-filename-changes).
 
 ## Final Workflow Set
 
