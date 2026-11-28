@@ -17,7 +17,7 @@ Stage 3 is complete at 752/752 files and 43/43 folders. Stage 4 has 1,523/1,540 
 
 [Workflows #5531](https://github.com/stranske/Workflows/pull/5531) repairs the failed imports on [Trend #6265](https://github.com/stranske/Trend_Model_Project/pull/6265). On exact head ef68347c, the lead compared the complete before-and-after payload on all 16 receiver bases. Fifteen matched exactly. Trend alone dropped four deletion entries, from 382 to 378 effects. The old native step lost all four suites. The revised native step retained their original bytes and restored all 13 named baseline outcomes, including three pre-existing failures. On an actual Template checkout those same four helpers were removed. Both checkouts had zero further changes on the second application. The corrected receiver installation still needs the signed full-plan rollout.
 
-The first hosted Gate identified four manifest descriptions that failed its issue-reference contract. Removing their issue-number suffixes kept the substantive dependency reasons. The named check passed after the change. On revised source 04bc8eb5 the lead again compared the entire plan for 16 receivers and reproduced the same 13 Trend outcomes on two native applications. All 51 removal effect fingerprints remained identical to the first repair. An updated Workflows Gate and signed receiving delivery are still required.
+The first hosted Gate identified four manifest descriptions that failed its issue-reference contract. Removing their issue-number suffixes kept the substantive dependency reasons. The named check passed after the change. On the submitted source 15405e7b the lead again compared the entire plan for 16 receivers and reproduced the same 13 Trend outcomes on two native applications. All 51 removal effect fingerprints remained identical to the first repair. Each original full Python job had the same single failure alongside 16,311 passes and 34 skips. The corrected hosted test-quality job passed. The full [GitHub Gate](https://github.com/stranske/Workflows/actions/runs/46156411103) and signed receiving delivery remain open.
 
 [#5520](https://github.com/stranske/Workflows/pull/5520) removed the final 34 historical issue #3820 root files, totaling 230,956 bytes. The installed retrieval guide recovered all 34 files under a nested checkout without an origin remote and with a restrictive umask. All 67 recorded bindings matched and the deliberate mismatch was rejected.
 
@@ -27,11 +27,13 @@ The first hosted Gate identified four manifest descriptions that failed its issu
 
 [#5528](https://github.com/stranske/Workflows/pull/5528) installed a corrected Keepalive comparison at its established address. It directs four existing readers to the current five-runner contract and retains the connector compatibility distinction.
 
-[#5532](https://github.com/stranske/Workflows/pull/5532) proposes removing 51 historical coverage captures (867,027 bytes). A shallow fetch recovered every byte and mode. The current reconciliation command produced identical output, three deliberately withheld inputs each failed a named case, and all 133 tests passed again after restoration.
+[#5532](https://github.com/stranske/Workflows/pull/5532) removed 51 historical coverage captures (867,027 bytes). A shallow fetch recovered every byte and mode. The current reconciliation command produced identical output, three deliberately withheld inputs each failed a named case, and all 133 tests passed again after restoration.
 
 Kept all nine reviewed contracts in docs/contracts. Six are published to consumers as exact managed sources; omitting each made the compiler reject that missing input. Three have separate Workflows program or dashboard readers. The representative consumer blobs and current validator bindings were checked.
 
-Stage 2 has 2,509/2,901 file and 147/220 folder decisions. Stage 5 has 250/334 file and 30/47 folder decisions.
+The 17 remaining Stage 4 files are 14 receiver scripts, two standalone action definitions and the receiver guide. Seven parent-folder records now explain the boundary between Workflows authoring, generated templates and installed receiver paths. The outstanding descendants are recorded against each folder.
+
+Stage 2 has 2,562/2,901 file and 148/220 folder decisions. Stage 5 has 250/334 file and 30/47 folder decisions.
 
 ### November 28 · Installed test contracts and ordinary fleet promotion
 
@@ -713,13 +715,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 2,509/2,901 | 147/220 | — |
+| 2 · Evidence and archives | 2,562/2,901 | 148/220 | — |
 | 3 · Scripts, tools and packages | 752/752 | 43/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 1,523/1,540 | 167/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 250/334 | 30/47 | — |
-| **Total** | **5,061/5,554** | **387/487** | **198/198** |
+| **Total** | **5,114/5,554** | **388/487** | **198/198** |
 
-**Directory organization.** 3,564 completed file decisions fall under 4 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,617 completed file decisions fall under 4 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
