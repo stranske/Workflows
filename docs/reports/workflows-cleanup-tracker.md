@@ -7,6 +7,14 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Test suites and historical inputs
+
+[Workflows #5375](https://github.com/stranske/Workflows/pull/5375) moved 15 loose suites into the LangChain and tools test folders and combined nine authentication cases with their existing suite. Four Maint 71 JSON examples now occupy two files, with every original value preserved. The executable sync test helper moved out of fixtures. All 501 affected Python cases passed on the installed revision and kept their identities under ordinary and hosted discovery. The three native suites passed 387 cases. The primary Python Gate jobs took 514 and 546 seconds, both within 600 seconds. [Installed tree](https://github.com/stranske/Workflows/commit/42510ca63ebcfc3da46de1ba55e061a6adfe8274) · [Native Gate](https://github.com/stranske/Workflows/actions/runs/46076506333)
+
+Stage 1A is complete at **198/198**. The six retired workflows were absent from all 16 receiving defaults. The verifier and Issue Optimizer controls remained present. The five-repeat checkpoint is closed. [Decompose retirement](https://github.com/stranske/Workflows/pull/5377) · [Belt and Auto-Pilot retirement](https://github.com/stranske/Workflows/pull/5379) · [Receiving promotion](https://github.com/stranske/Workflows/actions/runs/46089649468/attempts/2)
+
+The current placement review accepted 33 more original file decisions. It keeps the active sync executor, shared merge rules and their separately exercised test routes. Three issue-4426 tests compare published evidence to the current manifest, Gate or test tree. The other three primarily validate historical coverage, mutation or ranking records and remain candidates for a grouped replay. The two historical linkage scripts can move to test-owned data and validators. Their 19 existing cases and the hosted ancestry selector define the acceptance check for that move. The compatibility retry helper, its 14 dedicated cases and a manifest entry have a verified removal candidate. The manifest is also in [the open template cleanup](https://github.com/stranske/Workflows/pull/5393).
+
 ### November 27 · Retiring standalone Decompose, Auto-Pilot and the Codex belt
 
 The six legacy workflow duties and their six receiving template records have separate installation checks. The scheduled hosted opener started Workflows #5352 and the hosted seat started Manager-Mosaic #172 during the Mac pause. The Mac closer merged their linked PRs #5354 and #173. Three hosted closer/sync passes ran with the Mac paused and all 56 feedback calls replayed. No further sync issue or repeated handoff is required.
@@ -413,12 +421,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 506/752 | 37/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,095/1,540 | 139/177 | — |
+| 3 · Scripts, tools and packages | 516/752 | 37/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,118/1,540 | 139/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
-| **Total** | **3,776/5,554** | **320/487** | **198/198** |
+| **Total** | **3,809/5,554** | **320/487** | **198/198** |
 
-**Directory organization.** 3,564 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,597 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
