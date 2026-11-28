@@ -11,7 +11,7 @@ from tests.workflows.node_tap import assert_named_node_test
 
 WORKFLOW = Path(".github/workflows/maint-82-sync-dependency-campaign.yml")
 MERGE_WORKFLOW = Path(".github/workflows/maint-71-merge-sync-prs.yml")
-CAMPAIGN_SCRIPT = Path(".github/scripts/sync_dependency_campaign.js")
+CAMPAIGN_SCRIPT = Path(".github/scripts/consumer_sync/sync_dependency_campaign.js")
 
 
 def _refresh_script() -> str:

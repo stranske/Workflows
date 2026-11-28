@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from scripts import validate_template_completeness as validator
+from scripts.consumer_sync import validate_template_completeness as validator
 
 
 def test_get_workflows_returns_top_level_yml_files_only(tmp_path: Path) -> None:

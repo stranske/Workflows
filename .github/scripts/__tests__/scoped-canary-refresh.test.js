@@ -8,7 +8,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { refreshPlanContext, verifiedCanaryRefreshPlan, canaryRefreshDecision,
   dispatchCanaryRefresh, refreshStableCanaries, deferSealedCanaryRefresh } = require('../maint71_merge_sync_prs');
-const payloads = require('../consumer_delivery_digest');
+const payloads = require('../consumer_sync/consumer_delivery_digest');
 const source = 'a'.repeat(40), base = 'b'.repeat(40), head = 'c'.repeat(40);
 const id = `sha256:${'d'.repeat(64)}`;
 const compiled = { plan_id: id, entries: [{ target: 'selected.js', is_directory: false,
@@ -215,7 +215,7 @@ test('an unrelated sealed full-scope head remains protected; unselected absence 
 
 function historyHarness(t, { runs = [], active = [], receipt, requestedCandidates = candidates } = {}) {
   const reads = [], writes = [], receiptReads = [];
-  const native = require('../maint68_scoped_receipt');
+  const native = require('../consumer_sync/maint68_scoped_receipt');
   t.mock.method(native, 'readScopedCanaryReceipt', async args => {
     receiptReads.push(args); return typeof receipt === 'function' ? receipt(args) : receipt;
   });

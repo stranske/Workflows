@@ -9,7 +9,7 @@ const { createHash } = require('node:crypto');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
-const { readScopedCanaryReceipt } = require('../maint68_scoped_receipt');
+const { readScopedCanaryReceipt } = require('../consumer_sync/maint68_scoped_receipt');
 const ROOT = path.resolve(__dirname, '../../..');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const workflow = require('node:fs').readFileSync(path.join(ROOT, '.github/workflows/maint-68-sync-consumer-repos.yml'));
@@ -218,7 +218,7 @@ test('fresh native attempt revalidation cannot substitute a different run ID', a
 
 async function refreshThroughNativeFixture(t, f, sourceSha = 'a'.repeat(40)) {
   const { readCanaryRefreshState } = require('../maint71_merge_sync_prs');
-  const renderer = require('../consumer_delivery_digest');
+  const renderer = require('../consumer_sync/consumer_delivery_digest');
   const nativeContent = f.github.rest.repos.getContent;
   f.github.rest.repos.getCommit = async () => ({ data: { sha: sourceSha } });
   f.github.rest.repos.getContent = async args => args.path === 'config/consumer_sync_canaries.json'

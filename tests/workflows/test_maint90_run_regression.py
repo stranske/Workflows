@@ -15,7 +15,13 @@ from pathlib import Path
 
 import pytest
 
-RUNNER = Path(__file__).resolve().parents[2] / ".github" / "scripts" / "maint90_run_regression.py"
+RUNNER = (
+    Path(__file__).resolve().parents[2]
+    / ".github"
+    / "scripts"
+    / "consumer_sync"
+    / "maint90_run_regression.py"
+)
 TEST_BODY = "from lib import inc\n\n\ndef test_inc():\n    assert inc(1) == 2\n"
 
 

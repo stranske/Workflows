@@ -31,7 +31,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `needs-human` | Issue or PR labeled | Blocks automation until a human clears the blocker
 | `security:bypass-guard` | Issue or PR labeled | Bypasses prompt-injection guard after explicit approval
 | `agents:allow-change` | PR labeled | Allows guarded automation changes that require explicit permission
-| `automerge` | PR labeled | Marks a completed agent PR for guarded automerge
+| `automerge` | PR labeled | Marks a completed agent PR for Gate Followups' guarded merge
 | `runtime-ac` / runtime verification labels | PR labeled | Blocks external auto-merge until local Orchestrator runtime AC checks pass
 | `status:in-progress` | Issue labeled | Marks an issue claimed by the belt dispatcher/worker
 | `from:<agent>` | PR labeled | Records the automation agent that produced the PR
@@ -205,6 +205,8 @@ This document describes all labels that trigger automated workflows or affect CI
 - When `agent:auto` is present, a co-present concrete `agent:<name>` label seeds the first round's agent, and the delegation policy decides after that; `agent:auto` always wins
 - Existing delegation state improves switch decisions, but the initial-selection path can choose an agent without a concrete label
 
+**Issue intake:** intake reads `auto` from the one non-agent label list (`NON_AGENT_LABEL_SUFFIXES` in `.github/scripts/agent_registry.js`), so `agent:auto` beside `agent:codex` starts the bridge for `codex`. `agent:auto` alone starts it for the route-weights chooser's agent.
+
 **Lifecycle:** Applied at PR creation by the opener lane, alongside the concrete `agent:<name>` label that records which seat opened the PR, or manually or by the closer when a PR is capacity-stuck. The delegation policy reads it on keepalive ticks and either keeps the current runner choice or switches the runner decision for that dispatch.
 
 **Workflow:** `agents-auto-label.yml`, `agents-capability-check.yml` and `agents-guard.yml`. Agents 80 calls [the Workflows-hosted PR-context reusable](https://github.com/stranske/Workflows/blob/main/.github/workflows/reusable-pr-context.yml) for PR metadata. The policy is implemented in `.github/scripts/agent_delegation_policy.js`.
@@ -285,10 +287,12 @@ This document describes all labels that trigger automated workflows or affect CI
 
 **Effect:**
 1. Signals that human intervention is required
-2. Agent processing is paused until addressed
+2. Does not stop hosted keepalive (unlike `needs-human`), so a later agent round can still clear the
+   failure; keepalive removes the label it applied itself once a round succeeds
 3. Typically applied when:
    - Agent encounters an error
-   - CI checks fail repeatedly
+   - CI checks fail repeatedly (autofix in `agents-81-gate-followups.yml` adds it when its attempts
+     for a head are exhausted)
    - Agent requests clarification
 
 **Action Required:** Review the issue/PR, address concerns, and remove the label to resume agent processing.
@@ -625,6 +629,11 @@ when the Orchestrator router starts the work on the owner's machine (`router.cho
 `.github/workflows/agents-verify-to-new-pr.yml`,
 `.github/workflows/agents-capability-check.yml`.
 
+**Issue intake holds:** issue intake does not start the agent bridge while `needs-human`,
+`agents:paused`, `agents:pause`, `agents:auto-pilot-pause` or `intake:held` is on the issue
+(`INTAKE_HOLD_LABELS` in `.github/scripts/agent_registry.js`). Removing the hold fires `unlabeled`,
+which runs intake again.
+
 ---
 
 ### `security:bypass-guard`
@@ -694,7 +703,9 @@ Prefixed labels such as `verify:runtime-ac` are treated the same as
 **Effect:**
 1. Marks a completed agent PR as eligible for the guarded automerge path.
 2. Does not bypass required checks, branch protection, or review policy.
-3. Is applied by keepalive on a tasks-complete success terminal when appropriate.
+3. Is applied by keepalive on a tasks-complete success terminal. The `guarded-merge` job in
+   `agents-81-gate-followups.yml` merges such a PR; the local closer lane (`closer-core`) merges everything else
+   (PRs without the label, refused or late merges) and runs the post-merge verify and close.
 
 **Consumers:** `.github/scripts/keepalive_loop.js`,
 `.github/workflows/agents-81-gate-followups.yml`.

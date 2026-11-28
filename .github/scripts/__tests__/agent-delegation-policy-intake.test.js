@@ -429,7 +429,10 @@ async function executeStep(workflow, { input = '', labels, failure, routeWeights
     if (name === 'fs') return { existsSync: () => false };
     if (name.endsWith('agent_registry.js')) {
       if (failure === 'require') throw new Error('module unavailable');
+      const { agentKeyFromLabel, findIntakeHoldLabels } = require('../agent_registry.js');
       return {
+        agentKeyFromLabel,
+        findIntakeHoldLabels,
         loadAgentRegistry() {
           if (failure === 'registry') throw new Error('invalid registry');
           return loadAgentRegistry({
@@ -547,15 +550,23 @@ for (const workflow of workflows) {
     });
   }
 
-  test(`${file}: agent:auto remains a routing label`, async () => {
+  // agent:auto is not an agent (docs/LABELS.md): alone it hands the issue to the chooser's
+  // agent, and beside a concrete label the concrete label routes.
+  test(`${file}: agent:auto alone takes the chooser's agent`, async () => {
     const result = await executeStep(workflow, { labels: ['agent:auto'] });
-    assert.equal(result.outputs[output], 'auto');
+    assert.equal(result.outputs[output], 'claude');
+    assert.deepEqual(result.failures, []);
+  });
+
+  test(`${file}: agent:auto beside agent:codex routes to codex`, async () => {
+    const result = await executeStep(workflow, { labels: ['agent:auto', 'agent:codex'] });
+    assert.equal(result.outputs[output], 'codex');
     assert.deepEqual(result.failures, []);
   });
 }
 
 test('root preflight still requires exactly one agent label', async () => {
-  for (const labels of [[], ['agent:claude', 'agent:gemini'], ['agent:auto', 'agent:codex']]) {
+  for (const labels of [[], ['agent:claude', 'agent:gemini'], ['agents:formatted']]) {
     const result = await executeStep(workflows[0], { labels });
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0], /Expected exactly one agent:\* label/);

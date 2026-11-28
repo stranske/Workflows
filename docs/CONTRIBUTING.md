@@ -81,7 +81,7 @@ Before submitting changes, run the validation scripts:
 ./scripts/check_branch.sh
 
 # Template sync validation (if you modified a consumer-managed script)
-python scripts/validate_template_sync.py
+python scripts/consumer_sync/validate_template_sync.py
 ```
 
 ### ⚠️ CRITICAL: Template Sync Guard
@@ -90,10 +90,10 @@ python scripts/validate_template_sync.py
 
 ```bash
 # After editing a mirrored script, run:
-./scripts/sync_templates.sh
+./scripts/consumer_sync/sync_templates.sh
 
 # Verify sync:
-python scripts/validate_template_sync.py
+python scripts/consumer_sync/validate_template_sync.py
 ```
 
 The manifest defines which files consumers receive and which require a template copy.
@@ -149,7 +149,7 @@ Choose a common real-world use case and place it next to the workflow guide or s
    - listed in `.github/sync-manifest.yml` → keep its path (consumers receive it there);
    - separately versioned package → `packages/`;
    - runs only inside a GitHub Actions job → `.github/scripts/`;
-   - has an entry point (`__main__`, `python -m`, shell) → `scripts/` (grouped, e.g. `scripts/langchain/`, `scripts/verifier/`, `scripts/model_eval/`);
+   - has an entry point (`__main__`, `python -m`, shell) → `scripts/` (grouped, e.g. `scripts/langchain/`, `scripts/verifier/`, `scripts/model_eval/`, `scripts/consumer_sync/`);
    - no entry point, imported from two or more folders → `tools/`;
    - no entry point, all importers in one folder → next to them (that folder or a subpackage).
 2. Put tests where they mirror the code: `.github/scripts/__tests__/` for JavaScript, `tests/<area>/` for Python, with inputs under `tests/fixtures/<topic>/`

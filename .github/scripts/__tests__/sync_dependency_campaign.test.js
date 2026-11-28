@@ -31,7 +31,7 @@ const {
   runCampaign,
   verboseDryRunLoggingEnabled,
   validateCampaignState,
-} = require('../sync_dependency_campaign.js');
+} = require('../consumer_sync/sync_dependency_campaign.js');
 
 test('campaign uses bot-agnostic public terminology while recognizing the legacy title', () => {
   assert.equal(CAMPAIGN_TITLE, 'Sync/Dependency campaign queue');
@@ -2300,7 +2300,7 @@ test('planMaint71Continuations wakes the campaign commit once a plan\'s candidat
     { ...candidates[2], head_sha: 'f'.repeat(40) }, ...merged], { now });
   assert.notEqual(moved[0].continuation_key, planned[0].continuation_key);
   // The intent stays queued, so its success receipt survives a Maint 82 run with no new Maint 71 runs.
-  const { queuedMaint71Intents, mergeContinuationAcknowledgments } = require('../sync_dependency_campaign.js');
+  const { queuedMaint71Intents, mergeContinuationAcknowledgments } = require('../consumer_sync/sync_dependency_campaign.js');
   const receipt = { lane: 'campaign', key: planned[0].continuation_key, run_id: 7, run_attempt: 1,
     completed_at: '2026-11-11T13:25:00Z' };
   assert.deepEqual(mergeContinuationAcknowledgments([receipt], [],
@@ -2341,7 +2341,7 @@ test('planMaint71Continuations requeues a campaign intent when its acknowledgmen
 });
 
 test('mergeContinuationAcknowledgments keeps the newest receipt so a fresh run still acknowledges its intent', () => {
-  const { mergeContinuationAcknowledgments } = require('../sync_dependency_campaign.js');
+  const { mergeContinuationAcknowledgments } = require('../consumer_sync/sync_dependency_campaign.js');
   // Review on #4743: newest-first history (05:54 then 05:25) must not leave the 05:25 receipt.
   const key = 'cand-20ff31ce9c634ae1bb13';
   const intents = [{ lane: 'campaign', continuation_key: key, resume_after: '2026-11-18T05:53:07.361Z' }];

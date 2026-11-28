@@ -6,10 +6,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const A = require('../maint71_finding_assessment');
-const { discover, publish } = require('../maint90_finding_assessment_run');
+const A = require('../consumer_sync/maint71_finding_assessment');
+const { discover, publish } = require('../consumer_sync/maint90_finding_assessment_run');
 const { validateReviewResolutionProof } = require('../maint71_merge_sync_prs');
-const { isStockFindingReceipt, proofReceipts } = require('../maint71_finding_verification');
+const { isStockFindingReceipt, proofReceipts } = require('../consumer_sync/maint71_finding_verification');
 
 const policy = require('../../../config/consumer_sync_review_policy.json');
 const timeline = require('./fixtures/maint71-trend-6250-review-timeline.json');

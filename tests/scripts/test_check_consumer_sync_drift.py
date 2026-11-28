@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-from scripts import check_consumer_sync_drift
+from scripts.consumer_sync import check_consumer_sync_drift
 from scripts.list_registered_consumer_repos import extract_repos
 from scripts.sync_manifest_compiler import (
     CompiledManifest,
@@ -185,7 +185,7 @@ def test_registered_gate_cli_preserves_unknowns_without_read_access(tmp_path: Pa
     result = subprocess.run(
         [
             sys.executable,
-            "scripts/check_consumer_sync_drift.py",
+            "scripts/consumer_sync/check_consumer_sync_drift.py",
             "--repos",
             registered,
             "--summary",

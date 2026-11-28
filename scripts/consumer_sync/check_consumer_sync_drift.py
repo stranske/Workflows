@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -17,8 +18,8 @@ import requests
 import yaml
 
 try:
-    from list_registered_consumer_repos import extract_repos
-    from sync_manifest_compiler import (
+    from scripts.list_registered_consumer_repos import extract_repos
+    from scripts.sync_manifest_compiler import (
         COPY_SYNCED_SECTIONS,
         CompiledManifest,
         ManifestCompileError,
@@ -26,9 +27,10 @@ try:
         compile_manifest,
         resolve_source_path,
     )
-except ImportError:
-    from scripts.list_registered_consumer_repos import extract_repos
-    from scripts.sync_manifest_compiler import (  # type: ignore[no-redef]
+except ImportError:  # Direct run: put the root of scripts/ on sys.path.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from list_registered_consumer_repos import extract_repos  # type: ignore[no-redef]
+    from sync_manifest_compiler import (  # type: ignore[no-redef]
         COPY_SYNCED_SECTIONS,
         CompiledManifest,
         ManifestCompileError,
@@ -38,7 +40,7 @@ except ImportError:
     )
 
 CONSUMER_REGISTRY = (
-    Path(__file__).resolve().parents[1] / ".github/workflows/maint-68-sync-consumer-repos.yml"
+    Path(__file__).resolve().parents[2] / ".github/workflows/maint-68-sync-consumer-repos.yml"
 )
 REPORT_SCHEMA = "workflows-consumer-sync-drift/v1"
 SUMMARY_ITEM_LIMIT = 50

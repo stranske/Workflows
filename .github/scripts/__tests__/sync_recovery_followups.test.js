@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { repositoryConversationGate, syncMergeFailureDisposition, preserveFrozenCanaryRefresh } = require('../maint71_merge_sync_prs');
 const { mergeContinuationAcknowledgments, hasContinuationAcknowledgment, observeMaint71Runs,
-  formatCampaignMarker, parseCampaignMarker, planMaint71Continuations } = require('../sync_dependency_campaign');
+  formatCampaignMarker, parseCampaignMarker, planMaint71Continuations } = require('../consumer_sync/sync_dependency_campaign');
 const connection = nodes => ({pageInfo:{hasNextPage:false},nodes});
 const thread = {id:'outdated-finding',isResolved:false,isOutdated:true};
 const run = {id:42433696440,run_attempt:1,event:'workflow_dispatch',status:'completed',conclusion:'success',

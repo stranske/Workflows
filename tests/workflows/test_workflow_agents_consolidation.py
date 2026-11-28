@@ -617,7 +617,9 @@ def test_autofix_versions_env_is_not_general_template_synced():
 def test_consumer_sync_repo_exclusions_live_in_manifest():
     workflow_text = (WORKFLOWS_DIR / "maint-68-sync-consumer-repos.yml").read_text(encoding="utf-8")
     manifest_text = Path(".github/sync-manifest.yml").read_text(encoding="utf-8")
-    checker_text = Path("scripts/check_consumer_sync_drift.py").read_text(encoding="utf-8")
+    checker_text = Path("scripts/consumer_sync/check_consumer_sync_drift.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "skip_repos:" in manifest_text
     assert "stranske/Trend_Model_Project" in manifest_text
@@ -1099,8 +1101,8 @@ def test_issue_intake_handles_codex_events():
 
     text = intake.read_text(encoding="utf-8")
     assert (
-        "agent:codex" in text and "agents:codex" in text
-    ), "Issue intake must guard on the codex agent labels"
+        "agentKeyFromLabel" in text and "findIntakeHoldLabels" in text
+    ), "Issue intake must classify agent and hold labels with the shared agent_registry.js lists"
     assert (
         ".github/scripts/decode_raw_input.py" in text
     ), "Issue intake must normalize ChatGPT payloads"

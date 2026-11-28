@@ -10,7 +10,7 @@ const {
   formatIssueComment,
   formatIssueMarker,
   mergeIssueBody,
-} = require('../consumer_sync_drift_issue_body');
+} = require('../consumer_sync/consumer_sync_drift_issue_body');
 
 const report = {
   counts: { drift: 27, missing: 73, errors: 0, obsolete: 0, unmeasured_create_only: 68 },

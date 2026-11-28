@@ -5,7 +5,7 @@ on:
   schedule:
     # Weekly: the full sweep (actionlint of main + liveness + belt claims).
     - cron: '5 5 * * 1'
-    # Daily: workflow liveness only. A suspicious-workflow hold can appear within
+    # Daily: workflow liveness and stale-claim cleanup. A hold can appear within
     # hours of any workflow-file edit, so a weekly-only check leaves a workflow
     # silently dead for up to seven days. The liveness job is ~1 API call per
     # workflow, so daily is cheap; actionlint stays weekly (the `if:` below).

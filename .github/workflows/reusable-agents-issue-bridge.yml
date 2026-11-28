@@ -100,6 +100,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      # The non-agent label list is read from Workflows' agent_registry.js rather than the
+      # caller's copy: consumers call this workflow at @main, and their synced copy can lag.
+      - name: Checkout Workflows agent registry
+        uses: actions/checkout@v7
+        with:
+          repository: stranske/Workflows
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts/agent_registry.js
+          sparse-checkout-cone-mode: false
+          path: .workflows-lib
+
       - name: Setup API client
         uses: ./.github/actions/setup-api-client
         with:
@@ -164,27 +176,11 @@ jobs:
             const inviteSuffix = '-invite';
             const candidates = new Map();
 
-            // Metadata labels that aren't actual agent assignments
-            const metadataLabels = new Set([
-              'keepalive',
-              'formatted',
-              'optimize',
-              'allow-change',
-              'apply-suggestions',
-              'debug',
-              'format',
-              'sync-failed',
-              'sync-required',
-              'auto-pilot',
-              'auto-pilot-pause',
-              'auto-pilot-failed',
-              'activated',
-              'decompose',
-              'paused',
-              'needs-attention',
-              'rate-limited',
-              'retry',
-            ]);
+            // Control and metadata labels (agents:formatted, agent:auto, ...) are not agent
+            // assignments. One list, in agent_registry.js, shared with issue intake.
+            const { NON_AGENT_LABEL_SUFFIXES: metadataLabels } = require(
+              './.workflows-lib/.github/scripts/agent_registry.js',
+            );
 
             for (const label of rawLabels) {
               const name = (typeof label === 'string' ? label : label?.name || '').trim();
@@ -220,9 +216,19 @@ jobs:
               }
             }
 
-            const withBase = Array.from(candidates.values()).filter(
+            let withBase = Array.from(candidates.values()).filter(
               (entry) => entry.labels.size > 0,
             );
+            // agent:auto with no concrete agent label: the caller's chosen agent takes the issue.
+            const callerAgent = String(process.env.AGENT || '').trim().toLowerCase();
+            const hasAutoLabel = rawLabels.some(
+              (label) =>
+                (typeof label === 'string' ? label : label?.name || '').trim().toLowerCase() ===
+                'agent:auto',
+            );
+            if (withBase.length === 0 && hasAutoLabel && callerAgent && !metadataLabels.has(callerAgent)) {
+              withBase = [{ base: callerAgent, labels: new Set([`agent:${callerAgent}`]), inviteLabels: new Set() }];
+            }
             if (withBase.length === 0) {
               const inviteOnly = Array.from(candidates.values())
                 .flatMap((entry) => Array.from(entry.inviteLabels))

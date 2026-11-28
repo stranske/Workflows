@@ -68,6 +68,10 @@ def test_archive_plans_ledger_links_resolve() -> None:
     assert archive_links == {
         "plans/SHORT_TERM_PLAN.md",
         "plans/LONG_TERM_PLAN.md",
+        "plans/agent-verifier-v2.md",
+        "plans/langchain-issue-intake-proposal.md",
+        "plans/langchain-keepalive-integration.md",
+        "plans/langchain-rollout-tasks.md",
         "audits/WORKFLOW_AUDIT_2025-12-25.md",
         "audits/WORKFLOW_AUDIT_2026-01-09.md",
         "audits/WORKFLOW_AUDIT_2026-11-19.md",
@@ -86,7 +90,7 @@ def test_archive_plans_ledger_links_resolve() -> None:
     for target in MARKDOWN_LINK.findall(text):
         if target.startswith("#"):
             continue
-        path = _resolve_link(ARCHIVE_LEDGER, target)
+        path = _resolve_link(ARCHIVE_LEDGER, target.partition("#")[0])
         assert path.is_file(), f"broken ledger link: {target!r}"
 
 

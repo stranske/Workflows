@@ -71,7 +71,7 @@ jobs:
 
           scripts_dir = Path('scripts')
           errors = []
-          for script in scripts_dir.glob('*.py'):
+          for script in [*scripts_dir.glob('*.py'), *scripts_dir.glob('consumer_sync/*.py')]:
               if script.name.startswith('_'):
                   continue
               try:

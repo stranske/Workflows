@@ -81,8 +81,8 @@ def _run_sync(tmp_path: Path, token: str) -> subprocess.CompletedProcess[str]:
     _git(work, "config", "user.name", "t")
     (work / "templates/consumer-repo").mkdir(parents=True)
     (work / "templates/consumer-repo/a.txt").write_text("old\n", encoding="utf-8")
-    (work / "scripts").mkdir()
-    sync = work / "scripts/sync_templates.sh"
+    (work / "scripts" / "consumer_sync").mkdir(parents=True)
+    sync = work / "scripts/consumer_sync/sync_templates.sh"
     sync.write_text("#!/bin/sh\necho new > templates/consumer-repo/a.txt\n", encoding="utf-8")
     sync.chmod(0o755)
     _git(work, "add", ".")
@@ -107,7 +107,7 @@ def test_needed_sync_without_app_token_fails_with_an_instruction(tmp_path) -> No
     result = _run_sync(tmp_path, "")
     assert result.returncode == 1
     assert "::error::templates/consumer-repo is out of sync" in result.stdout
-    assert "Run ./scripts/sync_templates.sh" in result.stdout
+    assert "Run ./scripts/consumer_sync/sync_templates.sh" in result.stdout
     branches = subprocess.run(
         ["git", "branch", "--list"], cwd=tmp_path / "remote.git", capture_output=True, text=True
     ).stdout

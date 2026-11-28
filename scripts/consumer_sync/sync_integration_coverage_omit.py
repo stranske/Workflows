@@ -28,7 +28,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python <3.11
 
 
 DEFAULT_TEMPLATE = (
-    Path(__file__).resolve().parent.parent / "templates" / "integration-repo" / "pyproject.toml"
+    Path(__file__).resolve().parents[2] / "templates" / "integration-repo" / "pyproject.toml"
 )
 
 _OMIT_BLOCK_RE = re.compile(

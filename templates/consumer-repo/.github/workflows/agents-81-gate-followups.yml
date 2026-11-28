@@ -2234,7 +2234,11 @@ jobs:
       WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
 
-  needs-human:
+  # Exhausted retries are automation failure, not a confirmed human blocker
+  # (docs/LABELS.md `needs-human`), so this adds the soft `agent:needs-attention`.
+  # `needs-human` stops hosted keepalive, which is the work that could clear the
+  # failure; `agent:needs-attention` flags the PR without stopping it.
+  needs-attention:
     needs: prepare
     if: needs.prepare.outputs.stop_reason == 'max_attempts'
     name: Flag for human follow-up
@@ -2250,7 +2254,7 @@ jobs:
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
 
-      - name: Add needs-human label and comment
+      - name: Add agent:needs-attention label and comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ env.WRITE_TOKEN }}
@@ -2278,7 +2282,7 @@ jobs:
               owner,
               repo,
               issue_number: prNumber,
-              labels: ['needs-human'],
+              labels: ['agent:needs-attention'],
             })).catch((error) => {
               core.warning(`Failed to add label: ${error.message}`);
             });

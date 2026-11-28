@@ -1,4 +1,4 @@
-"""Tests for scripts/validate_template_sync.py"""
+"""Tests for scripts/consumer_sync/validate_template_sync.py"""
 
 import hashlib
 import shutil
@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from scripts import validate_template_sync as vts
+from scripts.consumer_sync import validate_template_sync as vts
 from scripts.sync_manifest_compiler import compile_manifest
 
 
@@ -28,8 +28,11 @@ def create_test_structure(tmp_path: Path) -> tuple[Path, Path]:
 
     # Copy validator and its dependency so they are importable when run from tmp_path
     script_dir = tmp_path / "scripts"
-    script_dir.mkdir(parents=True)
-    shutil.copy("scripts/validate_template_sync.py", script_dir / "validate_template_sync.py")
+    (script_dir / "consumer_sync").mkdir(parents=True)
+    shutil.copy(
+        "scripts/consumer_sync/validate_template_sync.py",
+        script_dir / "consumer_sync" / "validate_template_sync.py",
+    )
     shutil.copy("scripts/sync_manifest_compiler.py", script_dir / "sync_manifest_compiler.py")
 
     return source, template
@@ -74,7 +77,7 @@ scripts:
     )
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -94,7 +97,7 @@ def test_validator_fails_on_hash_mismatch(tmp_path):
     write_manifest(tmp_path, ["test.js"])
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -114,7 +117,7 @@ def test_validator_fails_on_missing_template(tmp_path):
     write_manifest(tmp_path, ["new_file.js"])
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -137,7 +140,7 @@ def test_validator_handles_missing_template_directory(tmp_path):
     write_manifest(tmp_path, ["test.js"])
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -157,14 +160,14 @@ def test_validator_suggests_sync_command(tmp_path):
     write_manifest(tmp_path, ["test.js"])
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
     )
 
     assert result.returncode == 1
-    assert "./scripts/sync_templates.sh" in result.stdout
+    assert "./scripts/consumer_sync/sync_templates.sh" in result.stdout
     assert "git add templates/consumer-repo/.github/scripts/test.js" in result.stdout
 
 
@@ -179,7 +182,7 @@ def test_print_sources_matches_compiled_manifest(tmp_path: Path) -> None:
     compiled = compile_manifest(tmp_path / ".github" / "sync-manifest.yml", repo_root=tmp_path)
     expected = vts._manifest_template_sync_sources(compiled)
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py", "--print-sources"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py", "--print-sources"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -204,7 +207,7 @@ scripts:
     )
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py", "--print-sources"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py", "--print-sources"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -231,7 +234,7 @@ def test_validator_handles_multiple_mismatches(tmp_path):
     write_manifest(tmp_path, ["file1.js", "file2.js", "file3.js"])
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -259,7 +262,7 @@ def test_validator_ignores_non_js_files(tmp_path):
     (template / "README.md").write_text("# Template")
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -291,7 +294,7 @@ def test_validator_rejects_exact_template_sync_for_root_only_code(tmp_path, sour
     )
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -311,7 +314,7 @@ def test_validator_rejects_undelivered_shadow_copies(tmp_path, shadow):
     copy.write_text("STALE = True\n", encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -323,7 +326,7 @@ def test_validator_rejects_undelivered_shadow_copies(tmp_path, shadow):
 
     copy.unlink()
     clean = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -357,7 +360,7 @@ def test_kept_exception_without_exact_flag_is_a_shadow(tmp_path):
     manifest = ["version: 1", "scripts:", f"  - source: {source}", "    description: test"]
     write_raw_manifest(tmp_path, "\n".join([*manifest, "    template_sync: exact", ""]))
     ok = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -366,7 +369,7 @@ def test_kept_exception_without_exact_flag_is_a_shadow(tmp_path):
 
     write_raw_manifest(tmp_path, "\n".join([*manifest, ""]))
     unchecked = subprocess.run(
-        [sys.executable, "scripts/validate_template_sync.py"],
+        [sys.executable, "scripts/consumer_sync/validate_template_sync.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -381,14 +384,14 @@ def test_kept_exception_without_exact_flag_is_a_shadow(tmp_path):
 # The tests above exercise the script end-to-end via `subprocess.run`, which
 # is faithful to how the validator is actually invoked but runs in a separate
 # interpreter that coverage.py never sees -- so despite being thoroughly
-# tested, scripts/validate_template_sync.py measured as 0% covered. The tests
+# tested, scripts/consumer_sync/validate_template_sync.py measured as 0% covered. The tests
 # below call the module's functions directly (importing the real module, not
 # a copy) so the paths they exercise are both genuinely new coverage AND
 # genuinely new assertions: hash_directory() had no test at all, and main()'s
 # missing-manifest / invalid-manifest error branches were never exercised by
 # any existing test, subprocess or otherwise.
 #
-# main() resolves its own repo root from `Path(__file__).parent.parent`, so
+# main() resolves its own repo root from `Path(__file__).resolve().parents[2]`, so
 # these tests point the real module's `__file__` at a fake path under
 # tmp_path for the duration of the call -- this runs the *actual* production
 # code against a throwaway fixture tree instead of a copy.
@@ -526,7 +529,7 @@ def test_main_reports_missing_source_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """main() must fail fast with a clear message when .github/scripts is absent."""
-    fake_module_file = tmp_path / "scripts" / "validate_template_sync.py"
+    fake_module_file = tmp_path / "scripts" / "consumer_sync" / "validate_template_sync.py"
     monkeypatch.setattr(vts, "__file__", str(fake_module_file))
 
     rc = vts.main()
@@ -545,7 +548,7 @@ def test_main_reports_missing_manifest(
     source.mkdir(parents=True)
     template.mkdir(parents=True)
 
-    fake_module_file = tmp_path / "scripts" / "validate_template_sync.py"
+    fake_module_file = tmp_path / "scripts" / "consumer_sync" / "validate_template_sync.py"
     monkeypatch.setattr(vts, "__file__", str(fake_module_file))
 
     rc = vts.main()
@@ -565,7 +568,7 @@ def test_main_reports_invalid_manifest(
     template.mkdir(parents=True)
     write_raw_manifest(tmp_path, "version: 2\nscripts: []\n")  # unsupported version
 
-    fake_module_file = tmp_path / "scripts" / "validate_template_sync.py"
+    fake_module_file = tmp_path / "scripts" / "consumer_sync" / "validate_template_sync.py"
     monkeypatch.setattr(vts, "__file__", str(fake_module_file))
 
     rc = vts.main()
@@ -599,7 +602,9 @@ def test_main_compares_compiled_manifest_entries_in_process(
             "source" if mode == "success" else "template", encoding="utf-8"
         )
     write_manifest(tmp_path, ["example.js"])
-    monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
+    monkeypatch.setattr(
+        vts, "__file__", str(tmp_path / "scripts" / "consumer_sync" / "validate_template_sync.py")
+    )
 
     assert vts.main() == expected_rc
     assert expected_text in capsys.readouterr().out
@@ -612,7 +617,9 @@ def test_main_print_sources_and_missing_template_directory(
     (source / "example.js").write_text("source", encoding="utf-8")
     (template / "example.js").write_text("source", encoding="utf-8")
     write_manifest(tmp_path, ["example.js"])
-    monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
+    monkeypatch.setattr(
+        vts, "__file__", str(tmp_path / "scripts" / "consumer_sync" / "validate_template_sync.py")
+    )
 
     assert vts.main(print_sources=True) == 0
     assert capsys.readouterr().out == ".github/scripts/example.js\n"
@@ -629,7 +636,9 @@ def test_print_sources_rejects_unsafe_compiled_sources(
     source, _template = create_test_structure(tmp_path)
     (source / "example.js").write_text("source", encoding="utf-8")
     write_manifest(tmp_path, ["example.js"])
-    monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
+    monkeypatch.setattr(
+        vts, "__file__", str(tmp_path / "scripts" / "consumer_sync" / "validate_template_sync.py")
+    )
     monkeypatch.setattr(vts, "_manifest_template_sync_sources", lambda _compiled: ["bad\npath"])
 
     assert vts.main(print_sources=True) == 1
@@ -652,7 +661,9 @@ def test_main_detects_missing_source_and_compares_synced_directories(
     (template / "bundle" / "item.js").write_text(
         "same" if directory_matches else "different", encoding="utf-8"
     )
-    monkeypatch.setattr(vts, "__file__", str(tmp_path / "scripts" / "validate_template_sync.py"))
+    monkeypatch.setattr(
+        vts, "__file__", str(tmp_path / "scripts" / "consumer_sync" / "validate_template_sync.py")
+    )
     monkeypatch.setattr(
         vts,
         "_compiled_template_sync_sources",

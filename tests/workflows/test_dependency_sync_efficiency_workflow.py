@@ -16,7 +16,7 @@ def test_efficiency_workflow_is_manual_weekly_and_advisory():
 
 def test_efficiency_workflow_collects_fixture_backed_report_and_dedupes_tracker_updates():
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert "scripts/dependency_sync_efficiency_metrics.py" in text
+    assert "scripts/consumer_sync/dependency_sync_efficiency_metrics.py" in text
     assert "dependency-sync-efficiency.json" in text
     assert "dependency-sync-efficiency.md" in text
     assert "history_complete" in text
@@ -34,9 +34,15 @@ def test_efficiency_workflow_collects_fixture_backed_report_and_dedupes_tracker_
     assert "workflow runs: ${error.message}" in text
     assert "window_complete: collectionFailures.length === 0" in text
     assert "dependency-sync-efficiency:v1 fingerprint=" in text
-    assert 'metrics_output="$(python scripts/dependency_sync_efficiency_metrics.py' in text
+    assert (
+        'metrics_output="$(python scripts/consumer_sync/dependency_sync_efficiency_metrics.py'
+        in text
+    )
     assert "awk -F= '/^fingerprint=/{print $2}'" in text
-    assert "from scripts.dependency_sync_efficiency_metrics import fingerprint" not in text
+    assert (
+        "from scripts.consumer_sync.dependency_sync_efficiency_metrics import fingerprint"
+        not in text
+    )
     assert "issues.createComment" in text
     # Renovate liveness needs every repository read, including ones with no PRs.
     assert "              repos,\n              pulls, workflow_runs, timeline_events," in text

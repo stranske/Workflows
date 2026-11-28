@@ -4,8 +4,8 @@ const crypto = require('crypto');
 const {
   findOrCreateTracker,
   updateTrackerBody,
-} = require('./sync_tracker_state.js');
-const { mergeEligibility, parseDeliveryRecord } = require('./sync_pr_lease_contract');
+} = require('../sync_tracker_state.js');
+const { mergeEligibility, parseDeliveryRecord } = require('../sync_pr_lease_contract');
 
 const CAMPAIGN_SCHEMA = 'sync-dependabot-campaign/v1';
 const CAMPAIGN_MARKER = 'sync-dependabot-campaign:v1';
@@ -998,7 +998,7 @@ async function campaignReviewClear(retained, withRetry, now) {
   if (!pr.baseRefName) return false;
   // Check branch conversation policy for outdated-only debt. The identity and
   // complete review must still agree after those separate API reads.
-  const { repositoryConversationGate } = require('./maint71_merge_sync_prs');
+  const { repositoryConversationGate } = require('../maint71_merge_sync_prs');
   const policy = await repositoryConversationGate({
     connection: pr.reviewThreads, owner, repo, branch: pr.baseRefName, read: withRetry,
   });
@@ -1035,7 +1035,7 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
           if (retained.lane === 'dev-tool-sync' && pr.draft !== true
             && pr.head?.ref === retained.branch && pr.head?.repo?.full_name === retained.repository
             && pr.base?.repo?.full_name === retained.repository
-            && require('./sync_pr_merge_contract').isTrustedGeneratedDeliveryPr(pr,
+            && require('../sync_pr_merge_contract').isTrustedGeneratedDeliveryPr(pr,
               [owner, `${owner}-automation-bot`, 'github-actions[bot]'])) {
             const request = normalizeHandoffReassessment({ repository: retained.repository,
               pr: retained.pr, branch: retained.branch, prior_head_sha: retained.head_sha,
@@ -2029,7 +2029,7 @@ async function sleep(ms) {
 
 async function createCampaignRetry({ github, core } = {}) {
   try {
-    const { createTokenAwareRetry } = require('./github-api-with-retry.js');
+    const { createTokenAwareRetry } = require('../github-api-with-retry.js');
     return await createTokenAwareRetry({
       github,
       core,

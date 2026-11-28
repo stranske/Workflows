@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const maint71 = require('../.github/scripts/maint71_merge_sync_prs.js');
-const campaign = require('../.github/scripts/sync_dependency_campaign.js');
+const maint71 = require('../../.github/scripts/maint71_merge_sync_prs.js');
+const campaign = require('../../.github/scripts/consumer_sync/sync_dependency_campaign.js');
 const args = process.argv.slice(2);
 const evidence = args[args.indexOf('--evidence') + 1];
 const current = args[args.indexOf('--current') + 1];
@@ -50,7 +50,7 @@ const receipts = campaign.mergeContinuationAcknowledgments
   ? campaign.mergeContinuationAcknowledgments([], [completed], [intent]) : [];
 const restored = campaign.parseCampaignMarker(campaign.formatCampaignMarker({
   continuation_acknowledgments:receipts,items:[],delivery_handoffs:[],stats:{}}));
-const workflow = fs.readFileSync(new URL('../.github/workflows/maint-82-sync-dependency-campaign.yml',import.meta.url),'utf8');
+const workflow = fs.readFileSync(new URL('../../.github/workflows/maint-82-sync-dependency-campaign.yml',import.meta.url),'utf8');
 const step = workflow.split('- name: Dispatch due Maint 71 continuations')[1].split('\n      - name: Upload campaign state')[0];
 const script = step.split('          script: |\n')[1].split('\n').map(line=>line.replace(/^ {12}/,'')).join('\n');
 const execute = new (Object.getPrototypeOf(async function(){}).constructor)('require','process','github','context','core',script);
@@ -65,7 +65,7 @@ await execute(name=>name.includes('github-api-with-retry')
 const ackVerified = receipts.length === 1 && dispatches === 0;
 console.log(JSON.stringify({input:`completed native run ${completed.id}`,continuation_key:key,
   history_rows:0,restored_acknowledgments:receipts.length,dispatches,verified:ackVerified}));
-const producer = fs.readFileSync(new URL('../.github/workflows/maint-68-sync-consumer-repos.yml',import.meta.url),'utf8');
+const producer = fs.readFileSync(new URL('../../.github/workflows/maint-68-sync-consumer-repos.yml',import.meta.url),'utf8');
 const guardStep = producer.split('- name: Check content refresh guard')[1].split('\n      - name: Authorize canary payload mutation')[0];
 const guardScript = guardStep.split('          script: |\n')[1].split('\n').map(line=>line.replace(/^ {12}/,'')).join('\n');
 const guardExecute = new (Object.getPrototypeOf(async function(){}).constructor)('require','process','github','context','core',guardScript);
@@ -80,7 +80,7 @@ const producerClient={paginate:async()=>[nativePr],rest:{pulls:{list(){},get:asy
 let allowed;
 await guardExecute(name=>name.includes('github-api-with-retry')
   ? {createTokenAwareRetry:async()=>({withRetry:fn=>fn(producerClient)})}
-  : name.includes('maint71_merge_sync_prs') ? maint71 : require('../'+name.replace(/^\.\//,'')),
+  : name.includes('maint71_merge_sync_prs') ? maint71 : require('../../'+name.replace(/^\.\//,'')),
   {env:{SOURCE_COMMIT:'7e377b7ad8cc06e506393218bc7459ba47757f01',EXPECTED_PLAN_ID:'',
     PLAN_ID:'sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da',
     PLAN_SCOPE:'full',SCOPE_BASE_SHA:'',FORCE:'true',REQUESTED_REPOS:'stranske/Portable-Alpha-Extension-Model',CLEANUP_BRANCHES:'false'}},

@@ -195,46 +195,32 @@ jobs:
               .write();
             let agent = defaultAgent;
 
-            // Control suffixes match bridge_preflight controlLabelSuffixes and the root
-            // normalize_inputs jq filter (def control: [...]). Labels such as agents:formatted
-            // must not be treated as the assigned agent key or override agent:cursor/codex.
-            // Metadata labels that aren't actual agent assignments
-            const metadataLabels = new Set([
-              'keepalive', 'formatted', 'optimize', 'allow-change',
-              'apply-suggestions', 'debug', 'format', 'sync-failed', 'sync-required',
-              'auto-pilot', 'auto-pilot-pause', 'auto-pilot-failed',
-              'activated', 'decompose', 'paused',
-              'needs-attention', 'rate-limited', 'retry',
-            ]);
-
             if (eventName === 'issues') {
+              // One list of non-agent labels (agents:formatted, agent:auto, ...) and one list of
+              // intake holds, both in agent_registry.js and shared with the root intake and the
+              // reusable bridge. A control label must not become the agent or override agent:codex.
+              const { agentKeyFromLabel, findIntakeHoldLabels } = require(registryPath);
               const issue = context.payload.issue;
               issueNumber = String(issue.number);
-
-              // Extract agent from labels (agent:codex, agents:codex, etc.)
-              // Skip metadata labels that aren't actual agent assignments
               const labels = issue.labels.map(l => l.name);
-              const agentLabel = labels.find(l => {
-                const match = l.match(/^agents?:([a-z0-9-]+)$/i);
-                if (!match) return false;
-                const suffix = match[1].toLowerCase();
-                return !metadataLabels.has(suffix);
-              });
-              if (agentLabel) {
-                agent = agentLabel.replace(/^agents?:/, '').toLowerCase();
-              }
 
-              // Check if any actual agent assignment label exists (not metadata)
-              const hasAgentLabel = labels.some(l => {
-                const match = l.match(/^agents?:([a-z0-9-]+)$/i);
-                if (!match) return false;
-                const suffix = match[1].toLowerCase();
-                return !metadataLabels.has(suffix);
-              });
-              if (!hasAgentLabel) {
+              // A held issue never starts the bridge. Removing the hold fires `unlabeled`,
+              // which runs this check again.
+              const holds = findIntakeHoldLabels(labels);
+              if (holds.length > 0) {
+                core.info(`Issue #${issueNumber} is held by ${holds.join(', ')}; bridge not started.`);
                 core.setOutput('should_run', 'false');
                 return;
               }
+
+              const agentKey = labels.map(agentKeyFromLabel).find(Boolean);
+              if (agentKey) {
+                agent = agentKey;
+              } else if (!labels.some(l => String(l).toLowerCase() === 'agent:auto')) {
+                core.setOutput('should_run', 'false');
+                return;
+              }
+              // agent:auto alone: the route-weights chooser's agent (defaultAgent) takes it.
             }
 
             core.setOutput('should_run', 'true');

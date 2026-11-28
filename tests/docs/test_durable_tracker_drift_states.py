@@ -14,7 +14,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TRACKER_DOC = REPO_ROOT / "docs" / "ops" / "DURABLE_TRACKING_ISSUES.md"
-CHECKER = REPO_ROOT / "scripts" / "check_consumer_sync_drift.py"
+CHECKER = REPO_ROOT / "scripts" / "consumer_sync" / "check_consumer_sync_drift.py"
 HEALTH_68 = REPO_ROOT / ".github" / "workflows" / "health-68-consumer-sync-drift.yml"
 
 _SECTION_2210 = re.compile(

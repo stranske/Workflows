@@ -3,7 +3,7 @@
 const { validateIndependentFindingFromNative, collectFindingReviewState,
   validateNativeConversationDisposition, collectOriginatingCompletions,
   collectBoundInlineStockCompletion, receiverFixIdentity, isReceiverFindingPull,
-  readReceiverFix, receiverFixPrecedesHead, proofReceipts } = require('./maint71_finding_verification');
+  readReceiverFix, receiverFixPrecedesHead, proofReceipts } = require('./consumer_sync/maint71_finding_verification');
 
 const DEFAULT_REVIEW_POLICY = Object.freeze({
   minimum_responses: 1,
@@ -21,15 +21,15 @@ const CANARY_SEALED_REFRESH_WAIT_MS = 60 * 60 * 1000;
 // A cancelled exact-head Gate reached no verdict. Full reruns may replace it
 // until this attempt number; the next one must come from a new head event.
 const CANCELLED_GATE_MAX_ATTEMPT = 3;
-const deliveryPayload = require('./consumer_delivery_digest');
+const deliveryPayload = require('./consumer_sync/consumer_delivery_digest');
 const { reconcileLegacyCanaryHistory, coveredByCurrentBaseline,
-  currentBaselineOwnerConflict } = require('./canary_history_reconciliation');
+  currentBaselineOwnerConflict } = require('./consumer_sync/canary_history_reconciliation');
 const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
 const { parseBooleanInput } = require('./sync_pr_merge_contract');
 const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 
 async function recoverCancelledAgentsGuard(args) {
-  return require('./maint71_agents_guard_recovery').recoverCancelledAgentsGuard({
+  return require('./consumer_sync/maint71_agents_guard_recovery').recoverCancelledAgentsGuard({
     ...args, verifyPlan: verifiedCanaryRefreshPlan });
 }
 
@@ -563,7 +563,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     if (refreshPlan.plan_scope === 'source-delta') {
       const title = String(run.display_title || '').trim().replace(/\s+/g, ' ');
       if (!/^Maint 68 canary (?:full|auto|source-delta)\s+source=[a-f0-9]{40} candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/.test(title)) continue;
-      const receipt = await require('./maint68_scoped_receipt').readScopedCanaryReceipt({
+      const receipt = await require('./consumer_sync/maint68_scoped_receipt').readScopedCanaryReceipt({
         withRetry, context, run, defaultBranch: branch, candidates });
       run.refresh_receipt = refreshReceiptDiagnostic(run, receipt);
       if (receipt.state === 'unknown') {
@@ -5854,11 +5854,11 @@ async function run({ github, context, core }) {
 
       if (autoMerge && !dryRun && !recoveredMergedCandidate
         && deliveryRecord?.delivery_state === 'sealed'
-        && require('./maint71_agents_guard_recovery').agentsGuardNeedsInspection(classification, allChecks)) {
+        && require('./consumer_sync/maint71_agents_guard_recovery').agentsGuardNeedsInspection(classification, allChecks)) {
         const recovery = await recoverCancelledAgentsGuard({ owner, repo, pr, withRetry, context });
         deliveryContext.agents_guard_request = recovery;
-        const explicitGuardHold = require('./maint71_agents_guard_recovery').agentsGuardNeedsRecovery(classification);
-        const repairHint = require('./maint71_agents_guard_recovery').agentsGuardRefusalHandoff(
+        const explicitGuardHold = require('./consumer_sync/maint71_agents_guard_recovery').agentsGuardNeedsRecovery(classification);
+        const repairHint = require('./consumer_sync/maint71_agents_guard_recovery').agentsGuardRefusalHandoff(
           classification, recovery, findingDisposition.blocked);
         if (['requested', 'wait'].includes(recovery.mode) || (recovery.mode === 'unknown' && explicitGuardHold) || repairHint) {
           results.push({ ...deliveryContext, status: repairHint ? classification.status : 'checks_pending',
@@ -6874,7 +6874,7 @@ async function run({ github, context, core }) {
   });
   const reportPath = process.env.SYNC_PR_MERGE_REPORT_JSON || 'artifacts/sync-pr-merge-report.json';
   report.dev_tool_candidates = devToolCandidates;
-  report.canary_refresh = require('./sync_refresh_diagnostics').compactCanaryRefresh(canaryRefresh);
+  report.canary_refresh = require('./consumer_sync/sync_refresh_diagnostics').compactCanaryRefresh(canaryRefresh);
   const canaryEvidencePath = 'artifacts/sync-canary-evidence.json';
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.mkdirSync(path.dirname(canaryEvidencePath), { recursive: true });

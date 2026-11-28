@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from scripts.check_consumer_sync_drift import (
+from scripts.consumer_sync.check_consumer_sync_drift import (
     gate_trigger_lines,
     git_blob_hash,
     manifest_skip_reason,

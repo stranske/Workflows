@@ -4,9 +4,10 @@
 > `config/llm_slots.json`
 > **Policy version:** `auxiliary-verifier-model-selection-v1`
 > **Policy text reviewed:** 2026-10-02. This does not refresh registry decisions.
-> **Registry deadlines:** use `config/model_registry.json` `review_by` fields;
-> the global, OpenAI, and GitHub Models dates are overdue. No replacement
-> deadline has been approved for those decisions.
+> **Registry deadlines:** use `config/model_registry.json` `review_by` fields.
+> The global date is the catalog review and is renewed by maint-77's recorded
+> baseline (see [Catalog Discovery](#catalog-discovery)); each selection's date
+> is an owner decision.
 
 ## Decision Principle
 
@@ -322,9 +323,21 @@ Run:
 python tools/discover_model_catalog.py --output model-catalog-discovery.json
 ```
 
-GitHub Models discovery is public. OpenAI and Anthropic discovery is enabled
-when their API keys are available. The weekly maint-77 workflow attaches the
-diff to its tracking issue.
+OpenAI and Anthropic discovery is enabled when their API keys are available
+(GitHub Models discovery was retired with that provider on 2026-10-31). The
+weekly maint-77 workflow rewrites its tracking issue's body with the diff and
+comments only when a provider added a model since the recorded baseline (or on
+a structural finding).
+
+Scheduled and manual maint-77 runs then record what they observed into
+`catalog_baselines` (`--record-baselines`) through an auto-merging PR on the
+`model-catalog-baselines/auto` branch, the same merge path as maint-79. Each
+addition is therefore reported once. When every provider catalog was read, the
+same PR renews the registry-wide `review_by` by 30 days, once fewer than 14
+remain: that date covers the catalog review, which the run has just done. A
+catalog that could not be read is not renewed, so the date lapses and the
+finding appears. Selection `review_by` dates are owner decisions and are never
+renewed automatically.
 
 A newly observed model becomes a candidate. It never changes a selection until
 the benchmark and human-approval rules are satisfied. This is the mechanism

@@ -10,12 +10,12 @@ const path = require('node:path');
 const {
   collectFindingReviewState, validateIndependentFindingVerification, collectOriginatingCompletions,
 } = require('./maint71_finding_verification');
-const { validateReviewResolutionProof } = require('./maint71_merge_sync_prs');
-const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
+const { validateReviewResolutionProof } = require('../maint71_merge_sync_prs');
+const { parseDeliveryRecord } = require('../sync_pr_lease_contract');
 const A = require('./maint71_finding_assessment');
-const { ensureRateLimitWrapped } = require('./github-rate-limited-wrapper.js');
+const { ensureRateLimitWrapped } = require('../github-rate-limited-wrapper.js');
 
-const ROOT = path.join(__dirname, '..', '..');
+const ROOT = path.join(__dirname, '..', '..', '..');
 const ACTIVE = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 const MAX_ASSESSMENTS_PER_RUN = 3;
 // After this many Maint 71 runs that evaluated this finding's proof (each wrote a

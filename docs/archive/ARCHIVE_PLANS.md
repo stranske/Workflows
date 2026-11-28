@@ -72,6 +72,10 @@ before running its recovery command. Use the current references for operational 
 |-------------|--------------|---------------|
 | [`docs/plans/SHORT_TERM_PLAN.md`][january-short-plan-original] | [`plans/SHORT_TERM_PLAN.md`](plans/SHORT_TERM_PLAN.md) | [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md), [`docs/validation/overview.md`](../validation/overview.md) |
 | [`docs/plans/LONG_TERM_PLAN.md`][january-long-plan-original] | [`plans/LONG_TERM_PLAN.md`](plans/LONG_TERM_PLAN.md) | [`docs/ci/WORKFLOW_SYSTEM.md`](../ci/WORKFLOW_SYSTEM.md), keepalive docs |
+| `docs/plans/agent-verifier-v2.md` | [`plans/agent-verifier-v2.md`](plans/agent-verifier-v2.md) | [verifier events](../keepalive/VERIFICATION_EVENTS.md) |
+| `docs/plans/langchain-issue-intake-proposal.md` | [`plans/langchain-issue-intake-proposal.md`](plans/langchain-issue-intake-proposal.md) | [issue intake](../WORKFLOW_GUIDE.md#import-issues-from-a-topic-list) |
+| `docs/plans/langchain-keepalive-integration.md` | [`plans/langchain-keepalive-integration.md`](plans/langchain-keepalive-integration.md) | [Keepalive implementation](../keepalive/GoalsAndPlumbing.md) |
+| `docs/plans/langchain-rollout-tasks.md` | [`plans/langchain-rollout-tasks.md`](plans/langchain-rollout-tasks.md) | [agent routing](../keepalive/MULTI_AGENT_ROUTING.md) |
 
 [january-short-plan-original]: https://github.com/stranske/Workflows/blob/09c73c658d6d4afa2ac5115814087a43fe8bf0d5/docs/plans/SHORT_TERM_PLAN.md
 [january-long-plan-original]: https://github.com/stranske/Workflows/blob/09c73c658d6d4afa2ac5115814087a43fe8bf0d5/docs/plans/LONG_TERM_PLAN.md

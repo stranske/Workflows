@@ -1,4 +1,4 @@
-"""End-to-end safety tests for scripts/sync_templates.sh."""
+"""End-to-end safety tests for scripts/consumer_sync/sync_templates.sh."""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ REPO_ROOT = Path(__file__).parents[2]
 
 
 def _fixture_repo(tmp_path: Path, manifest: str) -> Path:
-    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "consumer_sync").mkdir(parents=True)
     for name in (
-        "sync_templates.sh",
-        "validate_template_sync.py",
+        "consumer_sync/sync_templates.sh",
+        "consumer_sync/validate_template_sync.py",
         "sync_manifest_compiler.py",
     ):
         shutil.copy(REPO_ROOT / "scripts" / name, tmp_path / "scripts" / name)
@@ -31,7 +31,7 @@ def _run_sync(repo: Path) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["PATH"] = f"{Path(sys.executable).parent}:{env['PATH']}"
     return subprocess.run(
-        ["/bin/bash", "scripts/sync_templates.sh"],
+        ["/bin/bash", "scripts/consumer_sync/sync_templates.sh"],
         cwd=repo,
         capture_output=True,
         text=True,

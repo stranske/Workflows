@@ -3693,6 +3693,13 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
     const delegationSource = normalise(inputs.delegation_source ?? inputs.delegationSource);
     const policyVersion = normalise(inputs.policy_version ?? inputs.policyVersion);
     const agentRoutingMode = normalise(inputs.agent_routing_mode ?? inputs.agentRoutingMode);
+    // Consumers merge a tasks-complete PR through Gate Followups' guarded-merge, which reads
+    // `automerge`. Workflows has no reader of the label (the local closer merges its agent PRs),
+    // so its keepalive loop passes false and the write is skipped (docs/ops/LOCAL_LANES.md).
+    const applyAutomergeLabel = toBool(
+      inputs.apply_automerge_label ?? inputs.applyAutomergeLabel,
+      true,
+    );
 
     const {
       state: previousState,
@@ -5433,13 +5440,15 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       }
 
       // #2270 (FO-4/FO-5): when the loop terminal is tasks-complete, apply the
-      // `automerge` label so the completed PR reaches the GUARDED merger (the
-      // bootstrap-guarded belt conveyor / orchestrator automerge sweep in root,
-      // the consumer in-repo guarded merger in agents-81-gate-followups). This
-      // replaces the native auto-merge path removed from the belt worker. It is
-      // the only reliable producer of `automerge` once native auto-merge is gone.
-      // Idempotent: skip the add when the label is already present.
-      if (isSuccessStop) {
+      // `automerge` label so the completed PR reaches the consumer in-repo guarded
+      // merger in agents-81-gate-followups (the root belt conveyor and orchestrator
+      // automerge sweep that also read it are retired). It is the only producer of
+      // `automerge`. Idempotent: skip the add when the label is already present.
+      // Skipped where no merger reads the label (apply_automerge_label=false: the
+      // Workflows repo, whose agent PRs the local closer merges).
+      if (isSuccessStop && !applyAutomergeLabel) {
+        if (core) core.info(`automerge label not applied on PR #${prNumber}: no reader in this repository.`);
+      } else if (isSuccessStop) {
         try {
           let alreadyLabelled = false;
           try {

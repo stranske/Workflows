@@ -5,12 +5,12 @@
 # to consumer repos, ensuring consistent testing patterns across all projects.
 #
 # Usage:
-#   ./scripts/sync_test_helpers.sh [--check] [--repo path/to/repo]
+#   ./scripts/consumer_sync/sync_test_helpers.sh [--check] [--repo path/to/repo]
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKFLOWS_ROOT="$(dirname "$SCRIPT_DIR")"
+WORKFLOWS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 TEMPLATES_DIR="$WORKFLOWS_ROOT/templates/test_helpers"
 
 # Validate templates directory exists
