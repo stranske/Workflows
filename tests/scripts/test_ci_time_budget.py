@@ -14,13 +14,18 @@ class FakeGitHub:
     def __init__(self):
         self.issues = []
         self.calls = []
-        self.timelines = {}
+        self.comments = {}
         self.clock = NOW  # GitHub's server time for comments and closes
 
     def pages(self, path, key=None, **params):
-        if path.endswith("/timeline"):
+        if path.endswith("/comments"):
+            since = datetime.fromisoformat(params.pop("since"))
             assert key is None and params == {}
-            return list(self.timelines.get(int(path.split("/")[-2]), []))
+            return [
+                comment
+                for comment in self.comments.get(int(path.split("/")[-2]), [])
+                if datetime.fromisoformat(comment["created_at"]) >= since
+            ]
         assert path.endswith("/issues")
         assert params in (
             {"state": "open", "labels": "ci-budget"},
@@ -43,19 +48,20 @@ class FakeGitHub:
             self.issues.append(issue)
             return issue
         if method == "POST" and path.endswith("/comments"):
-            self.event(int(path.split("/")[-2]), "commented", body=payload["body"])
+            comment = {"body": payload["body"], "created_at": self.clock.isoformat()}
+            self.comments.setdefault(int(path.split("/")[-2]), []).append(comment)
         if method == "PATCH":
             number = int(path.rsplit("/", 1)[-1])
             issue = next(issue for issue in self.issues if issue["number"] == number)
             issue.update(payload)
             if payload.get("state") == "closed":
                 issue.update(closed_at=self.clock.isoformat(), state_reason="completed")
-                self.event(number, "closed")
+            return issue
         return {}
 
-    def event(self, number, kind, **fields):
-        item = {"event": kind, "created_at": self.clock.isoformat(), **fields}
-        self.timelines.setdefault(number, []).append(item)
+    def fix_close(self, issue, at):
+        """The closer closes the issue when a fix merges; this job records nothing."""
+        issue.update(state="closed", closed_at=at.isoformat(), state_reason="completed")
 
 
 def metrics(p50=15):
@@ -119,7 +125,8 @@ def test_issue_closed_after_seven_under_target_days(capsys):
         assert (api.issues[0].get("state") == "closed") is (day == 7)
     closings = [c for c in api.calls if c[0] == "PATCH"]
     assert len(closings) == 1
-    comment = [c[2]["body"] for c in api.calls if c[1].endswith("/comments")][-1]
+    comment = [c[2]["body"] for c in api.calls if c[1].endswith("/comments")][-2]
+    assert "ci-time-budget:recovery-close" in api.calls[-1][2]["body"]
     for day in range(1, 8):
         assert f"2026-10-{17 + day}: 8.00 min" in comment
     assert "share=0, drainable_in=0" in comment
@@ -180,7 +187,10 @@ def test_owner_reopened_budget_issue_is_reused_until_uninterrupted_recovery(
 
     # The same issue gets the seven dated values before the automation closes it.
     assert api.issues == [issue]
-    closing_comment, closing_patch = api.calls[-2:]
+    closing_comment, closing_patch, record = api.calls[-3:]
+    assert record[2]["body"].endswith(
+        f"<!-- ci-time-budget:recovery-close closed_at={NOW.isoformat()} -->"
+    )
     assert closing_comment[:2] == (
         "POST",
         f"/repos/{budget.SOURCE_REPO}/issues/4642/comments",
@@ -579,7 +589,7 @@ def test_daily_runs_reload_native_sources_and_publish_before_recovery_closure(
     assert len(api.issues) == 1
     assert api.issues[0]["labels"] == ["ci-budget"]
     assert api.issues[0]["body"] == "- [ ] Wait for seven actual daily observations"
-    closing_comment = api.calls[-2][2]["body"]
+    closing_comment = api.calls[-3][2]["body"]
     for day in row["p50_series"]:
         assert f"{day}: 10.00 min" in closing_comment
 
@@ -1095,11 +1105,9 @@ def test_reopened_recovery_issue_later_closed_by_a_fix_starts_a_hold(after_recov
     # Reopened, then closed by the closer when a fix merged; the minutes case is
     # inside any time window around the recovery comment, so only order can tell.
     recovered_at = datetime.fromisoformat(issue["closed_at"])
-    api.clock = recovered_at + after_recovery / 2
-    api.event(issue["number"], "reopened")
+    issue["state"] = "open"
     api.clock = fixed_at = recovered_at + after_recovery
-    api.event(issue["number"], "closed")
-    issue.update(state="closed", closed_at=fixed_at.isoformat(), state_reason="completed")
+    api.fix_close(issue, fixed_at)
     row = budget.observation(row, metrics(12), fixed_at + timedelta(hours=1))
     budget.reconcile(api, REPO, row)
     assert len(api.issues) == 1
@@ -1183,3 +1191,36 @@ def test_one_constant_drives_measurement_recovery_and_hold(monkeypatch):
     with pytest.raises(RuntimeError, match="trailing 3 days"):
         budget.measure(REPO, api=FakeGitHub(), now=NOW)
     assert seen == [timedelta(days=3)]
+
+
+def test_orphaned_recovery_comment_then_fix_close_starts_a_hold():
+    """Recovery comment posted, PATCH fails, then a fix closes the issue (no reopen)."""
+    api = FakeGitHub()
+    row = budget.observation({}, metrics(20), NOW)
+    budget.reconcile(api, REPO, row)
+    window = budget.SERIES_WINDOW_DAYS
+    for day in range(1, window + 1):
+        api.clock = NOW + timedelta(days=day)
+        row = budget.observation(row, metrics(8), NOW + timedelta(days=day))
+        if day < window:
+            budget.reconcile(api, REPO, row)
+    original = api.request
+
+    def deny_close(method, path, payload=None):
+        if method == "PATCH":
+            raise RuntimeError("close denied")
+        return original(method, path, payload)
+
+    api.request = deny_close
+    with pytest.raises(RuntimeError, match="close denied"):
+        budget.reconcile(api, REPO, row)
+    api.request = original
+    issue = api.issues[0]
+    assert budget.RECOVERY_CLOSE_TEXT in api.comments[issue["number"]][-1]["body"]
+    fixed_at = NOW + timedelta(days=window, minutes=5)
+    api.fix_close(issue, fixed_at)
+    row = budget.observation(row, metrics(12), fixed_at + timedelta(hours=1))
+    budget.reconcile(api, REPO, row)
+    assert len(api.issues) == 1
+    assert row["refile_hold"]["previous_issue"] == issue["number"]
+    assert row["refile_hold"]["fix_closed_at"] == fixed_at.isoformat()

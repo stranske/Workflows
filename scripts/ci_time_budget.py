@@ -40,8 +40,10 @@ WALL_CLOCK_THRESHOLD_MINUTES = 10.0
 # issue, and the refile hold after a fix closes an issue. A shared name cannot
 # drift; a matching pair of literals can (latched-gate rule).
 SERIES_WINDOW_DAYS = 7
-# This job posts RECOVERY_CLOSE_TEXT immediately before its recovery PATCH.
+# This job posts RECOVERY_CLOSE_TEXT before its recovery PATCH and, once the PATCH
+# succeeds, a RECOVERY_CLOSE_MARK comment naming the exact closed_at it produced.
 RECOVERY_CLOSE_TEXT = "Closing after confirmed recovery."
+RECOVERY_CLOSE_MARK = re.compile(r"<!-- ci-time-budget:recovery-close closed_at=(\S+) -->")
 REPORT_PATH = Path("docs/reports/ci-budget.json")
 REPORT_BRANCH = "ci-time-budget"
 SOURCE_REPO = "stranske/Workflows"
@@ -402,23 +404,22 @@ First over-target measurement: {row.get('first_over_target_at', 'unknown')}.
 
 
 def is_recovery_close(api: GitHub, root: str, issue: dict) -> bool:
-    """Was the issue's latest close this job's recovery close? Read from its timeline.
+    """Was the issue's current close this job's recovery close? Read from GitHub.
 
-    The evidence is on GitHub, not in the report, so it survives a failed publish
-    after reconciliation. It is tied to the close event by order, not by a time
-    window: walking back from the latest `closed` event, the recovery comment must
-    come before any `reopened` or earlier `closed` event. A reopened issue that a
-    fix then closes, however soon, has a `reopened` event in between.
+    After its recovery PATCH succeeds, the job records the exact `closed_at` that
+    PATCH produced in a marked comment. Only a close with that `closed_at` is the
+    recovery close. A fix close after a reopen has a different `closed_at`, and a
+    recovery comment whose PATCH failed has no record, so neither can match. The
+    record is on GitHub, not in the report, so it survives a failed publish.
     """
-    timeline = api.pages(f"{root}/issues/{issue['number']}/timeline")
-    closes = [i for i, item in enumerate(timeline) if item.get("event") == "closed"]
-    if not closes:
-        return False
-    for item in reversed(timeline[: closes[-1]]):
-        if item.get("event") in {"reopened", "closed"}:
-            return False
-        if item.get("event") == "commented" and RECOVERY_CLOSE_TEXT in (item.get("body") or ""):
-            return True
+    closed = timestamp(issue["closed_at"])
+    for comment in api.pages(f"{root}/issues/{issue['number']}/comments", since=issue["closed_at"]):
+        for recorded in RECOVERY_CLOSE_MARK.findall(comment.get("body") or ""):
+            try:
+                if timestamp(recorded) == closed:
+                    return True
+            except ValueError:
+                continue
     return False
 
 
@@ -531,7 +532,18 @@ def reconcile(api: GitHub, repo: str, row: dict) -> None:
                     f"share=0, drainable_in=0. {RECOVERY_CLOSE_TEXT}"
                 },
             )
-            api.request("PATCH", f"{root}/issues/{issue['number']}", {"state": "closed"})
+            closure = api.request("PATCH", f"{root}/issues/{issue['number']}", {"state": "closed"})
+            # Record the exact close this PATCH produced; only that close is ours.
+            closed_at = (closure or {}).get("closed_at")
+            if closed_at:
+                api.request(
+                    "POST",
+                    f"{root}/issues/{issue['number']}/comments",
+                    {
+                        "body": f"Recovery close recorded: closed_at={closed_at}.\n"
+                        f"<!-- ci-time-budget:recovery-close closed_at={closed_at} -->"
+                    },
+                )
         row["issue_numbers"] = []
         row["drained_at"] = row["measured_at"]
         print(f"{repo}: share=0, issue closed; p50_series={series}")

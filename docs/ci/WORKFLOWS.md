@@ -504,11 +504,14 @@ Refile hold: when a repo is over target with no open `ci-budget` issue, the job
 reads the newest closed `ci-budget` issue that was closed as completed
 (`not_planned` and `duplicate` closes had no fix). If that close was the job's
 own recovery close, nothing holds. That is read from GitHub, not from the report:
-the job posts "Closing after confirmed recovery." just before its close, and the
-issue timeline shows whether that comment precedes the latest `closed` event with
-no `reopened` (or earlier `closed`) event between them. The evidence therefore
-survives a failed report publish, and a fix close of a reopened issue starts a
-hold however soon it follows the recovery. If the close is a fix close less than one series
+after its recovery PATCH succeeds, the job comments the exact `closed_at` that
+PATCH produced (`<!-- ci-time-budget:recovery-close closed_at=... -->`), and only
+a close with that `closed_at` is a recovery close. The record therefore survives
+a failed report publish. A fix close of a reopened issue has a different
+`closed_at`, and a recovery comment whose PATCH failed has no record, so both
+start a hold. If the record comment itself fails after the close, the close is
+treated as a fix close: the refile waits at most one window, and the run fails
+visibly. If the close is a fix close less than one series
 window old, the job does not refile: the trailing p50 still holds pre-fix runs. The closer closes at merge, so `closed_at` is at or after the merge
 and the hold ends at or after merge plus one window. The report row carries
 `refile_hold` (`previous_issue`, `fix_closed_at`, `window_days`,
