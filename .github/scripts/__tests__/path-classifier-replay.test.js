@@ -38,14 +38,6 @@ async function runGh(args, { attempts = 1 } = {}) {
   throw lastError;
 }
 
-async function requireGh() {
-  try {
-    await runGh(['auth', 'status']);
-  } catch (error) {
-    throw new Error(`gh authentication is required for path-classifier replay: ${error.message}`);
-  }
-}
-
 async function listRecentMergedPullRequests() {
   const raw = await runGh([
     'pr',
@@ -72,12 +64,11 @@ function expectAny(files, patterns) {
   return files.some((filePath) => matchesAny(filePath, patterns));
 }
 
-test('historical merged PR replay matches classification expectations for last 90 days', {
+test(`historical merged PR replay matches classification expectations for PRs merged since ${SINCE}`, {
   skip: process.env.PATH_CLASSIFIER_REPLAY !== '1'
     ? 'set PATH_CLASSIFIER_REPLAY=1 to run live GitHub replay'
     : false,
 }, async () => {
-  await requireGh();
   const pullRequests = await listRecentMergedPullRequests();
   assert.ok(pullRequests.length > 0, 'expected at least one merged PR in replay window');
 
