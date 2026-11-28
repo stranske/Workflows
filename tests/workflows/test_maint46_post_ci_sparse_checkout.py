@@ -5,6 +5,8 @@ import pytest
 import yaml
 from tools import post_ci_summary
 
+ROOT = Path(__file__).resolve().parents[2]
+
 
 def test_maint46_sparse_checkout_includes_post_ci_import_dependencies():
     workflow = yaml.safe_load(
@@ -109,6 +111,20 @@ def test_maint46_refuses_fork_or_unknown_repository_identity_without_pr_associat
     assert "Gate repository identity is incomplete" in source
     assert "Fork Gate run is owned by Gate Fork Status Publisher" in source
     assert "run.pull_requests" not in source
+
+
+def test_post_gate_tracker_helpers_are_wired_in_maint46() -> None:
+    """F45 repaired: Maint46 failure-tracker invokes all four helpers."""
+    helpers = (
+        "updateFailureTracker",
+        "resolveFailureIssuesForRecoveredPR",
+        "autoHealFailureIssues",
+        "snapshotFailureIssues",
+    )
+    workflow = (ROOT / ".github/workflows/maint-46-post-ci.yml").read_text(encoding="utf-8")
+    assert "failure-tracker:" in workflow
+    missing = [h for h in helpers if h not in workflow]
+    assert missing == [], f"Maint46 must call failure-tracker helpers; missing: {missing}"
 
 
 def test_tracker_serializes_pending_events_without_single_slot_replacement():
