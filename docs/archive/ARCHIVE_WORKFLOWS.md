@@ -178,3 +178,25 @@ The keepalive loop now counts its active workers directly. PR-meta forwards admi
 | `reusable-70-orchestrator-init.yml` | `110e5d2c3d9b4132e7407b1660b6c6d7249c47b9704488684f2bd49665cd7c92` |
 | `reusable-70-orchestrator-main.yml` | `677ed3a0f161fe28d05a2db0be0afbc9be9bb1d81145bf94735a4806330e62ea` |
 | `reusable-16-agents.yml` | `80d2d16b97a4002b33a531c52a223e70a6b379e8ec53222bc1714df39667266c` |
+
+## Historical workflow test suites
+
+The retired ledger membership check and former agent-wrapper checks can be read
+in the original suites below. The current archival inventory still guards the
+retired root workflow paths. The workflow naming suite owns the dedicated
+Gate docs-only check. The archival suite retains the CI signature guard's
+exact recovery locator and digest.
+
+Recover the original test sources from Git; these are read-only historical
+copies. Compare the extracted files to their SHA-256 digests before inspecting
+or replaying the original test definitions.
+
+```sh
+git show af2c77119bec5b81e34965b99ceb5b415e83265e:tests/workflows/test_workflow_archival_issue2823.py
+git show af2c77119bec5b81e34965b99ceb5b415e83265e:tests/workflows/test_workflow_agents_consolidation.py
+```
+
+| Test source | SHA-256 |
+| --- | --- |
+| `test_workflow_archival_issue2823.py` | `4e8c06fdf4baac90f0bb8a7c7d062f859d6d2902f67912bf49270d26a87d8ba5` |
+| `test_workflow_agents_consolidation.py` | `7d8821d64619d3aa87ee8fc138de1823d46907581f1505d21d7561c2f02d7306` |
