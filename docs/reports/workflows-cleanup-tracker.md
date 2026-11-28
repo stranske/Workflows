@@ -7,6 +7,59 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Playbook regression and operator cleanup
+
+Stage 3 has **711/752 files and 39/43 folders**. Stage 4 has **1,446/1,540 files and 154/177 folders**. Across the original inventory the net change this session is **+6 accepted files and −1 folder**. The consumer documentation folder reopened when both hosted Python jobs exposed a regression.
+
+**Playbook cleanup correction.** After [#5444](https://github.com/stranske/Workflows/pull/5444) removed the duplicate, both native Python jobs still looked for its old raw-template path. It was the only failure on [#5445](https://github.com/stranske/Workflows/pull/5445). Each job passed all 17 affected worker cases and all 29 archival cases. All 16 receiving defaults have the canonical playbook. Repair [#5471](https://github.com/stranske/Workflows/pull/5471) now exercises the production manifest and every anchor. Removing an anchor or redirecting delivery failed as expected. Restoration passed all 96 owner tests. The source repair is in review. [Python 3.13](https://github.com/stranske/Workflows/actions/runs/46115040128/job/140888967956) · [Python 3.14](https://github.com/stranske/Workflows/actions/runs/46115040128/job/140888967989)
+
+| Source change in review | What the change does | Evidence |
+|---|---|---|
+| [#5474](https://github.com/stranske/Workflows/pull/5474) | Archives the one-incident Cursor checker and its 414-line test file. The guide recovers both at their original revision. | Both blobs recovered. Ordinary and Gate main each lose exactly the 94 archived test IDs. All 16 active protections still pass. The historical production observation remains unknown. |
+| [#5467](https://github.com/stranske/Workflows/pull/5467) | Removes the obsolete 150-line model-listing shell command and points operators to the maintained catalog. | The old command exited successfully with a parse error. Its replacement returned the seven expected IDs and exposed the missing-key case. Both maintained routes already exist on all 16 receivers. |
+| [#5465](https://github.com/stranske/Workflows/pull/5465) | Repairs the validator delivered to the integration project. | The old validator rejected valid code on the actual receiving revision. The revised validator passed the receiver and a fresh render, rejected four distinct broken inputs and passed after restoration. Ordinary receiver delivery is pending. |
+| [#5468](https://github.com/stranske/Workflows/pull/5468) | Moves 13 verifier parser cases beside their source and one Maint 46 wiring case beside its workflow tests. | Compared 46,958 ordinary IDs, 16,609 Gate main IDs, 30,340 grammar IDs and seven Selftest cases before and after. The moved wiring test caught a missing helper. |
+| [#5466](https://github.com/stranske/Workflows/pull/5466) | Removes a stale Monday schedule description from the reviewer configuration. | The installed weekly reviewer runs Thursday at 05:30. Moving the surrounding configuration lost three profile entries, lost a defer decision and broke a real receiver contract. |
+
+**Placements settled.** The Workflows-only completion reconciler successfully read a real Orchestrator artifact without writing. Three configuration files stay at the paths used by the installed reviewer and receivers. Two verifier suites stay with their receipt fixtures and Gate digest checks. Three workflow suites stay with the source and template contracts their 60 cases exercise. Altering the Selftest selector, consumer grant or Gate input made the corresponding test fail. The root and template token-export actions are still candidates for consolidation. Using the root source produced the same receiver target and bytes, while the standalone interface still exposes two rotation inputs missing from its proposed replacement.
+
+**Consumer delivery.** Three sealed canaries passed Gate and the normal [merge controller](https://github.com/stranske/Workflows/actions/runs/46116249786) prepared them. [Promotion](https://github.com/stranske/Workflows/actions/runs/46116581499) and the [campaign continuation](https://github.com/stranske/Workflows/actions/runs/46116704939) are recorded against the same immutable plan. The latest default-branch read found **0/16** receivers had removed the cycle-metrics helper. The earlier two helper retirements and canonical dependency script remain verified on **16/16**.
+
+Stage 1A remains 198/198, Stage 1B remains 27/27, and the original delivery checklist retains 26 production passes plus two replay-verified no-demand dispositions. The source PRs in this section have separate review, Gate and installation checks.
+
+### November 27 overnight · Source consolidation and consumer installation
+
+Stage 3 has **710/752 files and 39/43 folders**. Stage 4 has **1,441/1,540 files and 155/177 folders**. This session added 42 net accepted original file decisions and 6 folder decisions.
+
+[#5428](https://github.com/stranske/Workflows/pull/5428) independently consolidated the weekly PyPI freshness report into the source proposer. Its installed [run 46111275442](https://github.com/stranske/Workflows/actions/runs/46111275442) reported eight current pins and coverage 7.17.4 → 7.17.5. GitHub marks the old workflow deleted. The grouped workflow index records the verified consolidation. [#5436](https://github.com/stranske/Workflows/pull/5436) moved the retired Auto-Pilot design into the archive with its original body intact.
+
+The two legacy managed helpers are absent from **16/16 default branches**. The canonical dependency script is installed on **16/16**. The three ordinary canaries led to a thirteen-repository [run 46111357275](https://github.com/stranske/Workflows/actions/runs/46111357275). The latest recorded Maint 71 evidence is [run 46113222123](https://github.com/stranske/Workflows/actions/runs/46113222123) (16 merged).
+
+| Source PR | Delivery | Functional result |
+|---|---|---|
+| [#5433](https://github.com/stranske/Workflows/pull/5433) | On main and replayed | The consolidated dedicated Python workflow-script job exercised all 200 installed cases. |
+| [#5434](https://github.com/stranske/Workflows/pull/5434) | On main and replayed | Renovate owns the actual updates. The unused four-package version printer and its eight tests are gone. All 34 retained checks passed. |
+| [#5438](https://github.com/stranske/Workflows/pull/5438) | On main and replayed | Gate and Selftest now select 32 named verifier cases in the candidate, up from 19. The corrected required-comment test distinguishes the selected PR thread from an unrelated thread. |
+| [#5439](https://github.com/stranske/Workflows/pull/5439) | On main and replayed | Two unwired diagnostic libraries and their 106 tests can be retired. Maint 46 reproduced the same real 5,960-byte failure summary and 4,788-byte missing-artifact control. The separate three-template pin compatibility checker stays. |
+| [#5440](https://github.com/stranske/Workflows/pull/5440) | On main and replayed | Three end-to-end Autofix cases share one suite. All 15 case identities and six selection routes matched. Both hosted slow compatibility jobs passed; the 3.13 job ran all nine cases in 26.86 s. |
+| [#5441](https://github.com/stranske/Workflows/pull/5441) | On main and replayed | The manual download and every managed receiver use the same path classifier policy. Removing the second 36-line copy preserved the full 264-copy, 37-removal plan byte for byte. |
+| [#5442](https://github.com/stranske/Workflows/pull/5442) | On main and replayed | Eight Python suites move to the model evaluation test directory. All 228 cases passed on both trees; the frozen plan produced 11 PASS and seven NON_PASS results with zero model calls. |
+| [#5443](https://github.com/stranske/Workflows/pull/5443) | On main and replayed | Remove the old Auto-Pilot metrics builder and six self-tests. Sixteen default trees had no active importer. Full-plan replays added exactly one deletion per receiver. Delivery requires the native full-plan route. |
+| [#5444](https://github.com/stranske/Workflows/pull/5444) | On main and replayed | The duplicate CI failure playbook can be removed. The sync compiler selects the root playbook and the registered recipients already have that content. |
+| [#5445](https://github.com/stranske/Workflows/pull/5445) | Open for normal delivery | The catch-all scripts fixture registration moves to its real readers. All 488 pre/post functional outcomes, 17 parallel-worker controls and three full discovery rosters matched. |
+| [#5446](https://github.com/stranske/Workflows/pull/5446) | On main and replayed | The obsolete blanket template lint exception was hiding invalid workflows. All 35 shipped templates were clear. The real developer command now returns 1 on the malformed step and the valid reusable call still passes. |
+| [#5455](https://github.com/stranske/Workflows/pull/5455) | Open for normal delivery | Stop distributing four archived Copilot notes. The active instructions on all sixteen defaults link to the immutable copies. The source change leaves all 38 removal operations intact. Receiving cleanup requires an exact blob and mode match. |
+
+Only default-branch checks and verified receiving installs enter the completed counts. Costs in minutes or dollars for the combined changes have not been established.
+
+**Next work.** Finish each open source change at its reviewed head. Gate exposed an archive-binding regression in the proposed fixture move. Preserve the bound file and rerun the failed archive checks before accepting that move. Verify the four-note distribution change in #5455 and compare receiver leaves with the archived blob and mode before cleanup. The existing receiver rules cannot protect modified files with a path-only tombstone. The former stall-rotation helper still has one actual reader, the historical Belt credential test; recover that case against its pinned code before removing the live helper.
+
+Four prompt folders now have accepted organizational decisions. The root prompt resolved a real content conflict on [Workflows #5234](https://github.com/stranske/Workflows/actions/runs/45796610811/job/139829163930). Its managed copy did so on [Travel-Plan-Permission #1771](https://github.com/stranske/Travel-Plan-Permission/actions/runs/45766379837/job/139728537366). Both jobs used the current blob and published commits with the exact PR head and base as parents.
+
+The isolated fixture checks initially passed, then the full hosted Gate caught six failures on each interpreter. Both archived proofs bind the deliberate-break test file by exact content. Final acceptance requires the original bound bytes, the archive checks and the normal Python jobs.
+
+The standalone cycle-metrics removal has its own [full-plan receiving canary](https://github.com/stranske/Workflows/actions/runs/46114905023). Its delivery is independent of the two helpers already cleared on 16 receiving defaults.
+
 ### November 27 late evening · Script and test owners
 
 Stage 3 has **700/752 files and 39/43 folders**. Stage 4 has **1,410/1,540 files and 149/177 folders**. This pass added 57 net original file decisions and 3 folder decisions.
@@ -471,19 +524,19 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 700/752 | 39/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,410/1,540 | 149/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
-| **Total** | **4,285/5,554** | **332/487** | **198/198** |
+| 3 · Scripts, tools and packages | 711/752 | 39/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,446/1,540 | 154/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 204/334 | 26/47 | — |
+| **Total** | **4,333/5,554** | **337/487** | **198/198** |
 
-**Directory organization.** 4,073 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 4,121 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
-| [Keep in current role](workflow-decisions.md#keep) | 128 |
-| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 26 |
+| [Keep in current role](workflow-decisions.md#keep) | 127 |
+| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 27 |
 | [Other verified decisions](workflow-decisions.md#verified) | 44 |
 | [Awaiting verification](workflow-decisions.md#waiting) | 0 |
 | [In review](workflow-decisions.md#review) | 0 |
