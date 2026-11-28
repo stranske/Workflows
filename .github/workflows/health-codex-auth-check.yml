@@ -75,17 +75,22 @@ jobs:
                 };
             const { withRetry } = retryHelpers;
 
+            // auth-expiring is shared with the Cursor and Muse auth alerts
+            // (cohesion review A5b); only a CODEX_AUTH_JSON alert counts here.
             const issues = await withRetry(() => github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: 'auth-expiring',
-              per_page: 1
+              per_page: 100
             }));
-            const exists = issues.data.length > 0;
-            console.log(`Existing auth-expiring issue: ${exists}`);
+            const codexAlerts = issues.data.filter((issue) =>
+              String(issue.title || '').includes('CODEX_AUTH_JSON')
+            );
+            const exists = codexAlerts.length > 0;
+            console.log(`Existing CODEX_AUTH_JSON auth-expiring issue: ${exists}`);
             if (exists) {
-              console.log(`Issue #${issues.data[0].number}: ${issues.data[0].title}`);
+              console.log(`Issue #${codexAlerts[0].number}: ${codexAlerts[0].title}`);
             }
             return exists;
           result-encoding: string
@@ -265,8 +270,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # `auth-expiring` is used only by this workflow. A token that checks
-          # ok (not expiring, not expired) means the refresh landed.
+          # `auth-expiring` is shared with the Cursor and Muse alerts, so the
+          # title prefixes below keep this close to Codex's own alerts. A token
+          # that checks ok (not expiring, not expired) means the refresh landed.
           python3 .github/scripts/resolve_alert_issue.py \
             --repo "${{ github.repository }}" \
             --label auth-expiring \

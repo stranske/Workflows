@@ -983,3 +983,87 @@ test('repo-wide fallback does not swallow errors from priority workflow discover
     withRetry: (fn) => fn(client), options: { now_ms: NOW },
   }), (caught) => caught === error);
 });
+
+// --- Cohesion review A5c: "no producer" is distinct from zero ------------------
+
+const {
+  NO_PRODUCER_FAMILIES,
+  noProducerFamilies,
+} = require('../weekly_metrics_artifacts.js');
+
+function uploadedArtifactFamilies() {
+  // Every family named by an upload-artifact `name:` in Workflows' own workflows
+  // or in the consumer template, i.e. the fleet's producers.
+  const repoRoot = path.resolve(__dirname, '..', '..', '..');
+  const dirs = [
+    path.join(repoRoot, '.github', 'workflows'),
+    path.join(repoRoot, 'templates', 'consumer-repo', '.github', 'workflows'),
+  ];
+  const produced = new Set();
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const file of fs.readdirSync(dir)) {
+      if (!/\.ya?ml$/.test(file)) continue;
+      const text = fs.readFileSync(path.join(dir, file), 'utf8');
+      for (const match of text.matchAll(/^[ \t]*name:[ \t]*['"]?([^'"\n]+)/gm)) {
+        // `prefix-${{ github.run_id }}` -> `prefix-x`, which artifactFamily maps.
+        const family = artifactFamily(match[1].replace(/\$\{\{[^}]*\}\}/g, 'x').trim());
+        if (family) produced.add(family);
+      }
+    }
+  }
+  return produced;
+}
+
+test('declared no-producer families really have no uploader in the fleet', () => {
+  const produced = uploadedArtifactFamilies();
+  // the check itself must see real producers, or it proves nothing
+  assert.ok(produced.has('keepalive-metrics'), [...produced].join(','));
+  assert.ok(produced.has('verifier-terminal-disposition'));
+  for (const family of NO_PRODUCER_FAMILIES) {
+    assert.ok(!produced.has(family), `${family} now has a producer; remove it from NO_PRODUCER_FAMILIES`);
+  }
+});
+
+test('every selector family without an uploader is declared as no-producer', () => {
+  const produced = uploadedArtifactFamilies();
+  const readFamilies = [
+    'keepalive-metrics', 'agents-autofix-metrics', 'agents-verifier-metrics',
+    'agents-verifier-disposition-metrics', 'codex-cli-freshness', 'pr-source-context',
+    'autopilot-metrics', 'issue-optimizer-metrics', 'issue-intake-format-metrics',
+    'verifier-terminal-disposition', 'review-thread-terminal-disposition',
+    'bot-comment-auth-coverage-wrapper', 'bot-comment-auth-coverage-reusable',
+  ];
+  const unproduced = readFamilies.filter((family) => !produced.has(family)).sort();
+  assert.deepEqual(unproduced, [...NO_PRODUCER_FAMILIES].sort());
+});
+
+test('the weekly report names the no-producer families separately from zero', () => {
+  const report = selectMetricsArtifacts(
+    [artifact(1, 'keepalive-metrics', '2026-04-25T11:00:00Z')],
+    { now_ms: NOW }
+  );
+  assert.deepEqual(report.no_producer_families, NO_PRODUCER_FAMILIES);
+  const markdown = formatSelectionMarkdown(report);
+  assert.match(
+    markdown,
+    /No producer \(nothing in the fleet uploads these, so a zero is not "no activity"\): agents-verifier-disposition-metrics, autopilot-metrics, issue-intake-format-metrics, issue-optimizer-metrics/
+  );
+  assert.match(markdown, /\| autopilot-metrics \| no producer \| no producer \|/);
+  assert.match(markdown, /\| keepalive-metrics \| 1 \| 1 \|/);
+});
+
+test('a no-producer family that shows up is reported as found, not hidden', () => {
+  const report = selectMetricsArtifacts(
+    [artifact(9, 'autopilot-metrics-3', '2026-04-25T11:00:00Z')],
+    { now_ms: NOW }
+  );
+  assert.ok(!report.no_producer_families.includes('autopilot-metrics'));
+  assert.match(formatSelectionMarkdown(report), /\| autopilot-metrics \| 1 \| 1 \|/);
+  assert.deepEqual(noProducerFamilies(new Map([['autopilot-metrics', 1]])).length, 3);
+});
+
+test('the error report still names the no-producer families', () => {
+  const report = buildSelectionErrorReport({ now_ms: NOW }, new Error('boom'));
+  assert.deepEqual(report.no_producer_families, NO_PRODUCER_FAMILIES);
+});

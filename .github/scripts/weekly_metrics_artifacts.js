@@ -38,6 +38,17 @@ const PATTERNED_METRICS_ARTIFACTS = [
   },
 ];
 
+// Families this selector reads that no workflow in the fleet uploads (neither
+// Workflows' own workflows nor the consumer template). Their zero means "no
+// producer", not "no activity" (cohesion review A5c). The weekly-metrics test
+// re-derives this list from the workflow files, so it cannot drift silently.
+const NO_PRODUCER_FAMILIES = [
+  'agents-verifier-disposition-metrics',
+  'autopilot-metrics',
+  'issue-intake-format-metrics',
+  'issue-optimizer-metrics',
+];
+
 const PRIORITY_METRICS_FAMILIES = [
   'codex-cli-freshness',
   'verifier-terminal-disposition',
@@ -191,6 +202,12 @@ function sortedCountObject(counts) {
   return Object.fromEntries(
     [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   );
+}
+
+// A declared no-producer family that did turn up an artifact is reported as
+// found, not hidden: that means a producer was added and the list is stale.
+function noProducerFamilies(candidateFamilyCounts = new Map()) {
+  return NO_PRODUCER_FAMILIES.filter((family) => !candidateFamilyCounts.has(family));
 }
 
 function missingPriorityFamilies(candidateFamilyCounts = new Map()) {
@@ -365,6 +382,7 @@ function selectMetricsArtifacts(artifacts = [], options = {}) {
     selected_family_counts: sortedCountObject(familyCounts),
     latest_candidate_by_family: latestCandidateByFamily(candidates),
     missing_priority_families: missingPriorityFamilies(candidateFamilyCounts),
+    no_producer_families: noProducerFamilies(candidateFamilyCounts),
     priority_family_statuses: priorityFamilyStatuses({
       candidates,
       selected,
@@ -409,6 +427,7 @@ function buildSelectionErrorReport(options = {}, error = {}) {
     selected_family_counts: {},
     latest_candidate_by_family: {},
     missing_priority_families: [...PRIORITY_METRICS_FAMILIES],
+    no_producer_families: noProducerFamilies(),
     priority_family_statuses: priorityFamilyStatuses(),
     selected_artifacts: [],
   };
@@ -439,6 +458,8 @@ function formatSelectionMarkdown(report) {
     `- Candidate artifacts: ${report.candidate_count}`,
     `- Selected artifacts: ${report.selected_count}`,
     `- Missing priority families: ${(report.missing_priority_families || []).join(', ') || 'none'}`,
+    `- No producer (nothing in the fleet uploads these, so a zero is not "no activity"): ` +
+      `${(report.no_producer_families || []).join(', ') || 'none'}`,
     `- Ignored: ${report.ignored_old_count} old, ${report.ignored_expired_count} expired, ` +
       `${report.ignored_name_count} non-metrics, ${report.ignored_family_limit_count} over family cap, ` +
       `${report.ignored_total_limit_count} over total cap`,
@@ -455,10 +476,16 @@ function formatSelectionMarkdown(report) {
     );
   }
 
-  if (familyNames.length > 0) {
+  const noProducer = (report.no_producer_families || []).filter(
+    (family) => !familyNames.includes(family)
+  );
+  if (familyNames.length > 0 || noProducer.length > 0) {
     lines.push('', '| Artifact family | Candidates | Selected |', '|-----------------|------------|----------|');
     for (const family of familyNames) {
       lines.push(`| ${family} | ${candidateFamilyCounts[family] || 0} | ${selectedFamilyCounts[family] || 0} |`);
+    }
+    for (const family of noProducer) {
+      lines.push(`| ${family} | no producer | no producer |`);
     }
   }
 
@@ -744,6 +771,7 @@ module.exports = {
   DEFAULT_MAX_TOTAL,
   DEFAULT_PRIORITY_WORKFLOW_ARTIFACT_PAGES_PER_RUN,
   DEFAULT_PRIORITY_WORKFLOW_RUNS_PER_SOURCE,
+  NO_PRODUCER_FAMILIES,
   PRIORITY_METRICS_FAMILIES,
   PRIORITY_WORKFLOW_ARTIFACT_SOURCE_CANDIDATES,
   PRIORITY_WORKFLOW_ARTIFACT_SOURCES,
@@ -760,6 +788,7 @@ module.exports = {
   latestCandidateByFamily,
   main,
   missingPriorityFamilies,
+  noProducerFamilies,
   normalizeSelectionOptions,
   priorityFamilyStatuses,
   selectMetricsArtifacts,

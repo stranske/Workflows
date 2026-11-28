@@ -94,3 +94,72 @@ def test_requires_label_and_title():
         rai.resolve_alerts(repo="o/r", labels=["l"], run=FakeGh([]))
     with pytest.raises(SystemExit):
         rai.main(["--repo", "o/r", "--label", "l"], run=FakeGh([]))
+
+
+# --- --mode raise (cohesion review A5b) ----------------------------------------
+
+CURSOR = "🚨 CURSOR_API_KEY is missing - Cursor runs cannot authenticate"
+RAISE = ["--repo", "o/r", "--label", "auth-expiring", "--label", "ci", "--title", CURSOR]
+
+
+class CreatingGh(FakeGh):
+    def __call__(self, args):
+        out = super().__call__(args)
+        if list(args)[:2] == ["issue", "create"]:
+            return "https://github.com/o/r/issues/41\n"
+        return out
+
+
+def _writes(gh: FakeGh) -> list[list[str]]:
+    return [c for c in gh.calls if c[:2] != ["issue", "list"]]
+
+
+def test_raise_opens_one_issue_when_none_is_open(tmp_path, capsys):
+    body = tmp_path / "body.md"
+    body.write_text("missing", encoding="utf-8")
+    gh = CreatingGh([{"number": 9, "title": "⚠️ CODEX_AUTH_JSON expires in 20 hours"}])
+    assert rai.main([*RAISE, "--mode", "raise", "--body-file", str(body)], run=gh) == 0
+    writes = _writes(gh)
+    assert len(writes) == 1
+    assert writes[0][:2] == ["issue", "create"]
+    assert writes[0][writes[0].index("--title") + 1] == CURSOR
+    assert writes[0][-4:-2] == ["--label", "auth-expiring"]
+    assert "opened #41" in capsys.readouterr().out
+
+
+def test_raise_edits_the_open_alert_instead_of_stacking_a_duplicate(tmp_path, capsys):
+    body = tmp_path / "body.md"
+    body.write_text("still missing", encoding="utf-8")
+    gh = FakeGh([{"number": 12, "title": CURSOR}])
+    assert rai.main([*RAISE, "--mode", "raise", "--body-file", str(body)], run=gh) == 0
+    assert _writes(gh) == [["issue", "edit", "12", "--repo", "o/r", "--body-file", str(body)]]
+    assert "updated #12" in capsys.readouterr().out
+
+
+def test_raise_needs_one_exact_title_and_a_body(tmp_path):
+    with pytest.raises(SystemExit):
+        rai.main([*RAISE, "--mode", "raise"], run=FakeGh([]))
+    with pytest.raises(SystemExit):
+        rai.main(
+            [
+                "--repo",
+                "o/r",
+                "--label",
+                "l",
+                "--title-prefix",
+                "x",
+                "--mode",
+                "raise",
+                "--body-file",
+                str(tmp_path / "b"),
+            ],
+            run=FakeGh([]),
+        )
+
+
+def test_raise_gh_error_returns_nonzero(tmp_path, capsys):
+    body = tmp_path / "body.md"
+    body.write_text("x", encoding="utf-8")
+    gh = FakeGh([], fail_on="create")
+    assert rai.main([*RAISE, "--mode", "raise", "--body-file", str(body)], run=gh) == 1
+    assert "alert raise failed" in capsys.readouterr().err

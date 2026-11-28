@@ -1,0 +1,83 @@
+name: Auth Alert Issue
+description: >-
+  Shared alert step for the agent auth checks (cohesion review A5b). A failed
+  check opens its alert issue, or edits the open one with the same title; a
+  passing check closes it. Both paths go through
+  .github/scripts/resolve_alert_issue.py, the helper the Codex auth check uses.
+
+inputs:
+  status:
+    description: "'ok' closes the alert; anything else raises it."
+    required: true
+  title:
+    description: Exact alert issue title. Must be unique to the calling check.
+    required: true
+  detail:
+    description: Markdown describing what failed and how to clear it.
+    required: false
+    default: ''
+  workflow:
+    description: Display name of the calling workflow, quoted in the issue.
+    required: true
+  labels:
+    description: Comma-separated existing labels for the alert issue.
+    required: false
+    default: auth-expiring,ci
+  github-token:
+    description: Token with issues:write.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Raise or resolve the alert issue
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        ALERT_STATUS: ${{ inputs.status }}
+        ALERT_TITLE: ${{ inputs.title }}
+        ALERT_DETAIL: ${{ inputs.detail }}
+        ALERT_WORKFLOW: ${{ inputs.workflow }}
+        ALERT_LABELS: ${{ inputs.labels }}
+        REPO: ${{ github.repository }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        label_args=()
+        IFS=',' read -r -a labels <<< "$ALERT_LABELS"
+        for label in "${labels[@]}"; do
+          label="$(printf '%s' "$label" | xargs)"
+          [ -n "$label" ] && label_args+=(--label "$label")
+        done
+        if [ "$ALERT_STATUS" = "ok" ]; then
+          python3 .github/scripts/resolve_alert_issue.py \
+            --mode resolve \
+            --repo "$REPO" \
+            "${label_args[@]}" \
+            --title "$ALERT_TITLE" \
+            --workflow "$ALERT_WORKFLOW" \
+            --run-url "$RUN_URL"
+          exit 0
+        fi
+        body_file="$(mktemp)"
+        {
+          echo "## ${ALERT_WORKFLOW} failed"
+          echo ""
+          if [ -n "$ALERT_DETAIL" ]; then
+            printf '%s\n' "$ALERT_DETAIL"
+          else
+            echo "The check failed; open the run for details."
+          fi
+          echo ""
+          echo "- Latest failing run: ${RUN_URL}"
+          echo "- Updated: $(date -u +%Y-%m-%dT%H:%MZ)"
+          echo ""
+          echo "This issue is edited by each failing run and closed automatically by the"
+          echo "first passing run of ${ALERT_WORKFLOW}."
+        } > "$body_file"
+        python3 .github/scripts/resolve_alert_issue.py \
+          --mode raise \
+          --repo "$REPO" \
+          "${label_args[@]}" \
+          --title "$ALERT_TITLE" \
+          --body-file "$body_file"
