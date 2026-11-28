@@ -1,36 +1,24 @@
-# Ledger Base Hygiene
+# Ledger validation and base maintenance
 
-Codex ledgers capture durable progress for automation issues. Each ledger stores the
-branch that automation works from (`branch`) and the repository default (`base`).
-The default branch is informational only – the worker always resolves the live
-value at runtime – but we keep it aligned so humans and tooling can reason about a
-ledger without consulting GitHub.
+Existing `.agents/issue-*-ledger.yml` files preserve task and completion evidence.
+The `branch` records the branch used for the task. The `base` records the
+repository default branch for that ledger and can be aligned when the default changes.
 
-## Runtime behaviour
+## Runtime validation
 
-* The belt worker resolves the repository default branch for every run.
-* Git operations (checkout, placeholder commits, pull request targets) use the
-  computed default rather than the value recorded in the ledger.
-* When an existing ledger contains a stale `base`, the worker rewrites it to the
-  computed default and annotates the job summary.
-
-This guarantees that no automation task depends on historical values that might
-still point at `main` after a repository rename.
+[PR Gate](../../.github/workflows/pr-00-gate.yml) runs
+`scripts/ledger_validate.py` when issue ledger files are present in the checkout.
+The legacy Belt worker was retired in [#5379](https://github.com/stranske/Workflows/pull/5379).
+[Maint 74 Ledger Base Sync](../../.github/workflows/maint-74-ledger-base-sync.yml)
+owns base migration. It resolves the repository default branch, runs the
+migration, and opens a PR for changes. It runs weekly or by manual dispatch.
 
 ## Completion evidence
 
-A successful worker process does not by itself complete a ledger task. Before
-writing `done`, the belt checks the cited commit and requires at least one changed
-path outside `.agents/`. File-like artifact paths named in the task must exist in
-that commit's tree; their presence in a later checkout is not evidence. When a
-successful run lacks either form of evidence, the selected task becomes `blocked`
-with the commit and reason in its notes, and `finished_at` remains empty.
-
-Every worker run reports the same four operator counts, including zeros:
-`todo`, `in_progress` (the stored `doing` state), `done`, and `blocked`. A blocked
-task is intentionally not auto-selected again. Correct the underlying branch or
-task evidence, then return the task to `todo` in a reviewed change before retrying.
-Failed worker execution retains the existing `doing` to `todo` reset behavior.
+A successful worker process by itself does not prove that a historical task was
+completed. For a `done` entry, inspect the cited commit and its changed paths.
+File-like artifacts named in the task must be present in that commit's tree.
+Their presence in a later checkout does not establish the original completion.
 
 Use the read-only historical audit to find older false completions. It reports
 findings and exits non-zero without editing ledgers:
@@ -70,11 +58,3 @@ python scripts/ledger_migrate_base.py --default work
 
 The script preserves the original ordering and indentation so that migrations are
 minimal and review-friendly.
-
-## CI validation
-
-The Codex belt worker executes the migration script in `--check` mode after
-checking out the issue branch. The job fails if any ledger still references a
-stale default branch and instructs maintainers to run the migration script. This
-keeps ledgers up to date even when the repository default changes again in the
-future.
