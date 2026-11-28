@@ -309,6 +309,58 @@ function isLocalLoopOwned(labels) {
 // Labels with the agent: prefix that never name an agent.
 const NON_ROUTING_AGENT_KEYS = new Set(['auto', 'needs-attention', 'rate-limited', 'retry']);
 
+// Suffixes after `agent:` / `agents:` that are control or metadata labels, never an agent
+// assignment (docs/LABELS.md). The one list read by issue intake (consumer check_labels, root
+// bridge_preflight and chatgpt_sync) and the reusable issue bridge. `agent:auto` sits beside a
+// concrete `agent:<name>` label on issues, so it must not count as a second agent.
+const NON_AGENT_LABEL_SUFFIXES = new Set([
+  ...NON_ROUTING_AGENT_KEYS,
+  'keepalive',
+  'formatted',
+  'optimize',
+  'allow-change',
+  'apply-suggestions',
+  'debug',
+  'format',
+  'sync-failed',
+  'sync-required',
+  'auto-pilot',
+  'auto-pilot-pause',
+  'auto-pilot-failed',
+  'activated',
+  'decompose',
+  'paused',
+  'pause',
+  'local-loop',
+]);
+
+// Holds that keep an issue out of the agent bridge (docs/LABELS.md). Intake does not start the
+// bridge while one is present. Removing the hold fires an `unlabeled` event, and that event
+// re-runs intake, so the hold is cleared by the same action that lifts it.
+const INTAKE_HOLD_LABELS = Object.freeze([
+  'needs-human',
+  'agents:paused',
+  'agents:pause',
+  'agents:auto-pilot-pause',
+  'intake:held',
+]);
+
+// The agent key a label assigns (`agent:codex` -> `codex`), or '' for a control, metadata or
+// non-agent label.
+function agentKeyFromLabel(label) {
+  const match = normalizeLabel(label).match(/^agents?:([a-z0-9-]+)$/);
+  if (!match || NON_AGENT_LABEL_SUFFIXES.has(match[1])) {
+    return '';
+  }
+  return match[1];
+}
+
+// The intake holds present on an issue, in INTAKE_HOLD_LABELS order.
+function findIntakeHoldLabels(labels) {
+  const present = new Set((Array.isArray(labels) ? labels : []).map(normalizeLabel));
+  return INTAKE_HOLD_LABELS.filter((label) => present.has(label));
+}
+
 // Which agent hosted autofix would run for these PR labels, decided from the registry's
 // `capabilities.pr_autofix` before any runner slot is reserved. Fails closed: an agent label
 // the registry does not know (agent:vibe), an agent without hosted autofix (gemini), or two
@@ -500,6 +552,8 @@ function getAgentPreflightConfigs({ registryPath, includeDisabled = false } = {}
 }
 
 module.exports = {
+  agentKeyFromLabel,
+  findIntakeHoldLabels,
   getAllAutomationLogins,
   getAgentConfig,
   getAgentEntries,
@@ -507,9 +561,11 @@ module.exports = {
   getKeepaliveMarkerPrefix,
   getReadinessCandidates,
   getRunnerWorkflow,
+  INTAKE_HOLD_LABELS,
   isLocalLoopOwned,
   LOCAL_LOOP_LABEL,
   loadAgentRegistry,
+  NON_AGENT_LABEL_SUFFIXES,
   parseRegistryYaml,
   resolveExecutionProfile,
   resolveAgentFromLabels,

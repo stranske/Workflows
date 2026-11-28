@@ -15,6 +15,10 @@ WORKFLOWS = [
     "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml",
 ]
 NODE = shutil.which("node")
+# Exhausted retries are automation failure, not a confirmed human blocker (docs/LABELS.md):
+# they add the soft agent:needs-attention. needs-human would stop hosted keepalive, the work
+# that could clear the failure.
+EXHAUSTED_LABEL = "agent:needs-attention"
 pytestmark = pytest.mark.skipif(NODE is None, reason="Node is required for workflow scripts")
 
 
@@ -244,7 +248,7 @@ def test_cancelled_gate_never_escalates(workflow, tmp_path, conclusion):
     result = execute(workflow, tmp_path, conclusion, history=["cancelled"] * 8)
     assert result["output"]["should_run"] == "false"
     assert result["output"]["attempts"] == "0"
-    assert "needs-human" not in result["labels"]
+    assert not {"needs-human", EXHAUSTED_LABEL} & set(result["labels"])
     assert not result["comments"]
 
 
@@ -266,7 +270,7 @@ def test_cancelled_only_head_never_exhausts_budget(workflow, tmp_path, previous_
     assert int(output["attempts"]) < int(output["max_attempts"])
     assert output["stop_reason"] == "gate_not_failed"
     assert output["should_run"] == "false"
-    assert "needs-human" not in result["labels"]
+    assert not {"needs-human", EXHAUSTED_LABEL} & set(result["labels"])
     assert not result["comments"]
 
 
@@ -278,7 +282,7 @@ def test_cancelled_history_does_not_spend_failure_budget(workflow, tmp_path, con
     )
     assert result["output"]["should_run"] == "true"
     assert result["output"]["attempts"] == "1"
-    assert "needs-human" not in result["labels"]
+    assert not {"needs-human", EXHAUSTED_LABEL} & set(result["labels"])
 
 
 @pytest.mark.parametrize("workflow", WORKFLOWS)
@@ -329,7 +333,7 @@ def test_same_run_mixed_attempts_spend_only_real_failure_budget(
     assert output["should_run"] == str(not exhausted).lower()
     if exhausted:
         assert output["stop_reason"] == "max_attempts"
-        assert result["labels"] == ["needs-human"]
+        assert result["labels"] == [EXHAUSTED_LABEL]
         assert "attempts with failing jobs: 4" in result["comments"][0]
     else:
         assert result["labels"] == []
@@ -383,7 +387,7 @@ def test_real_failures_still_escalate(workflow, tmp_path):
     result = execute(workflow, tmp_path, history=["failure", "timed_out", "failure"])
     assert result["output"]["stop_reason"] == "max_attempts"
     assert result["output"]["attempts"] == "4"
-    assert result["labels"] == ["needs-human"]
+    assert result["labels"] == [EXHAUSTED_LABEL]
     assert "attempts with failing jobs: 4" in result["comments"][0]
 
 
@@ -430,7 +434,7 @@ def test_same_run_attempt_counting_mutation_is_detected(workflow, tmp_path, monk
 def test_jobless_gate_cannot_escalate_after_real_failures(workflow, tmp_path, conclusion, jobs):
     result = execute(workflow, tmp_path, conclusion, history=["failure"] * 8, jobs=jobs)
     assert result["output"]["stop_reason"] == "no_failing_jobs"
-    assert "needs-human" not in result["labels"]
+    assert not {"needs-human", EXHAUSTED_LABEL} & set(result["labels"])
     assert not result["comments"]
 
 
@@ -451,7 +455,7 @@ def test_jobless_historical_failures_do_not_consume_budget(
     result = execute(workflow, tmp_path, history=[conclusion] * 8, historical_jobs=historical_jobs)
     assert result["output"]["should_run"] == "true"
     assert result["output"]["attempts"] == "1"
-    assert "needs-human" not in result["labels"]
+    assert not {"needs-human", EXHAUSTED_LABEL} & set(result["labels"])
     assert not result["comments"]
 
 
@@ -517,7 +521,7 @@ def test_timed_out_jobs_enable_autofix_and_exhaust_budget(workflow, tmp_path, hi
     if historical_failures:
         assert output["stop_reason"] == "max_attempts"
         assert output["should_run"] == "false"
-        assert result["labels"] == ["needs-human"]
+        assert result["labels"] == [EXHAUSTED_LABEL]
         assert "attempts with failing jobs: 4" in result["comments"][0]
     else:
         assert output["should_run"] == "true"

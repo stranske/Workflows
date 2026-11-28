@@ -3410,6 +3410,46 @@ test('updateKeepaliveLoopSummary does not re-add automerge when already present 
   assert.equal(automergeAdds.length, 0, 'automerge label must not be re-added when already present');
 });
 
+test('updateKeepaliveLoopSummary skips automerge where no merger reads it (apply_automerge_label=false)', async () => {
+  // The Workflows repo's own keepalive loop passes false: nothing there reads the
+  // label, and the local closer merges its agent PRs (docs/ops/LOCAL_LANES.md).
+  const existingState = formatStateComment({
+    trace: 'trace-automerge-off',
+    iteration: 3,
+    failure_threshold: 3,
+    failure: {},
+  });
+  const github = buildGithubStub({
+    comments: [{ id: 49, body: existingState, html_url: 'https://example.com/49' }],
+    labels: ['agent:codex', 'agents:keepalive'],
+  });
+  await updateKeepaliveLoopSummary({
+    github,
+    context: buildContext(461),
+    core: buildCore(),
+    inputs: {
+      prNumber: 461,
+      action: 'stop',
+      reason: 'tasks-complete',
+      gateConclusion: 'success',
+      tasksTotal: 3,
+      tasksUnchecked: 0,
+      keepaliveEnabled: true,
+      autofixEnabled: false,
+      iteration: 3,
+      maxIterations: 5,
+      failureThreshold: 3,
+      trace: 'trace-automerge-off',
+      apply_automerge_label: false,
+    },
+  });
+
+  const automergeAdds = github.actions.filter((action) =>
+    action.type === 'label' && action.labels.includes('automerge')
+  );
+  assert.equal(automergeAdds.length, 0, 'automerge must not be written where no merger reads it');
+});
+
 test('updateKeepaliveLoopSummary does not apply automerge on a non-success stop (#2270)', async () => {
   // Only the tasks-complete terminal should route to the guarded merger.
   const existingState = formatStateComment({

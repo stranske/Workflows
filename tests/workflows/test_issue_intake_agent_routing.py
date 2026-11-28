@@ -41,28 +41,32 @@ def _run(tmp_path: Path, labels: list[str], env_extra: dict | None = None) -> di
 
 
 def test_intake_routes_the_labelled_agent_not_codex(tmp_path):
+    # Normalize leaves bridge_agent empty on issue events, so agent_bridge takes
+    # bridge_preflight's agent_key: the one label the shared non-agent list in
+    # agent_registry.js accepts (tests/workflows/test_issue_intake_label_contract.py runs
+    # that preflight). A hard-coded default here would override the labelled agent.
     for agent in ("cursor", "muse", "codex"):
-        key = _run(tmp_path, [f"agent:{agent}"])["bridge_agent"]
-        assert key == agent
+        assert _run(tmp_path, [f"agent:{agent}"])["bridge_agent"] == ""
         command = (
             "const registry = require(process.argv[1]);"
             "console.log(registry.getRunnerWorkflow(process.argv[2]));"
         )
         runner = subprocess.run(
-            ["node", "-e", command, str(ROOT / ".github/scripts/agent_registry.js"), key],
+            ["node", "-e", command, str(ROOT / ".github/scripts/agent_registry.js"), agent],
             cwd=ROOT,
             capture_output=True,
             text=True,
             check=True,
         ).stdout.strip()
         assert runner == f".github/workflows/reusable-{agent}-run.yml"
-    # Control labels are not agent keys. They must not override agent:cursor/codex
-    # or become the default when no real agent label is present.
-    assert _run(tmp_path, ["agents:formatted", "agent:cursor"])["bridge_agent"] == "cursor"
-    assert _run(tmp_path, ["agents:keepalive", "agent:codex"])["bridge_agent"] == "codex"
-    assert _run(tmp_path, ["agents:formatted"])["bridge_agent"] == ""
+    assert _run(tmp_path, ["agents:formatted", "agent:cursor"])["bridge_agent"] == ""
     assert _run(tmp_path, ["bug"])["bridge_agent"] == ""  # preflight resolves the default
-    assert _run(tmp_path, ["agent:auto"])["bridge_agent"] == "auto"
+    # An explicit dispatch input still wins.
+    assert _run(tmp_path, ["agent:codex"], {"INPUT_BRIDGE_AGENT": "Cursor"})["bridge_agent"] == "cursor"
+    jobs = yaml.safe_load(INTAKE.read_text())["jobs"]
+    agent_input = jobs["agent_bridge"]["with"]["agent"]
+    assert "needs.normalize_inputs.outputs.bridge_agent" in agent_input
+    assert "needs.bridge_preflight.outputs.agent_key" in agent_input
 
 
 def test_post_agent_comment_is_the_neutral_name_and_post_codex_comment_still_works(tmp_path):
