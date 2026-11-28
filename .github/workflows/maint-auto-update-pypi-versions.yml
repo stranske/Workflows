@@ -77,7 +77,7 @@ jobs:
           if [ "$SECURITY_OVERRIDE" = "true" ]; then
             args+=(--security-override)
           fi
-          python scripts/dev_tool_update_policy.py "${args[@]}" | tee /tmp/source_policy.txt
+          python scripts/maint_tool_version_check.py proposal-policy "${args[@]}" | tee /tmp/source_policy.txt
           cat /tmp/source_policy.txt >> "$GITHUB_OUTPUT"
 
       - name: Check for outdated versions
