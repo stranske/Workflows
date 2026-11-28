@@ -23,12 +23,24 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import NamedTuple
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.list_registered_consumer_repos import extract_repos  # noqa: E402
 
+
+def _load_core_label_names(path: Path) -> frozenset[str]:
+    """Read the declarations applied by Maint 69 Sync Labels."""
+    definitions = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(definitions, list) or not definitions:
+        raise ValueError(f"{path} must contain a non-empty list of label declarations")
+    return frozenset(definition["name"].strip().casefold() for definition in definitions)
+
+
+CORE_LABEL_NAMES = _load_core_label_names(ROOT / ".github/labels-core.yml")
 BELT_LABELS = json.loads((ROOT / ".github/agents/belt-labels.json").read_text())
 READY_LABEL = BELT_LABELS["ready"]
 IN_PROGRESS_LABEL = BELT_LABELS["in_progress"]
@@ -203,7 +215,6 @@ INFORMATIONAL_LABELS = {
 # Labels verified as bloat - safe to remove
 BLOAT_LABELS = {
     "codex",  # Redundant with agent:codex
-    "agents:pause",  # Consolidated to agents:paused
     "ai:agent",  # Unused
     "auto-merge-audit",  # Unused
     "automerge:ok",  # Unused variant
@@ -268,7 +279,12 @@ def get_repo_labels(gh: Github, repo_name: str) -> list[LabelInfo]:
 
 def classify_label(label_name: str) -> str:
     """Classify a label as functional, informational, bloat, or idiosyncratic."""
-    if str(label_name).strip().lower() in {"status: ready", "status: in-progress"}:
+    name = str(label_name).strip().casefold()
+    # Match declared names before cleanup heuristics. Colon spacing can
+    # distinguish a managed label from an undeclared historical spelling.
+    if name in CORE_LABEL_NAMES:
+        return "functional"
+    if name in {"status: ready", "status: in-progress"}:
         return "bloat"
     normalized = normalize_label_name(label_name)
     if normalized in NORMALIZED_FUNCTIONAL_LABELS:
