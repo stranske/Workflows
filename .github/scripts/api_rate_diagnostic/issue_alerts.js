@@ -87,19 +87,11 @@ async function createOrUpdateRepeatedFailureIssue({
     capabilities: ['actions:read', 'issues:write'],
   });
 
-  const runResp = await withRetry((client) =>
-    client.rest.actions.getWorkflowRun({
-      owner,
-      repo,
-      run_id: runId,
-    }),
-  );
-  const conclusion = runResp?.data?.conclusion || '';
-  if (conclusion !== 'failure') {
-    console.log(`Run conclusion is '${conclusion}' - no failure alert needed.`);
-    return { action: 'skipped', reason: conclusion };
-  }
-
+  // This job runs inside the run it would judge, so that run is still
+  // in_progress and its conclusion is always empty: reading it meant the alert
+  // could never fire (cohesion review round 2, A3). Judge the last two
+  // COMPLETED runs instead, never this one. Two failures in a row are reported
+  // by the run after the second one.
   const workflowResp = await withRetry((client) =>
     client.rest.actions.getWorkflow({
       owner,
@@ -118,12 +110,19 @@ async function createOrUpdateRepeatedFailureIssue({
       owner,
       repo,
       workflow_id: workflowId,
-      per_page: 2,
+      status: 'completed',
+      per_page: 3,
     }),
   );
-  const runs = runsResp?.data?.workflow_runs || [];
+  const runs = (runsResp?.data?.workflow_runs || []).filter(
+    (run) => Number(run?.id) !== runId && run?.status === 'completed',
+  );
   const first = runs[0]?.conclusion || '';
   const second = runs[1]?.conclusion || '';
+  console.log(
+    `Last two completed runs: ${runs[0]?.id || 'none'}=${first || 'none'}, ` +
+      `${runs[1]?.id || 'none'}=${second || 'none'}.`,
+  );
   if (first !== 'failure' || second !== 'failure') {
     console.log(`No consecutive failures (latest: ${first}, previous: ${second}).`);
     return { action: 'skipped', reason: 'not-consecutive' };
@@ -136,7 +135,8 @@ async function createOrUpdateRepeatedFailureIssue({
     client.rest.issues.listForRepo({
       owner,
       repo,
-      labels: 'workflow-failure',
+      // Both labels: another workflow's open workflow-failure issue is not ours.
+      labels: 'workflow-failure,api-rate-limit',
       state: 'open',
       per_page: 1,
     }),
