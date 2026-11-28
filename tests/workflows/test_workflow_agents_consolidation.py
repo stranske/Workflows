@@ -1101,8 +1101,8 @@ def test_issue_intake_handles_codex_events():
 
     text = intake.read_text(encoding="utf-8")
     assert (
-        "agent:codex" in text and "agents:codex" in text
-    ), "Issue intake must guard on the codex agent labels"
+        "agentKeyFromLabel" in text and "findIntakeHoldLabels" in text
+    ), "Issue intake must classify agent and hold labels with the shared agent_registry.js lists"
     assert (
         ".github/scripts/decode_raw_input.py" in text
     ), "Issue intake must normalize ChatGPT payloads"

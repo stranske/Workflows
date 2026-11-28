@@ -62,6 +62,16 @@ Three deterministic Python lanes run across the supported fleet, started by one 
   when a ready PR waited past its grace and may dispatch a Maint 68 refresh. It never merges: Maint 71 is the
   only merger of sync PRs and Maint 82 is its timed continuation queue.
 
+**Who merges an agent PR.** Two mergers exist on purpose, and both refuse anything but the exact head
+they checked, so the first to merge wins and the other finds the PR merged:
+
+| Repository | Case | Merger |
+|---|---|---|
+| Consumer repos | Hosted keepalive reaches `tasks-complete`, adds `automerge` | Gate Followups' `guarded-merge` job (`agents-81-gate-followups.yml`): on the label event or the next Gate completion, merges when every check is green, the review window has passed, no review thread is open, and no task is unchecked |
+| Consumer repos | Everything else: no `automerge` (local-loop PRs, stalled or rotated agents, Claude Code session PRs), a refused or late guarded merge, and every post-merge verify → close | The local closer (`closer-core`) through `merge_guard` |
+| Workflows | All agent PRs | The local closer only. Nothing in Workflows reads `automerge`, so its keepalive loop does not add it (`apply_automerge_label: false`) |
+| Any | Generated sync PRs | Maint 71 only (see Sync above) |
+
 Holds: the opener skips `agents:paused`, `needs-human`, `intake:held` and `do-not-merge` (and ops-alert
 issues); the closer skips `agents:paused`, `agent:paused`, `needs-human`, `do-not-merge`, `hold`,
 `agents:auto-pilot-pause`, `goal-drift` and `tracker:durable`. Agent families and their model per tier come from

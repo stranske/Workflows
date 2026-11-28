@@ -1985,6 +1985,8 @@ jobs:
                 process.env.AUTHORITY_CHALLENGE_SIGNING_KEY || '',
               trusted_summary_author: process.env.KEEPALIVE_SUMMARY_WRITER || '',
               retry_workflow_id: 'agents-keepalive-loop.yml',
+              // Nothing in Workflows reads `automerge`: the local closer merges its agent PRs.
+              apply_automerge_label: false,
             };
             await updateKeepaliveLoopSummary({ github, context, core, inputs });
 

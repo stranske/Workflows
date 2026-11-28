@@ -207,31 +207,8 @@ jobs:
             issue_number="$payload_issue"
           fi
 
-          # Preserve an empty input so preflight can choose the default agent.
-          # Control suffixes match bridge_preflight controlLabelSuffixes. A label
-          # such as agents:formatted must not become bridge_agent: that output
-          # wins over the validated agent_key and would drop agent:cursor.
-          if command -v jq >/dev/null 2>&1 && [ -f "$GITHUB_EVENT_PATH" ]; then
-            event_agent=$(jq -r '
-              def control: [
-                "keepalive","formatted","optimize","allow-change","apply-suggestions",
-                "debug","format","sync-failed","sync-required","auto-pilot",
-                "auto-pilot-pause","auto-pilot-failed","activated","decompose","paused",
-                "needs-attention","rate-limited","retry"
-              ];
-              [
-                .issue.labels[]?.name
-                | ascii_downcase
-                | select(test("^agents?:[a-z0-9-]+$"))
-                | sub("^agents?:"; "")
-                | . as $key
-                | select(control | index($key) | not)
-              ][0] // empty
-            ' "$GITHUB_EVENT_PATH" 2>/dev/null || echo '')
-            if [ -n "$event_agent" ]; then
-              bridge_agent="$event_agent"
-            fi
-          fi
+          # Preserve an empty input: bridge_preflight resolves the labelled agent (and the
+          # route-weights default) from the shared non-agent label list in agent_registry.js.
           bridge_agent="${bridge_agent,,}"
 
           if [ -z "$intake_mode" ]; then
@@ -510,6 +487,18 @@ jobs:
             fi
           fi
 
+      # The non-agent label list is read from Workflows' agent_registry.js: consumers call
+      # this workflow at @main, and their synced copy can lag.
+      - name: Checkout Workflows agent registry
+        uses: actions/checkout@v7
+        with:
+          repository: stranske/Workflows
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts/agent_registry.js
+          sparse-checkout-cone-mode: false
+          path: .workflows-registry
+
       - name: Sync issues
         id: sync
         uses: actions/github-script@v9
@@ -626,27 +615,10 @@ jobs:
             const normalizeLabel = (label) => label.trim().toLowerCase();
             const agentPrefixes = ['agent:', 'agents:'];
             const inviteSuffix = '-invite';
-            // Metadata labels that aren't actual agent assignments
-            const metadataLabels = new Set([
-              'keepalive',
-              'formatted',
-              'optimize',
-              'allow-change',
-              'apply-suggestions',
-              'debug',
-              'format',
-              'sync-failed',
-              'sync-required',
-              'auto-pilot',
-              'auto-pilot-pause',
-              'auto-pilot-failed',
-              'activated',
-              'decompose',
-              'paused',
-              'needs-attention',
-              'rate-limited',
-              'retry',
-            ]);
+            // Control and metadata labels are not agent assignments (one list, agent_registry.js).
+            const { NON_AGENT_LABEL_SUFFIXES: metadataLabels } = require(
+              './.workflows-registry/.github/scripts/agent_registry.js',
+            );
             const analyzeAgentLabels = (rawLabels) => {
               const entries = new Map();
               for (const raw of rawLabels || []) {
@@ -1377,6 +1349,7 @@ jobs:
     outputs:
       issue_number: ${{ steps.inspect.outputs.issue_number }}
       agent_key: ${{ steps.inspect.outputs.agent_key }}
+      held: ${{ steps.inspect.outputs.held }}
     steps:
       - name: Checkout retry helpers
         uses: actions/checkout@v7
@@ -1520,34 +1493,23 @@ jobs:
                 .filter(Boolean)
                 .map((name) => name.toLowerCase());
             }
-            // Control labels that should not be counted as agent assignments
-            const controlLabelSuffixes = [
-              'keepalive',
-              'formatted',
-              'optimize',
-              'allow-change',
-              'apply-suggestions',
-              'debug',
-              'format',
-              'sync-failed',
-              'sync-required',
-              'auto-pilot',
-              'auto-pilot-pause',
-              'auto-pilot-failed',
-              'activated',
-              'decompose',
-              'paused',
-              'needs-attention',
-              'rate-limited',
-              'retry',
-            ];
-            const codexGuardLabels = ['agent:codex', 'agents:codex'];
-            const agentLabels = labels
-              .filter((name) => /^agents?:[a-z0-9-]+$/.test(name))
-              .filter((name) => {
-                const suffix = name.replace(/^agents?:/, '');
-                return !controlLabelSuffixes.includes(suffix);
-              });
+            // One list of non-agent labels and one list of intake holds (agent_registry.js),
+            // shared with the consumer check_labels gate and the reusable bridge.
+            const { agentKeyFromLabel, findIntakeHoldLabels } = require(registryPath);
+            const holds = findIntakeHoldLabels(labels);
+            if (holds.length > 0 && context.eventName === 'issues') {
+              // Removing the hold fires `unlabeled`, which runs this check again.
+              core.info(`Issue #${num} is held by ${holds.join(', ')}; bridge not started.`);
+              core.setOutput('held', 'true');
+              core.setOutput('issue_number', String(num));
+              core.setOutput('agent_key', '');
+              return;
+            }
+            const agentLabels = labels.filter((name) => agentKeyFromLabel(name));
+            if (agentLabels.length === 0 && labels.includes('agent:auto')) {
+              // agent:auto alone: the route-weights chooser's agent takes the issue.
+              agentLabels.push(`agent:${defaultAgent.toLowerCase()}`);
+            }
             if (agentLabels.length !== 1) {
               const found = agentLabels.join(', ');
               core.setFailed(
@@ -1801,7 +1763,9 @@ jobs:
 
   agent_bridge:
     needs: [normalize_inputs, bridge_preflight]
-    if: needs.normalize_inputs.outputs.intake_mode == 'agent_bridge'
+    if: >-
+      needs.normalize_inputs.outputs.intake_mode == 'agent_bridge' &&
+      needs.bridge_preflight.outputs.held != 'true'
     permissions:
       contents: write
       issues: write

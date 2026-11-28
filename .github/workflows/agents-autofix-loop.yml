@@ -967,7 +967,11 @@ jobs:
             --exit-code "$EXIT_CODE" \
             --storage auto
 
-  needs-human:
+  # Exhausted retries are automation failure, not a confirmed human blocker
+  # (docs/LABELS.md `needs-human`), so this adds the soft `agent:needs-attention`.
+  # `needs-human` stops hosted keepalive, which is the work that could clear the
+  # failure; `agent:needs-attention` flags the PR without stopping it.
+  needs-attention:
     needs: prepare
     if: needs.prepare.outputs.stop_reason == 'max_attempts'
     name: Flag for human follow-up
@@ -999,7 +1003,7 @@ jobs:
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
           sparse-checkout-cone-mode: false
-      - name: Add needs-human label and comment
+      - name: Add agent:needs-attention label and comment
         uses: actions/github-script@v9
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
@@ -1032,7 +1036,7 @@ jobs:
                 owner,
                 repo,
                 issue_number: prNumber,
-                labels: ['needs-human'],
+                labels: ['agent:needs-attention'],
               })
             ).catch((error) => {
               core.warning(`Failed to add label: ${error.message}`);
