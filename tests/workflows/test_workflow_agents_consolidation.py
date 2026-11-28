@@ -644,14 +644,18 @@ def test_consumer_sync_repo_exclusions_live_in_manifest():
     assert "repo_specific_skip_rules" not in workflow_text
 
 
-def test_health_40_branch_protection_sweep_skips_push_runs():
-    text = (WORKFLOWS_DIR / "health-40-sweep.yml").read_text(encoding="utf-8")
-    assert (
-        "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'" in text
-    ), "Health 40 should reserve branch-protection verification for scheduled/manual sweeps"
-    assert (
-        "needs.detect.outputs.run_branch_protection != 'false'" in text
-    ), "Manual Health 40 sweeps must keep the branch-protection opt-out"
+def test_health_40_sweep_runs_only_on_schedule_and_dispatch():
+    """Round-2 D10: Maint 52 lints workflow PRs and pushes; the sweep must not lint them again."""
+    workflow = yaml.safe_load((WORKFLOWS_DIR / "health-40-sweep.yml").read_text(encoding="utf-8"))
+    triggers = workflow.get("on", workflow.get(True))
+    assert set(triggers) == {"schedule", "workflow_dispatch"}
+    maint52 = yaml.safe_load(
+        (WORKFLOWS_DIR / "maint-52-validate-workflows.yml").read_text(encoding="utf-8")
+    )
+    maint52_triggers = maint52.get("on", maint52.get(True))
+    assert "pull_request" in maint52_triggers and "push" in maint52_triggers
+    lint_steps = [step for step in maint52["jobs"]["lint"]["steps"] if "actionlint " in step.get("run", "")]
+    assert len(lint_steps) == 1
 
 
 def test_weekly_metrics_uploads_selector_report_on_failure():
