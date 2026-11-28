@@ -177,6 +177,10 @@ workflows:
 
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:
+  - target: .github/scripts/agents_pr_meta_orchestrator.js
+    description: "Stop delivering a script no consumer loads (round-2 D2 hand-off; the Workflows root keeps it for agents-pr-meta-v4 / the keepalive dispatch handler)"
+  - target: .github/scripts/agents_pr_meta_keepalive.js
+    description: "Stop delivering a script no consumer loads (round-2 D2 hand-off; the Workflows root keeps it for agents-pr-meta-v4 / the keepalive dispatch handler)"
   - target: .github/scripts/checkout_source.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/agent_stall_rotation.js
@@ -665,12 +669,6 @@ scripts:
   - source: .github/scripts/agents_orchestrator_resolve.js
     source_tree: template
     description: "Resolves agent orchestrator state"
-
-  - source: .github/scripts/agents_pr_meta_keepalive.js
-    description: "PR metadata handling for keepalive"
-
-  - source: .github/scripts/agents_pr_meta_orchestrator.js
-    description: "PR metadata orchestrator logic"
 
   - source: .github/scripts/agents_pr_meta_update_body.js
     description: "Updates PR body while preserving authored descriptions; stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility"
