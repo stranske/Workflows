@@ -134,6 +134,14 @@ def test_current_consumer_template_actions_are_pinned() -> None:
         ]
     )
 
+    template_workflows = [
+        path
+        for path in Path("templates/consumer-repo/.github/workflows").iterdir()
+        if path.suffix in {".yml", ".yaml"}
+    ]
     assert report["status"] == "pass"
-    assert report["checked_file_count"] >= 30
+    # Every template workflow plus the one named root file is scanned. Derived from the
+    # directory so retiring a template workflow does not break a hard-coded floor.
+    assert template_workflows
+    assert report["checked_file_count"] == len(template_workflows) + 1
     assert report["checked_uses_count"] >= 1
