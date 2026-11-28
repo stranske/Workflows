@@ -2,7 +2,11 @@ name: Maint 85 Keepalive Durability Export
 
 on:
   schedule:
-    - cron: "45 9 * * 1"
+    # 08:30 Monday, before its reader: maint-80 runs at 09:00 and reads the
+    # newest langsmith-fleet.ndjson artifact. At 09:45 maint-80 always read the
+    # previous week's file, ~167 h old against the 168 h staleness limit
+    # (cohesion review round 2, B1).
+    - cron: "30 8 * * 1"
   workflow_dispatch:
     inputs:
       days:
