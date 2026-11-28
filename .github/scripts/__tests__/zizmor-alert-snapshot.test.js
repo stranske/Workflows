@@ -363,3 +363,48 @@ test('Scorecard: action lines are read at the commit Scorecard analysed, not the
   // One call per file and commit, however many alerts share it.
   assert.equal(contentCalls.length, 3);
 });
+
+test('Scorecard: a malformed allowlist entry makes the count "not counted"', async () => {
+  const { parseScorecardAllowlist } = require('../zizmor_alert_snapshot.js');
+  const good = { path: 'p.yml', finding: 'f', reason: 'r', count: 1 };
+  assert.equal(parseScorecardAllowlist(JSON.stringify({ entries: [good] })).length, 1);
+  const malformed = [
+    { ...good, count: 1.5 },
+    { ...good, count: 0 },
+    { ...good, count: '1' },
+    { ...good, path: '' },
+    { ...good, finding: '   ' },
+    { ...good, reason: 7 },
+  ];
+  for (const entry of malformed) {
+    assert.throws(() => parseScorecardAllowlist(JSON.stringify({ entries: [entry] })), /integer count/);
+    const { current } = await countWith(VERIFIED_DANGEROUS, {
+      allowlistText: JSON.stringify({ entries: [entry] }),
+    });
+    assert.equal(current.status, 'unmeasured', JSON.stringify(entry));
+  }
+});
+
+test('Scorecard: only the uses: target decides an own reusable ref', async () => {
+  const { usesTarget, SCORECARD_CLASS } = require('../zizmor_alert_snapshot.js');
+  assert.equal(
+    usesTarget("    uses: 'stranske/Workflows/.github/workflows/r.yml@main' # x"),
+    'stranske/Workflows/.github/workflows/r.yml@main'
+  );
+  assert.equal(usesTarget('      - uses: peter-evans/create-pull-request@v8 # stranske/Workflows/'), 'peter-evans/create-pull-request@v8');
+  assert.equal(usesTarget('    run: echo stranske/Workflows/.github/workflows/x.yml'), null);
+  const lines = {
+    'c.yml': ['      - uses: peter-evans/create-pull-request@v8 # stranske/Workflows/.github/workflows/'],
+    'own.yml': ['    uses: stranske/Workflows/.github/workflows/reusable-codex-run.yml@main'],
+    'run.yml': ['    run: echo stranske/Workflows/.github/workflows/x.yml'],
+  };
+  const alerts = Object.keys(lines).map((file, i) =>
+    scorecardAlert(i, 'PinnedDependenciesID', 'score is 2: third-party GitHubAction not pinned by hash', file, 1)
+  );
+  const { current } = await countWith(alerts, { readLine: (file, line) => lines[file][line - 1] });
+  assert.equal(current.open, 2);
+  assert.deepEqual(current.by_class, {
+    [SCORECARD_CLASS.thirdParty]: 1,
+    [SCORECARD_CLASS.thirdPartyUnreadable]: 1,
+  });
+});

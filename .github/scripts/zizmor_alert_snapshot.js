@@ -86,11 +86,20 @@ async function countOpenAlerts({
 const SCORECARD_LABEL = 'Scorecard regression';
 const SCORECARD_TOOL = 'Scorecard';
 const SCORECARD_ALLOWLIST_PATH = 'config/scorecard-dangerous-workflow-allowlist.json';
-const OWN_REUSABLE_REF = 'stranske/Workflows/';
+const OWN_REUSABLE_REF = 'stranske/Workflows/.github/workflows/';
+// The target of a `uses:` line, without quotes or a trailing comment.
+const USES_TARGET_PATTERN = /^\s*(?:-\s+)?uses:\s*['"]?([^'"\s#]+)/;
+
+// The action or workflow a source line references, or null when the line is
+// not a `uses:` line (the alert then cannot be matched to an action).
+function usesTarget(source) {
+  const match = USES_TARGET_PATTERN.exec(String(source));
+  return match ? match[1] : null;
+}
 
 const SCORECARD_CLASS = {
   thirdParty: 'third-party action not pinned by hash',
-  thirdPartyUnreadable: 'third-party action not pinned by hash (line unreadable)',
+  thirdPartyUnreadable: 'third-party action not pinned by hash (line unreadable or not a uses: line)',
   downloadThenRun: 'downloadThenRun',
   dangerousWorkflow: 'DangerousWorkflow',
 };
@@ -114,9 +123,18 @@ function parseScorecardAllowlist(text) {
   if (!entries) {
     throw new Error('allowlist has no "entries" array');
   }
+  const nonEmpty = (value) => typeof value === 'string' && value.trim() !== '';
   for (const entry of entries) {
-    if (!entry?.path || !entry?.finding || !entry?.reason || !(entry?.count >= 1)) {
-      throw new Error(`allowlist entry needs path, finding, reason and count >= 1: ${JSON.stringify(entry)}`);
+    if (
+      !nonEmpty(entry?.path) ||
+      !nonEmpty(entry?.finding) ||
+      !nonEmpty(entry?.reason) ||
+      !Number.isSafeInteger(entry?.count) ||
+      entry.count < 1
+    ) {
+      throw new Error(
+        `allowlist entry needs nonempty path, finding and reason and an integer count >= 1: ${JSON.stringify(entry)}`
+      );
     }
   }
   return entries;
@@ -170,10 +188,11 @@ async function classifyScorecardAlert(alert, { readLine, allowance }) {
   if (ruleId === 'PinnedDependenciesID') {
     if (finding.startsWith('third-party GitHubAction not pinned by hash')) {
       const source = await readLine(path, line, alertCommit(alert));
-      if (source === null || source === undefined) {
+      const target = source === null || source === undefined ? null : usesTarget(source);
+      if (target === null) {
         return SCORECARD_CLASS.thirdPartyUnreadable;
       }
-      return source.includes(OWN_REUSABLE_REF) ? null : SCORECARD_CLASS.thirdParty;
+      return target.startsWith(OWN_REUSABLE_REF) ? null : SCORECARD_CLASS.thirdParty;
     }
     if (finding.startsWith('downloadThenRun')) {
       return SCORECARD_CLASS.downloadThenRun;
@@ -376,6 +395,7 @@ module.exports = {
   countScorecardRegressions,
   parseScorecardAllowlist,
   scorecardFinding,
+  usesTarget,
   apiLineReader,
   countMarker,
   countOpenAlerts,
