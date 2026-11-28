@@ -432,24 +432,6 @@ def test_autofix_file_discovery_fails_closed_on_rate_limit():
         ) in text
 
 
-def test_legacy_agent_workflows_removed():
-    present = {p.name for p in WORKFLOWS_DIR.glob("agents-*.yml")}
-    forbidden = {
-        "agents-40-consumer.yml",
-        "agents-41-assign-and-watch.yml",
-        "agents-41-assign.yml",
-        "agents-42-watchdog.yml",
-        "agents-44-copilot-readiness.yml",
-        "agents-45-verify-codex-bootstrap-matrix.yml",
-    }
-    assert not (present & forbidden), f"Legacy agent workflows still present: {present & forbidden}"
-
-
-def test_agent_watchdog_workflow_absent():
-    legacy_watchdog = WORKFLOWS_DIR / "agent-watchdog.yml"
-    assert not legacy_watchdog.exists(), "Standalone agent-watchdog workflow must remain deleted"
-
-
 def test_consumer_sync_drift_uploads_machine_readable_report():
     text = (WORKFLOWS_DIR / "health-68-consumer-sync-drift.yml").read_text(encoding="utf-8")
     assert (
@@ -1250,11 +1232,6 @@ def test_gate_commit_status_has_workflow_token_fallback():
     assert (
         "github.rest.repos.createCommitStatus(statusPayload)" in script
     ), "Gate status step must retry with the workflow token when app tokens lack statuses:write"
-
-
-def test_agents_consumer_workflow_removed():
-    path = WORKFLOWS_DIR / "agents-62-consumer.yml"
-    assert not path.exists(), "Retired Agents 62 consumer wrapper must remain absent"
 
 
 def test_agent_task_template_auto_labels_codex():
