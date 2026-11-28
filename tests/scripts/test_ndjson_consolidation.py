@@ -1,6 +1,6 @@
 """Parity test: canonical read_ndjson_file is wired into the migrated scripts.
 
-The deliberate-break gate must FAIL when src/ndjson_parser.read_ndjson_file is
+The deliberate-break gate must FAIL when scripts/metrics/ndjson_parser.read_ndjson_file is
 patched to return ([], []), proving that the scripts consume the canonical and
 that this test exercises the real code path.
 """
@@ -11,8 +11,7 @@ import json
 from pathlib import Path
 
 import pytest
-
-from src.ndjson_parser import read_ndjson_file
+from scripts.metrics.ndjson_parser import read_ndjson_file
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -103,8 +102,8 @@ def test_aggregate_repo_metrics_returns_correct_record_count(
     ndjson_file = tmp_path / "repo_metrics.ndjson"
     ndjson_file.write_text(SAMPLE_NDJSON, encoding="utf-8")
 
-    # Patch the canonical as imported by aggregate_repo_metrics (via src.ndjson_parser)
-    import src.ndjson_parser as ndjson_mod
+    # Patch the canonical as imported by aggregate_repo_metrics (via scripts.metrics.ndjson_parser)
+    import scripts.metrics.ndjson_parser as ndjson_mod
 
     monkeypatch.setattr(ndjson_mod, "read_ndjson_file", lambda path: ([], []))
 

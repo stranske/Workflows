@@ -15,9 +15,8 @@ from typing import Any
 
 import requests
 from scripts import api_client, duplicate_detection
-
-from src import percentile_calculator
-from src.ndjson_parser import read_ndjson_file
+from scripts.metrics import percentile_calculator
+from scripts.metrics.ndjson_parser import read_ndjson_file
 
 DEFAULT_METRICS_PATH = "metrics-history.ndjson"
 DEFAULT_THRESHOLDS_PATH = "config/alerting-thresholds.json"

@@ -10,9 +10,8 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from scripts.metrics.ndjson_parser import read_ndjson_file
 from scripts.metrics_format_utils import format_markdown_table
-
-from src.ndjson_parser import read_ndjson_file
 
 
 def _safe_int(value: Any) -> int | None:

@@ -13,7 +13,7 @@ from typing import Any
 if __package__ is None:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src import aggregator, cli_parser, ndjson_parser, percentile_calculator
+from scripts.metrics import aggregator, cli_parser, ndjson_parser, percentile_calculator
 
 
 def read_repo_metrics(path: Path, repo: str) -> tuple[list[dict[str, Any]], int]:

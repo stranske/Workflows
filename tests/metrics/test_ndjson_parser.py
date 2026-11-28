@@ -4,8 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-
-from src import ndjson_parser
+from scripts.metrics import ndjson_parser
 
 
 def test_parse_ndjson_handles_blank_malformed_and_mixed_schema() -> None:

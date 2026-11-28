@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import pytest
-
-from src import percentile_calculator
+from scripts.metrics import percentile_calculator
 
 
 def test_percentiles_small_dataset() -> None:
