@@ -1259,15 +1259,21 @@ the workflow is the source of truth.
 
 ### Drift coverage states
 
-Scheduled Health 68 runs are triggered only after a successful Maint 71 janitor; push and
-manual runs are intentionally immediate. It classifies each
-consumer as `converged`, `covered`, `blocked`, `untracked_drift`, or `stale`. An open
+Health 68 measures on the drain's cadence: its 06:15 schedule, the scheduled (05:30)
+Maint 71 janitor pass, and manual dispatch. It has no push trigger, and dispatched Maint 71
+continuations end its run `skipped` (round-2 A2). It classifies each
+consumer as `converged`, `covered`, `pending_delivery`, `blocked`, `untracked_drift`, or
+`stale`. `pending_delivery` means main moved after the last successful Maint 68 promote,
+which ran within the lease, so the next delivery covers it. Uncovered drift is aged from
+when Maint 68 first delivered the current plan (read from Maint 68's own run history) and is
+blocking only past the lease; an unreadable history makes it blocking at once. An open
 sync PR covers drift only when it matches the current compiled plan and is within the
 36-hour coverage lease. Configured canaries use the stable `sync/workflows-candidate`
 branch; promoted non-canaries use the stable `sync/workflows-delivery` branch. Fully covered drift
 exits zero and does not append a durable-tracker comment; stale (including expired
-coverage), blocked (including global/lookup failures), and untracked states remain
-actionable failures.
+coverage), blocked (including global/lookup failures), and untracked states past the lease
+remain actionable failures. The run summary prints `Gate: blocking N repo(s) ...;
+drainable M (...)` so a stuck gate shows its drain.
 
 ### Adding a New Consumer Repo
 
@@ -3573,11 +3579,12 @@ promoted PRs with Maint 71 using `active_sync_hash=delivery`.
 ### Drift Detection
 
 Workflows runs **Health 68 Consumer Sync Drift Check** to detect divergence between
-templates/manifest entries and the registered consumer repos. It runs daily and
-after template/manifest/script changes.
+templates/manifest entries and the registered consumer repos. It runs daily after the
+Maint 68 delivery and the scheduled Maint 71 pass (see Drift coverage states).
 
-Actionable `stale`, `blocked`, or `untracked_drift` states create or refresh one
-transient alert. `converged` and `covered` states exit cleanly; the clean run
+Actionable `stale`, `blocked`, or `untracked_drift` (past the lease) states create or
+refresh one transient alert. `converged`, `covered` and `pending_delivery` states, and
+uncovered drift within the lease, exit cleanly; the clean run
 closes any open alert so a recovered incident cannot remain as a stale red issue.
 
 - Files marked with `sync_mode: create_only` are excluded, except for repos
