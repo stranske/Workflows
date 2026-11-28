@@ -476,8 +476,10 @@ def test_manifest_template_sync_sources_includes_github_scripts_unmarked(
     assert sources == [".github/scripts/included.js"]
 
 
+@pytest.mark.parametrize("section", ["scripts", "actions"])
 def test_manifest_template_sync_sources_requires_exact_flag_elsewhere(
     tmp_path: Path,
+    section: str,
 ) -> None:
     """Sources outside .github/scripts/ need an explicit template_sync: exact."""
     plain_dir = tmp_path / "config"
@@ -490,10 +492,12 @@ def test_manifest_template_sync_sources_requires_exact_flag_elsewhere(
         "\n".join(
             [
                 "version: 1",
-                "scripts:",
+                f"{section}:",
                 "  - source: config/plain.json",
+                "    source_tree: root",
                 "    description: not template-synced",
                 "  - source: config/exact.json",
+                "    source_tree: root",
                 "    description: template-synced",
                 "    template_sync: exact",
                 "",

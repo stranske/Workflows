@@ -65,7 +65,7 @@ def _root_only_exact_entries(compiled: CompiledManifest) -> list[str]:
     return sorted(
         {
             entry.source
-            for entry in compiled.section("scripts")
+            for entry in compiled.all_entries()
             if entry.template_sync == "exact"
             and entry.source.startswith(ROOT_ONLY_PREFIXES)
             and entry.source not in ROOT_ONLY_EXACT_EXCEPTIONS
@@ -75,10 +75,10 @@ def _root_only_exact_entries(compiled: CompiledManifest) -> list[str]:
 
 def _manifest_template_sync_sources(compiled: CompiledManifest) -> list[str]:
     sources: list[str] = []
-    for entry in compiled.section("scripts"):
+    for entry in compiled.all_entries():
         if entry.source_tree != "root":
             continue
-        if entry.source.startswith(".github/scripts/"):
+        if entry.section == "scripts" and entry.source.startswith(".github/scripts/"):
             sources.append(entry.source)
             continue
         if entry.template_sync == "exact":
