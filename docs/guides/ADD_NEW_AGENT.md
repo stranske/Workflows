@@ -175,7 +175,6 @@ Cursor and Muse have one. Use this table as the checklist; each row names a real
 | Runner provider set | `scripts/runner_lib/core.py` | add the key to `PROVIDERS` and, if it takes prompts, `PROMPT_PROVIDERS`. **Consumers run their own copy** (Stage 5) |
 | Artifact filtering | `scripts/stage_agent_changes.py` | the agent's root output filename patterns |
 | Durability attribution | `scripts/export_keepalive_durability.py` | `KNOWN_AGENT_LABELS` |
-| Merge origin labels | `.github/scripts/merge_manager.js` (+ template copy) | registry-driven since 2026-10-17; verify the belt worker's `from:<agent>` label is recognised |
 | Labels | `.github/labels-core.yml`, `.github/labels.yml`, `scripts/cleanup_labels.py`, `docs/LABELS.md` | `agent:<key>`, `runner:<key>`, `from:<key>` (quote descriptions that contain a colon) |
 | Health | `.github/workflows/health-<agent>-auth-check.yml` | presence check that names a missing secret and never echoes it; no billable call |
 | Belt | registry `belt: true` only | the belt is registry-driven; the round runs in the keepalive `run-<agent>` job. **It requires** `scripts/ledger_validate.py` and `scripts/belt_ledger_completion.py` in the consumer, or every belt PR fails the required `summary` check |

@@ -24,6 +24,7 @@ pytest-workers               xdist workers (default auto; first-party Gate reque
 coverage-python-version      Optional coverage runtime, matching primary (default empty: all runtimes)
 coverage-min                 Minimum coverage percentage to pass (default 70)
 run-mypy                     'true'/'false' toggle to run mypy job (default true)
+typecheck-paths              Space-separated mypy targets; missing ones dropped, none left -> repo root (default 'src')
 ```
 
 Gate applies the same full-suite discovery, `not quarantine and not slow` markers,

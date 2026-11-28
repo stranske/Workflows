@@ -47,6 +47,8 @@ SYNC_BRANCH_PREFIX = "sync/workflows-"
 SYNC_CANDIDATE_BRANCH = "sync/workflows-candidate"
 SYNC_DELIVERY_BRANCH = "sync/workflows-delivery"
 SYNC_COVERAGE_MAX_AGE = timedelta(hours=36)
+# "draining": pending delivery or uncovered within the lease; Maint 68 is still the drain.
+PASSING_STATUSES = frozenset({"converged", "covered", "draining"})
 TOKEN_ENV_ORDER = (
     "DRIFT_TOKEN",
     "SERVICE_BOT_PAT",
@@ -89,6 +91,24 @@ def parse_args() -> argparse.Namespace:
         "--summary",
         default=os.environ.get("GITHUB_STEP_SUMMARY", ""),
         help="Optional path to write a summary markdown.",
+    )
+    parser.add_argument(
+        "--deliveries-json",
+        default=os.environ.get("CONSUMER_SYNC_DELIVERIES_JSON", ""),
+        help=(
+            "JSON list of successful Maint 68 promote runs ({plan_id, created_at}). "
+            "Without it, uncovered drift is blocking at once (the pre-delivery-anchor rule)."
+        ),
+    )
+    parser.add_argument(
+        "--uncovered-clock",
+        default=os.environ.get("CONSUMER_SYNC_UNCOVERED_CLOCK", ""),
+        help="JSON file holding when each repo was first seen uncovered; read, then rewritten.",
+    )
+    parser.add_argument(
+        "--write-deliveries",
+        default="",
+        help="Only write the Maint 68 delivery history to this path, then exit.",
     )
     parser.add_argument(
         "--report-json",
@@ -635,10 +655,17 @@ def build_remediation_states(
     current_plan_id: str,
     candidate_repos: set[str] | None = None,
     global_errors: list[str] | None = None,
+    deliveries: list[dict[str, object]] | None = None,
     now: datetime | None = None,
 ) -> dict[str, dict[str, object]]:
-    """Classify drift using the current compiler-plan branch, not PR presence alone."""
+    """Classify drift using the current compiler-plan branch, not PR presence alone.
+
+    Every non-converged state carries ``blocking``. The measuring window is the draining
+    window: Maint 68 is the drain, and uncovered drift asks for action only once the
+    drain has had ``SYNC_COVERAGE_MAX_AGE`` to cover it (see ``delivery_anchor``).
+    """
     current_time = now or datetime.now(UTC)
+    anchor = delivery_anchor(deliveries, current_plan_id)
     candidate_repos = candidate_repos or set()
     gaps_by_repo: dict[str, list[str]] = {repo: [] for repo in repos}
     for category, items in (
@@ -667,6 +694,7 @@ def build_remediation_states(
         if global_errors:
             states[repo] = {
                 "state": "blocked",
+                "blocking": True,
                 "reason": "global comparison error",
                 "categories": categories,
                 "global_errors": global_errors,
@@ -678,6 +706,7 @@ def build_remediation_states(
         if repo in lookup_failed or "errors" in categories:
             states[repo] = {
                 "state": "blocked",
+                "blocking": True,
                 "reason": "lookup or content error",
                 "categories": categories,
             }
@@ -699,6 +728,7 @@ def build_remediation_states(
         if fresh:
             states[repo] = {
                 "state": "covered",
+                "blocking": False,
                 "reason": "current compiler-plan sync PR is open",
                 "expected_branch": repo_expected_branch,
                 "pr": fresh[0],
@@ -707,6 +737,7 @@ def build_remediation_states(
         elif current:
             states[repo] = {
                 "state": "stale",
+                "blocking": True,
                 "reason": "current compiler-plan sync PR exceeded coverage lease",
                 "expected_branch": repo_expected_branch,
                 "pr": current[0],
@@ -714,12 +745,153 @@ def build_remediation_states(
             }
         else:
             states[repo] = {
-                "state": "untracked_drift",
-                "reason": "no open sync PR matches the current compiler plan",
+                **uncovered_state(anchor, current_time),
                 "expected_branch": repo_expected_branch,
                 "categories": categories,
             }
     return states
+
+
+UNCOVERED_STATES = frozenset({"pending_delivery", "untracked_drift"})
+
+
+def apply_uncovered_clock(
+    states: dict[str, dict[str, object]],
+    previous: dict[str, str] | None,
+    now: datetime,
+) -> dict[str, str]:
+    """Age uncovered repos from when Health 68 FIRST saw them uncovered.
+
+    The clock survives between runs (an Actions cache file), resets only when the repo
+    is converged or covered, and is never renewed by a later or scoped Maint 68
+    promotion or by delivery history falling off the listed page. A repo uncovered
+    for longer than the lease is blocking whatever the delivery history says.
+    ``previous`` None means no saved clock: every uncovered repo starts now.
+    """
+    previous = previous or {}
+    first_seen: dict[str, str] = {}
+    for repo, item in states.items():
+        if item.get("state") not in UNCOVERED_STATES:
+            continue
+        seen = parse_github_timestamp(previous.get(repo)) or now
+        if seen > now:
+            seen = now
+        anchor = parse_github_timestamp(item.get("uncovered_since"))
+        since = min(seen, anchor) if anchor is not None else seen
+        first_seen[repo] = seen.strftime("%Y-%m-%dT%H:%M:%SZ")
+        item["uncovered_since"] = since.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if now - since > SYNC_COVERAGE_MAX_AGE and item.get("blocking") is not True:
+            item["blocking"] = True
+            item["reason"] = (
+                f"{item.get('reason', '')}; uncovered since {item['uncovered_since']}, "
+                "past the coverage lease"
+            ).lstrip("; ")
+    return first_seen
+
+
+def read_uncovered_clock(path: str) -> dict[str, str] | None:
+    """Load the saved first-seen clock; None when absent or unreadable (start now)."""
+    if not path:
+        return None
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return {str(key): str(value) for key, value in data.items()}
+
+
+def write_uncovered_clock(path: str, report: dict[str, object]) -> None:
+    if not path:
+        return
+    remediation = report.get("sync_remediation", {})
+    clock = remediation.get("uncovered_first_seen", {}) if isinstance(remediation, dict) else {}
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(clock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def delivery_anchor(
+    deliveries: list[dict[str, object]] | None, current_plan_id: str
+) -> dict[str, object]:
+    """Read when Maint 68 (the drain) last delivered, and when it first delivered this plan.
+
+    ``deliveries`` is None when the history could not be read. That is kept distinct from
+    a readable history with no matching run: only the second is a measurement.
+    """
+    if deliveries is None:
+        return {"readable": False}
+    stamps: list[tuple[str, datetime]] = []
+    for item in deliveries:
+        if not isinstance(item, dict):
+            continue
+        created = parse_github_timestamp(item.get("created_at"))
+        if created is not None:
+            stamps.append((str(item.get("plan_id") or ""), created))
+    current = [ts for plan_id, ts in stamps if current_plan_id and plan_id == current_plan_id]
+    return {
+        "readable": True,
+        "current_plan_first_delivered_at": min(current) if current else None,
+        "last_delivered_at": max(ts for _plan_id, ts in stamps) if stamps else None,
+    }
+
+
+def uncovered_state(anchor: dict[str, object], now: datetime) -> dict[str, object]:
+    """Classify drift that no open current-plan sync PR covers.
+
+    - The current plan has not been through Maint 68 yet, and Maint 68 delivered within
+      the lease: main moved after the last delivery, and the next run delivers it
+      (``pending_delivery``, not blocking).
+    - Maint 68 delivered the current plan and still no PR covers the repo: uncovered
+      since that first delivery; blocking once that is older than the lease.
+    - The delivery history is unreadable, empty, or older than the lease: blocking now,
+      because nothing shows the drain is running.
+    """
+    lease_hours = int(SYNC_COVERAGE_MAX_AGE.total_seconds() // 3600)
+    if not anchor.get("readable"):
+        return {
+            "state": "untracked_drift",
+            "blocking": True,
+            "uncovered_since": None,
+            "reason": (
+                "no open sync PR matches the current compiler plan, and the Maint 68 "
+                "delivery history could not be read"
+            ),
+        }
+    first = anchor.get("current_plan_first_delivered_at")
+    last = anchor.get("last_delivered_at")
+    if isinstance(first, datetime):
+        return {
+            "state": "untracked_drift",
+            "blocking": now - first > SYNC_COVERAGE_MAX_AGE,
+            "uncovered_since": first.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "reason": (
+                "no open sync PR matches the current compiler plan, which Maint 68 "
+                f"first delivered at {first.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            ),
+        }
+    if isinstance(last, datetime) and now - last <= SYNC_COVERAGE_MAX_AGE:
+        return {
+            "state": "pending_delivery",
+            "blocking": False,
+            "uncovered_since": None,
+            "reason": (
+                "main moved after the last Maint 68 delivery "
+                f"({last.strftime('%Y-%m-%dT%H:%M:%SZ')}); the next run delivers the current plan"
+            ),
+        }
+    return {
+        "state": "untracked_drift",
+        "blocking": True,
+        "uncovered_since": (
+            last.strftime("%Y-%m-%dT%H:%M:%SZ") if isinstance(last, datetime) else None
+        ),
+        "reason": (
+            "the current compiler plan was never delivered, and Maint 68 has not delivered "
+            f"anything within the {lease_hours}h lease"
+        ),
+    }
 
 
 def record_content_error(
@@ -759,6 +931,8 @@ def build_report(
     token_diagnostics: dict[str, object] | None = None,
     current_plan_id: str = "",
     candidate_repos: set[str] | None = None,
+    deliveries: list[dict[str, object]] | None = None,
+    uncovered_first_seen: dict[str, str] | None = None,
     now: datetime | None = None,
 ) -> dict[str, object]:
     unmeasured_create_only = unmeasured_create_only or set()
@@ -793,17 +967,30 @@ def build_report(
         current_plan_id=current_plan_id,
         candidate_repos=candidate_repos,
         global_errors=global_errors,
+        deliveries=deliveries,
         now=now,
     )
+    first_seen = apply_uncovered_clock(
+        remediation_states, uncovered_first_seen, now or datetime.now(UTC)
+    )
     state_values = {str(item["state"]) for item in remediation_states.values()}
-    if global_errors:
+    blocking_repos = sorted(
+        repo for repo, item in remediation_states.items() if item.get("blocking") is True
+    )
+    drainable_repos = sorted(
+        repo
+        for repo, item in remediation_states.items()
+        if item.get("state") != "converged" and item.get("blocking") is False
+    )
+    if global_errors or blocking_repos:
         status = "drift"
     elif state_values <= {"converged"}:
         status = "converged"
     elif state_values <= {"converged", "covered"}:
         status = "covered"
     else:
-        status = "drift"
+        # Pending delivery or uncovered within the lease: the drain is still running.
+        status = "draining"
     repo_summaries = build_repo_summaries(
         repos=repos,
         drift=drift,
@@ -856,7 +1043,14 @@ def build_report(
             "candidate_branch": SYNC_CANDIDATE_BRANCH,
             "delivery_branch": SYNC_DELIVERY_BRANCH,
             "coverage_lease_hours": int(SYNC_COVERAGE_MAX_AGE.total_seconds() // 3600),
+            "blocking_repo_count": len(blocking_repos),
+            "blocking_repos": blocking_repos,
+            "drainable_repo_count": len(drainable_repos),
+            "drainable_repos": drainable_repos,
+            "delivery_anchor": render_delivery_anchor(delivery_anchor(deliveries, current_plan_id)),
             "repo_states": remediation_states,
+            "uncovered_first_seen": first_seen,
+            "uncovered_clock": "restored" if uncovered_first_seen is not None else "new",
             "global_errors": global_errors,
             "open_pr_count": len(open_sync_prs),
             "repo_count": open_sync_repo_count,
@@ -878,6 +1072,38 @@ def build_report(
     return report
 
 
+def render_delivery_anchor(anchor: dict[str, object]) -> dict[str, object]:
+    """JSON-safe copy of ``delivery_anchor`` (timestamps as ISO strings)."""
+    rendered: dict[str, object] = {}
+    for key, value in anchor.items():
+        rendered[key] = (
+            value.strftime("%Y-%m-%dT%H:%M:%SZ") if isinstance(value, datetime) else value
+        )
+    return rendered
+
+
+def gate_line(report: dict[str, object]) -> str:
+    """Blocking AND drainable counts, printed together (the latched-gate runtime rule)."""
+    remediation = report.get("sync_remediation", {})
+    if not isinstance(remediation, dict):
+        return "Gate: unmeasured (no remediation state in the report)"
+    states = remediation.get("repo_states", {})
+    states = states if isinstance(states, dict) else {}
+    by_state: dict[str, int] = {}
+    for item in states.values():
+        if isinstance(item, dict) and item.get("blocking") is False:
+            key = str(item.get("state", "unknown"))
+            by_state[key] = by_state.get(key, 0) + 1
+    detail = ", ".join(f"{key}={count}" for key, count in sorted(by_state.items())) or "none"
+    lease = remediation.get("coverage_lease_hours", 0)
+    return (
+        f"Gate: blocking {remediation.get('blocking_repo_count', 0)} repo(s) "
+        f"(stale, blocked, or uncovered past the {lease}h lease); "
+        f"drainable {remediation.get('drainable_repo_count', 0)} ({detail}); "
+        f"status {report.get('status', 'unknown')}"
+    )
+
+
 def write_summary_markdown(path: str, report: dict[str, object]) -> None:
     if not path:
         return
@@ -893,6 +1119,7 @@ def write_summary_markdown(path: str, report: dict[str, object]) -> None:
             for line in gate_lines:
                 handle.write(f"- {line}\n")
             handle.write("\n")
+        handle.write(f"{gate_line(report)}\n\n")
         handle.write("### Counts\n")
         for category in ("drift", "missing", "errors", "obsolete", "unmeasured_create_only"):
             handle.write(f"- {category}: {counts.get(category, 0)}\n")
@@ -1060,8 +1287,88 @@ def fetch_remote_tree(
     return entries, None
 
 
+MAINT_68_WORKFLOW_FILE = "maint-68-sync-consumer-repos.yml"
+_PLAN_ID_IN_TITLE = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def parse_maint68_promotions(payload: object) -> list[dict[str, object]]:
+    """Successful Maint 68 promote runs, with the plan id each run name carries."""
+    runs = payload.get("workflow_runs") if isinstance(payload, dict) else None
+    if not isinstance(runs, list):
+        raise ValueError("Maint 68 run listing has no workflow_runs list")
+    deliveries: list[dict[str, object]] = []
+    for run in runs:
+        if not isinstance(run, dict) or run.get("conclusion") != "success":
+            continue
+        title = str(run.get("display_title") or "")
+        if " promote " not in f" {title} ":
+            continue
+        match = _PLAN_ID_IN_TITLE.search(title)
+        deliveries.append(
+            {
+                "plan_id": match.group(0) if match else None,
+                "created_at": run.get("created_at"),
+                "run_id": run.get("id"),
+            }
+        )
+    return deliveries
+
+
+def write_maint68_deliveries(path: str, repository: str, token: str) -> int:
+    """Write Maint 68's delivery history for the comparison; leave no file on failure."""
+    session = requests.Session()
+    if token:
+        session.headers["Authorization"] = f"Bearer {token}"
+    session.headers["Accept"] = "application/vnd.github+json"
+    url = (
+        f"https://api.github.com/repos/{repository}/actions/workflows/"
+        f"{MAINT_68_WORKFLOW_FILE}/runs?status=success&per_page=100"
+    )
+    try:
+        response = session.get(url, timeout=30)
+        response.raise_for_status()
+        deliveries = parse_maint68_promotions(response.json())
+    except (requests.RequestException, ValueError) as exc:
+        print(
+            f"::warning::Could not read the Maint 68 delivery history ({type(exc).__name__}); "
+            "uncovered drift is blocking at once."
+        )
+        return 0
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(deliveries, indent=2) + "\n", encoding="utf-8")
+    print(f"Read {len(deliveries)} successful Maint 68 promote run(s).")
+    return 0
+
+
+def read_deliveries(path: str) -> list[dict[str, object]] | None:
+    """Load the Maint 68 delivery history; None means unreadable, never 'no deliveries'."""
+    if not path:
+        return None
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(
+            f"::warning::Maint 68 delivery history unreadable ({type(exc).__name__}); "
+            "uncovered drift is blocking at once"
+        )
+        return None
+    if not isinstance(data, list):
+        print(
+            "::warning::Maint 68 delivery history is not a list; uncovered drift is blocking at once"
+        )
+        return None
+    return [item for item in data if isinstance(item, dict)]
+
+
 def main() -> int:
     args = parse_args()
+    if getattr(args, "write_deliveries", ""):
+        return write_maint68_deliveries(
+            args.write_deliveries,
+            os.environ.get("GITHUB_REPOSITORY", "stranske/Workflows"),
+            os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or "",
+        )
     repos = resolve_repos(args.repos)
     if not repos:
         print("::error::No repos provided or found in REGISTERED_CONSUMER_REPOS")
@@ -1279,6 +1586,8 @@ def main() -> int:
         token_diagnostics=token_diagnostics,
         current_plan_id=current_plan_id,
         candidate_repos=candidate_repos,
+        deliveries=read_deliveries(getattr(args, "deliveries_json", "")),
+        uncovered_first_seen=read_uncovered_clock(getattr(args, "uncovered_clock", "")),
     )
     if gate_entry is not None:
         gate_lines = gate_trigger_lines(repos, gate_entry, remote_trees, read_blob)
@@ -1286,9 +1595,11 @@ def main() -> int:
         for line in gate_lines:
             print(line)
     write_report_json(args.report_json, report)
+    write_uncovered_clock(getattr(args, "uncovered_clock", ""), report)
     write_summary_markdown(args.summary, report)
+    print(gate_line(report))
 
-    if report["status"] not in {"converged", "covered"}:
+    if report["status"] not in PASSING_STATUSES:
         print("::warning::Consumer repo drift detected")
         return 1
 

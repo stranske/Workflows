@@ -25,7 +25,8 @@ on:
     # synced file COPIES wait for this run. For an immediate sync, use the manual
     # workflow_dispatch below. Release publication deliberately does not create
     # a second delivery cycle. Daily ordering:
-    #   05:00 maint-68 sync  ->  05:10 Health 68 drift scan  ->  05:30 maint-71 janitor.
+    #   05:00 maint-68 sync  ->  05:30 maint-71 janitor  ->  Health 68 drift scan after that
+    #   janitor pass completes, and again at 06:15.
     # (Removing the push trigger also moots the G2 push-allowlist-vs-manifest drift.)
     - cron: '0 5 * * *'
   workflow_dispatch:

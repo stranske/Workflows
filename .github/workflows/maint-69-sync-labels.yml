@@ -1,5 +1,6 @@
-# .github/workflows/maint-sync-labels.yml
-# Syncs core functional labels to consumer repos.
+# .github/workflows/maint-69-sync-labels.yml
+# Syncs core functional labels to consumer repos, stranske/Workflows and
+# stranske/Workflows-Integration-Tests.
 # Only labels in labels-core.yml are synced - these are required for the
 # workflow system to function. Repo-specific informational labels are NOT synced.
 name: Maint 69 Sync Labels
@@ -89,11 +90,14 @@ jobs:
         id: repos
         env:
           INPUT_REPOS: ${{ inputs.repos }}
+          # Not template consumers, but both run the label-reading automation (Gate reads
+          # agent-high-privilege; WIT gets the agents-80/81 hubs), so "all" includes them.
+          LABEL_SYNC_EXTRA_REPOS: ${{ github.repository }},stranske/Workflows-Integration-Tests
         run: |
           if [ "$INPUT_REPOS" != "all" ] && [ -n "$INPUT_REPOS" ]; then
             repos="$INPUT_REPOS"
           else
-            repos=$(python scripts/list_registered_consumer_repos.py --separator ',')
+            repos="$(python scripts/list_registered_consumer_repos.py --separator ','),${LABEL_SYNC_EXTRA_REPOS}"
           fi
           json_array=$(echo "$repos" \
             | tr ',' '\n' \
@@ -102,6 +106,7 @@ jobs:
               split("\n")
               | map(select(. != ""))
               | map(gsub("^\\s+|\\s+$"; ""))
+              | unique
             ')
           echo "repos=${json_array}" >> "$GITHUB_OUTPUT"
           echo "Target repos: $json_array"

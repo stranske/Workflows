@@ -1,4 +1,8 @@
-"""README names every folder under .github/actions, and the top-level code homes."""
+"""README names every folder under .github/actions.
+
+The top-level code homes are listed in docs/STRUCTURE.md's directory index
+(tests/docs/test_structure_directory_index.py), the one layout map.
+"""
 
 from pathlib import Path
 
@@ -13,9 +17,3 @@ def test_readme_lists_every_composite_action_folder() -> None:
         if folder.is_dir() and f"`{folder.name}/`" not in readme
     ]
     assert missing == [], f"README.md does not list: {missing}"
-
-
-def test_readme_names_the_top_level_code_homes() -> None:
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for home in ("tools/", "src/", "packages/", "evidence/"):
-        assert f"`{home}`" in readme, home

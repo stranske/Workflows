@@ -10,4 +10,4 @@ def test_workflows_coverage_measures_branches_in_core_sources() -> None:
         run = tomllib.load(config)["tool"]["coverage"]["run"]
 
     assert run["branch"] is True
-    assert run["source"] == ["scripts", "tools", "src"]
+    assert run["source"] == ["scripts", "tools"]

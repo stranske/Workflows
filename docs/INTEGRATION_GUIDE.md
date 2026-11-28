@@ -217,8 +217,6 @@ Reusable workflows with caller-facing `workflow_call` outputs:
 
 | Workflow | Output | Type | Description | Example |
 | --- | --- | --- | --- | --- |
-| `reusable-20-pr-meta.yml` | `keepalive_detected` | string (boolean-like) | Whether a keepalive comment was detected. | `needs.pr_meta.outputs.keepalive_detected` |
-| `reusable-20-pr-meta.yml` | `keepalive_reason` | string | Reason for the keepalive dispatch decision. | `needs.pr_meta.outputs.keepalive_reason` |
 | `reusable-bot-comment-handler.yml` | `comments_found` | string (boolean-like) | Whether unresolved bot comments were found. | `needs.bot-comments.outputs.comments_found` |
 | `reusable-bot-comment-handler.yml` | `comments_count` | string (number-like) | Number of unresolved bot comments found. | `needs.bot-comments.outputs.comments_count` |
 | `reusable-bot-comment-handler.yml` | `agent_triggered` | string (boolean-like) | Whether the agent was triggered to address comments. | `needs.bot-comments.outputs.agent_triggered` |
@@ -327,14 +325,14 @@ Reusable workflows without `workflow_call` outputs:
 | `reusable-13-cross-repo-smoke.yml` | No `workflow_call` outputs; logs cross-repo smoke command output. |
 | `reusable-18-autofix.yml` | No `workflow_call` outputs; publishes patch artifacts and summaries. |
 | `reusable-19-dependency-repair-contract.yml` | No `workflow_call` outputs; logs dependency-repair provenance validation results. |
+| `reusable-20-pr-meta.yml` | No `workflow_call` outputs; updates PR body sections. |
 | `reusable-agents-issue-bridge.yml` | No `workflow_call` outputs; creates bridge PR artifacts and logs. |
 | `reusable-agents-pr-health.yml` | No `workflow_call` outputs; reports health through checks and summaries. |
 | `reusable-model-profile-trial.yml` | No `workflow_call` outputs; publishes strict v2 quarantine telemetry artifacts. |
 
 ### Using outputs in dependent jobs
 
-The examples below show output-consumption patterns for PR-meta keepalive detection
-and registry-backed agent runners.
+The examples below show output-consumption patterns for registry-backed agent runners.
 
 ### Agent Workflows
 
