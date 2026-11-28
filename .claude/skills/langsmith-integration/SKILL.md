@@ -1,3 +1,8 @@
+---
+name: langsmith-integration
+description: Instrument Workflows LLM calls with LangSmith tracing - LANGSMITH_API_KEY wiring, invoke_with_trace, trace references and run metadata. Use when adding or debugging LangChain runnables, the issue formatter or verifier tracing in this repo.
+---
+
 # Tracing Workflows LLM calls
 
 Workflows uses LangChain runnables to attach GitHub context to model calls and return trace references. The issue formatter is a working example. [Issue formatter](../../../scripts/langchain/issue_formatter.py) · [Tracing helper](../../../scripts/langchain/trace_utils.py)

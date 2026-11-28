@@ -503,7 +503,7 @@ jobs:
           **Related Documentation:**
           - [LangSmith Integration Status](../blob/main/docs/LANGSMITH_INTEGRATION_STATUS.md)
           - [E2E Validation Report](../blob/main/docs/LANGSMITH_E2E_VALIDATION.md)
-          - [Integration Skill](../blob/main/.claude/skills/langsmith-integration/skill.md)
+          - [Integration Skill](../blob/main/.claude/skills/langsmith-integration/SKILL.md)
 
           ---
 
