@@ -11,9 +11,13 @@ on:
 permissions:
   contents: write
 
+# One group for every tag (cohesion review round 2, D11): per-tag groups let an
+# older tag's run finish after a newer one's. Queued, not cancelled, so a
+# running push is never interrupted; update-floating-tag.sh also refuses to
+# move v1 to anything but the highest v1.x tag.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-floating-tag
+  cancel-in-progress: false
 
 jobs:
   release:

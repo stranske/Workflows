@@ -34,6 +34,13 @@ def test_maint60_does_not_write_releases():
     assert 'scripts/update-floating-tag.sh v1 v1. "$GITHUB_SHA"' in move["run"]
 
 
+def test_maint60_runs_one_tag_at_a_time():
+    """Round-2 D11: per-tag concurrency let an older tag's run finish last."""
+    doc = yaml.safe_load((WORKFLOWS / "maint-60-release.yml").read_text(encoding="utf-8"))
+    assert "github.ref" not in doc["concurrency"]["group"]
+    assert doc["concurrency"]["cancel-in-progress"] is False
+
+
 def test_no_workflow_besides_release_please_creates_releases():
     writers = []
     for path in sorted(WORKFLOWS.glob("*.yml")):

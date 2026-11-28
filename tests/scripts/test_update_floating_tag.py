@@ -155,3 +155,42 @@ def test_update_floating_tag_updates_existing_tag_to_latest_release(monkeypatch)
         ).strip()
 
         assert floating_target == commit_v1_3_0
+
+
+def test_update_floating_tag_never_moves_back_to_an_older_release(monkeypatch):
+    """Round-2 D11: a late run for an older tag must not roll v1 backwards."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_path = pathlib.Path(temp_dir)
+        _init_repo(repo_path)
+
+        commit_v1_9 = _commit_file(repo_path, "file.txt", "v1.9.0\n", "v1.9.0")
+        _tag(repo_path, "v1.9.0", commit_v1_9)
+        commit_v1_10 = _commit_file(repo_path, "file.txt", "v1.10.0\n", "v1.10.0")
+        _tag(repo_path, "v1.10.0", commit_v1_10)
+        _tag(repo_path, "v1", commit_v1_10)
+
+        env = os.environ.copy()
+        env["DRY_RUN"] = "1"
+
+        # The run for v1.9.0 finishes after v1.10.0 already moved v1.
+        completed = subprocess.run(
+            ["bash", str(SCRIPT_PATH), "v1", "v1.", commit_v1_9],
+            cwd=repo_path,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+        assert completed.returncode == 0
+        assert "Not moving v1 back to v1.9.0: v1.10.0" in completed.stdout
+        floating_target = subprocess.check_output(
+            ["git", "rev-parse", "v1^{commit}"], cwd=repo_path, text=True
+        ).strip()
+        assert floating_target == commit_v1_10
+
+        # The newest tag's own run still moves it.
+        _run(["bash", str(SCRIPT_PATH), "v1", "v1.", commit_v1_10], cwd=repo_path, env=env)
+        floating_target = subprocess.check_output(
+            ["git", "rev-parse", "v1^{commit}"], cwd=repo_path, text=True
+        ).strip()
+        assert floating_target == commit_v1_10

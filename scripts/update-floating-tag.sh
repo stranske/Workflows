@@ -16,7 +16,9 @@ git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
 if git remote get-url origin >/dev/null 2>&1; then
-  git fetch --tags origin
+  # --force: another run may have moved the floating tag on origin since this
+  # checkout; without it the fetch refuses to clobber the stale local copy.
+  git fetch --tags --force origin
 else
   echo "Remote origin not configured; skipping fetch" >&2
 fi
@@ -48,6 +50,19 @@ else
     fi
     echo "Commit ${TARGET_COMMIT} is not tagged with ${MAJOR_PREFIX}* release" >&2
     exit 1
+  fi
+fi
+
+# Forward only (cohesion review round 2, D11). Each release tag starts its own
+# run, so a run for an older tag can finish after the run for a newer one. The
+# floating tag moves only to the highest ${MAJOR_PREFIX}* release known after
+# the fetch above; an older tag leaves it where it is.
+HIGHEST_TAG=$(git tag -l "${MAJOR_PREFIX}*" --sort=-v:refname | head -n 1)
+if [[ -n "${HIGHEST_TAG}" && "${HIGHEST_TAG}" != "${RELEASE_TAG}" ]]; then
+  HIGHEST_COMMIT=$(git rev-list -n 1 "${HIGHEST_TAG}")
+  if [[ "${HIGHEST_COMMIT}" != "${TARGET_COMMIT}" ]]; then
+    echo "Not moving ${FLOATING_TAG} back to ${RELEASE_TAG}: ${HIGHEST_TAG} (${HIGHEST_COMMIT}) is newer"
+    exit 0
   fi
 fi
 
