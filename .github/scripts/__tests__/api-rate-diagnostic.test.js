@@ -283,3 +283,117 @@ test('load-sharing validation verifies task-specific pools and switching', async
   await validateLoadSharing({ env: { GITHUB_TOKEN: 'token' }, tokenBalancer });
   assert.ok(calls.includes('KEEPALIVE_APP:150'));
 });
+
+// --- Cohesion review round 2, A3 -------------------------------------------
+
+test('each source reads its own token quota, never the load balancer', async () => {
+  const { fetchRateLimitData } = require('../api_rate_diagnostic/rate_limits.js');
+  const seenTokens = [];
+  const quotas = {
+    'pat-token': { resources: { core: { limit: 5000, used: 4990, remaining: 10, reset: 1 } } },
+    'app-token': { resources: { core: { limit: 5000, used: 7, remaining: 4993, reset: 2 } } },
+  };
+  class FakeOctokit {
+    constructor({ auth }) {
+      seenTokens.push(auth);
+      this.rest = { rateLimit: { get: async () => ({ data: quotas[auth] }) } };
+    }
+  }
+  const pat = await fetchRateLimitData({ token: 'pat-token', Octokit: FakeOctokit });
+  const app = await fetchRateLimitData({ token: 'app-token', Octokit: FakeOctokit });
+  assert.deepEqual(seenTokens, ['pat-token', 'app-token']);
+  assert.equal(normalizeRateLimitData(pat, 'OWNER_PR_PAT').core.used, 4990);
+  assert.equal(normalizeRateLimitData(app, 'WORKFLOWS_APP').core.used, 7);
+  assert.notEqual(
+    normalizeRateLimitData(pat, 'OWNER_PR_PAT').reset,
+    normalizeRateLimitData(app, 'WORKFLOWS_APP').reset,
+  );
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'api_rate_diagnostic', 'rate_limits.js'),
+    'utf8',
+  );
+  const fetchBody = source.slice(
+    source.indexOf('async function fetchRateLimitData'),
+    source.indexOf('async function runFetchRateLimitStep'),
+  );
+  assert.doesNotMatch(fetchBody, /createTokenAwareRetry|withRetry/);
+  await assert.rejects(() => fetchRateLimitData({ token: '', Octokit: FakeOctokit }), /step token/);
+});
+
+function repeatedFailureHarness(completedRuns) {
+  const calls = { listRuns: [], created: [], comments: [], getRun: 0 };
+  const client = {
+    rest: {
+      actions: {
+        getWorkflowRun: async () => {
+          calls.getRun += 1;
+          return { data: { status: 'in_progress', conclusion: null } };
+        },
+        getWorkflow: async () => ({ data: { id: 75 } }),
+        listWorkflowRuns: async (params) => {
+          calls.listRuns.push(params);
+          return { data: { workflow_runs: completedRuns } };
+        },
+      },
+      issues: {
+        listForRepo: async () => ({ data: [] }),
+        create: async (params) => {
+          calls.created.push(params);
+          return { data: { number: 1 } };
+        },
+        createComment: async (params) => {
+          calls.comments.push(params);
+          return { data: {} };
+        },
+      },
+    },
+  };
+  const env = {
+    GITHUB_REPOSITORY: 'stranske/Workflows',
+    GITHUB_RUN_ID: '999',
+    GITHUB_SERVER_URL: 'https://github.com',
+    GH_TOKEN: 'x',
+  };
+  const createTokenAwareRetry = async () => ({ withRetry: (fn) => fn(client) });
+  class Octokit {}
+  return { calls, env, createTokenAwareRetry, Octokit };
+}
+
+test('two completed failed runs file the repeated-failure issue', async () => {
+  const { createOrUpdateRepeatedFailureIssue } = require('../api_rate_diagnostic/issue_alerts.js');
+  const harness = repeatedFailureHarness([
+    { id: 998, status: 'completed', conclusion: 'failure' },
+    { id: 997, status: 'completed', conclusion: 'failure' },
+  ]);
+  const result = await createOrUpdateRepeatedFailureIssue(harness);
+  assert.equal(result.action, 'created');
+  assert.equal(harness.calls.created.length, 1);
+  assert.deepEqual(harness.calls.created[0].labels, ['workflow-failure', 'automated', 'api-rate-limit']);
+  // It never asks for its own (still running) run, and lists completed runs only.
+  assert.equal(harness.calls.getRun, 0);
+  assert.equal(harness.calls.listRuns[0].status, 'completed');
+});
+
+test('the in-progress run itself is never one of the two judged runs', async () => {
+  const { createOrUpdateRepeatedFailureIssue } = require('../api_rate_diagnostic/issue_alerts.js');
+  const harness = repeatedFailureHarness([
+    { id: 999, status: 'completed', conclusion: 'failure' },
+    { id: 998, status: 'completed', conclusion: 'failure' },
+    { id: 997, status: 'completed', conclusion: 'success' },
+  ]);
+  const result = await createOrUpdateRepeatedFailureIssue(harness);
+  assert.equal(result.action, 'skipped');
+  assert.equal(result.reason, 'not-consecutive');
+  assert.equal(harness.calls.created.length, 0);
+});
+
+test('one failure followed by a success files nothing', async () => {
+  const { createOrUpdateRepeatedFailureIssue } = require('../api_rate_diagnostic/issue_alerts.js');
+  const harness = repeatedFailureHarness([
+    { id: 998, status: 'completed', conclusion: 'failure' },
+    { id: 997, status: 'completed', conclusion: 'success' },
+  ]);
+  const result = await createOrUpdateRepeatedFailureIssue(harness);
+  assert.equal(result.action, 'skipped');
+  assert.equal(harness.calls.created.length, 0);
+});
