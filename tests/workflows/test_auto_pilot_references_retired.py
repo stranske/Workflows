@@ -29,7 +29,6 @@ ALLOWED = {
     # Reuse-marker workflow tag on issue bodies Auto-Pilot formatted; removing it would
     # re-derive formatting for every such body.
     "scripts/langchain/issue_formatter.py",
-    "templates/consumer-repo/scripts/langchain/issue_formatter.py",
     # Label inventory used by the label cleaner.
     "scripts/cleanup_labels.py",
 }
