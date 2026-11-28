@@ -859,6 +859,9 @@ curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/con
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/autofix.yml -o .github/workflows/autofix.yml
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/.github/workflows/pr-00-gate.yml -o .github/workflows/pr-00-gate.yml
 
+# Install Gate's repository path policy from the same source as managed delivery.
+curl -fsSL https://raw.githubusercontent.com/stranske/Workflows/main/.github/path-classification.yml -o .github/path-classification.yml
+
 # Root agent guidance and target-environment contract synced through .github/sync-manifest.yml
 mkdir -p docs
 curl -sL https://raw.githubusercontent.com/stranske/Workflows/main/templates/consumer-repo/AGENTS.md -o AGENTS.md

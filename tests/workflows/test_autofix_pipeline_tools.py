@@ -12,6 +12,7 @@ from scripts import (
     mypy_return_autofix,
     update_autofix_expectations,
 )
+from scripts.auto_type_hygiene import process_file
 
 from tests._autofix_diag import DiagnosticsRecorder
 
@@ -108,6 +109,19 @@ def test_update_autofix_expectations_overwrites_constant(
         outcome="changed",
         changed=True,
     )
+
+
+def test_auto_type_hygiene_adds_ignore(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sample = tmp_path / "module.py"
+    sample.write_text("import untyped_mod\n", encoding="utf-8")
+
+    module_name = "untyped_mod"
+    monkeypatch.setattr(auto_type_hygiene, "ALLOWLIST", [module_name])
+    monkeypatch.setattr(auto_type_hygiene, "SRC_DIRS", [], raising=False)
+
+    changed, new_lines = process_file(sample)
+    assert changed
+    assert new_lines[0].endswith("# type: ignore[import-untyped, unused-ignore]")
 
 
 def test_auto_type_hygiene_inserts_type_ignore(
