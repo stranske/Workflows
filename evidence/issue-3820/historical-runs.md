@@ -17,8 +17,9 @@ scanner captures. The original paths, manifests and data are in the
 
 ## Recover the original paths
 
-Run from a Workflows checkout. The command fetches the publishing snapshot if
-needed and prints a new directory containing the original paths and modes.
+Run from any directory inside a Workflows checkout. The command fetches the
+pinned snapshot from the publishing repository when needed and prints a new
+directory containing the original paths and modes.
 Checksums use paths relative to the export root. Commands in a historical
 report refer to the source revision named in that report.
 
@@ -27,12 +28,15 @@ report refer to the source revision named in that report.
   set -e
   revision=3c84badc9c7859de9f9c97b47fe45c77200fde13
   directory=evidence/issue-3820
+  if [ "$(git rev-parse --is-bare-repository)" = false ]; then
+    cd "$(git rev-parse --show-toplevel)"
+  fi
   if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
-    git fetch --no-tags --depth=1 origin "$revision"
+    git fetch --no-tags --depth=1 https://github.com/stranske/Workflows.git "$revision"
   fi
   recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-3820-runs.XXXXXX")
-  git archive --output="$recovered/evidence.tar" "$revision" -- "$directory"
-  tar -xf "$recovered/evidence.tar" -C "$recovered"
+  git -c tar.umask=0022 archive --output="$recovered/evidence.tar" "$revision" -- "$directory"
+  tar -xpf "$recovered/evidence.tar" -C "$recovered"
   rm "$recovered/evidence.tar"
   printf '%s\n' "$recovered/$directory"
 )
