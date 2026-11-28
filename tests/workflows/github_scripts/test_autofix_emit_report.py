@@ -11,7 +11,8 @@ from unittest.mock import patch
 
 import pytest
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "autofix_emit_report.py"
+SCRIPT_DIR = Path(__file__).resolve().parents[3] / ".github" / "scripts"
+SCRIPT_PATH = SCRIPT_DIR / "autofix_emit_report.py"
 SPEC = importlib.util.spec_from_file_location("autofix_emit_report", SCRIPT_PATH)
 assert SPEC is not None
 assert SPEC.loader is not None
