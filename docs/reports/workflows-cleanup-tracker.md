@@ -7,6 +7,31 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 27 evening · Script and test ownership
+
+Stage 3 reached **677/752 files and 39/43 folders**. Stage 4 reached **1,376/1,540 files and 146/177 folders**. This pass settled 419 original files and 9 original folders. Of the newly accepted files, 338 stayed with their owners, 54 moved, 3 were consolidated and 25 were retired. One previously accepted file was reopened after a receiving-version mismatch. Of the 9 newly accepted folders, 3 were eliminated. The stage totals count original paths. Newly introduced destinations appear in the successor register.
+
+| Change on the Workflows default branch | Functional check |
+|---|---|
+| [#5405](https://github.com/stranske/Workflows/pull/5405) moved two historical delivery validators out of production scripts and put the captured records under test fixtures. | All 19 original cases passed on installed source, including the hosted ancestry check with real Git history. |
+| [#5407](https://github.com/stranske/Workflows/pull/5407) merged two GitHub API retry suites. | All 38 affected cases ran from the canonical suite. Gate kept all 4,305 JavaScript case entries and outcomes. |
+| [#5408](https://github.com/stranske/Workflows/pull/5408) restored the runtime checks for 20 relocated Python CLIs and repaired two operator commands. | Inserting a retired runtime in the relocated Maint 79 CLI now fails the right check. All 87 asset checks and both documented selectors passed on installed source. |
+| [#5411](https://github.com/stranske/Workflows/pull/5411) grouped 20 PR verifier suites under their evaluator. | All 650 moved case IDs retained their owner and partition. Both trees collected 47,294 ordinary cases, 16,944 Gate main cases and 30,340 grammar cases. An installed replay passed 846 cases with one existing owner-local capture skip. |
+| [#5412](https://github.com/stranske/Workflows/pull/5412) removed the redundant audit wrapper and duplicate event-test import. | Five archive checks still execute all 15 assertions. All 57 native cases passed, with 16 accidental second executions removed. |
+| [#5413](https://github.com/stranske/Workflows/pull/5413) deleted the unused 241-byte verifier example and its README. | The live producer still wrote three outputs and reproduced all 676 bytes of the retained patch. Bare Node kept 137 cases and Gate kept 4,307, including the same skip. |
+
+The 12 primary Python jobs for these six PRs took 320–552 seconds. The eight primary jobs for the four later changes took 276–446 seconds. All 20 met the 600-second checkpoint. The independently merged [#5403](https://github.com/stranske/Workflows/pull/5403) moved 14 root suites beside their owning features. Its 406 moved cases kept their identities under ordinary and hosted selection and all executed across the selected workspace and supported scaffold runtimes. Its one new case reads historical mutation receipts after the move.
+
+The independently merged [#5393](https://github.com/stranske/Workflows/pull/5393) removed 49 shadow copies under the raw template's `scripts/` and `tools/`, eliminating 30,364 lines. All 49 managed route comparisons were unchanged. The registered GitHub template has the exact canonical content for 47. Both real receiver workflows fetch the follow-up generator from Workflows at runtime; 224 generator and delivery checks passed. The development dependency sync script has a different receiving version and remains open for delivery. A separate documented manual installation step still copies `.github/scripts/`. Of the paths reviewed there, 25 both serve a verified executable reader and match all 16 receiving defaults. The exported Orchestrator skill helper also reached all 16 receiving defaults; the real playbook and missing-file control produced the expected results with an installed receiving package. The corrective Autofix source is on main in [#5371](https://github.com/stranske/Workflows/pull/5371). Its scoped consumer canary encountered an unresolved historical receipt and produced zero receiving writes. The operator cannot count that run as consumer delivery.
+
+[#5418](https://github.com/stranske/Workflows/pull/5418) exercises installation of the integration scaffold on supported runners without requiring preinstalled build tools. Both previous hosted jobs skipped for missing wheel. The exact new JUnit entries show an executed package install lasting 8.086 s on Python 3.13 and 9.277 s on 3.14. The test also failed on a deliberately broken generated project.
+
+[#5419](https://github.com/stranske/Workflows/pull/5419) removes a static comment about retired Auto-Pilot and directly checks the active verifier cache pin and key on ordinary runners. Its two remaining install checks read the optimizer and verifier workflow definitions. The local suite passed all 32 cases and a changed cache key failed. The native Gate JUnit reports record the cache assertion running on both hosted Python versions.
+
+[#5421](https://github.com/stranske/Workflows/pull/5421) moves the offline subscription-evidence validator and its 164 cases beside the keepalive feature. The final head also preserves the recurring asset guard on the new path; the ordinary and hosted rosters match after mapping.
+
+[#5422](https://github.com/stranske/Workflows/pull/5422) moves six more loose root suites beside their actual owners. All 448 moved cases passed. The first hosted run caught eight additional failures in three closer suites that still imported an old path. Their imports were repaired and all eight passed on the revised head; 419 adapter and closer cases passed together.
+
 ### November 28 · Test suites and historical inputs
 
 [Workflows #5375](https://github.com/stranske/Workflows/pull/5375) moved 15 loose suites into the LangChain and tools test folders and combined nine authentication cases with their existing suite. Four Maint 71 JSON examples now occupy two files, with every original value preserved. The executable sync test helper moved out of fixtures. All 501 affected Python cases passed on the installed revision and kept their identities under ordinary and hosted discovery. The three native suites passed 387 cases. The primary Python Gate jobs took 514 and 546 seconds, both within 600 seconds. [Installed tree](https://github.com/stranske/Workflows/commit/42510ca63ebcfc3da46de1ba55e061a6adfe8274) · [Native Gate](https://github.com/stranske/Workflows/actions/runs/46076506333)
@@ -421,20 +446,20 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 516/752 | 37/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,118/1,540 | 139/177 | — |
+| 3 · Scripts, tools and packages | 677/752 | 39/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,376/1,540 | 146/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 203/334 | 26/47 | — |
-| **Total** | **3,809/5,554** | **320/487** | **198/198** |
+| **Total** | **4,228/5,554** | **329/487** | **198/198** |
 
-**Directory organization.** 3,597 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 4,016 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
 | Workflow disposition | Count |
 |---|---:|
 | [Keep in current role](workflow-decisions.md#keep) | 128 |
-| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 25 |
-| [Other verified decisions](workflow-decisions.md#verified) | 45 |
+| [Verified removals and consolidations of workflow definitions](workflow-decisions.md#retire) | 26 |
+| [Other verified decisions](workflow-decisions.md#verified) | 44 |
 | [Awaiting verification](workflow-decisions.md#waiting) | 0 |
 | [In review](workflow-decisions.md#review) | 0 |
 | [Proposed changes](workflow-decisions.md#proposed) | 0 |
