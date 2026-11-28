@@ -18,7 +18,7 @@ const BLOCKED_FILES = new Set([
 ]);
 function routingLabelsFromRegistry(text) {
   // Parse only the canonical agents mapping, never execute registry contents.
-  const labels = new Set(['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive']);
+  const labels = new Set(['agent:auto', 'agent:copilot', 'agents:keepalive']);
   const agents = new Map();
   let inAgents = false;
   let sections = 0;

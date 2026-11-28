@@ -321,16 +321,6 @@ jobs:
                 return;
               }
 
-              // Skip auto-pilot PRs — auto-pilot manages its own quality flow
-              const hasAutoPilot = pr.labels.some(l => l.name === 'agents:auto-pilot');
-              if (hasAutoPilot) {
-                console.log(`PR #${prNumber} is auto-pilot managed, skipping bot-comment handler`);
-                core.setOutput('pr_number', prNumber || '');
-                core.setOutput('skip_reason', 'auto-pilot-managed');
-                core.setOutput('should_run', 'false');
-                return;
-              }
-
               shouldRun = true;
               skipReason = '';
               console.log(`Gate completion trigger for agent PR #${prNumber}`);

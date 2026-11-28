@@ -154,11 +154,11 @@ def test_dashboard_issue_uses_durable_tracker_labels() -> None:
 
 def test_run_discovery_targets_workflows_with_runs() -> None:
     source = WORKFLOW.read_text(encoding="utf-8")
-    discovery_line = next(line for line in source.splitlines() if "for WORKFLOW_PATH in" in line)
+    discovery_line = next(line for line in source.splitlines() if "WORKFLOW_PATH=" in line)
 
-    assert "AUTOPILOT_WORKFLOW=222302722" in source
-    assert "AUTOPILOT_WORKFLOW=agents-auto-pilot.yml" in source
-    assert '"$AUTOPILOT_WORKFLOW"' in discovery_line
+    # Auto-Pilot was retired in #5379; its runs age out of the 7-day window.
+    assert "AUTOPILOT_WORKFLOW" not in source
+    assert "agents-auto-pilot" not in source
     assert "agents-verifier.yml" in discovery_line
     assert "reusable-agents-verifier.yml" not in discovery_line
 

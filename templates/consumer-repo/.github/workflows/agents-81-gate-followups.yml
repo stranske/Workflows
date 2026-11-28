@@ -219,7 +219,6 @@ jobs:
                       name.startswith("autofix")
                       or name.startswith("agent:")
                       or name in {
-                          "agents:auto-pilot",
                           "agents:keepalive",
                           "agents:paused",
                           "needs-human",
