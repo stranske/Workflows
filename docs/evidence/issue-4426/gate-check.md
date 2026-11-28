@@ -1,5 +1,9 @@
 # Issue #4426 Gate check and stop rule
 
+The [historical follow-up recovery](follow-up-status.md#recover-the-historical-follow-up-captures) restores the loose capture files
+at the original paths cited in these dated notes. The recovery sections below
+also describe earlier packets and separately pinned coverage snapshots.
+
 ## Provisioned baseline comparison and ranked remainder completion, 2026-11-12
 
 Offline Git objects for baseline checkout `682c12c02f24e2b8ee8d69da0d54dae28a87977d`
