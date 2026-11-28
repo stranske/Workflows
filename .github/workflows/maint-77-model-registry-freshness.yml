@@ -103,7 +103,7 @@ jobs:
             echo "baselines_changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "baselines_changed=true" >> "$GITHUB_OUTPUT"
-            # The consumer template holds a byte copy (scripts/validate_template_sync.py
+            # The consumer template holds a byte copy (scripts/consumer_sync/validate_template_sync.py
             # sources). Ship both in one commit: otherwise Health 72 pushes a sync commit
             # to the baseline PR, the head moves inside the review window, and the PR
             # never arms auto-merge.
