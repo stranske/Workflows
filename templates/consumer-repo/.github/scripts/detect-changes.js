@@ -98,6 +98,11 @@ function isDocumentationFile(filename) {
     return false;
   }
 
+  // Evidence and documentation test directories can contain executable Python.
+  if (normalized.endsWith('.py')) {
+    return false;
+  }
+
   if (DOC_EXTENSIONS.some(ext => normalized.endsWith(ext))) {
     return true;
   }
