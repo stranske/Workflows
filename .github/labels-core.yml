@@ -26,19 +26,19 @@
   description: Assign to Muse agent (muse CLI)
 - name: runner:codex
   color: "6f42c1"
-  description: "Auto-pilot runner override: codex"
+  description: "Retired runner override: codex"
 - name: runner:claude
   color: "6f42c1"
-  description: "Auto-pilot runner override: claude"
+  description: "Retired runner override: claude"
 - name: runner:cursor
   color: "6f42c1"
-  description: "Auto-pilot runner override: cursor"
+  description: "Retired runner override: cursor"
 - name: runner:gemini
   color: "6f42c1"
-  description: "Auto-pilot runner override: gemini"
+  description: "Retired runner override: gemini"
 - name: runner:muse
   color: "6f42c1"
-  description: "Auto-pilot runner override: muse"
+  description: "Retired runner override: muse"
 - name: agent:copilot
   color: "1d76db"
   description: Assign to Copilot
