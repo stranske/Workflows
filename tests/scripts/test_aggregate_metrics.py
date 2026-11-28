@@ -70,7 +70,6 @@ def test_aggregate_traces_empty_metrics() -> None:
     assert summary["total_with_traces"] == 0
     assert summary["trace_coverage_pct"] == 0.0
     assert summary["by_operation"] == {}
-    assert summary["by_step"] == {}
 
 
 def test_aggregate_traces_with_traces() -> None:
@@ -124,54 +123,14 @@ def test_aggregate_traces_with_trace_lists() -> None:
     }
 
 
-def test_aggregate_traces_autopilot_steps() -> None:
-    """Test grouping by autopilot step_name."""
-    metrics = [
-        {
-            "metric_type": "autopilot",
-            "step_name": "format",
-            "langsmith_trace_id": "t1",
-        },
-        {
-            "metric_type": "autopilot",
-            "step_name": "format",
-            "langsmith_trace_id": "t2",
-        },
-        {"metric_type": "autopilot", "step_name": "optimize"},
-        {
-            "metric_type": "autopilot",
-            "step_name": "apply",
-            "langsmith_trace_id": "t3",
-        },
-    ]
-
-    summary = aggregate_traces(metrics)
-
-    assert summary["by_step"]["format"] == {
-        "total": 2,
-        "with_trace": 2,
-        "coverage_pct": 100.0,
-    }
-    assert summary["by_step"]["optimize"] == {
-        "total": 1,
-        "with_trace": 0,
-        "coverage_pct": 0.0,
-    }
-    assert summary["by_step"]["apply"] == {
-        "total": 1,
-        "with_trace": 1,
-        "coverage_pct": 100.0,
-    }
-
-
 def test_aggregate_traces_missing_fields() -> None:
-    """Test handling of records missing metric_type or step_name."""
+    """Test handling of records missing metric_type."""
     metrics = [
         {"langsmith_trace_id": "t1"},  # No metric_type
         {
-            "metric_type": "autopilot",
+            "metric_type": "verifier",
             "langsmith_trace_id": "t2",
-        },  # No step_name
+        },
     ]
 
     summary = aggregate_traces(metrics)
@@ -182,12 +141,7 @@ def test_aggregate_traces_missing_fields() -> None:
         "with_trace": 1,
         "coverage_pct": 100.0,
     }
-    # Both metrics lack step_name, so both go to "unknown" step
-    assert summary["by_step"]["unknown"] == {
-        "total": 2,
-        "with_trace": 2,
-        "coverage_pct": 100.0,
-    }
+    assert "by_step" not in summary
 
 
 def test_format_report() -> None:
@@ -197,7 +151,6 @@ def test_format_report() -> None:
         "total_with_traces": 8,
         "trace_coverage_pct": 80.0,
         "by_operation": {"api_call": {"total": 5, "with_trace": 4, "coverage_pct": 80.0}},
-        "by_step": {"format": {"total": 3, "with_trace": 3, "coverage_pct": 100.0}},
     }
 
     output = format_report(summary)
@@ -205,28 +158,24 @@ def test_format_report() -> None:
     assert "# LangSmith Trace Coverage Report" in output
     assert "Coverage: 80.0%" in output
     assert "| api_call |" in output
-    assert "| format |" in output
     assert "80.0%" in output
-    assert "100.0%" in output
 
 
 def test_format_report_empty_groups() -> None:
-    """Test report formatting when operation/step groups are empty."""
+    """Test report formatting when the operation group is empty."""
     summary = {
         "total_metrics": 0,
         "total_with_traces": 0,
         "trace_coverage_pct": 0.0,
         "by_operation": {},
-        "by_step": {},
     }
 
     output = format_report(summary)
 
     assert "# LangSmith Trace Coverage Report" in output
     assert "Coverage: 0.0%" in output
-    # Should not contain operation/step tables
     assert "## Coverage by Operation" not in output
-    assert "## Coverage by Autopilot Step" not in output
+    assert "Step" not in output
 
 
 def test_end_to_end(tmp_path: Path) -> None:
