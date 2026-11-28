@@ -1,137 +1,34 @@
 # Model Management Guide
 
-## Keeping Model Lists Current
-
-The workflows support various LLM models from different providers. This guide explains how to keep the model lists up-to-date.
-
 ## Quick Update Process
 
-```bash
-# Set your OpenAI API key
-export OPENAI_API_KEY="sk-..."
-
-# Run the update script
-./scripts/update_model_list.sh
-```
-
-This will fetch the current list of available models from OpenAI's API and display them categorized by series.
-
-## Manual API Query
-
-You can also query the API directly:
+To see the models available to an OpenAI API key, set `OPENAI_API_KEY` in your shell and run this read-only query. Keep the result local if it contains account-specific model IDs.
 
 ```bash
-curl https://api.openai.com/v1/models \
-  -H "Authorization: Bearer $OPENAI_API_KEY" | jq '.data[].id' | sort
+set -o pipefail
+curl --fail --silent --show-error https://api.openai.com/v1/models \
+  -H "Authorization: Bearer ${OPENAI_API_KEY:?Set OPENAI_API_KEY first}" |
+  jq -r '.data | map(.id) | sort[]'
 ```
 
-## Model Selection Guidelines
-
-### GitHub Models (no extra API key required)
-- **codex-mini-latest**: Useful fallback slot for code-centric extraction tasks
-- **gpt-4o**: Older general GitHub Models option, no longer a verifier default
-- **Meta-Llama-3.1-405B-Instruct**: Large open-weight option when GitHub Models access is needed
-
-### OpenAI Models (requires OPENAI_API_KEY)
-- **o1 / o1-preview**: Reasoning models - best for critical evaluation
-- **gpt-5.4**: High-quality strict evaluation
-- **gpt-5.4-mini**: High-quality mini used where faster review loops matter
-
-### Efficient Models (for rapid iteration)
-- **gpt-4o-mini**: Fast, cost-effective (but too lenient for verification)
-- **Mistral-Nemo**: Smaller Mistral model
-
-### Verification Mode Defaults
-- **verify:evaluate**: gpt-5.4
-- **verify:compare**: gpt-5.4 (OpenAI) + claude-sonnet-4-6 (Anthropic)
-- **verify follow-up generation**: o3-mini (reasoning) + gpt-5.4 (standard rounds)
-- **progress review**: gpt-5.4-mini
-
-Note: gpt-4o-mini was found to be too lenient, passing obvious deficiencies.
-verify:compare now requires both OPENAI_API_KEY and ANTHROPIC_API_KEY for the
-highest-quality cross-provider evaluation path.
-
-### GitHub Models vs OpenAI
-
-**GitHub Models API** (`https://models.inference.ai.azure.com`):
-- Uses GITHUB_TOKEN (no additional API key needed)
-- Provides access to various models including Meta-Llama
-- May have different model availability than OpenAI
-
-**OpenAI API** (`https://api.openai.com`):
-- Requires OPENAI_API_KEY
-- Direct access to all OpenAI models
-- Generally has latest models first
-
-## Updating Workflow Configurations
-
-After checking current models, update these files:
-
-### 1. Consumer Template Workflow
-**File**: `templates/consumer-repo/.github/workflows/agents-verifier.yml`
-
-Update the model descriptions:
-```yaml
-model:
-  description: >-
-    GitHub Models: [list here] | OpenAI: [list here]
-```
-
-Update default values for compare mode (lines ~155-156):
-```javascript
-core.setOutput('model', 'gpt-4o');  // High quality model
-core.setOutput('model2', 'o1');     // Different high quality model
-```
-
-### 2. Reusable Workflow (if needed)
-**File**: `.github/workflows/reusable-agents-verifier.yml`
-
-Update input descriptions if model lists change significantly.
-
-### 3. Sync Changes
-After updating templates:
-```bash
-git add templates/consumer-repo/.github/workflows/agents-verifier.yml
-git commit -m "Update model lists to current OpenAI offerings"
-git push
-```
-
-The sync workflow will automatically propagate changes to consumer repos.
-
-## Testing New Models
-
-Before setting as defaults, test new models:
-
-```bash
-# Test with pr_verifier locally
-python scripts/langchain/pr_verifier.py \
-  --repo owner/repo \
-  --pr 123 \
-  --mode evaluate \
-  --model "new-model-name" \
-  --json
-```
-
-Or trigger workflow manually with `workflow_dispatch` and specify the model.
-
-## Model Naming Notes
-
-- **Base names** (e.g., `gpt-4o`) point to latest stable version
-- **Dated versions** (e.g., `gpt-4o-2024-08-06`) are frozen snapshots
-- Use base names in workflows for automatic updates
-- Use dated versions when reproducibility is critical
-
-## Resources
-
-- **OpenAI Models Docs**: https://platform.openai.com/docs/models
-- **OpenAI API Reference**: https://platform.openai.com/docs/api-reference/models
-- **GitHub Models**: GitHub.com → Settings → GitHub Models (for available models)
+In a consumer repository, open **Actions → List LLM Models**, select the default branch and choose **openai**. The workflow documents what it can publish for public and private repositories. The **github-models** catalog option is retired. [Consumer workflow](../templates/consumer-repo/.github/workflows/list-llm-models.yml)
 
 ## Scheduled Updates
 
-Recommend checking for model updates:
-- Monthly for production stability
-- Weekly if using cutting-edge features
-- After OpenAI announces new releases
+Maint 77 checks the registry and reports catalog changes weekly. To run the same discovery tool locally for OpenAI, use the repository's Python environment from the checkout root.
 
-Run `./scripts/update_model_list.sh` to check current availability.
+```bash
+python tools/discover_model_catalog.py --provider openai
+```
+
+Read the provider's `status` in the JSON report. It gives the observed count and changes against the recorded baseline when the provider responds. An unavailable credential or service produces `skipped` with the reason. Detected drift returns exit code 1. [Catalog discovery policy](MODEL_SELECTION_POLICY.md#catalog-discovery) · [Maint 77](../.github/workflows/maint-77-model-registry-freshness.yml)
+
+## Testing New Models
+
+To inspect the chosen profiles, their review dates and the evidence behind them, read the selections in the registry.
+
+```bash
+jq .selections config/model_registry.json
+```
+
+Use the selection policy to compare a candidate against the incumbent on the recorded workload and to prepare a reviewed promotion or rollback. The slot configuration records the runtime assignments. [Selection policy](MODEL_SELECTION_POLICY.md) · [Model registry](../config/model_registry.json) · [Runtime slots](../config/llm_slots.json)

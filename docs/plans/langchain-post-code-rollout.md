@@ -854,7 +854,7 @@ If any workflow causes issues in consumer repos:
 
 ### Future Enhancements
 1. **Compare mode refinement** - Currently uses gpt-4o (GitHub) vs gpt-5.2 (OpenAI)
-2. **Model auto-update** - Use `scripts/update_model_list.sh` periodically
+2. **Model catalog updates** - Follow the [model management guide](../MODEL_MANAGEMENT.md) for current availability and scheduled checks.
 3. **Domain-specific guidance** - Add prompts for retry patterns, health check endpoints
 
 ---
