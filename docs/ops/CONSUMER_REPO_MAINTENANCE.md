@@ -1147,7 +1147,7 @@ recognized object and coordination starts its own bare/`to` complement under
 the same product subject; a new human subject or unknown predicate cannot inherit it.
 
 Regression gates: `python3 -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py
-tests/scripts/test_pr_verifier_sync_manifest.py -q --no-cov` and
+tests/scripts/pr_verifier/test_pr_verifier_sync_manifest.py -q --no-cov` and
 `node --test .github/scripts/__tests__/agents-verifier-context.test.js`.
 The latter exercises real merge, squash, and rebase histories with a later base
 advance. Keep exact-head canary reviews and seals pending until the source fix

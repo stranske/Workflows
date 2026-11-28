@@ -104,7 +104,7 @@ not measured hosted timings; the broader task and runtime evidence remain open.
 Validate these changes with:
 
 ```sh
-pytest tests/scripts/test_pr_verifier_grammar_inventory.py tests/scripts/test_pr_verifier_relative_presence_groups.py tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_body_overall_integration.py -q -m "not slow"
+pytest tests/scripts/pr_verifier/test_pr_verifier_grammar_inventory.py tests/scripts/pr_verifier/test_pr_verifier_relative_presence_groups.py tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_body_overall_integration.py -q -m "not slow"
 ```
 
 ## PR #4456: body-clause classifier/floor split
@@ -158,13 +158,13 @@ functions retain every original combination, so no independence assumption or
 semantic/lexical decomposition is applied to them. For the 18 bounded functions,
 join on `function` with `verifier-grammar-matrices.json` for the explicit semantic
 dimensions and lexical interactions. The focused tests in
-`tests/scripts/test_pr_verifier_grammar_inventory.py` check the inventory against
+`tests/scripts/pr_verifier/test_pr_verifier_grammar_inventory.py` check the inventory against
 the actual decorators and verify that every declared semantic and lexical
 projection has an emitted case. They enumerate only bounded witnesses, without
 executing another grammar cross-product. Run them with:
 
 ```sh
-python -m pytest tests/scripts/test_pr_verifier_grammar_inventory.py -q -m "not slow"
+python -m pytest tests/scripts/pr_verifier/test_pr_verifier_grammar_inventory.py -q -m "not slow"
 ```
 
 When intentionally changing parametrizations, update the retained inventory and
@@ -475,7 +475,7 @@ while still building and checking real evidence contexts for both missing states
 The optimization relies on the classifier's existing purity/cache contract;
 missing status is an evidence input, never an acceptance-criterion input.
 
-`tests/scripts/test_pr_verifier_relative_presence_groups.py` checks the actual
+`tests/scripts/pr_verifier/test_pr_verifier_relative_presence_groups.py` checks the actual
 parameter marks form exactly 324 pairs with identical non-status coordinates,
 that no other destination regression uses the family group namespace, and that
 all 2,592 unique helper dispatches remain. The existing helper's four presence

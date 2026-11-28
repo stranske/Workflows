@@ -76,18 +76,25 @@ def test_pr_4000_tests_are_on_this_branch_and_artifacts_are_unavailable() -> Non
 
 
 # #4602 carried these #4405 test files; tests/tools/test_langchain_client.py was not carried.
-CARRIED_4405_FILES = (
-    "tests/scripts/test_pr_verifier_config_and_report.py",
-    "tests/scripts/test_pr_verifier_diff_path_parsing.py",
-    "tests/scripts/test_verifier_config.py",
-)
+# The inventory retains the original paths as keys; values point at the current suites.
+CARRIED_4405_FILES = {
+    "tests/scripts/test_pr_verifier_config_and_report.py": (
+        "tests/scripts/pr_verifier/test_pr_verifier_config_and_report.py"
+    ),
+    "tests/scripts/test_pr_verifier_diff_path_parsing.py": (
+        "tests/scripts/pr_verifier/test_pr_verifier_diff_path_parsing.py"
+    ),
+    "tests/scripts/test_verifier_config.py": "tests/scripts/test_verifier_config.py",
+}
 # A langchain_client slot test; tests/tools/test_langchain_client.py already covers those helpers.
 NOT_CARRIED_4405_TESTS = frozenset({"test_slot_config_wrappers_delegate_to_registry"})
 
 
 def test_pr_4405_carried_tests_remain_available() -> None:
     record = _inventory()["pull_requests"]["4405"]
-    carried = "".join((ROOT / path).read_text(encoding="utf-8") for path in CARRIED_4405_FILES)
+    carried = "".join(
+        (ROOT / path).read_text(encoding="utf-8") for path in CARRIED_4405_FILES.values()
+    )
     for path in CARRIED_4405_FILES:
         for name in record["added_tests"][path]:
             if name not in NOT_CARRIED_4405_TESTS:

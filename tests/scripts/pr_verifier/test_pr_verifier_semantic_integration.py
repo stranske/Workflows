@@ -185,7 +185,7 @@ def test_cli_recovers_reviewed_oversize_capture_through_complete_joint_matrix(
 
     from tools import verifier_semantic_rules as rules
 
-    fixture = Path(__file__).parents[1] / "fixtures/verifier_semantic_packages"
+    fixture = Path(__file__).resolve().parents[2] / "fixtures/verifier_semantic_packages"
     capture = json.loads((fixture / "capture.json").read_text())
     context = (fixture / "context.bin").read_text()
     diff_path = fixture / "diff.bin"

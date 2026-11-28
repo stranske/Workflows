@@ -13,7 +13,7 @@ from scripts.langchain import pr_verifier
 
 from tests.scripts.verifier_capacity_fakes import with_capacity
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_freeform_original_request_reaches_native_input_preflight(tmp_path):
