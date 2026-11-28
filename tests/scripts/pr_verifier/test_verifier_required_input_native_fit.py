@@ -9,8 +9,11 @@ from unittest import mock
 import pytest
 from scripts.langchain import pr_verifier as verifier
 
-from tests.scripts.test_pr_verifier_file_chunks import Client, patch
-from tests.scripts.test_verifier_evaluate_evidence_minimum import replace_inventory, run_evaluate
+from tests.scripts.pr_verifier.test_pr_verifier_file_chunks import Client, patch
+from tests.scripts.pr_verifier.test_verifier_evaluate_evidence_minimum import (
+    replace_inventory,
+    run_evaluate,
+)
 from tests.scripts.verifier_capacity_fakes import complete_capture_context
 
 PARAGRAPH = (
@@ -91,7 +94,7 @@ def test_real_selected_large_tables_reach_native_admission(monkeypatch, overflow
         subprocess.check_output(
             [
                 "node",
-                str(Path(__file__).parent / "fixtures/selected_baseline_collector.js"),
+                str(Path(__file__).parents[1] / "fixtures/selected_baseline_collector.js"),
                 "--large-selected",
             ],
             text=True,
@@ -127,7 +130,7 @@ def test_selected_capture_never_waives_missing_required_material(monkeypatch, mi
         subprocess.check_output(
             [
                 "node",
-                str(Path(__file__).parent / "fixtures/selected_baseline_collector.js"),
+                str(Path(__file__).parents[1] / "fixtures/selected_baseline_collector.js"),
                 "--large-selected",
                 *(["--require-upload"] if missing == "mandatory_other_upload" else []),
             ],
@@ -259,7 +262,7 @@ def selected_tables_capture():
         subprocess.check_output(
             [
                 "node",
-                str(Path(__file__).parent / "fixtures/selected_baseline_collector.js"),
+                str(Path(__file__).parents[1] / "fixtures/selected_baseline_collector.js"),
                 "--large-selected",
             ],
             text=True,
@@ -288,7 +291,9 @@ def test_large_selected_required_proof_cannot_use_uncounted_legacy_route(monkeyp
 
 
 def test_omitted_optional_history_does_not_require_native_for_ordinary_legacy(monkeypatch):
-    from tests.scripts.test_verifier_evaluate_evidence_minimum import large_optional_capture
+    from tests.scripts.pr_verifier.test_verifier_evaluate_evidence_minimum import (
+        large_optional_capture,
+    )
 
     monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
     context, diff = large_optional_capture("Evidence must be posted in a PR comment.")

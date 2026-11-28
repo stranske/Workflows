@@ -220,7 +220,9 @@ def test_actual_evaluate_generation_receives_the_counted_disclosed_prompt(
 ):
     client, provider, _, counter, _ = native
     if budget_pressure:
-        from tests.scripts.test_verifier_evaluate_evidence_minimum import large_optional_capture
+        from tests.scripts.pr_verifier.test_verifier_evaluate_evidence_minimum import (
+            large_optional_capture,
+        )
 
         monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
         text, _ = large_optional_capture("Evidence must be posted in a PR comment.")
@@ -339,7 +341,9 @@ const github = {rest: {
 
 @pytest.mark.parametrize("operation", ["evaluate_pr", "evaluate_pr_chunk"])
 def test_evaluate_helper_counts_the_actual_fitted_prompt(native, monkeypatch, operation):
-    from tests.scripts.test_verifier_evaluate_evidence_minimum import large_optional_capture
+    from tests.scripts.pr_verifier.test_verifier_evaluate_evidence_minimum import (
+        large_optional_capture,
+    )
 
     monkeypatch.setenv("VERIFIER_ACCEPTANCE_EVIDENCE_BUDGET_TOKENS", "4000")
     text, _ = large_optional_capture("Evidence must be posted in a PR comment.")

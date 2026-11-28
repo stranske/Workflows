@@ -7,7 +7,7 @@ import pytest
 from scripts.langchain import pr_verifier as verifier
 
 spec = importlib.util.spec_from_file_location(
-    "coverage_fixture", Path(__file__).with_name("test_pr_verifier_prompt_coverage.py")
+    "coverage_fixture", Path(__file__).parents[1] / "test_pr_verifier_prompt_coverage.py"
 )
 fixture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixture)

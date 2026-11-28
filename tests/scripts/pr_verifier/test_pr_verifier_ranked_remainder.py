@@ -9,7 +9,7 @@ from unittest.mock import Mock, call
 import pytest
 from scripts.langchain import pr_verifier as verifier
 
-from tests.scripts.test_pr_verifier_file_chunks import Client, patch
+from tests.scripts.pr_verifier.test_pr_verifier_file_chunks import Client, patch
 
 
 @pytest.mark.parametrize(

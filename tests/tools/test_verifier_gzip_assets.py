@@ -277,7 +277,7 @@ def test_existing_chunks_include_whole_asset_views_without_fabricating_git_patch
     tmp_path, monkeypatch
 ):
     from tests.scripts.conftest import synthetic_verifier_capacity_contract
-    from tests.scripts.test_pr_verifier_file_chunks import Client
+    from tests.scripts.pr_verifier.test_pr_verifier_file_chunks import Client
 
     synthetic_verifier_capacity_contract.__wrapped__(monkeypatch)
     monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
