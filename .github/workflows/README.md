@@ -78,10 +78,10 @@ workflow files.
 |----------|-----------|-------|
 | [Gate](../../docs/ci/WORKFLOWS.md#pull-request-gate) | Pull request, manual dispatch | Consult the Gate job map for each check and its artifacts. |
 | [Minimal invariant CI](../../docs/ci/WORKFLOWS.md#minimal-invariant-ci) | Push and PR to `main`, manual dispatch | Open the syntax check for the failing path. |
-| `health-41-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues.
+| `health-41-repo-health.yml` | schedule (weekly), workflow_dispatch | Monday hygiene summary of stale branches and unassigned issues; a failure updates the self-check tracker issue (`[health] repository self-check failed`).
 | `maint-coverage-guard.yml` | schedule (daily), workflow_dispatch | Soft coverage guard that monitors the latest Gate coverage artifacts and updates the `[coverage] baseline breach` issue.
 | `maint-keepalive.yml` | schedule (17 */12 * * *), workflow_dispatch | Posts an Ops heartbeat comment with a UTC timestamp so scheduled runs leave an observable trace.
-| `health-40-repo-selfcheck.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection; defaults to verify-only mode and escalates to enforce+verify when `BRANCH_PROTECTION_TOKEN` is present while keeping a single failure tracker issue current.
+| `health-40-repo-selfcheck.yml` | schedule (daily + weekly), workflow_dispatch | Governance audit that validates labels, PAT availability, and branch protection (read-only: `health-44-gate-branch-protection.yml` is the only workflow that applies protection, from `.github/config/required-contexts.json`); reports the open zizmor alert count and its trend; keeps a single failure tracker issue current, which Health 41 failures also update.
 | `health-42-actionlint.yml` | pull_request (workflows), push (`main`), schedule, workflow_dispatch | Workflow schema lint with reviewdog annotations.
 | `health-43-ci-signature-guard.yml` | pull_request/push (`main`) | Validates the signed job manifest for `pr-00-gate.yml`.
 | `agents-63-issue-intake.yml` | issues, workflow_dispatch, workflow_call | Canonical intake workflow that normalizes ChatGPT topic lists and bridges `agent:codex` issues into the belt or intake paths. |

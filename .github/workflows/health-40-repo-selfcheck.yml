@@ -15,6 +15,8 @@ permissions:
   issues: write
   pull-requests: read
   checks: read
+  # Read-only: the snapshot reports the open zizmor alert count (cohesion review A5d).
+  security-events: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -121,21 +123,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Enforce branch protection policy
-        if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
-        continue-on-error: true  # Don't fail workflow if token lacks admin permissions
-        env:
-          GITHUB_TOKEN: ${{ steps.branch-token.outputs.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          DEFAULT_BRANCH: ${{ env.DEFAULT_BRANCH }}
-        run: |
-          python tools/enforce_gate_branch_protection.py \
-            --apply \
-            --branch "${DEFAULT_BRANCH}" \
-            --context "summary" \
-            --allow-non-strict \
-            --no-clean
-
+      # Health 44 is the ONLY workflow that applies branch protection
+      # (cohesion review A4). This step is read-only and takes the required
+      # contexts from the same file health-44 applies, never from a literal.
       - name: Snapshot branch protection state
         if: ${{ env.HAS_ADMIN_TOKEN == 'true' }}
         env:
@@ -145,8 +135,7 @@ jobs:
         run: |
           python tools/enforce_gate_branch_protection.py \
             --check \
-            --branch "${DEFAULT_BRANCH}" \
-            --context "summary" \
+            --config .github/config/required-contexts.json \
             --allow-non-strict \
             --no-clean \
             --snapshot repo-health-branch-protection.json
@@ -307,13 +296,14 @@ jobs:
               : branchDetail;
 
             const privilegedMode = privilegedChecksUsed
-              ? 'enforce+verify'
+              ? 'verify'
               : privilegedChecksSkipped
               ? 'verify-only'
               : 'unknown';
 
             const privilegedDetail = privilegedChecksUsed
-              ? 'Admin token configured; enforcement and verification both executed.'
+              ? 'Admin token configured; verification executed against ' +
+                '.github/config/required-contexts.json. Health 44 is the only writer.'
               : privilegedChecksSkipped
               ? 'Admin token not configured; running in verify-only mode with the default ' +
                 'GITHUB_TOKEN.'
@@ -515,7 +505,7 @@ jobs:
 
           if not privileged_mode:
               if privileged_used:
-                  privileged_mode = 'enforce+verify'
+                  privileged_mode = 'verify'
               elif privileged_skipped:
                   privileged_mode = 'verify-only'
               else:
@@ -762,6 +752,45 @@ jobs:
 
           PY
 
+      - name: Count open zizmor alerts
+        # The four security scans upload with continue-on-error and nothing read
+        # their alerts; the snapshot now prints the count and its trend.
+        if: always()
+        continue-on-error: true
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            // # best-effort: the zizmor count is FYI; an API failure renders as "not counted", never as zero.
+            const fs = require('fs');
+            const {
+              buildSnapshot,
+              countOpenAlerts,
+              renderMarkdown,
+            } = require('./.github/scripts/zizmor_alert_snapshot.js');
+            const { owner, repo } = context.repo;
+            const current = await countOpenAlerts({ github, owner, repo });
+            let previousBody = '';
+            let previousAt = '';
+            try {
+              const { data } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                labels: 'health:repo',
+                state: 'open',
+                per_page: 100,
+              });
+              const prior = data.find((issue) => issue.title === '[health] repository self-check');
+              previousBody = prior?.body || '';
+              previousAt = prior?.updated_at || '';
+            } catch (error) {
+              core.warning(`Previous snapshot lookup failed: ${error.message || error}`);
+            }
+            const snapshot = buildSnapshot({ current, previousBody, previousAt });
+            fs.writeFileSync('repo-health-zizmor.json', `${JSON.stringify(snapshot, null, 2)}\n`);
+            fs.writeFileSync('repo-health-zizmor.md', renderMarkdown(snapshot));
+            core.info(renderMarkdown(snapshot));
+
       - name: Generate repo health status body
         if: always()
         run: |
@@ -815,7 +844,7 @@ jobs:
               mode = privileged.get('mode')
               if not mode:
                   if privileged.get('used'):
-                      mode = 'enforce+verify'
+                      mode = 'verify'
                   elif privileged.get('skipped'):
                       mode = 'verify-only'
               if token_name:
@@ -878,6 +907,15 @@ jobs:
                       lines.append(f"- Add: {', '.join(f'`{entry}`' for entry in additions)}")
                   if removals:
                       lines.append(f"- Remove: {', '.join(f'`{entry}`' for entry in removals)}")
+
+          zizmor_path = Path('repo-health-zizmor.md')
+          lines.append('')
+          if zizmor_path.exists() and zizmor_path.read_text(encoding='utf-8').strip():
+              lines.append(zizmor_path.read_text(encoding='utf-8').strip())
+          else:
+              lines.append('## Security scan alerts')
+              lines.append('')
+              lines.append('*Open zizmor alerts:* not counted: the count step did not run')
 
           issue_path.write_text('\n'.join(lines).strip() + '\n', encoding='utf-8')
           PY
@@ -1204,6 +1242,9 @@ jobs:
           mkdir -p repo-health-artifacts
           if [ -f repo-health-summary.json ]; then
             cp repo-health-summary.json repo-health-artifacts/
+          fi
+          if [ -f repo-health-zizmor.json ]; then
+            cp repo-health-zizmor.json repo-health-artifacts/
           fi
           if [ -f repo-health-branch-protection.json ]; then
             cp repo-health-branch-protection.json repo-health-artifacts/
