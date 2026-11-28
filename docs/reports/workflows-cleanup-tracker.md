@@ -7,6 +7,34 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Verified receiver installations and four tested helper dependencies
+
+Stage 3 is complete at 752/752 files and 43/43 folders. Stage 4 has 1,523/1,540 file and 167/177 folder decisions accepted. Stage 1A holds all 198 accepted workflow decisions, and Stage 1B holds all 27 root file decisions. The original 28 checks separately have 26 production passes and two qualified replays.
+
+12/16 original signed consumer PRs merged into verified receiving defaults. Their corrected setup guides matched source and 108/144 earlier helper copies were removed. All four local Copilot notes retained their exact blobs on each installed default. All 16 receiver instructions link to the archived versions. A separate controlled run on actual Template input preserved content edits on all four paths, a changed mode and a new sibling on two applications. No authentic receiver edits appeared in the previously surveyed 64 path histories. This closes managed note ownership and the setup guide placements. [Fleet merge](https://github.com/stranske/Workflows/actions/runs/46153563946) · [Orchestrator merge](https://github.com/stranske/Workflows/actions/runs/46154383995).
+
+[#5523](https://github.com/stranske/Workflows/pull/5523) installed the paired retirement of the portable capability helper and its composer. The installed native step removed both on the Trend replay and left the second application clean. Its receiving installation is separate from the signed plan above. [#5524](https://github.com/stranske/Workflows/pull/5524) installed corrected Gate operator instructions. The current guides named the required summary, its real downloadable artifact and the recovery route; nine source bindings passed.
+
+[Workflows #5531](https://github.com/stranske/Workflows/pull/5531) repairs the failed imports on [Trend #6265](https://github.com/stranske/Trend_Model_Project/pull/6265). On exact head ef68347c, the lead compared the complete before-and-after payload on all 16 receiver bases. Fifteen matched exactly. Trend alone dropped four deletion entries, from 382 to 378 effects. The old native step lost all four suites. The revised native step retained their original bytes and restored all 13 named baseline outcomes, including three pre-existing failures. On an actual Template checkout those same four helpers were removed. Both checkouts had zero further changes on the second application. The corrected receiver installation still needs the signed full-plan rollout.
+
+The first hosted Gate identified four manifest descriptions that failed its issue-reference contract. Removing their issue-number suffixes kept the substantive dependency reasons. The named check passed after the change. On the submitted source 15405e7b the lead again compared the entire plan for 16 receivers and reproduced the same 13 Trend outcomes on two native applications. All 51 removal effect fingerprints remained identical to the first repair. Each original full Python job had the same single failure alongside 16,311 passes and 34 skips. The corrected hosted test-quality job passed. The full [GitHub Gate](https://github.com/stranske/Workflows/actions/runs/46156411103) and signed receiving delivery remain open.
+
+[#5520](https://github.com/stranske/Workflows/pull/5520) removed the final 34 historical issue #3820 root files, totaling 230,956 bytes. The installed retrieval guide recovered all 34 files under a nested checkout without an origin remote and with a restrictive umask. All 67 recorded bindings matched and the deliberate mismatch was rejected.
+
+[#5529](https://github.com/stranske/Workflows/pull/5529) removed 41 historical launch captures (88,745 bytes). The active mutation driver and two indexed replay archives retain their callers. All 29 digests and 42 retained archive members were checked; 16 live cases passed before and after.
+
+[#5530](https://github.com/stranske/Workflows/pull/5530) removed 27 historical runtime records (524,673 bytes) and retains the files read by both operators and current tests. Removing the round-nine input failed its named case. The before-and-after comparisons passed 129 Python and 116 Node tests.
+
+[#5528](https://github.com/stranske/Workflows/pull/5528) installed a corrected Keepalive comparison at its established address. It directs four existing readers to the current five-runner contract and retains the connector compatibility distinction.
+
+[#5532](https://github.com/stranske/Workflows/pull/5532) removed 51 historical coverage captures (867,027 bytes). A shallow fetch recovered every byte and mode. The current reconciliation command produced identical output, three deliberately withheld inputs each failed a named case, and all 133 tests passed again after restoration.
+
+Kept all nine reviewed contracts in docs/contracts. Six are published to consumers as exact managed sources; omitting each made the compiler reject that missing input. Three have separate Workflows program or dashboard readers. The representative consumer blobs and current validator bindings were checked.
+
+The 17 remaining Stage 4 files are 14 receiver scripts, two standalone action definitions and the receiver guide. Seven parent-folder records now explain the boundary between Workflows authoring, generated templates and installed receiver paths. The outstanding descendants are recorded against each folder.
+
+Stage 2 has 2,562/2,901 file and 148/220 folder decisions. Stage 5 has 250/334 file and 30/47 folder decisions.
+
 ### November 28 · Installed test contracts and ordinary fleet promotion
 
 Stage 3 is complete at 752/752 files and 43/43 folders. Stage 4 has 1,518/1,540 file and 165/177 folder decisions accepted. Stage 1A has 198/198 accepted workflow decisions. Stage 1B has 27/27 root file decisions. The original checklist separately records 26 production passes and two qualified replays.
@@ -687,13 +715,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 2,388/2,901 | 141/220 | — |
+| 2 · Evidence and archives | 2,562/2,901 | 148/220 | — |
 | 3 · Scripts, tools and packages | 752/752 | 43/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,518/1,540 | 165/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 237/334 | 29/47 | — |
-| **Total** | **4,922/5,554** | **378/487** | **198/198** |
+| 4 · Workflow source trees, templates, tests and configuration | 1,523/1,540 | 167/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 250/334 | 30/47 | — |
+| **Total** | **5,114/5,554** | **388/487** | **198/198** |
 
-**Directory organization.** 3,425 completed file decisions fall under 4 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,617 completed file decisions fall under 4 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
