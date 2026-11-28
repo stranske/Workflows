@@ -233,10 +233,13 @@ python scripts/validate_template_completeness.py --strict --source sync-manifest
 # 4. Verify no double delivery
 python -m pytest tests/workflows/test_sync_manifest_delivery.py::test_no_entry_is_both_runtime_and_copy_synced -v
 
-# 5. Check Health 70 validation workflow is configured
+# 5. Test manifest behavior of the template sync validator
 python -m pytest tests/scripts/test_validate_template_sync.py -v -k "manifest"
 
-# 6. Full sync system test suite
+# 6. Inspect Health 70 for its manifest compiler and completeness invocations
+grep -E 'python scripts/(sync_manifest_compiler|validate_template_completeness)\.py' .github/workflows/health-70-validate-sync-manifest.yml
+
+# 7. Full sync system test suite
 python -m pytest tests/workflows/test_sync_manifest_delivery.py tests/scripts/test_check_consumer_sync_drift.py -v
 ```
 
