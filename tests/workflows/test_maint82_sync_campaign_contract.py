@@ -1,10 +1,13 @@
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 import yaml
+
+from tests.workflows.node_tap import assert_named_node_test
 
 WORKFLOW = Path(".github/workflows/maint-82-sync-dependency-campaign.yml")
 MERGE_WORKFLOW = Path(".github/workflows/maint-71-merge-sync-prs.yml")
@@ -191,13 +194,13 @@ def test_due_delivery_dispatch_is_scoped_and_manual_admin_cannot_wake_it():
     node = shutil.which("node")
     if node is None:
         pytest.skip("Node.js is required to exercise the authored GitHub scripts")
+    test_name = "authored refresh holds blocked peers and dispatches only verified receiver scope"
     result = subprocess.run(
         [
             node,
             "--test",
             "--test-reporter=tap",
-            "--test-name-pattern",
-            "authored refresh holds blocked peers and dispatches only verified receiver scope",
+            f"--test-name-pattern=^{re.escape(test_name)}$",
             ".github/scripts/__tests__/maint82_continuation_dispatch.test.js",
         ],
         check=False,
@@ -205,5 +208,4 @@ def test_due_delivery_dispatch_is_scoped_and_manual_admin_cannot_wake_it():
         text=True,
         timeout=15,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "# tests 1" in result.stdout and "# pass 1" in result.stdout
+    assert_named_node_test(result, test_name)
