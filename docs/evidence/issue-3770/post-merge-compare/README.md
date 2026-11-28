@@ -38,34 +38,27 @@ Independent source #3757 topology and complete artifact-count evidence remain
 required and are not satisfied by this receipt alone. The original baseline is
 not relabeled.
 
-## Steward dispatch (after merge)
+## Replay the recorded comparison
+
+The steward already recorded the follow-up. Regenerate the receipt from the
+captured production fixtures in a new temporary directory.
 
 ```sh
-gh workflow run agents-verifier.yml \
-  --repo stranske/Workflows \
-  -f pr_number=3769 \
-  -f mode=compare
-```
-
-Then build the dual-run receipt:
-
-```sh
-gh run download 37567257334 -R stranske/Workflows \
-  -n comparison-results-37567257334 -D /tmp/followup/comparison
-gh run download 37567257334 -R stranske/Workflows \
-  -n verifier-terminal-disposition-37567257334 -D /tmp/followup/terminal
-
-python tools/verifier_compare_run_receipt.py \
-  --baseline-comparison-dir tests/fixtures/verifier_compare_receipt/run-37400729553 \
-  --baseline-terminal tests/fixtures/verifier_compare_receipt/run-37400729553-terminal \
+fixtures=tests/fixtures/verifier_compare_receipt
+replay=$(mktemp -d)
+python -m scripts.verifier.verifier_compare_run_receipt \
+  --baseline-comparison-dir "$fixtures/run-37400729553" \
+  --baseline-terminal "$fixtures/run-37400729553-terminal/verifier-terminal-disposition.ndjson" \
   --followup-run-id 37567257334 \
-  --followup-comparison-dir /tmp/followup/comparison \
-  --followup-terminal /tmp/followup/terminal \
-  --output docs/evidence/issue-3770/post-merge-compare/receipt.json
+  --followup-comparison-dir "$fixtures/run-37567257334" \
+  --followup-terminal "$fixtures/run-37567257334-terminal/verifier-terminal-disposition.ndjson" \
+  --output "$replay/receipt.json"
+cmp "$replay/receipt.json" docs/evidence/issue-3770/post-merge-compare/receipt.json
 ```
-
-## Validation
 
 ```sh
-pytest tests/tools/test_verifier_compare_run_receipt.py -m "not slow"
+python -m pytest -q tests/scripts/test_verifier_compare_run_receipt.py
 ```
+
+The [identity and discovery validation](identity-recovery/README.md) describes
+the controls and links to their original console captures.
