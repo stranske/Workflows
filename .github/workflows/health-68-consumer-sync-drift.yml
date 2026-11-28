@@ -204,6 +204,7 @@ jobs:
             const {
               formatIssueBody,
               formatIssueComment,
+              parseIssueMarker,
             } = require('./.github/scripts/consumer_sync_drift_issue_body.js');
             const {
               appendTrackerComment,
@@ -263,11 +264,16 @@ jobs:
               console.log(`Drift report missing at ${reportPath}; creating generic issue body.`);
             }
 
-            const body = formatIssueBody(report, {
+            const now = new Date().toISOString();
+            const bodyOptions = {
               runUrl,
               runId: process.env.GITHUB_RUN_ID,
               runNumber: process.env.GITHUB_RUN_NUMBER,
-            });
+              now,
+              updatedAt: now,
+            };
+            // A new issue starts a new episode: every uncovered repo is aged from now.
+            const body = formatIssueBody(report, bodyOptions);
 
             const tracker = await skipOnRateLimit('tracker lookup/create', () => findOrCreateTracker({
               github,
@@ -289,11 +295,16 @@ jobs:
             if (tracker.sync_tracker_created) {
               console.log(`Created issue #${tracker.number}`);
             } else {
+              // Carry each repo's "uncovered since" forward from this issue's own marker, so
+              // only drift that stays uncovered past the coverage lease asks for action.
+              const previousMarker = parseIssueMarker(tracker.body);
+              bodyOptions.previousMarker = previousMarker;
+              const refreshedBody = formatIssueBody(report, bodyOptions);
               const updateResult = await skipOnRateLimit('body update', () => updateTrackerBody({
                 github,
                 context,
                 tracker,
-                newBody: body,
+                newBody: refreshedBody,
                 preserveDurableHeader: false,
                 core,
                 withRetry,
@@ -302,11 +313,7 @@ jobs:
                 return;
               }
               console.log(`Refreshed drift issue body for #${tracker.number}`);
-              const comment = formatIssueComment(report, {
-                runUrl,
-                runId: process.env.GITHUB_RUN_ID,
-                runNumber: process.env.GITHUB_RUN_NUMBER,
-              });
+              const comment = formatIssueComment(report, bodyOptions);
               if (!comment.trim()) {
                 console.log(`Skipped empty comment for existing issue #${tracker.number}`);
                 return;

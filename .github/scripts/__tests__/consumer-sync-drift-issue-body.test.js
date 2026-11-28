@@ -4,6 +4,8 @@ const test = require('node:test');
 const {
   compactMarkerPayload,
   countsLine,
+  coverageLedger,
+  parseIssueMarker,
   formatIssueBody,
   formatIssueComment,
   formatIssueMarker,
@@ -66,12 +68,13 @@ test('formatIssueBody includes actionable repo, prefix, and command details', ()
   assert.match(body, /Run #123/);
   assert.match(body, /owner\/a: total=100, drift=27, missing=73/);
   assert.match(body, /\.github\/scripts=60/);
-  assert.match(body, /Top repos first: `gh workflow run maint-68-sync-consumer-repos.yml/);
+  assert.doesNotMatch(body, /gh workflow run/);
+  assert.match(body, /\*\*Coverage:\*\* unmeasured/);
   assert.match(body, /Open sync PRs/);
   assert.match(body, /owner\/a#42: `sync\/workflows-abc123`/);
   assert.match(body, /consumer-sync-drift-report/);
   assert.match(body, /\*\*Transient alert\*\*/);
-  assert.match(body, /closes this issue automatically after a clean comparison/);
+  assert.match(body, /closes this issue automatically after a clean or fully covered comparison/);
   assert.doesNotMatch(body, /\*\*Durable tracker\*\*/);
   assert.match(body, /<!-- consumer-sync-drift:v1 /);
   assert.match(body, /"schema":"consumer-sync-drift-issue\/v1"/);
@@ -110,7 +113,9 @@ test('compactMarkerPayload exposes the current drift checkpoint', () => {
   assert.equal(payload.sync_remediation.latest_open_pr.number, 42);
   assert.equal(payload.sync_remediation.stale_open_pr_count, 0);
   assert.equal(payload.sync_remediation.open_prs[0].number, 42);
-  assert.equal(payload.follow_up.workflow, 'maint-68-sync-consumer-repos.yml');
+  assert.equal(payload.follow_up, undefined);
+  assert.equal(payload.coverage.measured, false);
+  assert.equal(payload.coverage.uncovered, null);
 });
 
 test('formatIssueComment suppresses covered-state noise', () => {
@@ -173,4 +178,101 @@ test('mergeIssueBody preserves custom human issue content while updating marker'
   assert.match(merged, /- \[ \] Keep this note/);
   assert.match(merged, /"run_id":"2"/);
   assert.doesNotMatch(merged, /"run_id":"1"/);
+});
+
+// --- Coverage ledger (cohesion review A6) -------------------------------------------
+
+const NOW = '2026-11-28T12:00:00.000Z';
+const hoursBefore = (hours) => new Date(Date.parse(NOW) - hours * 3600000).toISOString();
+
+function inFlight(repoStates) {
+  return {
+    status: 'drift',
+    counts: { drift: 8, missing: 0, errors: 0, obsolete: 0, unmeasured_create_only: 0 },
+    sync_remediation: {
+      state: 'drift',
+      coverage_lease_hours: 36,
+      expected_branch: 'sync/workflows-delivery',
+      repo_states: repoStates,
+      open_prs: [],
+    },
+  };
+}
+
+const coveredPr = (repo, number) => ({
+  state: 'covered',
+  pr: { repo, number, branch: 'sync/workflows-delivery' },
+});
+
+test('in-flight delivery with every drifting repo covered reports uncovered 0 and no action', () => {
+  const report = inFlight({
+    'o/a': coveredPr('o/a', 1),
+    'o/b': coveredPr('o/b', 2),
+    'o/c': { state: 'converged' },
+  });
+  const body = formatIssueBody(report, { now: NOW });
+  assert.match(
+    body,
+    /\*\*Coverage:\*\* covered by an open delivery PR: 2, uncovered: 0 \(blocking, past the 36h lease: 0; draining, within the lease: 0\)/,
+  );
+  assert.match(body, /### Required Actions\n- None\./);
+  assert.doesNotMatch(body, /gh workflow run/);
+  assert.equal(formatIssueComment(report, { now: NOW }), '');
+});
+
+test('uncovered drift younger than the lease drains without asking anyone', () => {
+  const report = inFlight({
+    'o/a': coveredPr('o/a', 1),
+    'o/b': { state: 'untracked_drift', reason: 'no open sync PR matches the current compiler plan' },
+  });
+  const previousMarker = parseIssueMarker(formatIssueBody(report, { now: hoursBefore(10) }));
+  assert.equal(previousMarker.coverage.uncovered_since['o/b'], hoursBefore(10));
+  const body = formatIssueBody(report, { now: NOW, previousMarker });
+  assert.match(body, /covered by an open delivery PR: 1, uncovered: 1 \(blocking, past the 36h lease: 0; draining, within the lease: 1\)/);
+  assert.match(body, /- o\/b: untracked_drift, uncovered since .* \(10h, draining\)/);
+  assert.match(body, /### Required Actions\n- None\./);
+  assert.equal(formatIssueComment(report, { now: NOW, previousMarker }), '');
+});
+
+test('uncovered drift older than the lease becomes blocking and names the repo, not a dispatch', () => {
+  const report = inFlight({
+    'o/a': coveredPr('o/a', 1),
+    'o/b': { state: 'untracked_drift', reason: 'no open sync PR matches the current compiler plan' },
+  });
+  const previousMarker = parseIssueMarker(formatIssueBody(report, { now: hoursBefore(40) }));
+  const ledger = coverageLedger(report, { now: NOW, previousMarker });
+  assert.equal(ledger.blocking.length, 1);
+  assert.equal(ledger.draining.length, 0);
+  const body = formatIssueBody(report, { now: NOW, previousMarker });
+  assert.match(body, /uncovered: 1 \(blocking, past the 36h lease: 1; draining, within the lease: 0\)/);
+  assert.match(body, /- `o\/b`: drift with no delivery PR for the current plan for 40h, although Maint 68 runs daily/);
+  assert.doesNotMatch(body, /gh workflow run/);
+  // The age survives a further refresh: uncovered_since is carried, not reset.
+  assert.equal(parseIssueMarker(body).coverage.uncovered_since['o/b'], hoursBefore(40));
+  const comment = formatIssueComment(report, { now: NOW, previousMarker });
+  assert.match(comment, /blocking, past the 36h lease: 1/);
+});
+
+test('a stale delivery PR is blocking at once and a covered repo drops its age', () => {
+  const report = inFlight({
+    'o/a': { state: 'stale', pr: { repo: 'o/a', number: 7 } },
+    'o/b': coveredPr('o/b', 2),
+  });
+  const previousMarker = { schema: 'consumer-sync-drift-issue/v1', coverage: { uncovered_since: { 'o/b': hoursBefore(50) } } };
+  const ledger = coverageLedger(report, { now: NOW, previousMarker });
+  assert.deepEqual(ledger.blocking.map((item) => item.repo), ['o/a']);
+  assert.deepEqual(Object.keys(ledger.uncoveredSince), ['o/a']);
+  assert.match(formatIssueBody(report, { now: NOW, previousMarker }), /- `o\/a#7`: the delivery PR has not moved/);
+});
+
+test('a future or malformed carried timestamp restarts the age at now', () => {
+  const report = inFlight({ 'o/b': { state: 'untracked_drift' } });
+  for (const bad of ['not-a-date', '2099-01-01T00:00:00Z']) {
+    const ledger = coverageLedger(report, {
+      now: NOW,
+      previousMarker: { coverage: { uncovered_since: { 'o/b': bad } } },
+    });
+    assert.equal(ledger.uncoveredSince['o/b'], NOW);
+    assert.equal(ledger.blocking.length, 0);
+  }
 });
