@@ -12,7 +12,7 @@ repository. It is intended to validate compatibility from an external consumer p
 - `.gitignore` — ignore common Python build artifacts.
 
 ## Usage
-1. Render the template:
+1. From the root of a Workflows checkout, render the project into an empty directory.
    ```bash
    python -m tools.integration_repo /tmp/workflows-integration --workflow-ref "stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1"
    ```
@@ -22,12 +22,14 @@ repository. It is intended to validate compatibility from an external consumer p
 The placeholder string `__WORKFLOW_REF__` inside the template files is replaced with your provided
 workflow reference when rendering.
 
-## Automated Sync
+## How the integration repository stays current
 
-This template is automatically synced to the [Workflows-Integration-Tests](https://github.com/stranske/Workflows-Integration-Tests) repository:
+Rendering a new project copies the full template and adds the two coverage-trend helpers.
+The existing integration repository has its own README, example code and project settings.
+It receives selected CI workflows, version pins, scripts and label guidance through Maint 69.
+The sync also merges coverage exclusions and dependency pins into its project configuration
+and regenerates its lockfile. [Integration repository](https://github.com/stranske/Workflows-Integration-Tests)
 
-- **Sync Workflow**: `.github/workflows/maint-69-sync-integration-repo.yml`
-- **Health Check**: `.github/workflows/health-67-integration-sync-check.yml`
-- **Trigger**: Pushes to main that modify `templates/integration-repo/**` or `.github/workflows/autofix-versions.env`
-
-The Integration-Tests repo serves as the live validation environment for the reusable CI workflow.
+Maint 69 runs on changes to its listed source paths, on a daily schedule and by manual dispatch.
+Its apply step defines the delivered paths. Health 67 checks the receiver’s CI configuration and
+version pins. [Maint 69 delivery workflow](https://github.com/stranske/Workflows/blob/main/.github/workflows/maint-69-sync-integration-repo.yml) · [Health 67 checks](https://github.com/stranske/Workflows/blob/main/.github/workflows/health-67-integration-sync-check.yml)
