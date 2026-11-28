@@ -221,6 +221,14 @@ def test_explicit_repo_selection_is_not_widened(tmp_path) -> None:
     assert _target_repos(tmp_path, "stranske/Counter_Risk") == ["stranske/Counter_Risk"]
 
 
+def test_add_new_agent_guide_names_only_the_live_label_inventory() -> None:
+    """The guide's checklist told agent authors to edit the retired labels.yml."""
+    guide = Path("docs/guides/ADD_NEW_AGENT.md").read_text(encoding="utf-8")
+    row = next(line for line in guide.splitlines() if line.startswith("| Labels |"))
+    assert "`.github/labels-core.yml`" in row
+    assert "`.github/labels.yml`" not in row
+
+
 def test_core_labels_are_the_only_label_inventory() -> None:
     assert not Path(".github/labels.yml").exists(), "labels.yml had no reader; keep one inventory"
     core = yaml.safe_load(Path(".github/labels-core.yml").read_text(encoding="utf-8"))
