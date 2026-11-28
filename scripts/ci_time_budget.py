@@ -43,6 +43,7 @@ SERIES_WINDOW_DAYS = 7
 # This job posts RECOVERY_CLOSE_TEXT before its recovery PATCH and, once the PATCH
 # succeeds, a RECOVERY_CLOSE_MARK comment naming the exact closed_at it produced.
 RECOVERY_CLOSE_TEXT = "Closing after confirmed recovery."
+RECOVERY_CLOSES_KEEP = 50  # recovery closes kept in the report row, newest last
 RECOVERY_CLOSE_MARK = re.compile(r"<!-- ci-time-budget:recovery-close closed_at=(\S+) -->")
 REPORT_PATH = Path("docs/reports/ci-budget.json")
 REPORT_BRANCH = "ci-time-budget"
@@ -403,16 +404,24 @@ First over-target measurement: {row.get('first_over_target_at', 'unknown')}.
 """
 
 
-def is_recovery_close(api: GitHub, root: str, issue: dict) -> bool:
-    """Was the issue's current close this job's recovery close? Read from GitHub.
+def is_recovery_close(api: GitHub, root: str, issue: dict, persisted: dict) -> bool:
+    """Was the issue's current close this job's recovery close?
 
     After its recovery PATCH succeeds, the job records the exact `closed_at` that
-    PATCH produced in a marked comment. Only a close with that `closed_at` is the
-    recovery close. A fix close after a reopen has a different `closed_at`, and a
-    recovery comment whose PATCH failed has no record, so neither can match. The
-    record is on GitHub, not in the report, so it survives a failed publish.
+    PATCH produced twice: in the report row (`recovery_closes`, set before any
+    further write) and in a marked comment on the issue. Either record proves the
+    close; each covers the other's failure (a failed final publish, a failed
+    marker POST). Only a close with that `closed_at` matches: a fix close after a
+    reopen has a different `closed_at`, and a recovery comment whose PATCH failed
+    has no record at all.
     """
     closed = timestamp(issue["closed_at"])
+    recorded_at = persisted.get(str(issue["number"]))
+    try:
+        if recorded_at and timestamp(recorded_at) == closed:
+            return True
+    except ValueError:
+        pass
     for comment in api.pages(f"{root}/issues/{issue['number']}/comments", since=issue["closed_at"]):
         for recorded in RECOVERY_CLOSE_MARK.findall(comment.get("body") or ""):
             try:
@@ -423,7 +432,7 @@ def is_recovery_close(api: GitHub, root: str, issue: dict) -> bool:
     return False
 
 
-def last_fixed_issue(api: GitHub, root: str) -> dict | None:
+def last_fixed_issue(api: GitHub, root: str, row: dict) -> dict | None:
     """Newest `ci-budget` issue closed as completed, unless that close was this job's recovery.
 
     The closer closes an issue when its fix PR merges, so `closed_at` is at or
@@ -440,7 +449,7 @@ def last_fixed_issue(api: GitHub, root: str) -> dict | None:
         and issue.get("state_reason") not in {"not_planned", "duplicate"}
     ]
     newest = max(closed, key=lambda issue: timestamp(issue["closed_at"]), default=None)
-    if newest is None or is_recovery_close(api, root, newest):
+    if newest is None or is_recovery_close(api, root, newest, row.get("recovery_closes", {})):
         return None
     return newest
 
@@ -476,7 +485,7 @@ def reconcile(api: GitHub, repo: str, row: dict) -> None:
     if row["share"] > 0:
         previous = None
         if not issues:
-            previous = last_fixed_issue(api, root)
+            previous = last_fixed_issue(api, root, row)
             hold = refile_hold(previous, timestamp(row["measured_at"]))
             if hold:
                 # The fix's series window has not elapsed: the trailing p50 still
@@ -536,6 +545,8 @@ def reconcile(api: GitHub, repo: str, row: dict) -> None:
             # Record the exact close this PATCH produced; only that close is ours.
             closed_at = (closure or {}).get("closed_at")
             if closed_at:
+                closes = {**row.get("recovery_closes", {}), str(issue["number"]): closed_at}
+                row["recovery_closes"] = dict(list(closes.items())[-RECOVERY_CLOSES_KEEP:])
                 api.request(
                     "POST",
                     f"{root}/issues/{issue['number']}/comments",

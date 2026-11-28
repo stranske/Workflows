@@ -1224,3 +1224,43 @@ def test_orphaned_recovery_comment_then_fix_close_starts_a_hold():
     assert len(api.issues) == 1
     assert row["refile_hold"]["previous_issue"] == issue["number"]
     assert row["refile_hold"]["fix_closed_at"] == fixed_at.isoformat()
+
+
+def test_recovery_close_is_still_recognised_when_the_marker_comment_fails(monkeypatch):
+    """PATCH closes the issue, the marker POST fails; the report row carries the close."""
+    api = FakeGitHub()
+    saved = {"report": {}}
+    monkeypatch.setattr(budget, "load_report", lambda api: (saved["report"], "sha"))
+
+    def publish(report, *, api, sha):
+        saved["report"] = json.loads(json.dumps(report))
+        return "sha"
+
+    monkeypatch.setattr(budget, "publish", publish)
+    p50 = {}
+    monkeypatch.setattr(budget, "measure", lambda repo, *, api, now: metrics(p50[now]))
+    original = api.request
+
+    def marker_fails(method, path, payload=None):
+        if method == "POST" and "ci-time-budget:recovery-close" in (payload or {}).get("body", ""):
+            raise RuntimeError("marker write failed")
+        return original(method, path, payload)
+
+    window = budget.SERIES_WINDOW_DAYS
+    for day in range(window + 2):
+        now = NOW + timedelta(days=day)
+        api.clock = now + timedelta(seconds=30)
+        p50[now] = 20 if day in (0, window + 1) else 8
+        api.request = marker_fails if day == window else original
+        # The recovery-close day reports the failed marker write as an error.
+        assert budget.run(api, [], now) == int(day == window)
+    issue = api.issues[0]
+    assert issue["state"] == "closed"
+    assert not any(
+        "ci-time-budget:recovery-close" in c["body"] for c in api.comments[issue["number"]]
+    )
+    # The breach one day after the recovery close is filed at once, not held for it.
+    row = saved["report"][budget.SOURCE_REPO]
+    assert row["recovery_closes"] == {str(issue["number"]): issue["closed_at"]}
+    assert "refile_hold" not in row
+    assert [i.get("state", "open") for i in api.issues] == ["closed", "open"]
