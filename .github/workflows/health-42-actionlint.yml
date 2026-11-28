@@ -22,7 +22,7 @@ jobs:
     name: workflow lint (maint-36)
     runs-on: ubuntu-latest
     env:
-      ACTIONLINT_VERSION: '1.7.3'
+      # ACTIONLINT_VERSION comes from .github/config/workflow-linters.env (one pin, B16).
       REVIEWDOG_VERSION: '0.21.0'
     steps:
       - name: Compute REPORTER value
@@ -60,6 +60,10 @@ jobs:
           fi
           echo "reporter=${reporter}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
+
+      - name: Load the shared actionlint pin
+        shell: bash
+        run: grep -E '^[A-Z_]+=[^[:space:]]+$' .github/config/workflow-linters.env >> "$GITHUB_ENV"
 
       - name: Restore cached actionlint
         id: actionlint-cache

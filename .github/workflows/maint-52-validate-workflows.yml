@@ -22,12 +22,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Load the shared actionlint pin
+        shell: bash
+        run: grep -E '^[A-Z_]+=[^[:space:]]+$' .github/config/workflow-linters.env >> "$GITHUB_ENV"
+
       - name: Cache workflow linters
         id: cache-linters
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.local/bin
-          key: workflow-linters-actionlint-1.7.3-yq-4.44.3
+          key: workflow-linters-actionlint-${{ env.ACTIONLINT_VERSION }}-yq-4.44.3
 
       - name: Install workflow linters
         run: |
@@ -35,8 +39,8 @@ jobs:
           mkdir -p "$HOME/.local/bin"
 
           if [ ! -x "$HOME/.local/bin/actionlint" ]; then
-            actionlint_base="https://github.com/rhysd/actionlint/releases/download/v1.7.3"
-            actionlint_url="${actionlint_base}/actionlint_1.7.3_linux_amd64.tar.gz"
+            actionlint_base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+            actionlint_url="${actionlint_base}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
             curl -sSL "$actionlint_url" \
               | tar -xz -C "$HOME/.local/bin" actionlint
             chmod +x "$HOME/.local/bin/actionlint"
