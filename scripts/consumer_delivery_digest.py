@@ -64,9 +64,10 @@ def render_payload(root: Path, repositories: list[str]) -> dict:
                     "create_only": entry["sync_mode"] == "create_only"
                     and repository not in entry["overwrite_repos"],
                 }
-    for rows in files.values():
+    for repository, rows in files.items():
         for removal in plan["removals"]:
-            rows[removal["target"]] = {"remove": True}
+            if repository not in removal.get("skip_repos", []):
+                rows[removal["target"]] = {"remove": True}
         # Full plans also reconcile this generated block outside the manifest.
         # Track it on .gitignore so overlap detection sees its real target.
         lines = (root / "templates/consumer-repo/.gitignore").read_text().splitlines()

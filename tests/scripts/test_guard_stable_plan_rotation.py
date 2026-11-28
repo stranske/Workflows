@@ -551,3 +551,73 @@ def test_maint68_directory_pruning_reports_and_stages_only_tracked_surplus(
     # The publisher stages only on apply. A preview can also name an index-only deletion.
     expected = ([stale, symlink] if deleted else []) + ([missing] if selected else [])
     assert removed == sorted(expected)
+
+
+@pytest.mark.parametrize("repo", ["test/retained", "test/other"])
+def test_maint68_excludes_scoped_removals_from_staging_and_apply(tmp_path: Path, repo: str) -> None:
+    source = tmp_path / "workflows"
+    root = Path(__file__).resolve().parents[2]
+    for path in ("scripts/sync_status_file_ignores.py", "templates/consumer-repo/.gitignore"):
+        _write(source, path, (root / path).read_text())
+    retained = ".github/scripts/retained.js"
+    unconditional = ".github/scripts/retired.js"
+    _write(
+        source,
+        ".github/sync-manifest.yml",
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "removals": [
+                    {"target": retained, "description": "Retired", "skip_repos": ["test/retained"]},
+                    {"target": unconditional, "description": "Retired everywhere"},
+                ],
+            }
+        ),
+    )
+    plan = compile_manifest(source / ".github/sync-manifest.yml").to_plan()
+    _write(tmp_path, "manifest.json", json.dumps(plan))
+    consumer, _, _ = _repo_with_pending_delivery(tmp_path)
+    for path in (retained, unconditional):
+        _write(consumer, path, "receiver bytes\n")
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-qm", "receiver files")
+
+    code = _maint68_step("Detect and apply changes")
+    script = code.split("<< 'SYNC_SCRIPT'\n", 1)[1].split("\nSYNC_SCRIPT", 1)[0]
+    output = tmp_path / "outputs"
+
+    def apply():
+        output.write_text("")
+        subprocess.run(
+            [sys.executable, "-B", "-c", script],
+            cwd=tmp_path,
+            env={
+                **os.environ,
+                "CURRENT_REPO": repo,
+                "DRY_RUN": "false",
+                "FORCE": "false",
+                "PLAN_SCOPE": "full",
+                "GITHUB_OUTPUT": str(output),
+            },
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    targets = {".gitignore", unconditional}
+    if repo == "test/other":
+        targets.add(retained)
+    apply()
+    assert set((tmp_path / "sync_targets.txt").read_text().splitlines()) == targets
+    assert not (consumer / unconditional).exists()
+    if repo == "test/retained":
+        assert (consumer / retained).read_text() == "receiver bytes\n"
+    else:
+        assert not (consumer / retained).exists()
+    staged = _run_maint68_staging(tmp_path)
+    assert staged.returncode == 0, staged.stderr
+    actual_staged = set(_git(consumer, "diff", "--cached", "--name-only").splitlines())
+    assert actual_staged == targets
+    _git(consumer, "commit", "-qm", "apply delivery")
+    apply()
+    assert output.read_text() == "changes_count=0\nhas_changes=false\n"

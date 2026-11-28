@@ -165,3 +165,18 @@ def test_executable_mode_is_part_of_rendered_payload(source):
     second = digest.payload_at_ref(source, commit(source), ["owner/repo"])
     assert second["digest"] != first["digest"]
     assert second["files"]["owner/repo"]["scripts/rendered.js"]["executable"] is True
+
+
+def test_removal_scope_changes_only_the_retained_recipients(source):
+    before = digest.render_payload(source, ["owner/retained", "owner/other"])
+    manifest = source / ".github/sync-manifest.yml"
+    manifest.write_text(manifest.read_text() + "    skip_repos: [owner/retained]\n")
+
+    after = digest.render_payload(source, ["owner/retained", "owner/other"])
+    assert after["digest"] != before["digest"]
+    assert after["files"]["owner/other"] == before["files"]["owner/other"]
+    assert after["files"]["owner/retained"] == {
+        path: value
+        for path, value in before["files"]["owner/retained"].items()
+        if path != "obsolete.js"
+    }

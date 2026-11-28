@@ -186,13 +186,22 @@ removals:
   - target: .github/scripts/agents_pr_meta_orchestrator.js
     description: "Stop delivering a script no consumer loads (round-2 D2 hand-off; the Workflows root keeps it for agents-pr-meta-v4 / the keepalive dispatch handler)"
   - target: .github/scripts/agents_pr_meta_keepalive.js
-    description: "Stop delivering a script no consumer loads (round-2 D2 hand-off; the Workflows root keeps it for agents-pr-meta-v4 / the keepalive dispatch handler)"
+    description: "Retire the receiver helper after its hosted callers moved or retired"
+    skip_repos:
+      - repo: stranske/Trend_Model_Project
+        reason: "The receiver owns agents-pr-meta-keepalive.test.js, which still imports this helper."
   - target: .github/scripts/checkout_source.js
-    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+    description: "Retire the receiver helper after its hosted callers moved or retired"
+    skip_repos:
+      - repo: stranske/Trend_Model_Project
+        reason: "The receiver owns checkout_source.test.js, which still imports this helper."
   - target: .github/scripts/agent_stall_rotation.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/keepalive_worker_gate.js
-    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+    description: "Retire the receiver helper after its hosted callers moved or retired"
+    skip_repos:
+      - repo: stranske/Trend_Model_Project
+        reason: "The receiver owns keepalive-worker-gate.test.js, which still imports this helper."
   - target: .github/scripts/keepalive_prompt_composer.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/capability_bundle.js
@@ -202,7 +211,10 @@ removals:
   - target: .github/scripts/merge_manager.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/agents_belt_scan.js
-    description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+    description: "Retire the receiver helper after its hosted callers moved or retired"
+    skip_repos:
+      - repo: stranske/Trend_Model_Project
+        reason: "The receiver owns agents-belt-scan.test.js, which still imports this helper."
   - target: .github/workflows/agents-autofix-dispatcher.yml
     description: "Remove the retired autofix dispatch bridge; Gate no longer sends autofix_gate_failure, and agents-81 starts Gate-driven repair from workflow_run"
   - target: .github/workflows/agents-decompose.yml

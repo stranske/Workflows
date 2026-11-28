@@ -38,6 +38,7 @@ def managed_paths(plan: dict) -> dict:
         if not target:
             raise ValueError("plan removal without a target")
         # A removal may name a file or a tree; treat it as both.
+        # Keep the union across campaign recipients, even when one skips the removal.
         paths.add(target)
         directories.add(target)
     return {"paths": sorted(paths), "directories": sorted(directories)}

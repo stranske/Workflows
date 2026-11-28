@@ -347,3 +347,30 @@ def test_real_manifest_delivers_the_tool_the_coverage_guard_runs(manifest: dict)
 
     assert "tools/coverage_guard.py" in tools
     assert tools <= set(subset.select_copy_sources(manifest))
+
+
+def test_apply_scoped_removals_preserves_both_integration_skip_forms(tmp_path: Path) -> None:
+    raw_skip, mapped_skip, unconditional = (
+        ".github/scripts/declared.js",
+        ".github/workflows/retained.yml",
+        ".github/scripts/obsolete.js",
+    )
+    manifest = {
+        "removals": [
+            {"target": raw_skip, "skip_repos": [WIT]},
+            {"target": mapped_skip, "skip_repos": [{"repo": WIT, "reason": "Local tests"}]},
+            {"target": unconditional},
+        ]
+    }
+    for target in (raw_skip, mapped_skip, unconditional):
+        file = tmp_path / target
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(b"existing receiver bytes")
+
+    assert subset.apply_subset(manifest, tmp_path, tmp_path).removed == [unconditional]
+    assert (tmp_path / raw_skip).read_bytes() == (tmp_path / mapped_skip).read_bytes()
+    assert not subset.apply_subset(manifest, tmp_path, tmp_path).removed
+    assert subset.apply_subset(manifest, tmp_path, tmp_path, repo="owner/other").removed == [
+        raw_skip,
+        mapped_skip,
+    ]

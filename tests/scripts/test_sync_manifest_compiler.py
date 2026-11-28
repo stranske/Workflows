@@ -807,3 +807,32 @@ def test_maint_sync_consumes_compiled_plan_for_paths_and_hash() -> None:
     assert ".github/templates" in workflow
     assert ".github/PULL_REQUEST_TEMPLATE.md" in workflow
     assert ".github/path-classification.yml" in workflow
+
+
+def test_removal_scope_has_stable_effect_identity_and_old_unconditional_shape(
+    tmp_path: Path,
+) -> None:
+    target = ".github/scripts/retired.js"
+    removal = {"target": target, "description": "Retired"}
+
+    def compile_removal(**scope: object) -> dict:
+        manifest = write_manifest(
+            tmp_path, yaml.safe_dump({"version": 1, "removals": [{**removal, **scope}]})
+        )
+        return compile_manifest(manifest).to_plan()["removals"][0]
+
+    unconditional = compile_removal()
+    assert unconditional == compile_removal(skip_repos=[])
+    assert set(unconditional) == {"target", "description", "effect_fingerprint"}
+
+    scoped = compile_removal(skip_repos=["owner/b", {"repo": "owner/a", "reason": "Local tests"}])
+    equivalent = compile_removal(
+        skip_repos=[{"repo": "owner/a", "reason": "Reason updated"}, "owner/b"]
+    )
+    assert scoped["skip_repos"] == ["owner/a", "owner/b"]
+    assert scoped["skip_reasons"] == {"owner/a": "Local tests", "owner/b": ""}
+    assert scoped["effect_fingerprint"] == equivalent["effect_fingerprint"]
+    assert scoped["effect_fingerprint"] != unconditional["effect_fingerprint"]
+
+    with pytest.raises(ManifestCompileError, match="skip_repos contains duplicate repositories"):
+        compile_removal(skip_repos=["owner/a", {"repo": "owner/a", "reason": "Duplicate"}])

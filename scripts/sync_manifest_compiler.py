@@ -105,13 +105,18 @@ class RemovalEntry:
     target: str
     description: str
     effect_fingerprint: str
+    skip_repos: tuple[SkipRepo, ...] = ()
 
-    def plan_record(self) -> dict[str, str]:
-        return {
+    def plan_record(self) -> dict[str, Any]:
+        record: dict[str, Any] = {
             "target": self.target,
             "description": self.description,
             "effect_fingerprint": self.effect_fingerprint,
         }
+        if self.skip_repos:
+            record["skip_repos"] = [rule.repo for rule in self.skip_repos]
+            record["skip_reasons"] = {rule.repo: rule.reason for rule in self.skip_repos}
+        return record
 
 
 class CompiledManifest:
@@ -523,21 +528,29 @@ def _compile_entry(
 
 def _compile_removal(raw: Any, *, index: int) -> tuple[RemovalEntry | None, list[str]]:
     context = f"removals entry {index}"
-    if not isinstance(raw, dict) or set(raw) - {"target", "description"}:
-        return None, [f"{context}: entry must contain only target and description"]
+    if not isinstance(raw, dict) or set(raw) - {"target", "description", "skip_repos"}:
+        return None, [
+            f"{context}: entry must contain only target, description, and optional skip_repos"
+        ]
     target, error = _safe_relative_path(raw.get("target"), "target", context)
     description = str(raw.get("description") or "").strip()
     errors = [error] if error else []
     if not description:
         errors.append(f"{context}: description must be non-empty")
+    skip_repos, skip_errors = _parse_skip_repos(raw.get("skip_repos"), context=context)
+    errors.extend(skip_errors)
     if errors:
         return None, errors
-    core = {"target": target}
+    skip_repos = tuple(sorted(skip_repos, key=lambda rule: rule.repo))
+    core: dict[str, Any] = {"target": target}
+    if skip_repos:
+        core["skip_repos"] = [rule.repo for rule in skip_repos]
     return (
         RemovalEntry(
             target=target,
             description=description,
             effect_fingerprint=_stable_hash("consumer-sync-removal-effect", core),
+            skip_repos=skip_repos,
         ),
         [],
     )

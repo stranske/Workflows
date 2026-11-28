@@ -1609,6 +1609,14 @@ Validated fields for each sync entry:
 | `requires` | list of manifest targets, optional | Transitive co-delivery dependencies for source-delta plans; targets must exist and cycles are rejected |
 
 Removal targets are typed separately and cannot collide with a copy target.
+A removal can declare `skip_repos` using the same repository names or
+`{repo, reason}` mappings as a copy. Maint 68 omits skipped paths from both
+staging and removal, Maint 69 honors its own repository selection, and drift
+checks do not classify retained paths as obsolete. Use the canonical spelling of
+a registered consumer or the integration repository. A skip leaves existing
+bytes under receiver ownership. It cannot reinstall a file already removed. Trend
+retains four helpers for two kinds of keepalive coverage, belt scans, and
+checkout selection (Workflows #5525). Other recipients still remove the helpers.
 `excluded:` and `runtime_fetched:` remain metadata-only sections.
 
 Each normalized copy record adds its resolved `source_tree`, `resolved_source`,
@@ -2234,8 +2242,10 @@ changed file, including a rename's old name, may be one the exact plan manages:
 an entry target, a file under a directory target, a removal, a `requires` path,
 or `.gitignore`. That path set is compiled from the plan's own source commit
 and must hash to the expected plan id
-(`scripts/campaign_plan_managed_paths.py`). Maint 68 reads a consumer only at
-those paths, so the no-change verdict still holds. The row records
+(`scripts/campaign_plan_managed_paths.py`). This campaign-wide set conservatively
+includes each removal that can apply to any recipient, including paths retained
+by a removal exception in a particular repository. Maint 68 reads a consumer
+only within that set, so the no-change verdict still holds. The row records
 `no_change_carried_from`. Any refusal keeps `target_missing` and names its
 `carry_over_refusal`. Before this rule, a consumer whose main moved every few
 minutes held every campaign merge (2026-11-11: Orchestrator, two failed passes

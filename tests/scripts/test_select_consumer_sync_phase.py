@@ -47,6 +47,7 @@ REGISTERED = [
     "stranske/Ready",
     "stranske/Deliverable-Render",
     "stranske/Manager-Mosaic",
+    "stranske/Trend_Model_Project",
 ]
 CANARIES = [
     {"repo": "stranske/Travel-Plan-Permission", "capabilities": ["custom-gate"]},
@@ -249,6 +250,7 @@ def test_promotion_targets_only_non_canary_repos() -> None:
         "stranske/Ready",
         "stranske/Deliverable-Render",
         "stranske/Manager-Mosaic",
+        "stranske/Trend_Model_Project",
     ]
 
 
@@ -317,3 +319,18 @@ def test_owner_exclusion_applies_to_implicit_registered_targets(phase):
     )
     assert all("collab-admin" not in repo.casefold() for repo in result["selected_repos"])
     assert all("collab-admin" not in row["repo"].casefold() for row in result["prospective_diffs"])
+
+
+def test_scoped_removals_preview_only_the_applicable_paths() -> None:
+    compiled = plan()
+    trend = "stranske/Trend_Model_Project"
+    remove = next(item for item in compiled["removals"] if trend in item.get("skip_repos", []))
+    result = select_phase(compiled, phase="preview", registered_repos=REGISTERED, canaries=CANARIES)
+    for row in result["prospective_diffs"]:
+        assert (remove["target"] in row["affected_paths"]) == (row["repo"] != trend)
+
+    remove["skip_repos"] = ["stranske/Trend_Mode_Project"]
+    with pytest.raises(
+        PhaseSelectionError, match="removal_skip_repos_contains_unregistered_repository"
+    ):
+        select_phase(compiled, phase="preview", registered_repos=REGISTERED, canaries=CANARIES)

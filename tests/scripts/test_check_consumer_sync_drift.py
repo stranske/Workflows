@@ -15,6 +15,7 @@ from scripts.list_registered_consumer_repos import extract_repos
 from scripts.sync_manifest_compiler import (
     CompiledManifest,
     ManifestEntry,
+    RemovalEntry,
     SkipRepo,
     compile_manifest,
 )
@@ -2564,7 +2565,7 @@ def test_main_reports_missing_unexpected_binary_and_directory_drift(
         sync_mode="create_only",
         overwrite_repos=("owner/repo",),
     )
-    removal = SimpleNamespace(target=".github/obsolete.yml")
+    removal = RemovalEntry(".github/obsolete.yml", "Retired", "sha256:test")
     compiled = SimpleNamespace(
         to_plan=lambda: {"plan_id": "sha256:" + "b" * 64},
         section=lambda section: (
@@ -2849,15 +2850,22 @@ def test_main_directory_compare_skips_subdir_entries_and_absent_removals(
     leaf.write_text("hello\n", encoding="utf-8")
     report_path = tmp_path / "report.json"
     entry = _make_entry(source=str(source_dir), target=".github/managed", is_directory=True)
-    present_removal = SimpleNamespace(target=".github/obsolete.yml")
-    absent_removal = SimpleNamespace(target=".github/already-gone.yml")
+    present_removal = RemovalEntry(".github/obsolete.yml", "Retired", "sha256:test")
+    absent_removal = RemovalEntry(".github/already-gone.yml", "Retired", "sha256:test")
+    retained_path = ".github/retained.yml"
+    scoped_removal = RemovalEntry(
+        retained_path,
+        "Retained by the first owner",
+        "sha256:test",
+        skip_repos=(SkipRepo(repo="owner/repo", reason="Local coverage"),),
+    )
     compiled = SimpleNamespace(
         to_plan=lambda: {"plan_id": "sha256:" + "d" * 64},
         section=lambda section: ((entry,) if section == "workflows" else ()),
-        removals=(present_removal, absent_removal),
+        removals=(present_removal, absent_removal, scoped_removal),
     )
     args = SimpleNamespace(
-        repos="owner/repo",
+        repos="owner/repo,owner/other",
         manifest=str(tmp_path / "manifest.yml"),
         canaries=str(tmp_path / "canaries.json"),
         report_json=str(report_path),
@@ -2878,6 +2886,7 @@ def test_main_directory_compare_skips_subdir_entries_and_absent_removals(
             "sha": check_consumer_sync_drift.git_blob_hash(leaf.read_bytes()),
         },
         ".github/obsolete.yml": {"type": "blob", "sha": "abc"},
+        retained_path: {"type": "blob", "sha": "retained"},
     }
     monkeypatch.setattr(
         check_consumer_sync_drift,
@@ -2895,6 +2904,8 @@ def test_main_directory_compare_skips_subdir_entries_and_absent_removals(
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert "owner/repo: .github/obsolete.yml" in report["obsolete"]
     assert "owner/repo: .github/already-gone.yml" not in report["obsolete"]
+    assert f"owner/repo: {retained_path}" not in report["obsolete"]
+    assert f"owner/other: {retained_path}" in report["obsolete"]
     assert report["counts"]["drift"] == 0
 
 

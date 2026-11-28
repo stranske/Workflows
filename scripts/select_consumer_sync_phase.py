@@ -17,9 +17,11 @@ from typing import Any
 
 try:
     from scripts.list_registered_consumer_repos import is_owner_excluded
+    from scripts.sync_integration_manifest_subset import DEFAULT_REPO as INTEGRATION_REPO
     from scripts.sync_manifest_compiler import PLAN_SCHEMA
 except ImportError:
     from list_registered_consumer_repos import is_owner_excluded  # type: ignore[no-redef]
+    from sync_integration_manifest_subset import DEFAULT_REPO as INTEGRATION_REPO
     from sync_manifest_compiler import PLAN_SCHEMA  # type: ignore[no-redef]
 
 CANARY_SCHEMA = "workflows.consumer-sync-canaries/v1"
@@ -93,11 +95,11 @@ def _validate_plan(plan: Any) -> dict[str, Any]:
 
 def validate_registered_scopes(plan: Any, registered_repos: list[str]) -> None:
     """Reject stale scoped owners in the full plan before source-delta filtering."""
-    entries = _validate_plan(plan)["entries"]
+    plan = _validate_plan(plan)
     unregistered_scopes = sorted(
         {
             repo
-            for entry in entries
+            for entry in plan["entries"]
             for repo in entry.get("include_repos", [])
             if repo not in registered_repos and not is_owner_excluded(repo)
         }
@@ -105,6 +107,20 @@ def validate_registered_scopes(plan: Any, registered_repos: list[str]) -> None:
     if unregistered_scopes:
         raise PhaseSelectionError(
             "include_repos_contains_unregistered_repository:" + ",".join(unregistered_scopes)
+        )
+    removal_repos = {*registered_repos, INTEGRATION_REPO}
+    unregistered_removal_skips = sorted(
+        {
+            repo
+            for removal in plan["removals"]
+            for repo in removal.get("skip_repos", [])
+            if repo not in removal_repos and not is_owner_excluded(repo)
+        }
+    )
+    if unregistered_removal_skips:
+        raise PhaseSelectionError(
+            "removal_skip_repos_contains_unregistered_repository:"
+            + ",".join(unregistered_removal_skips)
         )
 
 
@@ -195,7 +211,6 @@ def select_phase(
     if selected_repos is not None and not set(selected_repos) <= set(registered_repos):
         raise PhaseSelectionError("selected_repos_must_be_registered")
     target_repos = selected_repos if selected_repos is not None else registered_repos
-    removal_paths = {str(item["target"]) for item in plan["removals"] if item.get("target")}
 
     def affected_paths(repo: str) -> list[str]:
         """List only paths that this repository can actually receive."""
@@ -205,6 +220,11 @@ def select_phase(
             if entry.get("target")
             and (not entry.get("include_repos") or repo in entry["include_repos"])
             and repo not in (entry.get("skip_repos") or [])
+        }
+        removal_paths = {
+            str(item["target"])
+            for item in plan["removals"]
+            if item.get("target") and repo not in (item.get("skip_repos") or [])
         }
         return sorted(copy_paths | removal_paths)
 

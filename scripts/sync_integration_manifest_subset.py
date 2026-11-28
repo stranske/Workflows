@@ -66,6 +66,15 @@ def _is_safe_relative(path: str) -> bool:
     return bool(path) and not posix.is_absolute() and ".." not in posix.parts
 
 
+def _entry_applies(entry: dict[str, Any], repo: str) -> bool:
+    skipped = {
+        item.get("repo") if isinstance(item, dict) else item
+        for item in entry.get("skip_repos") or []
+    }
+    included = entry.get("include_repos") or []
+    return repo not in skipped and (not included or repo in included)
+
+
 def _select_copy_entries(manifest: dict[str, Any], repo: str) -> list[tuple[str, str]]:
     """Select paths together with their declared source tree, without fallback."""
     selected: list[tuple[str, str]] = []
@@ -77,14 +86,7 @@ def _select_copy_entries(manifest: dict[str, Any], repo: str) -> list[tuple[str,
                 continue
             if entry.get("is_directory") or entry.get("delivery", "copy") != "copy":
                 continue
-            skipped = {
-                item.get("repo") if isinstance(item, dict) else item
-                for item in entry.get("skip_repos") or []
-            }
-            if repo in skipped:
-                continue
-            include = entry.get("include_repos") or []
-            if include and repo not in include:
+            if not _entry_applies(entry, repo):
                 continue
             posix = PurePosixPath(source)
             is_script = (
@@ -124,24 +126,23 @@ def select_action_directories(manifest: dict[str, Any], repo: str = DEFAULT_REPO
         source = str(entry.get("source") or "").rstrip("/")
         if source not in ACTION_DIRECTORIES or not entry.get("is_directory"):
             continue
-        skipped = {
-            item.get("repo") if isinstance(item, dict) else item
-            for item in entry.get("skip_repos") or []
-        }
-        include = entry.get("include_repos") or []
-        if repo in skipped or (include and repo not in include):
+        if not _entry_applies(entry, repo):
             continue
         if source not in selected:
             selected.append(source)
     return selected
 
 
-def select_removals(manifest: dict[str, Any]) -> list[str]:
+def select_removals(manifest: dict[str, Any], repo: str = DEFAULT_REPO) -> list[str]:
     """Manifest ``removals`` targets that are single files this helper may delete."""
     targets: list[str] = []
     for entry in manifest.get("removals") or []:
         target = str(entry.get("target") or "")
-        if _is_safe_relative(target) and target.startswith(REMOVAL_PREFIXES):
+        if (
+            _is_safe_relative(target)
+            and target.startswith(REMOVAL_PREFIXES)
+            and _entry_applies(entry, repo)
+        ):
             targets.append(target)
     return targets
 
@@ -189,7 +190,7 @@ def apply_subset(
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(src, dest)
                 shutil.copymode(src, dest)
-    for target in select_removals(manifest):
+    for target in select_removals(manifest, repo):
         dest = target_root / target
         if dest.is_file():
             result.removed.append(target)
