@@ -603,11 +603,29 @@ async function paginateWithRetry(github, method, params, options = {}) {
   );
 }
 
-function collectTokenSecrets(env = {}) {
+function isOwnerPatExclusiveTask(task) {
+  if (!task || typeof task !== 'string') {
+    return false;
+  }
+  try {
+    const { TOKEN_SPECIALIZATIONS } = require('./token_load_balancer');
+    return Boolean(TOKEN_SPECIALIZATIONS?.OWNER_PR_PAT?.primaryTasks?.includes(task));
+  } catch {
+    return [
+      'pr-creation-as-owner',
+      'cross-repo-sync',
+      'dependabot-automerge',
+      'label-sync',
+    ].includes(task);
+  }
+}
+
+function collectTokenSecrets(env = {}, options = {}) {
+  const allowOwnerPat = isOwnerPatExclusiveTask(options?.task);
   const keys = [
     'SERVICE_BOT_PAT',
     'ACTIONS_BOT_PAT',
-    'OWNER_PR_PAT',
+    ...(allowOwnerPat ? ['OWNER_PR_PAT'] : []),
     'AGENTS_AUTOMATION_PAT',
     'TOKEN_ROTATION_JSON',
     'TOKEN_ROTATION_ENV_KEYS',
@@ -631,7 +649,7 @@ function collectTokenSecrets(env = {}) {
   const dynamicKeys = dynamicKeysRaw
     .split(',')
     .map((entry) => entry.trim())
-    .filter(Boolean);
+    .filter((entry) => Boolean(entry) && (allowOwnerPat || entry !== 'OWNER_PR_PAT'));
   const allKeys = Array.from(new Set([...keys, ...dynamicKeys]));
 
   return allKeys.reduce((acc, key) => {
@@ -677,7 +695,7 @@ async function createTokenAwareRetry(options = {}) {
   }
 
   const registry = tokenRegistry || require('./token_load_balancer');
-  const secrets = collectTokenSecrets(env || {});
+  const secrets = collectTokenSecrets(env || {}, { task });
   const resolvedGithubToken = githubToken || env?.GITHUB_TOKEN || env?.GH_TOKEN || '';
   const hasTokenInputs =
     Boolean(resolvedGithubToken) ||
@@ -1219,6 +1237,7 @@ module.exports = {
   recordRateLimitIncident,
   withRetry,
   paginateWithRetry,
+  collectTokenSecrets,
   createTokenAwareRetry,
   sleep,
   // Category-aware retry (former github_api_retry.js)

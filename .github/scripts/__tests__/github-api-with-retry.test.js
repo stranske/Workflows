@@ -9,6 +9,7 @@ const {
   isSecondaryRateLimitError,
   withRetry,
   paginateWithRetry,
+  collectTokenSecrets,
   createTokenAwareRetry,
   checkRateLimitStatus,
   createGithubFetchRequester,
@@ -170,6 +171,51 @@ test('paginateWithRetry switches tokens on primary rate limit errors', async () 
 
   assert.deepEqual(result, [{ id: 1 }]);
   assert.deepEqual(calls, ['token-a', 'token-b']);
+});
+
+test('rotation pool excludes the owner PAT', async () => {
+  const secrets = collectTokenSecrets({
+    OWNER_PR_PAT: 'x',
+    SERVICE_BOT_PAT: 'y',
+  });
+  assert.deepEqual(secrets, { SERVICE_BOT_PAT: 'y' });
+  assert.equal('OWNER_PR_PAT' in secrets, false);
+
+  const dynamicSecrets = collectTokenSecrets({
+    OWNER_PR_PAT: 'x',
+    SERVICE_BOT_PAT: 'y',
+    TOKEN_ROTATION_ENV_KEYS: 'OWNER_PR_PAT,PAT_1',
+    PAT_1: 'z',
+  });
+  assert.equal('OWNER_PR_PAT' in dynamicSecrets, false);
+  assert.equal(dynamicSecrets.PAT_1, 'z');
+
+  const exclusiveSecrets = collectTokenSecrets(
+    { OWNER_PR_PAT: 'x', SERVICE_BOT_PAT: 'y' },
+    { task: 'pr-creation-as-owner' },
+  );
+  assert.equal(exclusiveSecrets.OWNER_PR_PAT, 'x');
+
+  let initializedSecrets = null;
+  await createTokenAwareRetry({
+    github: { token: 'fallback' },
+    env: {
+      OWNER_PR_PAT: 'x',
+      SERVICE_BOT_PAT: 'y',
+      GITHUB_TOKEN: 'gh-token',
+    },
+    tokenRegistry: {
+      isInitialized: () => false,
+      async initializeTokenRegistry({ secrets: passedSecrets }) {
+        initializedSecrets = passedSecrets;
+      },
+      async getOptimalToken() {
+        return { token: 'y', source: 'SERVICE_BOT_PAT' };
+      },
+    },
+    getOctokit: (token) => ({ token }),
+  });
+  assert.deepEqual(initializedSecrets, { SERVICE_BOT_PAT: 'y' });
 });
 
 test('createTokenAwareRetry initializes registry from env secrets', async () => {

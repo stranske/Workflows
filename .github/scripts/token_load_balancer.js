@@ -798,6 +798,13 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
   
   for (const [id, tokenInfo] of tokenRegistry.tokens) {
     if (excludeSources.includes(id)) continue;
+    const spec = TOKEN_SPECIALIZATIONS[id];
+    if (spec?.exclusive && (!task || !spec.primaryTasks.includes(task))) {
+      core?.debug?.(
+        `Skipping ${id}: exclusive token reserved for ${spec.primaryTasks.join(', ')}`
+      );
+      continue;
+    }
     if (tokenInfo.rateLimit?.invalidAuth) {
       core?.debug?.(`Skipping ${id}: credentials marked invalid`);
       continue;
@@ -827,7 +834,6 @@ async function getOptimalToken({ github, core, capabilities = [], preferredType 
     
     // Boost score if token is primary for this task
     let taskBonus = 0;
-    const spec = TOKEN_SPECIALIZATIONS[id];
     if (task && spec && spec.primaryTasks.includes(task)) {
       taskBonus = 30; // Strong preference for primary tokens
       core?.debug?.(`${id} is primary for task '${task}', +30 bonus`);
