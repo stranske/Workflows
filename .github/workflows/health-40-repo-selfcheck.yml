@@ -15,7 +15,8 @@ permissions:
   issues: write
   pull-requests: read
   checks: read
-  # Read-only: the snapshot reports the open zizmor alert count (cohesion review A5d).
+  # Read-only: the snapshot reports the open zizmor, CodeQL and Semgrep alert
+  # counts (cohesion review A5d; round 2 B3).
   security-events: read
   # Dispatch Health 44 (the only branch-protection writer) when drift is found.
   actions: write
@@ -841,21 +842,20 @@ jobs:
 
           PY
 
-      - name: Count open zizmor alerts
-        # The four security scans upload with continue-on-error and nothing read
-        # their alerts; the snapshot now prints the count and its trend.
+      - name: Count open security scan alerts
+        # The security scans upload with continue-on-error and nothing read
+        # their alerts; the snapshot now prints each count and its trend.
         if: always()
         continue-on-error: true
         uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |
-            // # best-effort: the zizmor count is FYI; an API failure renders as "not counted", never as zero.
+            // # best-effort: the counts are FYI; an API failure renders as "not counted", never as zero.
             const fs = require('fs');
             const {
-              buildSnapshot,
-              countOpenAlerts,
-              renderMarkdown,
+              renderSecuritySection,
+              snapshotAllScans,
             } = require('./.github/scripts/zizmor_alert_snapshot.js');
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             // env: {} pins the calls to the workflow token: only it carries the
@@ -864,10 +864,9 @@ jobs:
               github,
               core,
               env: {},
-              task: 'repo-health-zizmor-count',
+              task: 'repo-health-scan-counts',
             });
             const { owner, repo } = context.repo;
-            const current = await countOpenAlerts({ github, owner, repo, paginateWithRetry });
             let previousBody = '';
             let previousAt = '';
             try {
@@ -884,10 +883,18 @@ jobs:
             } catch (error) {
               core.warning(`Previous snapshot lookup failed: ${error.message || error}`);
             }
-            const snapshot = buildSnapshot({ current, previousBody, previousAt });
-            fs.writeFileSync('repo-health-zizmor.json', `${JSON.stringify(snapshot, null, 2)}\n`);
-            fs.writeFileSync('repo-health-zizmor.md', renderMarkdown(snapshot));
-            core.info(renderMarkdown(snapshot));
+            const snapshots = await snapshotAllScans({
+              github,
+              owner,
+              repo,
+              paginateWithRetry,
+              previousBody,
+              previousAt,
+            });
+            const markdown = renderSecuritySection(snapshots);
+            fs.writeFileSync('repo-health-zizmor.json', `${JSON.stringify(snapshots, null, 2)}\n`);
+            fs.writeFileSync('repo-health-zizmor.md', markdown);
+            core.info(markdown);
 
       - name: Generate repo health status body
         if: always()
@@ -1012,8 +1019,9 @@ jobs:
               lines.append(zizmor_path.read_text(encoding='utf-8').strip())
           else:
               lines.append('## Security scan alerts')
-              lines.append('')
-              lines.append('*Open zizmor alerts:* not counted: the count step did not run')
+              for scan in ('zizmor', 'CodeQL', 'Semgrep'):
+                  lines.append('')
+                  lines.append(f'*Open {scan} alerts:* not counted: the count step did not run')
 
           issue_path.write_text('\n'.join(lines).strip() + '\n', encoding='utf-8')
           PY

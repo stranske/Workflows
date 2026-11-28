@@ -146,16 +146,17 @@ def test_selfcheck_snapshot_is_read_only() -> None:
     assert "'enforce+verify'" not in WORKFLOW.read_text(encoding="utf-8")
 
 
-# --- Cohesion review A5d: zizmor alert count and trend -------------------------
+# --- Cohesion review A5d / round-2 B3: scan alert counts and trends -----------
 
 
-def test_zizmor_count_step_is_best_effort_and_permitted() -> None:
+def test_scan_count_step_is_best_effort_and_permitted() -> None:
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     assert workflow["permissions"]["security-events"] == "read"
-    step = _workflow_step("Count open zizmor alerts")
+    step = _workflow_step("Count open security scan alerts")
     assert step["continue-on-error"] is True
     assert step["if"] == "always()"
-    assert "countOpenAlerts" in step["with"]["script"]
+    assert "snapshotAllScans" in step["with"]["script"]
+    assert "renderSecuritySection" in step["with"]["script"]
     assert "'[health] repository self-check'" in step["with"]["script"]
 
 
@@ -186,8 +187,20 @@ def test_status_body_carries_the_zizmor_section(tmp_path: Path) -> None:
 
 def test_status_body_says_not_counted_when_the_count_step_did_not_run(tmp_path: Path) -> None:
     body = _render_status_body(tmp_path, None)
-    assert "*Open zizmor alerts:* not counted: the count step did not run" in body
+    for scan in ("zizmor", "CodeQL", "Semgrep"):
+        assert f"*Open {scan} alerts:* not counted: the count step did not run" in body
     assert "`0`" not in body
+
+
+def test_status_body_carries_all_three_scan_counts(tmp_path: Path) -> None:
+    """Round-2 B3: CodeQL and Semgrep sit in the same snapshot as zizmor."""
+    section = (
+        "## Security scan alerts\n\n*Open zizmor alerts:* `963`\n\n"
+        "*Open CodeQL alerts:* `0` - fully drained\n\n*Open Semgrep alerts:* `793`\n"
+    )
+    body = _render_status_body(tmp_path, section)
+    counts = re.findall(r"^\*Open (\w+) alerts:\*", body, flags=re.MULTILINE)
+    assert counts == ["zizmor", "CodeQL", "Semgrep"]
 
 
 def test_protection_drift_does_not_skip_signal_collection() -> None:
