@@ -29,7 +29,7 @@ const {
 
 // Issue #3606's Gate contract must be exercised by this named Node command.
 // Read the actual github-script steps from both create-only workflow copies.
-function gateStep(workflowPath, stepName) {
+function githubScriptStep(workflowPath, stepName) {
   const lines = fs.readFileSync(workflowPath, 'utf8').split('\n');
   const marker = `- name: ${stepName}`;
   const start = lines.findIndex((line) => line.trim() === marker);
@@ -94,7 +94,7 @@ for (const workflow of [
   path.resolve(__dirname, '../../../templates/consumer-repo/.github/workflows/pr-00-gate.yml'),
 ]) {
   for (const stepName of ['Ensure consolidated summary comment', 'Report Gate commit status']) {
-    const source = gateStep(workflow, stepName);
+    const source = githubScriptStep(workflow, stepName);
     const isComment = stepName.startsWith('Ensure');
     test(`${path.relative(process.cwd(), workflow)} ${stepName}: exhausted quota stays out of fork fallback`, async () => {
       const result = await runGateStep(source, stepName, {
@@ -125,6 +125,82 @@ for (const workflow of [
       assert.equal(sameResult.summary.length, 0);
     });
   }
+}
+
+for (const [name, checkout, workflow] of [
+  ['Workflows', path.resolve(__dirname, '../../..'), 'agents-keepalive-loop.yml'],
+  [
+    'consumer',
+    path.resolve(__dirname, '../../../templates/consumer-repo'),
+    'agents-81-gate-followups.yml',
+  ],
+]) {
+  test(`${name} keepalive selects its dedicated pool while general requests exclude it`, async (t) => {
+    const scripts = path.join(checkout, '.github/scripts');
+    const { ensureRateLimitWrapped } = require(path.join(scripts, 'github-rate-limited-wrapper.js'));
+    const { tokenRegistry, registerToken } = require(path.join(scripts, 'token_load_balancer.js'));
+    const previousTokens = new Map(tokenRegistry.tokens);
+    const previousRefresh = tokenRegistry.lastRefresh;
+    const previousEnv = process.env;
+    t.after(() => {
+      tokenRegistry.tokens.clear();
+      for (const entry of previousTokens) tokenRegistry.tokens.set(...entry);
+      tokenRegistry.lastRefresh = previousRefresh;
+      process.env = previousEnv;
+    });
+    process.env = {};
+    tokenRegistry.tokens.clear();
+    tokenRegistry.lastRefresh = Date.now();
+    registerToken({
+      id: 'KEEPALIVE_APP', source: 'KEEPALIVE_APP', token: 'synthetic-keepalive', type: 'APP',
+    });
+
+    const selected = [];
+    const quotaReads = [];
+    function client(pool) {
+      return {
+        hook: {},
+        request() { assert.fail('fixture must not make a transport request'); },
+        rest: {
+          rateLimit: {
+            async get() {
+              quotaReads.push(pool);
+              return { data: { resources: { core: { remaining: 5000, limit: 5000, reset: 0 } } } };
+            },
+          },
+        },
+        getOctokit(token) {
+          assert.equal(token, 'synthetic-keepalive');
+          selected.push('KEEPALIVE_APP');
+          return client('KEEPALIVE_APP');
+        },
+      };
+    }
+
+    const general = await ensureRateLimitWrapped({ github: client('default'), env: {} });
+    assert.equal(general.__getTokenSource(), null);
+    assert.deepEqual(selected, []);
+
+    const outputs = new Map();
+    const step = githubScriptStep(path.join(checkout, '.github/workflows', workflow), 'Evaluate keepalive state');
+    await vm.runInNewContext(`(async () => {\n${step}\n})()`, {
+      context: { eventName: 'workflow_dispatch', payload: {}, repo: { owner: 'test', repo: 'repo' } },
+      core: { debug() {}, info() {}, setOutput(key, value) { outputs.set(key, value); } },
+      github: client('default'),
+      process: { env: {} },
+      require(moduleName) {
+        if (moduleName === 'fs') {
+          return { mkdirSync() {}, writeFileSync() {}, openSync() {}, closeSync() {} };
+        }
+        if (moduleName === 'path') return path;
+        assert.equal(moduleName, './.github/scripts/keepalive_loop.js');
+        return require(path.resolve(checkout, moduleName));
+      },
+    });
+    assert.equal(outputs.get('reason'), 'pr-not-found');
+    assert.deepEqual(selected, ['KEEPALIVE_APP']);
+    assert.ok(quotaReads.includes('KEEPALIVE_APP'));
+  });
 }
 
 test('isRateLimitWrapped returns false for plain object', () => {

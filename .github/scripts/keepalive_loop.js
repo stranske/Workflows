@@ -174,6 +174,7 @@ try {
   // Load balancer not available - will use fallback
 }
 
+const KEEPALIVE_TASK = 'keepalive-loop';
 const ATTEMPT_HISTORY_LIMIT = 20;
 const ATTEMPTED_TASK_LIMIT = 20;
 const AUTOMATION_ATTENTION_LABELS = ['agent:needs-attention'];
@@ -2338,7 +2339,7 @@ async function hasRecentRateLimitNotification({ github: rawGithub, context, prNu
   // Wrap github client with rate-limit-aware retry
   let github;
   try {
-    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, task: KEEPALIVE_TASK });
   } catch (error) {
     core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
     github = rawGithub;
@@ -2402,7 +2403,7 @@ async function postRateLimitNotification({
   // Wrap github client with rate-limit-aware retry
   let github;
   try {
-    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, task: KEEPALIVE_TASK });
   } catch (error) {
     core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
     github = rawGithub;
@@ -2625,7 +2626,7 @@ async function checkRateLimitStatus({ github: rawGithub, core, minRequired = 50 
   // Wrap github client with rate-limit-aware retry
   let github;
   try {
-    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, task: KEEPALIVE_TASK });
   } catch (error) {
     core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
     github = rawGithub;
@@ -2745,7 +2746,7 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
   // Wrap github client with rate-limit-aware retry for all API calls
   let github;
   try {
-    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, task: KEEPALIVE_TASK });
     core?.debug?.('GitHub client wrapped with rate-limit protection');
   } catch (error) {
     core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
@@ -3639,7 +3640,7 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
   // Wrap github client with rate-limit-aware retry
   let github;
   try {
-    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, task: KEEPALIVE_TASK });
   } catch (error) {
     core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
     github = rawGithub;
@@ -5543,7 +5544,7 @@ async function markAgentRunning({ github: rawGithub, context, core, inputs }) {
   // Wrap github client with rate-limit-aware retry
   let github;
   try {
-    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, task: KEEPALIVE_TASK });
   } catch (error) {
     core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
     github = rawGithub;
@@ -5714,7 +5715,7 @@ async function analyzeTaskCompletion({ github: rawGithub, context, prNumber, bas
   // Wrap github client with rate-limit-aware retry
   let github;
   try {
-    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, task: KEEPALIVE_TASK });
   } catch (error) {
     core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
     github = rawGithub;
@@ -6026,7 +6027,7 @@ async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSh
   // Wrap github client with rate-limit-aware retry
   let github;
   try {
-    github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
+    github = await ensureRateLimitWrapped({ github: rawGithub, core, task: KEEPALIVE_TASK });
   } catch (error) {
     core?.warning?.(`Failed to wrap GitHub client: ${error.message} - using raw client`);
     github = rawGithub;
