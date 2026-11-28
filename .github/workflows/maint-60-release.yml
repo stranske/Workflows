@@ -1,5 +1,8 @@
 name: Maint 60 Release
 
+# Moves the floating v1 tag to each new v1.x tag. The release itself is written by
+# release-please (maint-61), whose App-token tag push is what triggers this workflow.
+
 on:
   push:
     tags:
@@ -14,7 +17,7 @@ concurrency:
 
 jobs:
   release:
-    name: Create Release
+    name: Move floating tag
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -29,7 +32,7 @@ jobs:
         run: |
           scripts/update-floating-tag.sh v1 v1. "$GITHUB_SHA"
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v3
-        with:
-          generate_release_notes: true
+      # No release step: release-please (maint-61) already creates the GitHub
+      # release for every tag it pushes. A second writer here (softprops) only
+      # re-edited that release and failed 2 of the last 6 tags on the token
+      # rate limit (cohesion review B15).
