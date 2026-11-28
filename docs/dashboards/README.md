@@ -39,7 +39,7 @@ gh workflow run "LangSmith Metrics Dashboard" \
 #### Data Sources
 
 - [Trace aggregation](../../scripts/aggregate_metrics.py) reads this repository's
-  `autopilot-metrics-*` and `agents-verifier-metrics` artifacts from the selected window.
+  `agents-verifier-metrics` artifacts from the selected window.
 - [Fleet validation](../../scripts/langsmith_fleet.py) combines readable
   `langsmith-fleet.ndjson` artifacts for entries configured to use artifact evidence
   in the [fleet registry](../../config/langsmith_fleet_registry.json). Its token
@@ -76,4 +76,4 @@ Test the generation command and report destinations before publishing a new dash
 - [LangSmith Integration Status](../LANGSMITH_INTEGRATION_STATUS.md)
 - [LangSmith E2E Validation](../LANGSMITH_E2E_VALIDATION.md)
 - [LangSmith Fleet Record Contract](../contracts/langsmith-fleet-v1.md)
-- [Autopilot Metrics Schema](../ci/AUTOPILOT_METRICS_SCHEMA.md)
+- [Autopilot Metrics Schema (retired, historical)](../ci/AUTOPILOT_METRICS_SCHEMA.md)

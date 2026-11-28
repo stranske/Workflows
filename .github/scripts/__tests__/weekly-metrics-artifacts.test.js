@@ -44,7 +44,7 @@ test('maps metrics artifact names to stable families', () => {
   assert.equal(artifactFamily('codex-cli-freshness'), 'codex-cli-freshness');
   assert.equal(artifactFamily('codex-cli-freshness-123'), 'codex-cli-freshness');
   assert.equal(artifactFamily('pr-source-context'), 'pr-source-context');
-  assert.equal(artifactFamily('autopilot-metrics-42'), 'autopilot-metrics');
+  assert.equal(artifactFamily('issue-intake-format-metrics-42'), 'issue-intake-format-metrics');
   assert.equal(
     artifactFamily('review-thread-terminal-disposition-123'),
     'review-thread-terminal-disposition'
@@ -124,7 +124,7 @@ test('selects only recent matching artifacts with a machine-readable report', ()
       artifact(1, 'keepalive-metrics', '2026-04-24T12:00:00Z'),
       artifact(2, 'coverage-summary', '2026-04-24T12:00:00Z'),
       artifact(3, 'agents-autofix-metrics', '2026-04-01T12:00:00Z'),
-      artifact(4, 'autopilot-metrics-77', '2026-04-25T10:00:00Z'),
+      artifact(4, 'issue-intake-format-metrics-77', '2026-04-25T10:00:00Z'),
       artifact(5, 'review-thread-terminal-disposition-77', '2026-04-25T11:00:00Z'),
       artifact(6, 'agents-verifier-metrics', '2026-04-25T09:00:00Z', { expired: true }),
       artifact(7, 'bot-comment-auth-coverage-wrapper-latest', '2026-04-25T08:00:00Z'),
@@ -144,7 +144,7 @@ test('selects only recent matching artifacts with a machine-readable report', ()
   assert.equal(report.ignored_old_count, 1);
   assert.equal(report.ignored_expired_count, 1);
   assert.deepEqual(report.candidate_family_counts, {
-    'autopilot-metrics': 1,
+    'issue-intake-format-metrics': 1,
     'bot-comment-auth-coverage-wrapper': 2,
     'codex-cli-freshness': 1,
     'keepalive-metrics': 1,
@@ -238,7 +238,7 @@ test('selects only recent matching artifacts with a machine-readable report', ()
     ]
   );
   assert.deepEqual(report.selected_family_counts, {
-    'autopilot-metrics': 1,
+    'issue-intake-format-metrics': 1,
     'bot-comment-auth-coverage-wrapper': 2,
     'codex-cli-freshness': 1,
     'keepalive-metrics': 1,
@@ -279,9 +279,9 @@ test('builds an error report when artifact selection cannot query GitHub', () =>
 test('bounds selected artifacts by total and per-family limits', () => {
   const report = selectMetricsArtifacts(
     [
-      artifact(1, 'autopilot-metrics-1', '2026-04-25T11:00:00Z'),
-      artifact(2, 'autopilot-metrics-2', '2026-04-25T10:00:00Z'),
-      artifact(3, 'autopilot-metrics-3', '2026-04-25T09:00:00Z'),
+      artifact(1, 'issue-intake-format-metrics-1', '2026-04-25T11:00:00Z'),
+      artifact(2, 'issue-intake-format-metrics-2', '2026-04-25T10:00:00Z'),
+      artifact(3, 'issue-intake-format-metrics-3', '2026-04-25T09:00:00Z'),
       artifact(4, 'keepalive-metrics', '2026-04-25T08:00:00Z'),
       artifact(5, 'agents-verifier-metrics', '2026-04-25T07:00:00Z'),
     ],
@@ -415,17 +415,17 @@ test('builds priority family statuses for available but unselected artifacts', (
 test('formats selected artifacts for the workflow download loop', () => {
   const tsv = formatArtifactTsv([
     { id: 42, name: 'keepalive-metrics' },
-    { id: 43, name: 'autopilot-metrics-7' },
+    { id: 43, name: 'issue-intake-format-metrics-7' },
   ]);
 
-  assert.equal(tsv, '42\tkeepalive-metrics\n43\tautopilot-metrics-7');
+  assert.equal(tsv, '42\tkeepalive-metrics\n43\tissue-intake-format-metrics-7');
 });
 
 test('formats a human-visible selector summary for weekly metrics', () => {
   const report = selectMetricsArtifacts(
     [
       artifact(1, 'keepalive-metrics', '2026-04-25T11:00:00Z'),
-      artifact(2, 'autopilot-metrics-7', '2026-04-25T10:00:00Z'),
+      artifact(2, 'issue-intake-format-metrics-7', '2026-04-25T10:00:00Z'),
       artifact(3, 'coverage-summary', '2026-04-25T09:00:00Z'),
     ],
     { now_ms: NOW }
@@ -442,7 +442,7 @@ test('formats a human-visible selector summary for weekly metrics', () => {
   );
   assert.match(markdown, /Artifact family \| Candidates \| Selected/);
   assert.match(markdown, /Priority family \| Status \| Candidates \| Selected artifact/);
-  assert.match(markdown, /autopilot-metrics/);
+  assert.match(markdown, /issue-intake-format-metrics/);
   assert.match(markdown, /keepalive-metrics/);
 });
 
@@ -731,7 +731,7 @@ test('collects repo artifacts within the configured scan page cap', async () => 
             data: {
               artifacts: [
                 artifact(params.page * 10 + 1, 'keepalive-metrics', '2026-04-25T11:00:00Z'),
-                artifact(params.page * 10 + 2, 'autopilot-metrics-7', '2026-04-25T10:00:00Z'),
+                artifact(params.page * 10 + 2, 'issue-intake-format-metrics-7', '2026-04-25T10:00:00Z'),
               ],
             },
           };
@@ -1030,7 +1030,7 @@ test('every selector family without an uploader is declared as no-producer', () 
   const readFamilies = [
     'keepalive-metrics', 'agents-autofix-metrics', 'agents-verifier-metrics',
     'agents-verifier-disposition-metrics', 'codex-cli-freshness', 'pr-source-context',
-    'autopilot-metrics', 'issue-optimizer-metrics', 'issue-intake-format-metrics',
+    'issue-optimizer-metrics', 'issue-intake-format-metrics',
     'verifier-terminal-disposition', 'review-thread-terminal-disposition',
     'bot-comment-auth-coverage-wrapper', 'bot-comment-auth-coverage-reusable',
   ];
@@ -1047,20 +1047,20 @@ test('the weekly report names the no-producer families separately from zero', ()
   const markdown = formatSelectionMarkdown(report);
   assert.match(
     markdown,
-    /No producer \(nothing in the fleet uploads these, so a zero is not "no activity"\): agents-verifier-disposition-metrics, autopilot-metrics, issue-intake-format-metrics, issue-optimizer-metrics/
+    /No producer \(nothing in the fleet uploads these, so a zero is not "no activity"\): agents-verifier-disposition-metrics, issue-intake-format-metrics, issue-optimizer-metrics/
   );
-  assert.match(markdown, /\| autopilot-metrics \| no producer \| no producer \|/);
+  assert.match(markdown, /\| issue-optimizer-metrics \| no producer \| no producer \|/);
   assert.match(markdown, /\| keepalive-metrics \| 1 \| 1 \|/);
 });
 
 test('a no-producer family that shows up is reported as found, not hidden', () => {
   const report = selectMetricsArtifacts(
-    [artifact(9, 'autopilot-metrics-3', '2026-04-25T11:00:00Z')],
+    [artifact(9, 'issue-optimizer-metrics-3', '2026-04-25T11:00:00Z')],
     { now_ms: NOW }
   );
-  assert.ok(!report.no_producer_families.includes('autopilot-metrics'));
-  assert.match(formatSelectionMarkdown(report), /\| autopilot-metrics \| 1 \| 1 \|/);
-  assert.deepEqual(noProducerFamilies(new Map([['autopilot-metrics', 1]])).length, 3);
+  assert.ok(!report.no_producer_families.includes('issue-optimizer-metrics'));
+  assert.match(formatSelectionMarkdown(report), /\| issue-optimizer-metrics \| 1 \| 1 \|/);
+  assert.deepEqual(noProducerFamilies(new Map([['issue-optimizer-metrics', 1]])).length, 2);
 });
 
 test('the error report still names the no-producer families', () => {

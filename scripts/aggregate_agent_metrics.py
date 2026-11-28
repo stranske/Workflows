@@ -50,7 +50,6 @@ _EXACT_ARTIFACT_FAMILIES = {
     "pr-source-context",
 }
 _PREFIXED_ARTIFACT_FAMILIES = (
-    "autopilot-metrics-",
     "issue-optimizer-metrics-",
     "issue-intake-format-metrics-",
     "codex-cli-freshness-",
@@ -441,8 +440,6 @@ def _classify_entry(entry: dict[str, Any]) -> str:
             return "autofix"
         if "verifier" in lowered or "verify" in lowered:
             return "verifier"
-        if lowered in ("step", "cycle", "escalation"):
-            return "autopilot"
     if any(key in entry for key in ("iteration_count", "tasks_total")):
         return "keepalive"
     # Hosted and reusable Autofix both emit stop_reason, even on successful attempts.
@@ -455,11 +452,6 @@ def _classify_entry(entry: dict[str, Any]) -> str:
         return "autofix"
     if any(key in entry for key in ("verdict", "issues_created", "acceptance_criteria_count")):
         return "verifier"
-    # Auto-pilot step/cycle records have step_name + duration_ms
-    if "step_name" in entry and "duration_ms" in entry:
-        return "autopilot"
-    if "escalation_reason" in entry:
-        return "autopilot"
     return "unknown"
 
 
@@ -505,10 +497,6 @@ def _langsmith_trace_refs(entry: dict[str, Any]) -> set[str]:
             elif item_trace_url:
                 trace_refs.add(f"url:{item_trace_url}")
     return trace_refs
-
-
-def _langsmith_trace_count(entry: dict[str, Any]) -> int:
-    return len(_langsmith_trace_refs(entry))
 
 
 def _verifier_run_key(entry: dict[str, Any], index: int) -> str:
@@ -928,100 +916,6 @@ def _summarise_verifier(
     }
 
 
-def _summarise_autopilot(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    """Summarise auto-pilot step/cycle/escalation records."""
-    issues: set[int] = set()
-    step_durations: dict[str, list[float]] = {}
-    step_successes: dict[str, int] = {}
-    step_failures: dict[str, int] = {}
-    cycle_counts: Counter[str] = Counter()
-    failure_reasons: Counter[str] = Counter()
-    escalation_reasons: Counter[str] = Counter()
-    cycle_records = 0
-    cycle_steps_attempted = 0
-    cycle_steps_completed = 0
-    escalation_count = 0
-    needs_human_count = 0
-    langsmith_trace_records = 0
-    langsmith_trace_count = 0
-
-    for entry in entries:
-        trace_count = _langsmith_trace_count(entry)
-        if trace_count:
-            langsmith_trace_records += 1
-            langsmith_trace_count += trace_count
-
-        issue_num = _safe_int(entry.get("issue_number") or entry.get("issue"))
-        if issue_num is not None:
-            issues.add(issue_num)
-
-        metric_type = str(entry.get("metric_type", "")).lower()
-
-        if metric_type == "escalation":
-            escalation_count += 1
-            reason = entry.get("escalation_reason", "unknown")
-            escalation_reasons[str(reason)] += 1
-            if "needs-human" in str(reason).lower() or "needs_human" in str(reason).lower():
-                needs_human_count += 1
-            continue
-
-        if metric_type == "cycle":
-            cycle_records += 1
-            cycle_count = _safe_int(entry.get("cycle_count"))
-            if cycle_count is not None:
-                cycle_counts[str(cycle_count)] += 1
-            steps_attempted = _safe_int(entry.get("steps_attempted"))
-            if steps_attempted is not None:
-                cycle_steps_attempted += steps_attempted
-            steps_completed = _safe_int(entry.get("steps_completed"))
-            if steps_completed is not None:
-                cycle_steps_completed += steps_completed
-            continue
-
-        step_name = entry.get("step_name")
-        if not step_name:
-            continue
-
-        duration = _safe_float(entry.get("duration_ms"))
-        if duration is not None:
-            step_durations.setdefault(step_name, []).append(duration)
-
-        success = entry.get("success")
-        if success in (True, "true", "True", "1", 1):
-            step_successes[step_name] = step_successes.get(step_name, 0) + 1
-        elif success in (False, "false", "False", "0", 0):
-            step_failures[step_name] = step_failures.get(step_name, 0) + 1
-            reason = entry.get("failure_reason", "unknown")
-            if reason and reason != "none":
-                failure_reasons[str(reason)] += 1
-
-    # Compute per-step averages
-    step_avg_duration: dict[str, float] = {}
-    for step, durations in step_durations.items():
-        step_avg_duration[step] = sum(durations) / len(durations) if durations else 0.0
-
-    total_steps = sum(step_successes.values()) + sum(step_failures.values())
-
-    return {
-        "records": len(entries),
-        "issues": len(issues),
-        "total_steps": total_steps,
-        "step_avg_duration_ms": step_avg_duration,
-        "step_successes": step_successes,
-        "step_failures": step_failures,
-        "cycle_records": cycle_records,
-        "cycle_counts": cycle_counts,
-        "cycle_steps_attempted": cycle_steps_attempted,
-        "cycle_steps_completed": cycle_steps_completed,
-        "failure_reasons": failure_reasons,
-        "escalation_count": escalation_count,
-        "escalation_reasons": escalation_reasons,
-        "needs_human_count": needs_human_count,
-        "langsmith_trace_records": langsmith_trace_records,
-        "langsmith_trace_count": langsmith_trace_count,
-    }
-
-
 def _summarise_codex_cli_freshness(entries: list[dict[str, Any]]) -> dict[str, Any]:
     statuses: Counter[str] = Counter()
     packages: Counter[str] = Counter()
@@ -1108,7 +1002,6 @@ def _bucket_entries(entries: list[dict[str, Any]]) -> dict[str, list[dict[str, A
         "terminal_disposition": [],
         "verifier_followup_ledger": [],
         "codex_cli_freshness": [],
-        "autopilot": [],
         "unknown": [],
     }
     for entry in entries:
@@ -1126,7 +1019,6 @@ def _summary_metrics_contract(buckets: dict[str, list[dict[str, Any]]]) -> dict[
                 buckets["verifier"] + buckets["terminal_disposition"],
                 buckets["verifier_followup_ledger"],
             ),
-            "autopilot": _summarise_autopilot(buckets["autopilot"]),
             "codex_cli_freshness": _summarise_codex_cli_freshness(buckets["codex_cli_freshness"]),
             "unknown": {"records": len(buckets["unknown"])},
         }
@@ -1446,7 +1338,6 @@ def build_summary(
         buckets["verifier"] + buckets["terminal_disposition"],
         buckets["verifier_followup_ledger"],
     )
-    autopilot = _summarise_autopilot(buckets["autopilot"])
     codex_cli_freshness = _summarise_codex_cli_freshness(buckets["codex_cli_freshness"])
 
     now = _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -1461,7 +1352,6 @@ def build_summary(
             f"terminal dispositions {verifier['terminal_records']}, "
             f"verifier follow-up ledgers {verifier['ledger_records']}, "
             f"codex CLI freshness {codex_cli_freshness['records']}, "
-            f"autopilot {autopilot['records']}, "
             f"unknown {len(buckets['unknown'])})"
         ),
         f"Parse errors: {errors}",
@@ -1578,45 +1468,6 @@ def build_summary(
             f"- Update targets: {_format_counter(codex_cli_freshness['update_targets'])}",
         ]
     )
-
-    # ── Auto-pilot pipeline section ──────────────────────────────────
-    if autopilot["records"] > 0:
-        lines.extend(
-            [
-                "",
-                "## Auto-Pilot Pipeline",
-                f"- Records: {autopilot['records']}",
-                f"- Issues: {autopilot['issues']}",
-                f"- Total step executions: {autopilot['total_steps']}",
-                (
-                    "- LangSmith trace coverage: "
-                    f"{_format_rate(autopilot['langsmith_trace_records'], autopilot['records'])}"
-                    f" ({autopilot['langsmith_trace_count']} traces)"
-                ),
-                f"- Cycle records: {autopilot['cycle_records']}",
-                f"- Cycle count distribution: {_format_counter(autopilot['cycle_counts'])}",
-                (
-                    "- Cycle step completion: "
-                    f"{_format_rate(autopilot['cycle_steps_completed'], autopilot['cycle_steps_attempted'])}"
-                ),
-                f"- Escalations: {autopilot['escalation_count']}",
-                f"- Needs-human escalation rate: {_format_rate(autopilot['needs_human_count'], autopilot['escalation_count'])}",
-                f"- Escalation reasons: {_format_counter(autopilot['escalation_reasons'])}",
-                f"- Failure reasons: {_format_counter(autopilot['failure_reasons'])}",
-            ]
-        )
-
-        if autopilot["step_avg_duration_ms"]:
-            lines.append("")
-            lines.append("### Step Average Durations")
-            for step, avg_ms in sorted(autopilot["step_avg_duration_ms"].items()):
-                avg_s = avg_ms / 1000.0
-                successes = autopilot["step_successes"].get(step, 0)
-                failures = autopilot["step_failures"].get(step, 0)
-                total = successes + failures
-                lines.append(
-                    f"- {step}: {avg_s:.1f}s avg ({_format_rate(successes, total)} success)"
-                )
 
     return "\n".join(lines) + "\n"
 

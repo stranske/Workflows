@@ -92,7 +92,7 @@ def test_build_summary_formats_sections() -> None:
 
     assert (
         "Records: 7 (keepalive 2, autofix 1, verifier 1, terminal dispositions 1, "
-        "verifier follow-up ledgers 1, codex CLI freshness 1, autopilot 0, unknown 0)"
+        "verifier follow-up ledgers 1, codex CLI freshness 1, unknown 0)"
     ) in summary
     assert "Parse errors: 1" in summary
     assert "Avg iterations: 3.5" in summary
@@ -147,25 +147,6 @@ def test_build_summary_formats_sections() -> None:
     assert freshness_contract["max_version_delta"] == {"major": 0, "minor": 2, "patch": 3}
 
 
-def test_autopilot_needs_human_rate_uses_escalations_not_issue_ids() -> None:
-    entries = [
-        {
-            "metric_type": "escalation",
-            "escalation_reason": "needs-human-review",
-        },
-        {
-            "metric_type": "escalation",
-            "escalation_reason": "rate-limit",
-        },
-    ]
-
-    summary = aggregate_agent_metrics.build_summary(entries, errors=0)
-
-    assert "Issues: 0" in summary
-    assert "Escalations: 2" in summary
-    assert "Needs-human escalation rate: 50.0% (1/2)" in summary
-
-
 def test_langsmith_trace_counts_cover_single_ids_and_trace_lists() -> None:
     entries = [
         {
@@ -189,59 +170,28 @@ def test_langsmith_trace_counts_cover_single_ids_and_trace_lists() -> None:
             "verdict": "pass",
             "langsmith_trace_url": "https://smith.langchain.com/r/verifier-trace-url",
         },
-        {
-            "metric_type": "step",
-            "issue_number": 11,
-            "step_name": "optimize",
-            "success": True,
-            "duration_ms": 100,
-            "langsmith_trace_id": "autopilot-trace-1",
-        },
-        {
-            "metric_type": "step",
-            "issue_number": 11,
-            "step_name": "apply",
-            "success": True,
-            "duration_ms": 200,
-            "langsmith_traces": [
-                {"trace_id": "autopilot-trace-2"},
-                {"trace_id": "autopilot-trace-3"},
-            ],
-        },
-        {
-            "metric_type": "step",
-            "issue_number": 12,
-            "step_name": "format",
-            "success": True,
-            "duration_ms": 300,
-            "langsmith_trace_url": "https://smith.langchain.com/r/autopilot-trace-url",
-        },
     ]
 
     summary = aggregate_agent_metrics.build_summary(entries, errors=0)
 
     assert "LangSmith trace coverage: 100.0% (3/3) (4 traces)" in summary
-    assert summary.count("LangSmith trace coverage: 100.0% (3/3) (4 traces)") == 2
+    assert summary.count("LangSmith trace coverage: 100.0% (3/3) (4 traces)") == 1
 
     contract = aggregate_agent_metrics.build_summary_contract(entries, [])
     assert contract["summaries"]["verifier"]["langsmith_trace_records"] == 3
     assert contract["summaries"]["verifier"]["langsmith_trace_count"] == 4
-    assert contract["summaries"]["autopilot"]["langsmith_trace_records"] == 3
-    assert contract["summaries"]["autopilot"]["langsmith_trace_count"] == 4
 
 
-def test_langsmith_trace_counts_cover_url_only_trace_lists() -> None:
-    assert (
-        aggregate_agent_metrics._langsmith_trace_count(
-            {
-                "langsmith_traces": [
-                    {"trace_url": "https://smith.langchain.com/r/list-trace-url"},
-                    {"langsmith_trace_url": "https://smith.langchain.com/r/list-langsmith-url"},
-                ]
-            }
-        )
-        == 2
+def test_langsmith_trace_refs_cover_url_only_trace_lists() -> None:
+    refs = aggregate_agent_metrics._langsmith_trace_refs(
+        {
+            "langsmith_traces": [
+                {"trace_url": "https://smith.langchain.com/r/list-trace-url"},
+                {"langsmith_trace_url": "https://smith.langchain.com/r/list-langsmith-url"},
+            ]
+        }
     )
+    assert len(refs) == 2
 
 
 def test_verifier_langsmith_trace_coverage_deduplicates_run_keys() -> None:
@@ -518,22 +468,6 @@ def test_langsmith_trace_refs_use_url_when_trace_list_item_has_no_id() -> None:
     assert aggregate_agent_metrics._langsmith_trace_refs(entry) == {
         "url:https://smith.langchain.com/public/run/abc"
     }
-
-
-def test_autopilot_summary_counts_failed_steps_with_reason() -> None:
-    summary = aggregate_agent_metrics._summarise_autopilot(
-        [
-            {
-                "step_name": "implement",
-                "duration_ms": 1200,
-                "success": False,
-                "failure_reason": "timeout",
-            }
-        ]
-    )
-
-    assert summary["step_failures"]["implement"] == 1
-    assert summary["failure_reasons"]["timeout"] == 1
 
 
 def test_codex_freshness_summary_counts_update_target_paths() -> None:
@@ -1916,78 +1850,6 @@ def test_main_includes_artifact_download_manifest(
     ]
 
 
-def test_autopilot_metrics_summarised() -> None:
-    """Auto-pilot step/cycle/escalation records appear in the summary."""
-    entries = [
-        {
-            "metric_type": "step",
-            "issue_number": 42,
-            "step_name": "format",
-            "duration_ms": 5000,
-            "success": True,
-            "failure_reason": "none",
-        },
-        {
-            "metric_type": "step",
-            "issue_number": 42,
-            "step_name": "capability-check",
-            "duration_ms": 3000,
-            "success": True,
-            "failure_reason": "none",
-        },
-        {
-            "metric_type": "step",
-            "issue_number": 42,
-            "step_name": "verify",
-            "duration_ms": 12000,
-            "success": False,
-            "failure_reason": "step-failed",
-        },
-        {
-            "metric_type": "escalation",
-            "issue_number": 99,
-            "escalation_reason": "needs-human-complexity",
-        },
-        {
-            "metric_type": "cycle",
-            "issue_number": 42,
-            "cycle_count": 2,
-            "steps_attempted": 3,
-            "steps_completed": 2,
-        },
-    ]
-
-    summary = aggregate_agent_metrics.build_summary(entries, errors=0)
-
-    assert "Auto-Pilot Pipeline" in summary
-    assert "Records: 5" in summary
-    assert "autopilot 5" in summary
-    assert "Issues: 2" in summary
-    assert "Total step executions: 3" in summary
-    assert "Cycle records: 1" in summary
-    assert "Cycle count distribution: 2 (1)" in summary
-    assert "Cycle step completion: 66.7% (2/3)" in summary
-    assert "Escalations: 1" in summary
-    assert "Step Average Durations" in summary
-    assert "format:" in summary
-    assert "capability-check:" in summary
-    assert "step-failed (1)" in summary
-
-
-def test_autopilot_needs_human_rate_does_not_require_issue_denominator() -> None:
-    summary = aggregate_agent_metrics.build_summary(
-        [
-            {
-                "metric_type": "escalation",
-                "escalation_reason": "needs-human-complexity",
-            },
-        ],
-        errors=0,
-    )
-
-    assert "Needs-human escalation rate: 100.0% (1/1)" in summary
-
-
 def test_keepalive_completion_uses_task_totals_and_actions() -> None:
     entries = [
         {
@@ -2010,51 +1872,6 @@ def test_keepalive_completion_uses_task_totals_and_actions() -> None:
 
     assert "Actions: run (1), stop (1)" in summary
     assert "Tasks complete rate: 50.0% (1/2)" in summary
-
-
-def test_summarise_autopilot_counts_cycle_records() -> None:
-    summary = aggregate_agent_metrics._summarise_autopilot(
-        [
-            {
-                "metric_type": "cycle",
-                "issue_number": 101,
-                "cycle_count": 1,
-                "steps_attempted": 2,
-                "steps_completed": 2,
-            },
-            {
-                "metric_type": "cycle",
-                "issue_number": 101,
-                "cycle_count": 2,
-                "steps_attempted": 3,
-                "steps_completed": 1,
-            },
-        ]
-    )
-
-    assert summary["records"] == 2
-    assert summary["issues"] == 1
-    assert summary["cycle_records"] == 2
-    assert summary["cycle_counts"] == Counter({"1": 1, "2": 1})
-    assert summary["cycle_steps_attempted"] == 5
-    assert summary["cycle_steps_completed"] == 3
-
-
-def test_classify_autopilot_step_entry() -> None:
-    entry = {
-        "metric_type": "step",
-        "step_name": "optimize",
-        "duration_ms": 7000,
-        "success": True,
-    }
-    assert aggregate_agent_metrics._classify_entry(entry) == "autopilot"
-
-
-def test_classify_autopilot_escalation_entry() -> None:
-    entry = {
-        "escalation_reason": "needs-human",
-    }
-    assert aggregate_agent_metrics._classify_entry(entry) == "autopilot"
 
 
 def test_metric_helper_fallbacks_preserve_safe_defaults(tmp_path: Path) -> None:
@@ -2125,21 +1942,6 @@ def test_optional_metric_contract_inputs_fail_closed(tmp_path: Path) -> None:
     )
 
 
-def test_autopilot_summary_ignores_incomplete_optional_values() -> None:
-    summary = aggregate_agent_metrics._summarise_autopilot(
-        [
-            {"metric_type": "cycle", "issue": "not-a-number"},
-            {"metric_type": "step", "step_name": "publish", "success": "0"},
-            {"metric_type": "step", "success": False, "failure_reason": "ignored"},
-        ]
-    )
-
-    assert summary["issues"] == 0
-    assert summary["cycle_records"] == 1
-    assert summary["step_failures"] == {"publish": 1}
-    assert summary["failure_reasons"] == Counter({"unknown": 1})
-
-
 def test_legacy_parse_and_artifact_contract_error_paths(tmp_path: Path) -> None:
     scalar_path = tmp_path / "legacy-scalar.json"
     scalar_path.write_text('[\n  "not-a-metric"\n]\n', encoding="utf-8")
@@ -2196,9 +1998,10 @@ def test_uncovered_metric_helpers_preserve_legacy_and_error_contracts(tmp_path: 
         [],
     )
 
+    # Retired Auto-Pilot step records are no longer a family (#5379).
     assert (
         aggregate_agent_metrics._classify_entry({"step_name": "apply", "duration_ms": 1})
-        == "autopilot"
+        == "unknown"
     )
     assert aggregate_agent_metrics._langsmith_trace_refs(
         {"langsmith_traces": [{"langsmith_trace_url": "https://trace"}]}
@@ -2267,11 +2070,6 @@ def test_metrics_helpers_preserve_empty_and_malformed_input_boundaries(tmp_path:
     assert verifier["ledger_avg_chain_depth"] == 0.0
     assert verifier["ledger_policy_depth_limit_exceeded"] == 1
 
-    autopilot = aggregate_agent_metrics._summarise_autopilot(
-        [{"metric_type": "step", "step_name": "test", "success": False, "failure_reason": "none"}]
-    )
-    assert autopilot["failure_reasons"] == Counter()
-
     freshness = aggregate_agent_metrics._summarise_codex_cli_freshness(
         [{"update_targets": ["not-a-dict"]}]
     )
@@ -2294,17 +2092,6 @@ def test_langsmith_trace_refs_skip_trace_list_item_without_id_or_url() -> None:
     entry = {"langsmith_traces": [{"note": "no identifiers"}, {"trace_id": "abc"}]}
 
     assert aggregate_agent_metrics._langsmith_trace_refs(entry) == {"id:abc"}
-
-
-def test_autopilot_summary_ignores_step_with_unknown_success_value() -> None:
-    summary = aggregate_agent_metrics._summarise_autopilot(
-        [{"step_name": "implement", "success": None, "failure_reason": "timeout"}]
-    )
-
-    assert summary["step_successes"] == {}
-    assert summary["step_failures"] == {}
-    assert summary["failure_reasons"] == Counter()
-    assert summary["total_steps"] == 0
 
 
 def test_codex_freshness_summary_tolerates_missing_update_targets() -> None:
