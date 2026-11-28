@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).parents[2] / ".github" / "scripts" / "verifier_verdict_json.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "verifier_verdict_json.py"
 spec = importlib.util.spec_from_file_location("verifier_verdict_json", SCRIPT)
 verdict_parser = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
