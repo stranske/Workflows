@@ -7,6 +7,35 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Operator tools, portable templates and consumer delivery
+
+Stage 3 has 751/752 original file and 42/43 folder decisions accepted. Stage 4 has 1,487/1,540 file and 157/177 folder decisions accepted.
+
+Stage 1A has 198/198 workflow decisions and Stage 1B has 27/27 root files. The original 28 delivery checks comprise 26 observed production passes and two replay-verified outcomes without qualifying production demand.
+
+[#5496](https://github.com/stranske/Workflows/pull/5496) repaired the offline archive index. Its Git command recovered the pinned portfolio recipe byte for byte and eight ledger checks passed on the default branch. [#5491](https://github.com/stranske/Workflows/pull/5491) corrected the bootstrap README; the installed example, referenced workflows and live credential fallback now agree. [#5492](https://github.com/stranske/Workflows/pull/5492) corrected the label cleanup command. Its read-only Workflows audit retained the managed pause label and reported two cleanup candidates among 166 labels.
+
+The integration renderer stays in tools/. An isolated edit at its proposed scripts/ location made Maint 62 select zero scenarios; moving the suites also made Agy lose all three. The recorded sync-recovery command stays under scripts/. Seven recovered inputs yielded 3/3 on current source; an isolated regression made the live command yield 2/3 while the archived tree still yielded 3/3. The superseded raw optimizer PR [#5374](https://github.com/stranske/Workflows/pull/5374) was closed after the installed full Template produced the same 4,268 and 8,730 output bytes on real issue #5227.
+
+The portable script checks compared the frozen sync plan with 16 receiving defaults. Seven previously open file placements settled, including the two keepalive authority paths. Ten already accepted paths retained their state. Trip Planner keeps its project-specific package. The Autofix fallback upload and the two artifact-cache authoring paths have separate outstanding checks.
+
+[#5493](https://github.com/stranske/Workflows/pull/5493) removed the standalone prompt composer and its exclusive suite. The active replacement produced the same 5,448 bytes. Bare Node on the installed tree retained the exact 137-case roster.
+
+[#5498](https://github.com/stranske/Workflows/pull/5498) moves an issue-specific auditor next to its 52 historical records. The reviewed replay reproduced the archived report hash and the local discovery comparison preserved each named case. Its first native Gate skipped both Python jobs after the move into docs directories. The repaired [Gate](https://github.com/stranske/Workflows/actions/runs/46135735792) set RUN_CORE=true and selected both Python jobs. Final installation and a default-branch replay are pending.
+
+[#5497](https://github.com/stranske/Workflows/pull/5497) corrects a managed setup guide that invoked a script absent from a consumer checkout. The operator preview listed four intended updates and made zero external calls. The source correction is installed. The receiving checklist is open until its default branch contains the corrected instructions.
+
+The previous canary produced three receiving PRs. Portable Alpha’s exact-head review exposed a lost task identifier; [#5495](https://github.com/stranske/Workflows/pull/5495) restores the dedicated keepalive token path. The token fix is installed on Workflows main. The [replacement full canary](https://github.com/stranske/Workflows/actions/runs/46136158020) targets the three registered canaries. All 47 removals persisted in its compiled plan. All three source-to-consumer jobs succeeded. Both the exact corrected source and frozen plan are present on all three existing canary PRs. Readback on each head found all three corrected files and all nine intended removals, while none of those changes were present on the three default branches. The separate summary job failed with HTTP 403 and zero remaining installation API requests. [Maint 71 reconciliation](https://github.com/stranske/Workflows/actions/runs/46136316714) started normally. The summary can be retried independently of the successful delivery jobs when the installation rate limit resets.
+GitHub reported its installation limit resets at 10:47:33 UTC. The nine retired source mirrors remain open until receiving defaults verify removal.
+
+The three hosted verifier tools stay together in tools/. Both layouts produced the same outcome on captured #4509 and #4231/#4235 inputs, with nine original input files preserved. The alternative required three import and hosted-path repairs. The receiving Template consumes the reusable verifier directly; the copy plan has no target for these three tools.
+
+Five portable verifier helpers already have a single authoring copy. Removing all six tested raw helpers from a scratch checkout left the managed plan identical; the ordinary publisher regenerated every byte and file mode, and 181 owning Node tests passed. Five placements settled. Standalone gzip decoding remains open because the raw scaffold lacks the separate Python decoder. All 16 managed receivers have it. Codex Bootstrap Lite remains a documented standalone step. No managed caller was found; create and invite both returned the published branch and PR outputs on a captured issue, and the shared workflow does not expose those outputs.
+
+[#5501](https://github.com/stranske/Workflows/pull/5501) consolidates the two CI metrics suites and moves retry and required-check tests beside their script owners. Local comparisons preserved 46,677 default, 16,328 core and 30,340 grammar case identities. The workflow naming, LLM installation and pinned CLI checks retain their workflow locations; the pinned native job exercised all 12 cases.
+
+[#5500](https://github.com/stranske/Workflows/pull/5500) makes the root Artifact Cache action the authoring copy and teaches Maint 82 to detect isolated edits to both files. On the candidate, both edits changed the fingerprint, the existing generator recreated identical portable bytes and modes, and the receiving target and digest stayed the same. Source installation is pending.
+
 ### November 28 · Verified integration delivery, historical recovery and local test discovery
 
 Stage 3 has **739/752 files and 39/43 folders** accepted. Stage 4 has **1,473/1,540 files and 158/177 folders** accepted. Across the repository this session added 94 net file decisions and 4 net folder decisions.
@@ -570,13 +599,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 2,017/2,901 | 121/220 | — |
-| 3 · Scripts, tools and packages | 739/752 | 39/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,473/1,540 | 158/177 | — |
+| 2 · Evidence and archives | 2,018/2,901 | 121/220 | — |
+| 3 · Scripts, tools and packages | 751/752 | 42/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,487/1,540 | 157/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 211/334 | 26/47 | — |
-| **Total** | **4,467/5,554** | **344/487** | **198/198** |
+| **Total** | **4,494/5,554** | **346/487** | **198/198** |
 
-**Directory organization.** 4,255 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 4,220 completed file decisions fall under 7 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
