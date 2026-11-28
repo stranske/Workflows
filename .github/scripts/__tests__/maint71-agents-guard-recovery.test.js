@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const native = require('../maint71_merge_sync_prs');
 const { CONTEXT, agentsGuardNeedsRecovery, agentsGuardNeedsInspection,
-  agentsGuardRefusalHandoff } = require('../maint71_agents_guard_recovery');
+  agentsGuardRefusalHandoff } = require('../consumer_sync/maint71_agents_guard_recovery');
 const real = require('./fixtures/ready-agents-guard.json').jobless;
 
 function fixture() {

@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 import yaml
-from scripts.validate_sync_target_dispositions import main
+from scripts.consumer_sync.validate_sync_target_dispositions import main
 
 TARGET = ".github/copilot-skills"
 BASE = {

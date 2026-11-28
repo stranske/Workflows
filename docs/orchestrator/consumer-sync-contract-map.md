@@ -27,8 +27,8 @@ The consumer sync system is **manifest-driven**: all synchronization targets are
 
 | Aspect | Expected Behavior | Failure Signal | Validation Command |
 |--------|-------------------|----------------|---------------------|
-| File declaration | Every sync-able file MUST be listed in this manifest | Files missing from manifest are NOT synced to consumers | `python scripts/validate_template_completeness.py` |
-| Section categorization | Files grouped by type (workflows, prompts, scripts, docs, etc.) | Files in wrong section may not be processed correctly | `python scripts/validate_template_completeness.py --strict` |
+| File declaration | Every sync-able file MUST be listed in this manifest | Files missing from manifest are NOT synced to consumers | `python scripts/consumer_sync/validate_template_completeness.py` |
+| Section categorization | Files grouped by type (workflows, prompts, scripts, docs, etc.) | Files in wrong section may not be processed correctly | `python scripts/consumer_sync/validate_template_completeness.py --strict` |
 | `sync_mode: create_only` | Files marked create_only are NOT overwritten in existing consumer repos | Existing consumer customizations are preserved | `grep -c "sync_mode: create_only" .github/sync-manifest.yml` |
 | `overwrite_repos` | Specified repos ignore create_only and stay byte-aligned | Repos in this list receive updates even for create_only files | `yq '.workflows[].overwrite_repos' .github/sync-manifest.yml` |
 | `skip_repos` | Specified repos are excluded from receiving specific files | Files are skipped for listed repos | `yq '.workflows[].skip_repos' .github/sync-manifest.yml` |
@@ -37,10 +37,10 @@ The consumer sync system is **manifest-driven**: all synchronization targets are
 **Validation**: 
 ```bash
 # Validate manifest completeness
-python scripts/validate_template_completeness.py
+python scripts/consumer_sync/validate_template_completeness.py
 
 # Run the Health 70 workflow validation
-python scripts/validate_template_completeness.py --source sync-manifest
+python scripts/consumer_sync/validate_template_completeness.py --source sync-manifest
 
 # Check for delivery channel invariants
 python -m pytest tests/workflows/test_sync_manifest_delivery.py -v
@@ -92,7 +92,7 @@ python -m pytest tests/workflows/test_sync_manifest_delivery.py::test_no_entry_i
 
 | Aspect | Expected Behavior | Failure Signal | Validation Command |
 |--------|-------------------|----------------|---------------------|
-| File presence | Every file MUST have corresponding manifest entry | Files without manifest entry are NOT synced | `python scripts/validate_template_completeness.py` |
+| File presence | Every file MUST have corresponding manifest entry | Files without manifest entry are NOT synced | `python scripts/consumer_sync/validate_template_completeness.py` |
 | Path structure | Template paths match manifest `source:` paths | Sync failures due to path mismatch | `diff <(find templates/consumer-repo -type f | sort) <(yq '.workflows[].source + "\n" + .prompts[].source + "\n" + .scripts[].source + "\n" + .docs[].source' .github/sync-manifest.yml | grep -v null | sort)` |
 | Create-only files | `pr-00-gate.yml`, `ci.yml` marked create_only | Existing consumer files overwritten | `yq '.workflows[] | select(.sync_mode == "create_only") | .source' .github/sync-manifest.yml` |
 | Runtime dependencies | `scripts/langchain/followup_issue_generator.py` marked delivery: runtime | Not available at runtime in consumers | `yq '.runtime_fetched[] | select(.source == "scripts/langchain/followup_issue_generator.py")' .github/sync-manifest.yml` |
@@ -121,7 +121,7 @@ yq '.runtime_fetched[] | select(.source == "scripts/langchain/followup_issue_gen
 | Aspect | Expected Behavior | Failure Signal | Validation Command |
 |--------|-------------------|----------------|---------------------|
 | Trigger paths | Runs on changes to workflows, codex, scripts, templates, manifest | Sync-able files added without manifest update | `grep -A 10 "paths:" .github/workflows/health-70-validate-sync-manifest.yml | head -20` |
-| Script invocation | Calls `scripts/validate_template_completeness.py` | Manifest incompleteness not detected | `grep "validate_template_completeness" .github/workflows/health-70-validate-sync-manifest.yml` |
+| Script invocation | Calls `scripts/consumer_sync/validate_template_completeness.py` | Manifest incompleteness not detected | `grep "validate_template_completeness" .github/workflows/health-70-validate-sync-manifest.yml` |
 | Policy enforcement | Fails PRs that violate completeness policy | PR merges with incomplete manifest | `grep -i "fail" .github/workflows/health-70-validate-sync-manifest.yml` |
 
 **Validation**:
@@ -144,7 +144,7 @@ grep "validate_template_completeness" .github/workflows/health-70-validate-sync-
 | Aspect | Expected Behavior | Failure Signal | Validation Command |
 |--------|-------------------|----------------|---------------------|
 | Trigger paths | Runs on template, manifest, script changes and daily | Drift undetected after changes | `grep -A 10 "paths:" .github/workflows/health-68-consumer-sync-drift.yml` |
-| Script invocation | Calls `scripts/check_consumer_sync_drift.py` | Consumer drift not detected | `grep "check_consumer_sync_drift" .github/workflows/health-68-consumer-sync-drift.yml` |
+| Script invocation | Calls `scripts/consumer_sync/check_consumer_sync_drift.py` | Consumer drift not detected | `grep "check_consumer_sync_drift" .github/workflows/health-68-consumer-sync-drift.yml` |
 | Create-only exclusion | Skips files marked `sync_mode: create_only` | False drift reports for create_only files | `grep -n "create_only" .github/workflows/health-68-consumer-sync-drift.yml` |
 | Artifact upload | Uploads `consumer-sync-drift-report.json` artifact | No artifact for manual inspection | `grep -n "consumer-sync-drift-report" .github/workflows/health-68-consumer-sync-drift.yml` |
 | Issue creation | Creates/updates drift issue on failure | Drift silently ignored | `grep -n "drift issue" .github/workflows/health-68-consumer-sync-drift.yml` |
@@ -158,7 +158,7 @@ grep -A 10 "on:" .github/workflows/health-68-consumer-sync-drift.yml
 grep "upload-artifact" .github/workflows/health-68-consumer-sync-drift.yml
 
 # Check the drift script itself
-python scripts/check_consumer_sync_drift.py --help
+python scripts/consumer_sync/check_consumer_sync_drift.py --help
 ```
 
 ---
@@ -169,7 +169,7 @@ Use this checklist when making changes that affect the consumer sync contract:
 
 - [ ] **Manifest updated**: Added/removed files in `.github/sync-manifest.yml`
 - [ ] **Template updated**: Modified files in `templates/consumer-repo/`
-- [ ] **Validation passes**: `python scripts/validate_template_completeness.py` succeeds
+- [ ] **Validation passes**: `python scripts/consumer_sync/validate_template_completeness.py` succeeds
 - [ ] **Delivery channel correct**: Runtime-fetched files NOT in copy-synced sections
 - [ ] **Create-only semantics preserved**: `sync_mode: create_only` entries respect existing consumer files
 - [ ] **Custom repo exceptions documented**: `skip_repos` and `overwrite_repos` aligned with known exceptions
@@ -222,13 +222,13 @@ Run these commands to validate the entire sync contract:
 
 ```bash
 # 1. Validate manifest completeness
-python scripts/validate_template_completeness.py
+python scripts/consumer_sync/validate_template_completeness.py
 
 # 2. Run sync manifest delivery invariants
 python -m pytest tests/workflows/test_sync_manifest_delivery.py -v
 
 # 3. Check template files have manifest entries
-python scripts/validate_template_completeness.py --strict --source sync-manifest
+python scripts/consumer_sync/validate_template_completeness.py --strict --source sync-manifest
 
 # 4. Verify no double delivery
 python -m pytest tests/workflows/test_sync_manifest_delivery.py::test_no_entry_is_both_runtime_and_copy_synced -v
@@ -253,8 +253,8 @@ python -m pytest tests/workflows/test_sync_manifest_delivery.py tests/scripts/te
 - `.github/workflows/health-68-consumer-sync-drift.yml` - Drift detection
 - `.github/workflows/health-70-validate-sync-manifest.yml` - Manifest validation
 - `templates/consumer-repo/` - Source templates for consumers
-- `scripts/validate_template_completeness.py` - Validation script
-- `scripts/check_consumer_sync_drift.py` - Drift checking script
+- `scripts/consumer_sync/validate_template_completeness.py` - Validation script
+- `scripts/consumer_sync/check_consumer_sync_drift.py` - Drift checking script
 - `scripts/list_registered_consumer_repos.py` - Repo list extraction
 
 **Test Files** (validating contract):

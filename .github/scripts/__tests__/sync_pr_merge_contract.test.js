@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const deliveryPayload = require('../consumer_delivery_digest');
+const deliveryPayload = require('../consumer_sync/consumer_delivery_digest');
 test.beforeEach(t => t.mock.method(deliveryPayload, 'readDeliveryPayload', async (sha, repos) => ({
   digest: `sha256:${sha[0].repeat(64)}`,
   files: Object.fromEntries(repos.map(repo => [repo, {}])),
@@ -26,7 +26,7 @@ test.after(() => {
 const {
   planMaint71Continuations,
   selectMaint71ContinuationRepos,
-} = require('../sync_dependency_campaign');
+} = require('../consumer_sync/sync_dependency_campaign');
 
 const {
   buildMarkdownSummary,

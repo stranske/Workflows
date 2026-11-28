@@ -1,4 +1,4 @@
-"""scripts/campaign_plan_managed_paths.py: the managed path set Maint 71 uses to carry no-change evidence."""
+"""scripts/consumer_sync/campaign_plan_managed_paths.py: the managed path set Maint 71 uses to carry no-change evidence."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts import campaign_plan_managed_paths as cpmp
+from scripts.consumer_sync import campaign_plan_managed_paths as cpmp
 
 
 def test_managed_paths_cover_targets_directories_removals_requires_and_gitignore():

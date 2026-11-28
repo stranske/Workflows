@@ -156,7 +156,7 @@ jobs:
 
       - name: Calculate advisory SLOs
         run: |
-          metrics_output="$(python scripts/dependency_sync_efficiency_metrics.py \
+          metrics_output="$(python scripts/consumer_sync/dependency_sync_efficiency_metrics.py \
             --input dependency-sync-efficiency-input.json \
             --json-out dependency-sync-efficiency.json \
             --markdown-out dependency-sync-efficiency.md)"

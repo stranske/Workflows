@@ -121,7 +121,7 @@ def test_maint_69_apply_step_copies_the_label_guide(tmp_path: Path) -> None:
 
 
 def test_wit_publication_stages_the_label_guide() -> None:
-    from scripts import publish_integration_sync
+    from scripts.consumer_sync import publish_integration_sync
 
     assert "docs/LABELS.md" in publish_integration_sync.DELIVERY_PATHS
 

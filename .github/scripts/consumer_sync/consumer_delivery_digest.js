@@ -47,9 +47,9 @@ async function readDeliveryPayload(sha, repositories, refreshPlan = null) {
   const repos = [...new Set(repositories)].sort();
   const key = `${sha}:${repos.join(',')}`;
   if (!snapshots.has(key)) snapshots.set(key, (async () => {
-    const root = path.resolve(__dirname, '../..');
+    const root = path.resolve(__dirname, '../../..');
     const { stdout } = await promisify(execFile)(process.env.PYTHON || 'python3', [
-      path.join(root, 'scripts/consumer_delivery_digest.py'), '--ref', sha,
+      path.join(root, 'scripts/consumer_sync/consumer_delivery_digest.py'), '--ref', sha,
       '--repos', repos.join(','),
     ], { cwd: root, maxBuffer: 16 * 1024 * 1024, timeout: 120000 });
     const payload = JSON.parse(stdout);

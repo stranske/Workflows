@@ -40,7 +40,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / ".github" / "sync-manifest.yml"
 SYNC_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "maint-68-sync-consumer-repos.yml"
 REUSABLE_AUTOFIX_PATH = REPO_ROOT / ".github" / "workflows" / "reusable-18-autofix.yml"
-DRIFT_CHECK_PATH = REPO_ROOT / "scripts" / "check_consumer_sync_drift.py"
+DRIFT_CHECK_PATH = REPO_ROOT / "scripts" / "consumer_sync" / "check_consumer_sync_drift.py"
 CANARY_REPOS = (
     "stranske/Travel-Plan-Permission",
     "stranske/trip-planner",

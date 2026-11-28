@@ -2242,7 +2242,7 @@ changed file, including a rename's old name, may be one the exact plan manages:
 an entry target, a file under a directory target, a removal, a `requires` path,
 or `.gitignore`. That path set is compiled from the plan's own source commit
 and must hash to the expected plan id
-(`scripts/campaign_plan_managed_paths.py`). This campaign-wide set conservatively
+(`scripts/consumer_sync/campaign_plan_managed_paths.py`). This campaign-wide set conservatively
 includes each removal that can apply to any recipient, including paths retained
 by a removal exception in a particular repository. Maint 68 reads a consumer
 only within that set, so the no-change verdict still holds. The row records
@@ -3919,7 +3919,7 @@ one canary's payload/head or live tip/head does not suppress a sibling's new
 recovery key in that plan; active writers still hold the entire candidate set.
 Full-scope refresh keeps
 its existing **rendered delivery digest** identity across source SHAs.
-`scripts/consumer_delivery_digest.py:delivery_digest` hashes full delivery intent
+`scripts/consumer_sync/consumer_delivery_digest.py:delivery_digest` hashes full delivery intent
 for refresh, Maint 68 preparation, and the seal writer.
 It hashes manifest copies at their consumer target paths, directory children,
 repository inclusion/exclusion and create-only effects, removals, and the generated

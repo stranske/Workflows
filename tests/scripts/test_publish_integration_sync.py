@@ -4,7 +4,7 @@ from pathlib import Path
 from shlex import quote
 
 import pytest
-from scripts import publish_integration_sync as delivery
+from scripts.consumer_sync import publish_integration_sync as delivery
 
 MANAGED = Path(".github/scripts/managed.js")
 UNRELATED = Path("docs/LABELS.md")

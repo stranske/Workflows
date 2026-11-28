@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildMergeReport } = require('../sync_pr_merge_contract');
-const { normalizeDeliveryHandoff, planMaint71Continuations } = require('../sync_dependency_campaign');
+const { normalizeDeliveryHandoff, planMaint71Continuations } = require('../consumer_sync/sync_dependency_campaign');
 const { deleteSyncBranch, dispatchCanaryPromotion, dispatchCanaryRefresh, dispatchDeliveryRefresh, refreshStableCanaries } = require('../maint71_merge_sync_prs');
 
 const now = '2026-10-27T12:00:00Z';

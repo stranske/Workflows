@@ -22,7 +22,7 @@ def test_template_drift_workflow_installs_pyyaml_before_checker() -> None:
     checker_index = next(
         index
         for index, step in enumerate(steps)
-        if "scripts/check_template_drift.py" in step.get("run", "")
+        if "scripts/consumer_sync/check_template_drift.py" in step.get("run", "")
     )
     setup_python_indexes = [
         index

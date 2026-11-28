@@ -1,8 +1,8 @@
 'use strict';
 
 const { createHash } = require('node:crypto');
-const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
-const { isTrustedGeneratedDeliveryPr } = require('./sync_pr_merge_contract');
+const { parseDeliveryRecord } = require('../sync_pr_lease_contract');
+const { isTrustedGeneratedDeliveryPr } = require('../sync_pr_merge_contract');
 const ACTIVE = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 const BRANCH = 'sync/workflows-candidate';
 const ACTORS = ['stranske', 'stranske-automation-bot', 'github-actions[bot]'];

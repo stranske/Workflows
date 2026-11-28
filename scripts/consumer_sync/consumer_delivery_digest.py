@@ -9,13 +9,17 @@ import io
 import json
 import re
 import subprocess
+import sys
 import tarfile
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from sync_manifest_compiler import DirectorySourceInventory, compile_manifest
-from sync_status_file_ignores import load_template_block
+# The manifest compiler and the status-file block stay at the root of scripts/
+# (the compiler runs from Maint 68's immutable source checkout).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from sync_manifest_compiler import DirectorySourceInventory, compile_manifest  # noqa: E402
+from sync_status_file_ignores import load_template_block  # noqa: E402
 
 
 def delivery_digest(payload: dict) -> str:
@@ -114,7 +118,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ref", required=True)
     parser.add_argument("--repos", required=True)
-    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2])
     args = parser.parse_args()
     print(
         json.dumps(payload_at_ref(args.repo_root, args.ref, args.repos.split(",")), sort_keys=True)

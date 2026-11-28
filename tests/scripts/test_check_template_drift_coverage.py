@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from scripts.check_template_drift import WORKFLOW_ALIAS_MAPPINGS, discover_workflow_pairs
+from scripts.consumer_sync.check_template_drift import (
+    WORKFLOW_ALIAS_MAPPINGS,
+    discover_workflow_pairs,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

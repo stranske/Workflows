@@ -52,7 +52,7 @@ jobs:
         with:
           github-token: ${{ secrets.OWNER_PR_PAT }}
           script: |
-            const { discover } = require('./.github/scripts/maint90_finding_assessment_run.js');
+            const { discover } = require('./.github/scripts/consumer_sync/maint90_finding_assessment_run.js');
             await discover({ github, context, core });
 
   assess:
@@ -137,7 +137,7 @@ jobs:
         run: |
           node -e '
             const fs = require("fs");
-            const { parseAssessment } = require("./.github/scripts/maint71_finding_assessment.js");
+            const { parseAssessment } = require("./.github/scripts/consumer_sync/maint71_finding_assessment.js");
             const parsed = parseAssessment(fs.readFileSync("out/codex-output.md", "utf8"));
             fs.writeFileSync("out/assessment.json", JSON.stringify(parsed, null, 2));
             console.log(JSON.stringify(parsed, null, 2));
@@ -213,7 +213,7 @@ jobs:
           ITEM_JSON: ${{ toJSON(matrix.item) }}
         run: |
           printf '%s' "$ITEM_JSON" > out/item.json
-          python .github/scripts/maint90_run_regression.py \
+          python .github/scripts/consumer_sync/maint90_run_regression.py \
             --assessment in/assessment.json --item out/item.json \
             --receiver case/receiver --workflows case/workflows \
             --run-as maint90 --output out/regression.json
@@ -255,5 +255,5 @@ jobs:
         with:
           github-token: ${{ secrets.OWNER_PR_PAT }}
           script: |
-            const { publish } = require('./.github/scripts/maint90_finding_assessment_run.js');
+            const { publish } = require('./.github/scripts/consumer_sync/maint90_finding_assessment_run.js');
             await publish({ github, context, core });

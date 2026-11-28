@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from scripts import check_workflow_action_pins
+from scripts.consumer_sync import check_workflow_action_pins
 
 PINNED_CHECKOUT = "df4cb1c069e1874edd31b4311f1884172cec0e10"
 PINNED_GITHUB_SCRIPT = "3a2844b7e9c422d3c10d287c895573f7108da1b3"

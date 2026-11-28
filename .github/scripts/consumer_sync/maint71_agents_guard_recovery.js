@@ -1,8 +1,8 @@
 'use strict';
 
 const { createHash } = require('node:crypto');
-const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
-const { isTrustedGeneratedDeliveryPr } = require('./sync_pr_merge_contract');
+const { parseDeliveryRecord } = require('../sync_pr_lease_contract');
+const { isTrustedGeneratedDeliveryPr } = require('../sync_pr_merge_contract');
 const WORKFLOW = 'agents-guard.yml';
 const CONTEXT = 'Health 45 Agents Guard / guard';
 const ACTORS = ['stranske', 'stranske-automation-bot', 'github-actions[bot]'];

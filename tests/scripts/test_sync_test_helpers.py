@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-INSTALLER = Path("scripts/sync_test_helpers.sh")
+INSTALLER = Path("scripts/consumer_sync/sync_test_helpers.sh")
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="requires Bash")
@@ -17,7 +17,7 @@ def test_empty_helper_source_fails_without_destination_changes(
     tmp_path: Path, mode: str, existing_receiver: bool
 ) -> None:
     script = tmp_path / INSTALLER
-    script.parent.mkdir()
+    script.parent.mkdir(parents=True)
     shutil.copyfile(REPO_ROOT / INSTALLER, script)
     templates = tmp_path / "templates/test_helpers"
     templates.mkdir(parents=True)

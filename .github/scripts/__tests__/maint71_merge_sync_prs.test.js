@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const deliveryPayload = require('../consumer_delivery_digest');
+const deliveryPayload = require('../consumer_sync/consumer_delivery_digest');
 test.beforeEach(t => t.mock.method(deliveryPayload, 'readDeliveryPayload', async (sha, repos) => ({
   digest: `sha256:${sha[0].repeat(64)}`,
   files: Object.fromEntries(repos.map(repo => [repo, { 'scripts/shared.js': { content: sha[0] } }])),
@@ -1505,7 +1505,7 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
   }
   const retryHelpers = require('../github-api-with-retry');
   const guardRequests = [];
-  if (guardRecovery) t.mock.method(require('../maint71_agents_guard_recovery'), 'recoverCancelledAgentsGuard', async args => {
+  if (guardRecovery) t.mock.method(require('../consumer_sync/maint71_agents_guard_recovery'), 'recoverCancelledAgentsGuard', async args => {
     guardRequests.push(args);
     return { mode: guardRecovery === 'refused' ? 'refused' : 'requested', run_id: 999, blocking: 1, drainable: 1,
       reason: guardRecovery === 'refused' ? 'guard_repeated_cancellation' : 'requested',
@@ -2714,7 +2714,7 @@ test('initial reviewer conversation task recovers an unanswered inline request o
 });
 
 test('native conversation task marker is consumable by the consumer-bound verifier and REJECT reuses it', async () => {
-  const { validateNativeConversationDisposition } = require('../maint71_finding_verification');
+  const { validateNativeConversationDisposition } = require('../consumer_sync/maint71_finding_verification');
   const request = { schema: 'maint71-review-reassessment/v1', repository: 'stranske/Ready', pr: 9,
     head_sha: 'a'.repeat(40), thread_id: 'PRRT_native_e2e', plan_id: 'plan', generation: 'gen',
     source_commit: 'b'.repeat(40), originating_reviewer: 'coderabbit', request_stage: 'conversation-disposition' };

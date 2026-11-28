@@ -4,26 +4,26 @@ This directory contains shared test utilities that consumer maintainers can choo
 
 ## Syncing to Consumer Repos
 
-Run `scripts/sync_test_helpers.sh` to copy the Python helpers into a selected repository's `tests/helpers/`. The script updates any differing helper at the same destination, so review local customizations before installing.
+Run `scripts/consumer_sync/sync_test_helpers.sh` to copy the Python helpers into a selected repository's `tests/helpers/`. The script updates any differing helper at the same destination, so review local customizations before installing.
 
 ### In Consumer Repos
 
 Run from the Workflows repo:
 ```bash
 cd /path/to/Workflows
-./scripts/sync_test_helpers.sh --repo /path/to/consumer-repo
+./scripts/consumer_sync/sync_test_helpers.sh --repo /path/to/consumer-repo
 ```
 
 Or from within a consumer repo (if Workflows is cloned):
 ```bash
 cd /path/to/consumer-repo
-/path/to/Workflows/scripts/sync_test_helpers.sh --repo .
+/path/to/Workflows/scripts/consumer_sync/sync_test_helpers.sh --repo .
 ```
 
 ### Check Sync Status
 
 ```bash
-./scripts/sync_test_helpers.sh --check --repo /path/to/consumer-repo
+./scripts/consumer_sync/sync_test_helpers.sh --check --repo /path/to/consumer-repo
 ```
 
 Both check and install fail when the source directory contains no Python helper files. Neither mode changes the destination in that case.
@@ -63,7 +63,7 @@ Consumer repos can add a CI check to ensure helpers stay in sync:
 - name: Check test helpers sync
   run: |
     git clone https://github.com/stranske/Workflows.git /tmp/Workflows
-    /tmp/Workflows/scripts/sync_test_helpers.sh --check --repo .
+    /tmp/Workflows/scripts/consumer_sync/sync_test_helpers.sh --check --repo .
 ```
 
 Or integrate into existing sync workflows (maint-52, etc.).

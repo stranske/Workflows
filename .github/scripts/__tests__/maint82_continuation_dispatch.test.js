@@ -28,8 +28,8 @@ async function dispatch(runs, continuations = [continuation], scopedState = null
   }}};
   await execute((name) => name.includes('github-api-with-retry')
     ? {createTokenAwareRetry: async () => ({withRetry: (call) => call(github)})}
-    : scopedState ? require('../sync_dependency_campaign')
-      : {...require('../sync_dependency_campaign'), selectMaint71ContinuationRepos: () => ['stranske/Ready']},
+    : scopedState ? require('../consumer_sync/sync_dependency_campaign')
+      : {...require('../consumer_sync/sync_dependency_campaign'), selectMaint71ContinuationRepos: () => ['stranske/Ready']},
   {env: {CONTINUATIONS_JSON: JSON.stringify(continuations),
     DELIVERY_HANDOFFS_JSON: JSON.stringify(scopedState?.handoffs || []),
     REGISTERED_REPOS: scopedState?.registered.join(',') || 'stranske/Ready' }},
@@ -83,7 +83,7 @@ test('review recovery dispatches once and a terminal failure does not reauthoriz
 
 
 test('authored refresh holds blocked peers and dispatches only verified receiver scope', async () => {
-  const campaign = require('../sync_dependency_campaign');
+  const campaign = require('../consumer_sync/sync_dependency_campaign');
   const registered = ['stranske/Ready', 'stranske/Template'];
   const ready = { schema: 'workflows-generated-delivery-handoff/v1',
     repository: registered[0], pr: 701, head_sha: 'a'.repeat(40),
