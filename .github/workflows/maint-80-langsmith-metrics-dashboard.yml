@@ -94,10 +94,7 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               "/repos/${{ github.repository }}/actions/runs/$run_id/artifacts" \
               --jq '.artifacts[] |
-                select(
-                  (.name | startswith("autopilot-metrics-")) or
-                  (.name == "agents-verifier-metrics")
-                ) |
+                select(.name == "agents-verifier-metrics") |
                 [.name, .id] | @tsv' \
               > ".metrics-tmp/artifacts_${run_id}.json" || continue
 
@@ -387,11 +384,11 @@ jobs:
 
             echo "✅ Generated trace-coverage report"
           else
-            echo "⚠️ No autopilot/verifier trace metrics found for this period"
+            echo "⚠️ No verifier trace metrics found for this period"
             {
               echo "## LangSmith Trace Coverage"
               echo ""
-              echo "_No autopilot/verifier trace metrics were found for this period._"
+              echo "_No verifier trace metrics were found for this period._"
             } >> .metrics-tmp/report.md
           fi
 
