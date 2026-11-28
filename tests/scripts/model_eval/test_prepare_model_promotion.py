@@ -50,7 +50,7 @@ def _run_preparation_cli(benchmark_path, registry_path, output_path):
             "--today",
             TODAY.isoformat(),
         ],
-        cwd=Path(__file__).resolve().parents[2],
+        cwd=Path(__file__).resolve().parents[3],
         capture_output=True,
         text=True,
         check=False,
