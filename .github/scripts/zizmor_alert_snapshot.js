@@ -2,7 +2,7 @@
 
 // Open code-scanning alerts per scan, each with the trend since the previous
 // self-check snapshot (cohesion review A5d for zizmor; round 2 B3 adds CodeQL
-// and Semgrep).
+// and Semgrep; 2026-11-28 adds the Scorecard regression count below).
 //
 // The security scans upload SARIF with continue-on-error and nothing read the
 // resulting alerts, so the counts could only grow unseen. The self-check now
@@ -26,8 +26,9 @@ function countMarker(label = 'zizmor') {
 }
 
 // One static pattern for every scan; the label is compared as a string, so no
-// regular expression is ever built from a value.
-const COUNT_LINE_PATTERN = /Open (\S+) alerts:\*?\s*`(\d+)`/g;
+// regular expression is ever built from a value. Labels may hold spaces
+// ("Scorecard regression").
+const COUNT_LINE_PATTERN = /Open ([A-Za-z][\w -]*?) alerts:\*?\s*`(\d+)`/g;
 
 const COUNT_MARKER = countMarker('zizmor');
 
@@ -70,6 +71,206 @@ async function countOpenAlerts({
   }
 }
 
+// --- OpenSSF Scorecard regression count (owner decision 2026-11-28) ---------
+//
+// Scorecard raises ~740 alerts here; the owner chose "fix the 12, count only
+// regressions". Only three classes are counted:
+//   - a third-party action not pinned by a commit SHA (this repository's own
+//     `stranske/Workflows/...@main` reusable calls are by design and excluded);
+//   - downloadThenRun (`curl ... | sh`);
+//   - DangerousWorkflow, minus the checkouts verified as safe and recorded in
+//     config/scorecard-dangerous-workflow-allowlist.json.
+// GitHub-owned tag pins and pip/npm hash alerts are deliberately not counted.
+// Alerts are never dismissed through the API; the allowlist is the record.
+
+const SCORECARD_LABEL = 'Scorecard regression';
+const SCORECARD_TOOL = 'Scorecard';
+const SCORECARD_ALLOWLIST_PATH = 'config/scorecard-dangerous-workflow-allowlist.json';
+const OWN_REUSABLE_REF = 'stranske/Workflows/.github/workflows/';
+// The target of a `uses:` line, without quotes or a trailing comment.
+const USES_TARGET_PATTERN = /^\s*(?:-\s+)?uses:\s*['"]?([^'"\s#]+)/;
+
+// The action or workflow a source line references, or null when the line is
+// not a `uses:` line (the alert then cannot be matched to an action).
+function usesTarget(source) {
+  const match = USES_TARGET_PATTERN.exec(String(source));
+  return match ? match[1] : null;
+}
+
+const SCORECARD_CLASS = {
+  thirdParty: 'third-party action not pinned by hash',
+  thirdPartyUnreadable: 'third-party action not pinned by hash (line unreadable or not a uses: line)',
+  downloadThenRun: 'downloadThenRun',
+  dangerousWorkflow: 'DangerousWorkflow',
+};
+
+// The finding text before Scorecard's remediation tip, without the score
+// prefix and with whitespace collapsed (multi-line expressions included).
+function scorecardFinding(alert) {
+  const text = String(alert?.most_recent_instance?.message?.text || alert?.message?.text || '');
+  const finding = text.split(/\nRemediation tip:/)[0];
+  return finding.replace(/^score is \d+:\s*/, '').replace(/\s+/g, ' ').trim();
+}
+
+function alertLocation(alert) {
+  const location = alert?.most_recent_instance?.location || {};
+  return { path: location.path || '', line: location.start_line || 0 };
+}
+
+function parseScorecardAllowlist(text) {
+  const data = JSON.parse(text);
+  const entries = Array.isArray(data?.entries) ? data.entries : null;
+  if (!entries) {
+    throw new Error('allowlist has no "entries" array');
+  }
+  const nonEmpty = (value) => typeof value === 'string' && value.trim() !== '';
+  for (const entry of entries) {
+    if (
+      !nonEmpty(entry?.path) ||
+      !nonEmpty(entry?.finding) ||
+      !nonEmpty(entry?.reason) ||
+      !Number.isSafeInteger(entry?.count) ||
+      entry.count < 1
+    ) {
+      throw new Error(
+        `allowlist entry needs nonempty path, finding and reason and an integer count >= 1: ${JSON.stringify(entry)}`
+      );
+    }
+  }
+  return entries;
+}
+
+function alertCommit(alert) {
+  return alert?.most_recent_instance?.commit_sha || '';
+}
+
+// Reads one line of a workflow file at the commit Scorecard analysed (the
+// alert's most recent instance), so a later push cannot shift the line under
+// it. Returns null when the file or line cannot be read. One API call per
+// (file, commit).
+function apiLineReader({ github, owner, repo }) {
+  const cache = new Map();
+  return async (filePath, line, ref) => {
+    const key = `${ref}\n${filePath}`;
+    if (!cache.has(key)) {
+      cache.set(
+        key,
+        (async () => {
+          try {
+            const { data } = await github.rest.repos.getContent({
+              owner,
+              repo,
+              path: filePath,
+              ...(ref ? { ref } : {}),
+            });
+            if (typeof data?.content !== 'string') return null;
+            return Buffer.from(data.content, data.encoding || 'base64')
+              .toString('utf8')
+              .split('\n');
+          } catch (_error) {
+            return null;
+          }
+        })()
+      );
+    }
+    const lines = await cache.get(key);
+    return lines && line >= 1 && line <= lines.length ? lines[line - 1] : null;
+  };
+}
+
+// Returns the counted class of one alert, or null when it is not counted.
+// `allowance` is a Map of "path\nfinding" -> remaining allowed count; it is
+// decremented, so an allowlist entry never covers more alerts than it names.
+async function classifyScorecardAlert(alert, { readLine, allowance }) {
+  const ruleId = alert?.rule?.id || '';
+  const finding = scorecardFinding(alert);
+  const { path, line } = alertLocation(alert);
+  if (ruleId === 'PinnedDependenciesID') {
+    if (finding.startsWith('third-party GitHubAction not pinned by hash')) {
+      const source = await readLine(path, line, alertCommit(alert));
+      const target = source === null || source === undefined ? null : usesTarget(source);
+      if (target === null) {
+        return SCORECARD_CLASS.thirdPartyUnreadable;
+      }
+      return target.startsWith(OWN_REUSABLE_REF) ? null : SCORECARD_CLASS.thirdParty;
+    }
+    if (finding.startsWith('downloadThenRun')) {
+      return SCORECARD_CLASS.downloadThenRun;
+    }
+    return null;
+  }
+  if (ruleId === 'DangerousWorkflowID') {
+    const key = `${path}\n${finding}`;
+    const remaining = allowance.get(key) || 0;
+    if (remaining > 0) {
+      allowance.set(key, remaining - 1);
+      return null;
+    }
+    return SCORECARD_CLASS.dangerousWorkflow;
+  }
+  return null;
+}
+
+async function countScorecardRegressions({
+  github,
+  owner,
+  repo,
+  paginateWithRetry = (method, params) => github.paginate(method, params),
+  readLine,
+  allowlistText,
+}) {
+  const lineAt = readLine || apiLineReader({ github, owner, repo });
+  let entries;
+  try {
+    const text =
+      allowlistText === undefined
+        ? require('fs').readFileSync(SCORECARD_ALLOWLIST_PATH, 'utf8')
+        : allowlistText;
+    entries = parseScorecardAllowlist(text);
+  } catch (error) {
+    return {
+      status: 'unmeasured',
+      reason: `could not read ${SCORECARD_ALLOWLIST_PATH}: ${error?.message || error}`,
+    };
+  }
+  let alerts;
+  try {
+    alerts = await paginateWithRetry(github.rest.codeScanning.listAlertsForRepo, {
+      owner,
+      repo,
+      state: 'open',
+      tool_name: SCORECARD_TOOL,
+      per_page: 100,
+    });
+  } catch (error) {
+    const status = error?.status ?? error?.response?.status;
+    const message = error?.message || String(error);
+    return { status: 'unmeasured', reason: status ? `HTTP ${status}: ${message}` : message };
+  }
+  const allowance = new Map();
+  for (const entry of entries) {
+    const key = `${entry.path}\n${String(entry.finding).replace(/\s+/g, ' ').trim()}`;
+    allowance.set(key, (allowance.get(key) || 0) + entry.count);
+  }
+  const byClass = {};
+  const counted = [];
+  for (const alert of alerts || []) {
+    const cls = await classifyScorecardAlert(alert, { readLine: lineAt, allowance });
+    if (cls) {
+      byClass[cls] = (byClass[cls] || 0) + 1;
+      const { path, line } = alertLocation(alert);
+      counted.push({ number: alert?.number ?? null, class: cls, path, line });
+    }
+  }
+  return {
+    status: 'measured',
+    open: counted.length,
+    by_class: byClass,
+    alerts: counted,
+    scanned: (alerts || []).length,
+  };
+}
+
 function parsePreviousCount(body, label = 'zizmor') {
   for (const match of String(body || '').matchAll(COUNT_LINE_PATTERN)) {
     if (match[1] === label) {
@@ -108,7 +309,8 @@ function renderScanLines(snapshot) {
     }
     return lines;
   }
-  const drained = snapshot.open === 0 ? ' - fully drained' : '';
+  const zeroText = snapshot.label === SCORECARD_LABEL ? ' - none open' : ' - fully drained';
+  const drained = snapshot.open === 0 ? zeroText : '';
   lines.push(`*${marker}* \`${snapshot.open}\`${drained}`);
   if (snapshot.previous === null || snapshot.previous === undefined) {
     lines.push('', '*Trend:* first measurement (no earlier snapshot carried a count)');
@@ -125,6 +327,17 @@ function renderScanLines(snapshot) {
   );
   if (severities.length > 0) {
     lines.push('', `*By severity:* ${severities.map(([k, v]) => `${k} ${v}`).join(', ')}`);
+  }
+  const classes = Object.entries(snapshot.by_class || {}).sort((a, b) => a[0].localeCompare(b[0]));
+  if (classes.length > 0) {
+    lines.push('', `*By class:* ${classes.map(([k, v]) => `${k} ${v}`).join(', ')}`);
+    const where = (snapshot.alerts || [])
+      .slice(0, 20)
+      .map((a) => `\`${a.path}:${a.line}\``)
+      .join(', ');
+    if (where) {
+      lines.push('', `*Where:* ${where}`);
+    }
   }
   return lines;
 }
@@ -151,11 +364,22 @@ async function snapshotAllScans({
   previousBody = '',
   previousAt = '',
   scans = SCANS,
+  scorecard = {},
 }) {
   const snapshots = [];
   for (const scan of scans) {
     const current = await countOpenAlerts({ github, owner, repo, tool: scan.tool, paginateWithRetry });
     snapshots.push(buildSnapshot({ current, previousBody, previousAt, label: scan.label }));
+  }
+  if (scorecard !== null) {
+    const current = await countScorecardRegressions({
+      github,
+      owner,
+      repo,
+      paginateWithRetry,
+      ...scorecard,
+    });
+    snapshots.push(buildSnapshot({ current, previousBody, previousAt, label: SCORECARD_LABEL }));
   }
   return snapshots;
 }
@@ -163,7 +387,16 @@ async function snapshotAllScans({
 module.exports = {
   COUNT_MARKER,
   SCANS,
+  SCORECARD_ALLOWLIST_PATH,
+  SCORECARD_CLASS,
+  SCORECARD_LABEL,
   buildSnapshot,
+  classifyScorecardAlert,
+  countScorecardRegressions,
+  parseScorecardAllowlist,
+  scorecardFinding,
+  usesTarget,
+  apiLineReader,
   countMarker,
   countOpenAlerts,
   parsePreviousCount,

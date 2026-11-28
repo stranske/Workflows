@@ -1,0 +1,47 @@
+{
+  "description": "OpenSSF Scorecard DangerousWorkflow alerts verified as safe (2026-11-28). Health 40 Repo Selfcheck leaves these out of its Scorecard regression count; every other open DangerousWorkflow alert is counted. The alerts stay open on GitHub: they are not dismissed through the API, this file is the record. An entry matches alerts by path and by Scorecard's finding text (score prefix removed, whitespace collapsed) and covers at most `count` of them, so a new checkout with the same text in the same file is still counted. Remove an entry when its checkout changes.",
+  "entries": [
+    {
+      "path": ".github/workflows/maint-auto-lock-deps.yml",
+      "finding": "untrusted code checkout '${{ github.event.pull_request.head.sha }}'",
+      "count": 1,
+      "reason": "regenerate-lock job: runs only on pull_request (not pull_request_target) for same-repository PRs authored by dependabot[bot] or renovate[bot], with permissions contents: read and persist-credentials: false. The regenerated lock leaves only as an artifact; the writer job checks out the base SHA."
+    },
+    {
+      "path": ".github/workflows/maint-auto-lock-deps.yml",
+      "finding": "untrusted code checkout '${{ github.event.pull_request.base.sha }}'",
+      "count": 1,
+      "reason": "publish-lock job: checks out the trusted base SHA (sparse .github/scripts) to supply the API client; it never checks out the PR head."
+    },
+    {
+      "path": ".github/workflows/autofix.yml",
+      "finding": "untrusted code checkout '${{ github.event.pull_request.base.sha || github.sha || github.event.repository.default_branch || github.event.workflow_run.repository.default_branch }}'",
+      "count": 1,
+      "reason": "Checkout eligibility action: the base SHA under pull_request_target, otherwise github.sha, which for workflow_run is the default branch head. Both are trusted code."
+    },
+    {
+      "path": ".github/workflows/agents-guard.yml",
+      "finding": "untrusted code checkout '${{ github.event.pull_request.base.sha || github.sha || github.event.repository.default_branch || github.event.workflow_run.repository.default_branch }}'",
+      "count": 1,
+      "reason": "Checkout eligibility action: the base SHA under pull_request_target; under pull_request the token is read-only for forks. Trusted base code only."
+    },
+    {
+      "path": ".github/workflows/agents-guard.yml",
+      "finding": "untrusted code checkout '${{ github.event.pull_request.base.sha }}'",
+      "count": 1,
+      "reason": "Checkout base ref for safety validation: runs only on pull_request_target and checks out the base SHA, so the guard validates the PR against trusted code."
+    },
+    {
+      "path": ".github/workflows/agents-bot-comment-handler.yml",
+      "finding": "untrusted code checkout '${{ github.event.pull_request.base.sha || github.sha || github.event.repository.default_branch || github.event.workflow_run.repository.default_branch }}'",
+      "count": 1,
+      "reason": "Checkout eligibility action: base SHA on pull_request, default branch head on workflow_run and workflow_dispatch. Trusted code only."
+    },
+    {
+      "path": ".github/workflows/agents-bot-comment-handler.yml",
+      "finding": "untrusted code checkout '${{ github.event.pull_request.base.sha || github.event.pull_request.base.ref || github.event.repository.default_branch || github.ref_name }}'",
+      "count": 2,
+      "reason": "Two 'Checkout retry helpers' steps (resolve and handle jobs): sparse checkout of helper scripts from the base SHA, base ref or default branch; never the PR head."
+    }
+  ]
+}

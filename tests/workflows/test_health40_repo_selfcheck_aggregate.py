@@ -187,7 +187,7 @@ def test_status_body_carries_the_zizmor_section(tmp_path: Path) -> None:
 
 def test_status_body_says_not_counted_when_the_count_step_did_not_run(tmp_path: Path) -> None:
     body = _render_status_body(tmp_path, None)
-    for scan in ("zizmor", "CodeQL", "Semgrep"):
+    for scan in ("zizmor", "CodeQL", "Semgrep", "Scorecard regression"):
         assert f"*Open {scan} alerts:* not counted: the count step did not run" in body
     assert "`0`" not in body
 

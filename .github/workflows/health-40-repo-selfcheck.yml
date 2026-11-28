@@ -16,7 +16,8 @@ permissions:
   pull-requests: read
   checks: read
   # Read-only: the snapshot reports the open zizmor, CodeQL and Semgrep alert
-  # counts (cohesion review A5d; round 2 B3).
+  # counts (cohesion review A5d; round 2 B3) and the Scorecard regression count
+  # (owner decision 2026-11-28).
   security-events: read
   # Dispatch Health 44 (the only branch-protection writer) when drift is found.
   actions: write
@@ -844,7 +845,11 @@ jobs:
 
       - name: Count open security scan alerts
         # The security scans upload with continue-on-error and nothing read
-        # their alerts; the snapshot now prints each count and its trend.
+        # their alerts; the snapshot now prints each count and its trend. The
+        # Scorecard line counts only regressions (unpinned third-party actions,
+        # downloadThenRun, DangerousWorkflow not in
+        # config/scorecard-dangerous-workflow-allowlist.json), reading alert
+        # lines at the commit Scorecard analysed (contents: read).
         if: always()
         continue-on-error: true
         uses: actions/github-script@v9
@@ -1019,7 +1024,7 @@ jobs:
               lines.append(zizmor_path.read_text(encoding='utf-8').strip())
           else:
               lines.append('## Security scan alerts')
-              for scan in ('zizmor', 'CodeQL', 'Semgrep'):
+              for scan in ('zizmor', 'CodeQL', 'Semgrep', 'Scorecard regression'):
                   lines.append('')
                   lines.append(f'*Open {scan} alerts:* not counted: the count step did not run')
 
