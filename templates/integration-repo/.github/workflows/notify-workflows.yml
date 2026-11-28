@@ -180,8 +180,10 @@ jobs:
 
           echo "## Version Pins Status" >> "$GITHUB_STEP_SUMMARY"
 
-          # Just warn on version differences, don't fail (repos may intentionally differ)
-          for key in BLACK_VERSION RUFF_VERSION MYPY_VERSION PYTEST_VERSION; do
+          # Just warn on version differences, don't fail (repos may intentionally differ).
+          # Every pin the template declares, never a hand-kept subset.
+          mapfile -t pin_keys < <(grep -oE '^[A-Z0-9_]+_VERSION' "$CANONICAL" 2>/dev/null || true)
+          for key in "${pin_keys[@]}"; do
             canonical=$(grep "^${key}=" "$CANONICAL" 2>/dev/null | cut -d= -f2 || echo "")
             actual=$(grep "^${key}=" "$ACTUAL" 2>/dev/null | cut -d= -f2 || echo "")
 
@@ -191,4 +193,4 @@ jobs:
             fi
           done
 
-          echo "Version comparison complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "Version comparison complete (${#pin_keys[@]} pins)" >> "$GITHUB_STEP_SUMMARY"

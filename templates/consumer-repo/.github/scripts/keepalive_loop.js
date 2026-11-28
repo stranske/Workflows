@@ -2797,6 +2797,15 @@ async function evaluateKeepaliveLoop({ github: rawGithub, context, core, payload
       // No active PR for the finish job to update.
       return { prNumber: 0, baseRef: '', action: 'skip', reason: 'pr-not-open' };
     }
+    // One owner per PR (docs/LABELS.md `agents:local-loop`). The Orchestrator's local loop
+    // owns this PR until it hands off (adds agents:keepalive, then removes the label). Hosted
+    // keepalive stops here: no label reconciliation, no runner reservation, no summary or
+    // fingerprint comment (prNumber 0 keeps the finish job off the PR), no commits.
+    const { isLocalLoopOwned } = require('./agent_registry.js');
+    if (isLocalLoopOwned(pr.labels)) {
+      core?.info?.(`Keepalive skipped for PR #${prNumber}: local-loop (agents:local-loop owns the PR)`);
+      return { prNumber: 0, baseRef: '', action: 'skip', reason: 'local-loop' };
+    }
 
     const gateRun = await resolveGateRun({
       github,

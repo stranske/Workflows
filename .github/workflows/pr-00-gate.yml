@@ -284,6 +284,8 @@ jobs:
       format_check: ${{ needs.detect.outputs.format_check == 'true' }}
       typecheck: ${{ needs.detect.outputs.typecheck == 'true' }}
       run-mypy: ${{ needs.detect.outputs.typecheck == 'true' }}
+      # Keep in step with [tool.mypy] files in pyproject.toml (tests/workflows/test_mypy_scope.py).
+      typecheck-paths: 'scripts/metrics'
       coverage: ${{ needs.detect.outputs.coverage == 'true' }}
       # Preserve the full-suite 70% guard formerly repeated by six selftest profiles.
       coverage-min: '70'

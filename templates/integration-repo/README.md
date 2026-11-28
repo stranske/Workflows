@@ -33,3 +33,13 @@ and regenerates its lockfile. [Integration repository](https://github.com/strans
 Maint 69 runs on changes to its listed source paths, on a daily schedule and by manual dispatch.
 Its apply step defines the delivered paths. Health 67 checks the receiver’s CI configuration and
 version pins. [Maint 69 delivery workflow](https://github.com/stranske/Workflows/blob/main/.github/workflows/maint-69-sync-integration-repo.yml) · [Health 67 checks](https://github.com/stranske/Workflows/blob/main/.github/workflows/health-67-integration-sync-check.yml)
+
+## Check dependency updates
+
+In the existing integration checkout, install the tracked requirements and run
+`python scripts/validate_dependency_test_setup.py` from the project root. The command
+checks that the lock's compile header includes the project's extras and that its direct
+dependencies have compatible pins across the Linux CPython versions in integration CI,
+including ranges selected by patch-level markers. It also flags direct test assertions that
+compare a package's `__version__` or an imported package metadata version lookup to a fixed version.
+A freshly rendered fixture has no lock, so the command runs its assertion check alone.

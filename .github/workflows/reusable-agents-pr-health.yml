@@ -56,7 +56,7 @@ on:
         type: string
         default: 'false'
       skip_stall_nudge:
-        description: 'Skip stalled PR nudge (label rotation) (true/false)'
+        description: 'Ignored: the stalled-PR nudge was removed 2026-11-28 (kept for callers)'
         type: string
         default: 'false'
       cron_interval_hours:
@@ -796,160 +796,18 @@ jobs:
             core.info(`\nProcessed ${failing.length} failing PRs`);
 
   # -----------------------------------------------------------------------
-  # 4. Nudge stalled PRs (add agent:retry, preserve owned blocking labels)
-  # -----------------------------------------------------------------------
-  nudge-stalled:
-    name: Nudge stalled PRs
-    needs: scan
-    if: >-
-      needs.scan.outputs.has_work == 'true'
-      && needs.scan.outputs.stalled_scan_count != '0'
-      && inputs.skip_stall_nudge != 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Mint GitHub App token (preferred)
-        id: app_token
-        continue-on-error: true
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.WORKFLOWS_APP_ID }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
-
-      - name: Select authentication token
-        id: auth
-        run: |
-          set -euo pipefail
-          if [ -n "${APP_TOKEN:-}" ]; then
-            echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
-          elif [ -n "${ACTIONS_BOT_PAT:-}" ]; then
-            echo "token=$ACTIONS_BOT_PAT" >> "$GITHUB_OUTPUT"
-          elif [ -n "${SERVICE_BOT_PAT:-}" ]; then
-            echo "token=$SERVICE_BOT_PAT" >> "$GITHUB_OUTPUT"
-          else
-            echo "token=$GITHUB_TOKEN_FALLBACK" >> "$GITHUB_OUTPUT"
-          fi
-        env:
-          APP_TOKEN: ${{ steps.app_token.outputs.token }}
-          ACTIONS_BOT_PAT: ${{ secrets.ACTIONS_BOT_PAT }}
-          SERVICE_BOT_PAT: ${{ secrets.service_bot_pat }}
-          GITHUB_TOKEN_FALLBACK: ${{ github.token }}
-
-      - name: Download scan data
-        uses: actions/download-artifact@v8
-        with:
-          name: pr-health-scan-${{ github.run_id }}
-          path: /tmp/scan-data
-
-      - name: Checkout Workflows helpers
-        uses: actions/checkout@v7
-        with:
-          repository: stranske/Workflows
-          sparse-checkout: |
-            .github/scripts/error_classifier.js
-            .github/scripts/github-api-with-retry.js
-            .github/scripts/token_load_balancer.js
-          sparse-checkout-cone-mode: false
-
-      - name: Nudge each stalled PR
-        uses: actions/github-script@v9
-        env:
-          DRY_RUN: ${{ inputs.dry_run }}
-        with:
-          github-token: ${{ steps.auth.outputs.token }}
-          script: |
-            const fs = require('fs');
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { withRetry } = await createTokenAwareRetry({
-              github, core, task: 'pr-health-nudge',
-              capabilities: ['issues:write'],
-            });
-
-            const stalled = JSON.parse(fs.readFileSync('/tmp/scan-data/stalled_prs.json', 'utf8'));
-
-            if (stalled.length === 0) {
-              core.info('No stalled PRs to nudge');
-              return;
-            }
-
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const dryRun = process.env.DRY_RUN === 'true';
-            const PAUSE_LABELS = ['agents:pause', 'agents:paused'];
-
-            for (const pr of stalled) {
-              core.info(`\n--- Nudging PR #${pr.number} (${pr.head_ref}) ---`);
-              core.info(`Blocking labels: ${(pr.blocking_labels || []).join(', ')}`);
-              core.info(`Tasks: ${pr.checked}/${pr.total} checked, ${pr.unchecked} unchecked`);
-
-              try {
-                // Re-fetch current labels to guard against race conditions
-                // (PR may have been paused between scan and this job).
-                const { data: currentLabels } = await withRetry((client) =>
-                  client.rest.issues.listLabelsOnIssue({
-                    owner, repo, issue_number: pr.number, per_page: 100,
-                  })
-                );
-                const currentNames = currentLabels.map(l => l.name);
-                if (currentNames.some(l => PAUSE_LABELS.includes(l))) {
-                  core.info(`PR #${pr.number} is now paused — skipping nudge`);
-                  continue;
-                }
-
-                if (dryRun) {
-                  core.info(`PR #${pr.number}: [DRY RUN] Would add agent:retry and preserve blocking labels`);
-                  continue;
-                }
-
-                // Ensure agent:retry triggers a fresh labeled event.
-                // If the label is already present, addLabels is a no-op and
-                // no pull_request:labeled event fires.  Remove first (404-safe),
-                // then re-add so the event always fires.
-                try {
-                  await withRetry((client) =>
-                    client.rest.issues.removeLabel({
-                      owner, repo, issue_number: pr.number,
-                      name: 'agent:retry',
-                    })
-                  );
-                  core.info(`PR #${pr.number}: Removed existing agent:retry label`);
-                } catch (error) {
-                  if (error.status === 404) {
-                    core.info(`PR #${pr.number}: agent:retry not present — will add fresh`);
-                  } else {
-                    throw error;
-                  }
-                }
-                await withRetry((client) =>
-                  client.rest.issues.addLabels({
-                    owner, repo, issue_number: pr.number,
-                    labels: ['agent:retry'],
-                  })
-                );
-                core.info(`PR #${pr.number}: Added label: agent:retry`);
-
-                // Preserve agent:needs-attention and agent:rate-limited so
-                // authority-challenge and rate-limit receipt reconciliation
-                // remain owned by their keepalive recovery paths.
-                const blockingLabels = pr.blocking_labels || [];
-                if (blockingLabels.length > 0) {
-                  core.info(`PR #${pr.number}: Preserved owned labels: ${blockingLabels.join(', ')}`);
-                }
-
-                core.info(`PR #${pr.number}: Nudged successfully`);
-
-              } catch (err) {
-                core.warning(`PR #${pr.number}: Failed — ${err.message}`);
-              }
-            }
-
-            core.info(`\nProcessed ${stalled.length} stalled PRs`);
-
+  # 4. Stalled PRs are reported only (cohesion round 2, D3, 2026-11-28).
+  #    The former nudge-stalled job re-added `agent:retry` every hour. Consumer
+  #    agents-81 has no `agent:retry` handler, so the label cleared nothing and only
+  #    spent API calls; the hourly consumer keepalive sweep (agents-keepalive-sweep.yml)
+  #    re-evaluates every agent:* + agents:keepalive PR, and keepalive itself avoids
+  #    adding agent:retry (keepalive_loop.js). The scan still counts stalled PRs.
   # -----------------------------------------------------------------------
   # 5. Summary
   # -----------------------------------------------------------------------
   summary:
     name: Health summary
-    needs: [gate, scan, resolve-conflicts, fix-checks, nudge-stalled]
+    needs: [gate, scan, resolve-conflicts, fix-checks]
     if: always() && needs.gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -963,7 +821,6 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           CONFLICT_RESULT: ${{ needs.resolve-conflicts.result }}
           CHECK_RESULT: ${{ needs.fix-checks.result }}
-          NUDGE_RESULT: ${{ needs.nudge-stalled.result }}
         run: |
           set -euo pipefail
 
@@ -981,6 +838,6 @@ jobs:
             echo "| Total open PRs | $TOTAL | — |"
             echo "| Conflicting | $conflict_count | resolve-conflicts: **${CONFLICT_RESULT:-skipped}** |"
             echo "| Failing checks | $failing_count | Details in scan. Follow-up dispatch job: **${CHECK_RESULT:-skipped}** |"
-            echo "| Stalled (nudged) | ${STALLED_COUNT:-0} | nudge-stalled: **${NUDGE_RESULT:-skipped}** |"
+            echo "| Stalled (incomplete + blocked) | ${STALLED_COUNT:-0} | reported only; the keepalive sweep owns them |"
             echo "| Healthy | $HEALTHY | — |"
           } >> "$GITHUB_STEP_SUMMARY"

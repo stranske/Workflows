@@ -67,10 +67,13 @@ function validTimestamp(value, nowMs) {
 /**
  * Split drift into what an open delivery PR already covers and what nothing covers.
  *
- * Maint 68 runs daily and on every template push, so uncovered drift younger than the
- * coverage lease is still being delivered and needs nobody. Only uncovered drift older
- * than the lease is blocking. Ages come from `uncovered_since`, carried forward in this
- * issue's own marker; a new episode (new issue) starts every repo at "now".
+ * Maint 68 is the drain. A repo whose drift waits for the next Maint 68 delivery
+ * (`pending_delivery`: main moved after the last delivery) counts with the covered ones.
+ * Uncovered drift younger than the coverage lease is still being delivered and needs
+ * nobody; only uncovered drift older than the lease is blocking. The report decides
+ * both: each state carries `blocking`, and `uncovered_since` is measured from when
+ * Maint 68 first delivered the current plan. Older reports without those fields fall
+ * back to this issue's own marker, where a new episode starts every repo at "now".
  * Returns `measured: false` when the report has no per-repo states, so "unmeasured" can
  * never read as "zero uncovered".
  */
@@ -108,16 +111,21 @@ function coverageLedger(report, options = {}) {
     if (state === 'converged') {
       continue;
     }
-    if (state === 'covered') {
-      covered.push({ repo, pr: entry.pr || null });
+    if (state === 'covered' || state === 'pending_delivery') {
+      covered.push({ repo, pr: entry.pr || null, state });
       continue;
     }
-    const sinceMs = validTimestamp(previous[repo], nowMs) ?? nowMs;
+    const sinceMs = validTimestamp(entry.uncovered_since, nowMs)
+      ?? validTimestamp(previous[repo], nowMs)
+      ?? nowMs;
     const since = new Date(sinceMs).toISOString();
     uncoveredSince[repo] = since;
     const ageHours = (nowMs - sinceMs) / 3600000;
-    // A stale PR has already outlived its own lease without moving: blocking at once.
-    const blocking = state === 'stale' || ageHours >= leaseHours;
+    // The report's own verdict wins. Without one, a stale PR has already outlived its own
+    // lease without moving: blocking at once.
+    const blocking = typeof entry.blocking === 'boolean'
+      ? entry.blocking
+      : state === 'stale' || ageHours >= leaseHours;
     uncovered.push({
       repo,
       state,
@@ -143,7 +151,9 @@ function coverageLine(ledger) {
   if (!ledger.measured) {
     return `**Coverage:** unmeasured (${ledger.reason})`;
   }
-  return `**Coverage:** covered by an open delivery PR: ${ledger.covered.length}, ` +
+  const pending = ledger.covered.filter((item) => item.state === 'pending_delivery').length;
+  return `**Coverage:** covered by an open delivery PR: ${ledger.covered.length - pending}, ` +
+    `waiting for the next Maint 68 delivery: ${pending}, ` +
     `uncovered: ${ledger.uncovered.length} ` +
     `(blocking, past the ${ledger.leaseHours}h lease: ${ledger.blocking.length}; ` +
     `draining, within the lease: ${ledger.draining.length})`;

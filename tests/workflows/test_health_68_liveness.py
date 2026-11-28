@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -27,71 +26,93 @@ def test_consumer_drift_detector_has_a_schedule() -> None:
 COMPARE_STEP = "Compare consumer repos to templates"
 
 
-def test_consumer_drift_detector_debounces_workflow_run() -> None:
-    """The debounce must clock the last run that COMPARED using an Actions cache marker.
+def _job_if_selected(condition: str, context: dict[str, str]) -> bool:
+    condition = " ".join(condition.strip().removeprefix("${{").removesuffix("}}").split())
+    for key in sorted(context, key=len, reverse=True):
+        condition = condition.replace(key, repr(context[key]))
+    return eval(  # noqa: S307 - local authored expressions with fixed scalar contexts
+        condition.replace("always()", "True").replace("&&", " and ").replace("||", " or "),
+        {"__builtins__": {}},
+    )
 
-    The old fan-out queried GitHub API for prior workflow runs and listJobsForWorkflowRun.
-    The new mechanism uses actions/cache to store and restore a comparison timestamp marker.
+
+def test_measures_on_the_drain_cadence_not_on_push() -> None:
+    """Round-2 A2: Maint 68 drains on its schedule, so a push is not drift yet.
+
+    The push trigger re-measured undelivered work on every merge and opened 15 drift
+    issues between 11-12 and 11-28 that the next Maint 68 run delivered anyway.
     """
-    text = WORKFLOW.read_text(encoding="utf-8")
-    assert "Debounce workflow_run fan-out" in text
-    assert "github.event_name == 'workflow_run'" in text
-    assert "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in text
-    assert "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in text
-
-    # Only completed comparison attempts update the cache marker.
-    assert "steps.compare.outcome == 'success'" in text
-    assert "steps.compare.outcome == 'failure'" in text
-
-    # API fan-out calls are no longer used for debounce
-    assert "listJobsForWorkflowRun" not in text
-    assert "listWorkflowRuns" not in text
-
-    # ...and no longer selects purely on the run conclusion. The old jq selector is
-    # pinned as ABSENT so restoring it is a test failure, not a silent regression.
-    assert (
-        "--argjson current" not in text
-    ), "the bare-conclusion jq selector is back; it counts debounced no-ops as runs"
+    triggers = _workflow_triggers()
+    assert "push" not in triggers
+    assert set(triggers) == {"workflow_run", "schedule", "workflow_dispatch"}
 
 
 @pytest.mark.parametrize(
-    ("repos", "outcome", "publishes", "resolves", "timestamps"),
+    ("event", "upstream_event", "conclusion", "branch", "runs"),
     [
-        ("stranske/trip-planner", "failure", False, False, False),
-        ("stranske/trip-planner", "success", False, False, False),
-        ("", "failure", True, False, True),
-        ("", "success", False, True, True),
+        ("schedule", "", "", "", True),
+        ("workflow_dispatch", "", "", "", True),
+        ("workflow_run", "schedule", "success", "main", True),
+        # Dispatched Maint 71 continuations end the run `skipped`, never `success`.
+        ("workflow_run", "repository_dispatch", "success", "main", False),
+        ("workflow_run", "workflow_dispatch", "success", "main", False),
+        ("workflow_run", "schedule", "failure", "main", False),
+        ("workflow_run", "schedule", "success", "feature", False),
     ],
 )
-def test_manual_repo_scope_does_not_write_fleet_state(
-    repos, outcome, publishes, resolves, timestamps
-) -> None:
+def test_only_comparing_runs_reach_the_job(event, upstream_event, conclusion, branch, runs) -> None:
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    context = {
+        "github.event_name": event,
+        "github.event.workflow_run.event": upstream_event,
+        "github.event.workflow_run.conclusion": conclusion,
+        "github.event.workflow_run.head_branch": branch,
+    }
+    assert _job_if_selected(data["jobs"]["check-drift"]["if"], context) is runs
+
+
+def test_no_step_can_skip_the_comparison_inside_a_running_job() -> None:
+    """A job that runs must compare: no debounce, no step-level skip of the compare."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    data = yaml.safe_load(text)
+    steps = {step["name"]: step for step in data["jobs"]["check-drift"]["steps"]}
+    assert "if" not in steps[COMPARE_STEP]
+    assert "steps.debounce" not in text
+    # The only cache is the uncovered clock; nothing may gate the compare on it.
+    assert "health-68-last-compared" not in text
+
+
+def test_comparison_reads_the_drain_history() -> None:
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = data["jobs"]["check-drift"]["steps"]
+    names = [step["name"] for step in steps]
+    history = names.index("Read Maint 68 delivery history")
+    assert history < names.index(COMPARE_STEP)
+    assert "--write-deliveries artifacts/maint-68-deliveries.json" in steps[history]["run"]
+    compare = next(step for step in steps if step["name"] == COMPARE_STEP)
+    assert compare["env"]["CONSUMER_SYNC_DELIVERIES_JSON"] == "artifacts/maint-68-deliveries.json"
+
+
+@pytest.mark.parametrize(
+    ("repos", "outcome", "publishes", "resolves"),
+    [
+        ("stranske/trip-planner", "failure", False, False),
+        ("stranske/trip-planner", "success", False, False),
+        ("", "failure", True, False),
+        ("", "success", False, True),
+    ],
+)
+def test_manual_repo_scope_does_not_write_fleet_state(repos, outcome, publishes, resolves) -> None:
     data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     jobs = data["jobs"]
-    steps = {step["name"]: step for step in jobs["check-drift"]["steps"]}
     context = {
         "inputs.repos": repos,
-        "steps.compare.outcome": outcome,
-        "steps.debounce.outputs.skip": "false",
         "needs.check-drift.result": outcome,
         "needs.check-drift.outputs.drift_failed": str(outcome == "failure").lower(),
         "needs.check-drift.outputs.drift_clean": str(outcome == "success").lower(),
     }
-
-    def selected(condition):
-        condition = " ".join(condition.strip().removeprefix("${{").removesuffix("}}").split())
-        for key, value in context.items():
-            condition = condition.replace(key, repr(value))
-        return eval(  # noqa: S307 - local authored expressions with fixed scalar contexts
-            condition.replace("always()", "True").replace("&&", " and ").replace("||", " or "),
-            {"__builtins__": {}},
-        )
-
-    assert selected(jobs["publish-drift"]["if"]) is publishes
-    assert selected(jobs["resolve-drift"]["if"]) is resolves
-    assert selected(steps["Update comparison timestamp marker"]["if"]) is timestamps
-    assert selected(steps["Save comparison timestamp marker"]["if"]) is timestamps
-    assert selected(steps["Upload drift report"]["if"]) is True
+    assert _job_if_selected(jobs["publish-drift"]["if"], context) is publishes
+    assert _job_if_selected(jobs["resolve-drift"]["if"], context) is resolves
 
 
 def test_manual_repo_scope_has_run_specific_concurrency() -> None:
@@ -103,66 +124,6 @@ def test_manual_repo_scope_has_run_specific_concurrency() -> None:
     assert data["concurrency"]["cancel-in-progress"] is True
 
 
-def test_api_client_setup_follows_and_respects_debounce() -> None:
-    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
-    steps = data["jobs"]["check-drift"]["steps"]
-    debounce = next(i for i, step in enumerate(steps) if step.get("id") == "debounce")
-    setup = next(i for i, step in enumerate(steps) if step["name"] == "Setup API client")
-    compare = next(i for i, step in enumerate(steps) if step.get("id") == "compare")
-
-    assert debounce < setup < compare
-    assert steps[setup]["if"] == steps[compare]["if"] == "steps.debounce.outputs.skip != 'true'"
-
-
-@pytest.mark.parametrize(
-    ("marker", "expected"),
-    [
-        ("2026-11-19T18:30:58Z", "true"),  # hosted debounce run 44590964852
-        ("2026-11-19T18:14:45Z", "false"),  # exactly at the 30-minute threshold
-        (None, "false"),
-        ("not a timestamp", "false"),
-    ],
-)
-def test_exact_debounce_script_selects_fresh_and_full_paths(tmp_path, marker, expected) -> None:
-    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
-    steps = data["jobs"]["check-drift"]["steps"]
-    debounce = next(step for step in steps if step.get("id") == "debounce")
-    if marker is not None:
-        path = tmp_path / ".cache/health-68-last-compared/timestamp"
-        path.parent.mkdir(parents=True)
-        path.write_text(marker + "\n", encoding="utf-8")
-
-    # Hold the runner clock fixed and parse the UTC timestamp without depending on GNU date.
-    fixed_clock = """
-    date() {
-      if [ "$1" = "-u" ]; then shift; fi
-      if [ "$1" = "+%s" ]; then
-        printf '%s\n' "$REPLAY_NOW"
-      else
-        "$REPLAY_PYTHON" -c 'import datetime, sys; print(int(datetime.datetime.fromisoformat(sys.argv[1]).timestamp()))' "$2"
-      fi
-    }
-    """
-    now = datetime(2026, 11, 19, 18, 44, 45, tzinfo=UTC)
-    output = tmp_path / "github-output"
-    result = subprocess.run(
-        ["bash", "-c", fixed_clock + debounce["run"]],
-        cwd=tmp_path,
-        env={
-            **os.environ,
-            **debounce["env"],
-            "REPLAY_NOW": str(int(now.timestamp())),
-            "REPLAY_PYTHON": sys.executable,
-            "GITHUB_OUTPUT": str(output),
-        },
-        check=False,
-        text=True,
-        capture_output=True,
-    )
-    assert result.returncode == 0, result.stderr
-    assert output.read_text(encoding="utf-8") == f"skip={expected}\n"
-
-
 def test_liveness_config_names_the_compare_step() -> None:
     """The durable liveness probe must still inspect the actual compare step."""
     import yaml as _yaml
@@ -171,7 +132,7 @@ def test_liveness_config_names_the_compare_step() -> None:
     data = _yaml.safe_load(text)
     steps = data["jobs"]["check-drift"]["steps"]
     step_names = [str(step.get("name") or "") for step in steps]
-    assert COMPARE_STEP in step_names, "the step the debounce measures must exist"
+    assert COMPARE_STEP in step_names, "the step the liveness probe measures must exist"
 
     config = _yaml.safe_load(
         Path("config/durable_tracker_liveness.yml").read_text(encoding="utf-8")
@@ -191,34 +152,6 @@ def test_check_drift_publishes_whether_it_compared() -> None:
     data = _yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     outputs = data["jobs"]["check-drift"]["outputs"]
     assert outputs["compared"] == "${{ steps.compare.outcome != 'skipped' }}"
-
-
-def test_consumer_drift_debounce_filters_main_before_ordering() -> None:
-    """Non-main runs must not suppress workflow_run fan-out for main."""
-    runs = [
-        {
-            "id": 2,
-            "head_branch": "feature/test",
-            "conclusion": "success",
-            "created_at": "2026-08-23T07:20:00Z",
-        },
-        {
-            "id": 1,
-            "head_branch": "main",
-            "conclusion": "success",
-            "created_at": "2026-08-23T07:00:00Z",
-        },
-    ]
-
-    def selected(values: list[dict]) -> int | None:
-        eligible = [
-            run for run in values if run["conclusion"] in {"success", "failure", "timed_out"}
-        ]
-        return eligible[0]["id"] if eligible else None
-
-    assert selected(runs) == 2
-    main_only = [run for run in runs if run["head_branch"] == "main"]
-    assert selected(main_only) == 1
 
 
 LIVE_PROBE_SKIP_REASON = "GH_TOKEN or GITHUB_TOKEN required for the live Health 68 execution probe"

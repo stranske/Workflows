@@ -43,9 +43,9 @@ trackers:
 # `check_durable_tracker_liveness.py` and count toward its exit code; they are never
 # commented on, because there is no durable issue to comment on.
 execution_liveness:
-  # Health 68 concludes `success` while its comparison steps are SKIPPED by the
-  # workflow_run debounce, so the job conclusion says only that the workflow was
-  # triggered. `require_step` moves the liveness question from "did a run happen"
+  # Health 68 used to conclude `success` while its comparison steps were SKIPPED by the
+  # workflow_run debounce (removed 2026-11-28: a run that does not compare now ends
+  # `skipped` at the job level), so a job conclusion said only that it was triggered. `require_step` moves the liveness question from "did a run happen"
   # to "did a run compare". Measured 2026-08-24: the seven most recent `success`
   # runs all had this step `skipped`; the newest run that actually compared was
   # 32774227027, which FAILED.

@@ -213,7 +213,7 @@ test('in-flight delivery with every drifting repo covered reports uncovered 0 an
   const body = formatIssueBody(report, { now: NOW });
   assert.match(
     body,
-    /\*\*Coverage:\*\* covered by an open delivery PR: 2, uncovered: 0 \(blocking, past the 36h lease: 0; draining, within the lease: 0\)/,
+    /\*\*Coverage:\*\* covered by an open delivery PR: 2, waiting for the next Maint 68 delivery: 0, uncovered: 0 \(blocking, past the 36h lease: 0; draining, within the lease: 0\)/,
   );
   assert.match(body, /### Required Actions\n- None\./);
   assert.doesNotMatch(body, /gh workflow run/);
@@ -228,7 +228,7 @@ test('uncovered drift younger than the lease drains without asking anyone', () =
   const previousMarker = parseIssueMarker(formatIssueBody(report, { now: hoursBefore(10) }));
   assert.equal(previousMarker.coverage.uncovered_since['o/b'], hoursBefore(10));
   const body = formatIssueBody(report, { now: NOW, previousMarker });
-  assert.match(body, /covered by an open delivery PR: 1, uncovered: 1 \(blocking, past the 36h lease: 0; draining, within the lease: 1\)/);
+  assert.match(body, /covered by an open delivery PR: 1, waiting for the next Maint 68 delivery: 0, uncovered: 1 \(blocking, past the 36h lease: 0; draining, within the lease: 1\)/);
   assert.match(body, /- o\/b: untracked_drift, uncovered since .* \(10h, draining\)/);
   assert.match(body, /### Required Actions\n- None\./);
   assert.equal(formatIssueComment(report, { now: NOW, previousMarker }), '');
@@ -299,4 +299,36 @@ test('a globally failed comparison (empty roster) is unmeasured, not a drained f
 test('an empty repo_states map without errors is still unmeasured', () => {
   const ledger = coverageLedger({ sync_remediation: { repo_states: {} } }, { now: NOW });
   assert.equal(ledger.measured, false);
+});
+
+test('pending delivery counts with the covered repos, never as uncovered', () => {
+  const report = inFlight({
+    'o/a': coveredPr('o/a', 1),
+    'o/b': { state: 'pending_delivery', blocking: false, reason: 'main moved after the last Maint 68 delivery' },
+  });
+  const ledger = coverageLedger(report, { now: NOW });
+  assert.equal(ledger.uncovered.length, 0);
+  assert.equal(ledger.blocking.length, 0);
+  const body = formatIssueBody(report, { now: NOW });
+  assert.match(body, /covered by an open delivery PR: 1, waiting for the next Maint 68 delivery: 1, uncovered: 0/);
+  assert.match(body, /### Required Actions\n- None\./);
+});
+
+test('the report verdict and delivery-anchored age win over a new issue starting at now', () => {
+  const report = inFlight({
+    'o/b': {
+      state: 'untracked_drift',
+      blocking: true,
+      uncovered_since: hoursBefore(40),
+      reason: 'no open sync PR matches the current compiler plan, which Maint 68 first delivered',
+    },
+  });
+  // No previous marker: before the delivery anchor, this started at "now" and could never block.
+  const ledger = coverageLedger(report, { now: NOW });
+  assert.equal(ledger.blocking.length, 1);
+  assert.equal(Math.floor(ledger.blocking[0].ageHours), 40);
+  const young = inFlight({
+    'o/b': { state: 'untracked_drift', blocking: false, uncovered_since: hoursBefore(3) },
+  });
+  assert.equal(coverageLedger(young, { now: NOW }).blocking.length, 0);
 });

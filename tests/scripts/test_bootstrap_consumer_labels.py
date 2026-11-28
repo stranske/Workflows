@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 from scripts import bootstrap_consumer_settings as bcs
-from scripts import capture_bootstrap_label_tests as capture
 from scripts.upload_repo_review_issues import LABELS as REVIEW_LABELS
 
 EXPECTED_PRIORITY_LABELS = {
@@ -254,34 +253,6 @@ def test_main_execute_reconciles_template_derived_consumer_fixture() -> None:
     ]
     assert len(label_reads) == 2
     assert not any(command[1:3] == ["label", "create"] for command in commands)
-
-
-@pytest.mark.parametrize("returncode", [0, 7])
-def test_capture_script_writes_output_and_returns_pytest_status(
-    tmp_path: Path, returncode: int
-) -> None:
-    output = tmp_path / "nested" / "bootstrap-label-tests.txt"
-    completed = MagicMock(returncode=returncode, stdout="focused proof\n")
-    with (
-        patch("sys.argv", ["capture_bootstrap_label_tests.py", "--out", str(output)]),
-        patch("subprocess.run", return_value=completed) as run,
-    ):
-        assert capture.main() == returncode
-
-    assert output.read_text(encoding="utf-8") == "focused proof\n"
-    run.assert_called_once_with(
-        [
-            capture.sys.executable,
-            "-m",
-            "pytest",
-            "tests/scripts/test_bootstrap_consumer_labels.py",
-            "-q",
-        ],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
 
 
 def test_apply_priority_labels_refuses_metadata_overwrite() -> None:

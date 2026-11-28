@@ -40,7 +40,7 @@ artifact count can continue rising until the shorter retention periods elapse.
 | ------ | ------- | ---------------- |
 | `pr-` | Pull-request CI wrappers | [Gate and smoke checks](ci/WORKFLOWS.md#required-merge-gate) |
 | `maint-` | Post-CI maintenance and self-tests | `maint-45-cosmetic-repair.yml`, `maint-46-post-ci.yml`, `maint-52-validate-workflows.yml`, `maint-60-release.yml`, `maint-61-release-please.yml`, `maint-coverage-guard.yml` |
-| `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-41-repo-health.yml`, `health-42-actionlint.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
+| `health-` | Repository health & policy checks | `health-40-sweep.yml`, `health-40-repo-selfcheck.yml`, `health-42-actionlint.yml`, `health-44-gate-branch-protection.yml`, `health-50-security-scan.yml` |
 | `agents-` | Agent orchestration entry points | `agents-63-issue-intake.yml`, `agents-64-verify-agent-assignment.yml`, `agents-model-profile-trial.yml`, `agents-80-pr-event-hub.yml`, `agents-81-gate-followups.yml`, `agents-guard.yml`, `agents-pr-meta-v4.yml`, `agents-moderate-connector.yml`, `agents-keepalive-*.yml`, `agents-debug-issue-event.yml` |
 | `reusable-` | Reusable composites invoked by other workflows | `reusable-10-ci-python.yml`, `reusable-12-ci-docker.yml`, `reusable-18-autofix.yml`, `reusable-model-profile-trial.yml`, `reusable-agents-issue-bridge.yml` |
 | `selftest-` | Repository checks and reusable workflow tests | [Self-test workflows](ci/WORKFLOWS.md#self-test-harness) |
@@ -69,7 +69,7 @@ For a YAML or script syntax failure, open [Minimal invariant CI](ci/WORKFLOWS.md
 
 - To investigate a failed Gate, use [Coverage Guardrails & Follow-ups](ci/WORKFLOWS.md#coverage-guardrails--follow-ups). For a guarded tolerance or snapshot repair, follow the [cosmetic repair procedure](ops/cosmetic-repair.md).
 - For release, integration, dependency and monthly audit workflows, start in [Autofix & Maintenance](ci/WORKFLOWS.md#autofix--maintenance). The [monthly audit checklist](ci/WORKFLOW_AUDIT_PROCEDURE.md) explains how to read the results and file findings.
-- For a failed sweep, an expiring credential or a drift alert, start in [Repository Health Checks](ci/WORKFLOWS.md#repository-health-checks). The [Health 40 runbook](ci/WORKFLOW_SYSTEM.md#health-40-sweep-health-40-sweepyml) describes the Actionlint and branch-protection checks.
+- For a failed sweep, an expiring credential or a drift alert, start in [Repository Health Checks](ci/WORKFLOWS.md#repository-health-checks). The [Health 40 runbook](ci/WORKFLOW_SYSTEM.md#health-40-sweep-health-40-sweepyml) describes the weekly Actionlint, liveness and belt-claim checks.
 - To investigate a pending consumer delivery, follow the [sync campaign entry points](ops/SYNC_DEPENDENCY_CAMPAIGN.md#consumer-sync-entry-points). To change the label guide delivered to consumers, edit [templates/consumer-repo/docs/LABELS.md](../templates/consumer-repo/docs/LABELS.md). For keepalive regression coverage on a PR, use the [self-test catalog](ci/WORKFLOWS.md#self-test-harness).
 
 ### Agents & Issues
@@ -139,7 +139,7 @@ failures. Consumer Gate Followups uses the same rule.
 - To enable a smoke check across two repositories, follow the [consumer setup for Reusable Cross-Repo Smoke](ci/WORKFLOWS.md#reusable-cross-repo-smoke).
 - **Reusable Autofix** — Use the [formatting route](ci/WORKFLOWS.md#autofix-routes) to locate the caller’s fix or patch artifact.
 - **`reusable-19-dependency-repair-contract.yml`** — Trusted provenance check for dependency-bot PRs and agent-owned dependency repair promotions. It reads PR metadata and git objects without executing pull-request code.
-- **`reusable-20-pr-meta.yml`** — PR metadata/keepalive reusable for consumer repos. Dual-checks out the consumer repo + Workflows scripts, detects keepalive activations from comments/Gate runs, updates PR body sections, and dispatches the keepalive orchestrator using the provided PATs/default token (no App mint required).
+- **`reusable-20-pr-meta.yml`** — PR metadata reusable for consumer repos. Checks out the Workflows scripts and updates PR body sections using the provided PATs/default token (no App mint required). Its keepalive comment lane was removed 2026-11-28: it dispatched `codex-pr-comment-command`, which no consumer listens for; consumer keepalive runs from `agents-81-gate-followups.yml`.
 - **`reusable-bot-comment-handler.yml`** — Collects the complete active, non-outdated bot `reviewThreads` set, including GitHub Copilot's `copilot-pull-request-reviewer` identity variants, generates an exact-head per-agent prompt, and persists the thread IDs and acceptance criteria in size-bounded controller comments. Immediately before the triggering assignment it re-queries both the head and complete active-thread set and fails closed for recollection if either changed. Manual Workflows callers keep source-template review threads in scope and retain `autofix:bot-comments` when dispatch aborts, so a later event can recollect instead of losing the trigger. Human replies do not hide active review debt by default, uneditable comments from older credentials cannot block dispatch, and generic top-level reviews are not completion evidence. The handler prefers GitHub App client ID auth, records the selected App auth mode, keeps a warning-only legacy App ID fallback, and still falls back to `service_bot_pat` or `GITHUB_TOKEN` so consumer repos don’t have to configure extra secrets.
 - **`reusable-codex-run.yml`** — Codex execution wrapper that checks out the target PR branch, installs the pinned Codex CLI, runs the prompt, and pushes commits when the GitHub App token is available (otherwise drops to read-only mode using `GITHUB_TOKEN`).
 - **`reusable-model-profile-trial.yml`** — Dedicated read-only Codex trial
@@ -436,7 +436,7 @@ These outputs land in the Actions run summary, with any follow-up issue filed in
 ## Maintenance Playbook
 1. PRs rely on the Gate workflow listed above. Keep it green; the post-CI summary will report its status automatically.
 2. Monitor failure tracker issues surfaced by the Gate summary job; it owns the delegation and auto-heal path end to end.
-3. Use `Health 40 Sweep` when you want the combined Actionlint + branch-protection sweep, or `Health 42 Actionlint` (`workflow_dispatch`) for an Actionlint-only rehearsal of complex workflow edits before pushing.
+3. Maint 52 Validate Workflows lints every PR; use `Health 42 Actionlint` (`workflow_dispatch`) for an Actionlint-only rehearsal of complex workflow edits before pushing.
 4. Dispatch `Maint 45 Cosmetic Repair` when you need a curated pytest + hygiene sweep that opens a helper PR with fixes.
 5. After archiving a workflow, compare the [registered Actions paths and states](archive/ARCHIVE_WORKFLOWS.md#registered-workflows-after-retirement) with the default branch.
 
