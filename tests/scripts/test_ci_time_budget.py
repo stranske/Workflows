@@ -14,8 +14,18 @@ class FakeGitHub:
     def __init__(self):
         self.issues = []
         self.calls = []
+        self.comments = {}
+        self.clock = NOW  # GitHub's server time for comments and closes
 
     def pages(self, path, key=None, **params):
+        if path.endswith("/comments"):
+            since = datetime.fromisoformat(params.pop("since"))
+            assert params == {}
+            return [
+                comment
+                for comment in self.comments.get(int(path.split("/")[-2]), [])
+                if datetime.fromisoformat(comment["created_at"]) >= since
+            ]
         assert path.endswith("/issues")
         assert params in (
             {"state": "open", "labels": "ci-budget"},
@@ -37,9 +47,15 @@ class FakeGitHub:
             issue = {"number": 42 + len(self.issues), "created_at": NOW.isoformat(), **payload}
             self.issues.append(issue)
             return issue
+        if method == "POST" and path.endswith("/comments"):
+            comment = {"body": payload["body"], "created_at": self.clock.isoformat()}
+            self.comments.setdefault(int(path.split("/")[-2]), []).append(comment)
         if method == "PATCH":
             number = int(path.rsplit("/", 1)[-1])
-            next(issue for issue in self.issues if issue["number"] == number).update(payload)
+            issue = next(issue for issue in self.issues if issue["number"] == number)
+            issue.update(payload)
+            if payload.get("state") == "closed":
+                issue.update(closed_at=self.clock.isoformat(), state_reason="completed")
         return {}
 
 
@@ -1051,20 +1067,73 @@ def test_close_without_a_fix_does_not_hold(state_reason):
     assert len(api.issues) == 2 and "refile_hold" not in row
 
 
-def test_own_recovery_close_does_not_hold_a_new_breach():
-    api = FakeGitHub()
-    row = budget.observation({}, metrics(20), NOW)
+def _recover(api, row=None):
+    """File on NOW, then close on recovery after one window of healthy days."""
+    row = budget.observation(row or {}, metrics(20), NOW)
     budget.reconcile(api, REPO, row)
     for day in range(1, budget.SERIES_WINDOW_DAYS + 1):
+        api.clock = NOW + timedelta(days=day, seconds=30)
         row = budget.observation(row, metrics(8), NOW + timedelta(days=day))
         budget.reconcile(api, REPO, row)
     assert api.issues[0]["state"] == "closed"
-    assert row["recovery_closed_issues"] == [api.issues[0]["number"]]
-    api.issues[0]["closed_at"] = row["measured_at"]
+    return row
+
+
+def test_own_recovery_close_does_not_hold_a_new_breach():
+    api = FakeGitHub()
+    row = _recover(api)
     row = budget.observation(row, metrics(12), NOW + timedelta(days=9))
     budget.reconcile(api, REPO, row)
     assert len(api.issues) == 2 and api.issues[1].get("state", "open") == "open"
     assert "refile_hold" not in row
+
+
+def test_reopened_recovery_issue_later_closed_by_a_fix_starts_a_hold():
+    api = FakeGitHub()
+    row = _recover(api)
+    issue = api.issues[0]
+    # Reopened, then closed by the closer when a fix merged: no recovery comment precedes it.
+    fixed_at = NOW + timedelta(days=budget.SERIES_WINDOW_DAYS + 1)
+    issue.update(state="closed", closed_at=fixed_at.isoformat(), state_reason="completed")
+    row = budget.observation(row, metrics(12), fixed_at + timedelta(days=1))
+    budget.reconcile(api, REPO, row)
+    assert len(api.issues) == 1
+    assert row["refile_hold"]["previous_issue"] == issue["number"]
+    assert row["refile_hold"]["fix_closed_at"] == fixed_at.isoformat()
+
+
+def test_recovery_close_is_still_recognised_after_the_final_publish_fails(monkeypatch):
+    api = FakeGitHub()
+    saved = {"report": {}, "fail_after_reconcile": False, "publishes": 0}
+    monkeypatch.setattr(budget, "load_report", lambda api: (saved["report"], "sha"))
+
+    def publish(report, *, api, sha):
+        saved["publishes"] += 1
+        if saved["fail_after_reconcile"] and saved["publishes"] % 2 == 0:
+            raise RuntimeError("final publish failed")
+        saved["report"] = json.loads(json.dumps(report))
+        return "sha"
+
+    monkeypatch.setattr(budget, "publish", publish)
+    p50 = {}
+    monkeypatch.setattr(budget, "measure", lambda repo, *, api, now: metrics(p50[now]))
+    window = budget.SERIES_WINDOW_DAYS
+    for day in range(window + 2):
+        now = NOW + timedelta(days=day)
+        api.clock = now + timedelta(seconds=30)
+        p50[now] = 20 if day in (0, window + 1) else 8
+        saved["fail_after_reconcile"] = day == window  # the recovery-close day
+        if day == window:
+            with pytest.raises(RuntimeError, match="final publish failed"):
+                budget.run(api, [], now)
+            assert api.issues[0]["state"] == "closed"
+        else:
+            budget.run(api, [], now)
+    # The breach one day after the recovery close is filed at once, not held for it.
+    row = saved["report"][budget.SOURCE_REPO]
+    assert "refile_hold" not in row
+    assert [issue.get("state", "open") for issue in api.issues] == ["closed", "open"]
+    assert row["issue_numbers"] == [api.issues[1]["number"]]
 
 
 def test_held_refile_prints_the_reason_with_its_clear_time(capsys):

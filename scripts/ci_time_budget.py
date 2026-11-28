@@ -40,7 +40,10 @@ WALL_CLOCK_THRESHOLD_MINUTES = 10.0
 # issue, and the refile hold after a fix closes an issue. A shared name cannot
 # drift; a matching pair of literals can (latched-gate rule).
 SERIES_WINDOW_DAYS = 7
-RECOVERY_CLOSED_KEEP = 50
+# This job posts RECOVERY_CLOSE_TEXT immediately before its recovery PATCH. A close
+# within RECOVERY_CLOSE_SLACK after that comment is that recovery close.
+RECOVERY_CLOSE_TEXT = "Closing after confirmed recovery."
+RECOVERY_CLOSE_SLACK = timedelta(minutes=10)
 REPORT_PATH = Path("docs/reports/ci-budget.json")
 REPORT_BRANCH = "ci-time-budget"
 SOURCE_REPO = "stranske/Workflows"
@@ -400,24 +403,45 @@ First over-target measurement: {row.get('first_over_target_at', 'unknown')}.
 """
 
 
-def last_fixed_issue(api: GitHub, root: str, row: dict) -> dict | None:
-    """Newest `ci-budget` issue closed as completed by anything but this job's recovery.
+def is_recovery_close(api: GitHub, root: str, issue: dict) -> bool:
+    """Read durable GitHub evidence, not report state, to tell this job's own close.
+
+    The recovery comment is posted before the PATCH, so it exists even when the
+    report publish after reconciliation fails. Matching by time ties it to that
+    one closure: if the issue is reopened and a fix closes it later, that later
+    close has no recovery comment just before it and counts as a fix close.
+    """
+    closed = timestamp(issue["closed_at"])
+    earliest = closed - RECOVERY_CLOSE_SLACK
+    return any(
+        RECOVERY_CLOSE_TEXT in (comment.get("body") or "")
+        and earliest <= timestamp(comment["created_at"]) <= closed
+        for comment in api.pages(
+            f"{root}/issues/{issue['number']}/comments", since=earliest.isoformat()
+        )
+    )
+
+
+def last_fixed_issue(api: GitHub, root: str) -> dict | None:
+    """Newest `ci-budget` issue closed as completed, unless that close was this job's recovery.
 
     The closer closes an issue when its fix PR merges, so `closed_at` is at or
     after the merge: a hold anchored on it ends at or after merge + one window.
-    Issues this job closed on recovery (`recovery_closed_issues`) are excluded:
-    their window has already passed. `not_planned`/`duplicate` closes had no fix.
+    When the newest close is this job's recovery close, a full healthy window has
+    already been observed since any earlier fix, so nothing holds.
+    `not_planned`/`duplicate` closes had no fix.
     """
-    own = set(row.get("recovery_closed_issues", []))
     closed = [
         issue
         for issue in api.pages(f"{root}/issues", state="closed", labels="ci-budget")
         if "pull_request" not in issue
         and issue.get("closed_at")
         and issue.get("state_reason") not in {"not_planned", "duplicate"}
-        and issue["number"] not in own
     ]
-    return max(closed, key=lambda issue: timestamp(issue["closed_at"]), default=None)
+    newest = max(closed, key=lambda issue: timestamp(issue["closed_at"]), default=None)
+    if newest is None or is_recovery_close(api, root, newest):
+        return None
+    return newest
 
 
 def refile_hold(previous: dict | None, now: datetime) -> dict | None:
@@ -451,7 +475,7 @@ def reconcile(api: GitHub, repo: str, row: dict) -> None:
     if row["share"] > 0:
         previous = None
         if not issues:
-            previous = last_fixed_issue(api, root, row)
+            previous = last_fixed_issue(api, root)
             hold = refile_hold(previous, timestamp(row["measured_at"]))
             if hold:
                 # The fix's series window has not elapsed: the trailing p50 still
@@ -504,12 +528,10 @@ def reconcile(api: GitHub, repo: str, row: dict) -> None:
                 {
                     "body": f"{SERIES_WINDOW_DAYS} consecutive under-target daily p50s: "
                     f"{series}.\n"
-                    "share=0, drainable_in=0. Closing after confirmed recovery."
+                    f"share=0, drainable_in=0. {RECOVERY_CLOSE_TEXT}"
                 },
             )
             api.request("PATCH", f"{root}/issues/{issue['number']}", {"state": "closed"})
-            closed_here = row.get("recovery_closed_issues", []) + [issue["number"]]
-            row["recovery_closed_issues"] = closed_here[-RECOVERY_CLOSED_KEEP:]
         row["issue_numbers"] = []
         row["drained_at"] = row["measured_at"]
         print(f"{repo}: share=0, issue closed; p50_series={series}")

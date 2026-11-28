@@ -501,11 +501,14 @@ the closer closed the issue at merge and the job refiled it the next morning
 a duplicate `[backlog]` observation (Ready#703 to Ready#711).
 
 Refile hold: when a repo is over target with no open `ci-budget` issue, the job
-reads the newest closed `ci-budget` issue that was closed as completed by
-anything other than its own recovery close (`recovery_closed_issues` in the
-report; `not_planned` and `duplicate` closes had no fix). If that close is less
-than one series window old, it does not refile: the trailing p50 still holds
-pre-fix runs. The closer closes at merge, so `closed_at` is at or after the merge
+reads the newest closed `ci-budget` issue that was closed as completed
+(`not_planned` and `duplicate` closes had no fix). If that close was the job's
+own recovery close, nothing holds. That is read from GitHub, not from the report:
+the job posts "Closing after confirmed recovery." just before its close, and a
+close within ten minutes after that comment is that recovery close. The evidence
+therefore survives a failed report publish, and a later fix close of a reopened
+issue still starts a hold. If the close is a fix close less than one series
+window old, the job does not refile: the trailing p50 still holds pre-fix runs. The closer closes at merge, so `closed_at` is at or after the merge
 and the hold ends at or after merge plus one window. The report row carries
 `refile_hold` (`previous_issue`, `fix_closed_at`, `window_days`,
 `remaining_days`, `clears_at`) and the log prints
