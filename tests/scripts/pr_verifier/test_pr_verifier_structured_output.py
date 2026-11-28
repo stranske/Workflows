@@ -9,8 +9,10 @@ from unittest import mock
 import pytest
 from scripts.langchain import pr_verifier
 
-from tests.scripts.conftest import synthetic_verifier_capacity_contract  # noqa: F401
-from tests.scripts.verifier_capacity_fakes import with_capacity
+from tests.scripts.verifier_capacity_fakes import (
+    synthetic_verifier_capacity_contract,  # noqa: F401
+    with_capacity,
+)
 
 # These response tests require the explicit synthetic native-capacity adapter,
 # including when pytest collects another test directory between script modules.

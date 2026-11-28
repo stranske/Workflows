@@ -13,7 +13,12 @@ import pytest
 import yaml
 from scripts.langchain import pr_verifier
 
-from tests.scripts.verifier_capacity_fakes import complete_capture_context
+from tests.scripts.verifier_capacity_fakes import (
+    complete_capture_context,
+    synthetic_verifier_capacity_contract,  # noqa: F401
+)
+
+pytestmark = pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 
 
 @pytest.fixture(autouse=True)

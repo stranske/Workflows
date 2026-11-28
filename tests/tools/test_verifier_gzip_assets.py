@@ -13,6 +13,8 @@ from tools.verifier_capture_obligation_manifest import (
 )
 from tools.verifier_gzip_assets import CODEC, SCHEMA, decode_gzip_text, verified_assets
 
+from tests.scripts.verifier_capacity_fakes import synthetic_verifier_capacity_contract  # noqa: F401
+
 IDENTITY = "- Repository: a/b\n- Target commit: `" + "a" * 40 + "`\n\n"
 
 
@@ -177,14 +179,12 @@ def test_sidecar_tampering_and_symlinks(tmp_path):
 
 
 @pytest.mark.parametrize("failure", [None, "required_asset", "required_artifact"])
+@pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 def test_expanded_evaluate_public_cli_native_admission(tmp_path, monkeypatch, capsys, failure):
     """Real CLI/capture/screen/count path; only SDK client is a unit-only stub."""
     from types import SimpleNamespace
 
-    from tests.scripts.conftest import synthetic_verifier_capacity_contract
     from tests.scripts.verifier_capacity_fakes import with_capacity
-
-    synthetic_verifier_capacity_contract.__wrapped__(monkeypatch)
 
     monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
     monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "0")
@@ -273,13 +273,12 @@ def test_expanded_evaluate_public_cli_native_admission(tmp_path, monkeypatch, ca
         assert result["input_coverage"]["files_complete"] == 1
 
 
+@pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 def test_existing_chunks_include_whole_asset_views_without_fabricating_git_patch(
     tmp_path, monkeypatch
 ):
-    from tests.scripts.conftest import synthetic_verifier_capacity_contract
     from tests.scripts.pr_verifier.test_pr_verifier_file_chunks import Client
 
-    synthetic_verifier_capacity_contract.__wrapped__(monkeypatch)
     monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
     monkeypatch.setenv("VERIFIER_EVIDENCE_CAPTURE_DIR", str(tmp_path))
     monkeypatch.setenv("VERIFIER_DIFF_BUDGET_TOKENS", "1000")

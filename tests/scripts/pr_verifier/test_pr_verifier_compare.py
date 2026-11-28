@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 import scripts.langchain.pr_verifier as pr_verifier
 
-from tests.scripts.verifier_capacity_fakes import with_capacity
+from tests.scripts.verifier_capacity_fakes import (
+    synthetic_verifier_capacity_contract,  # noqa: F401
+    with_capacity,
+)
+
+pytestmark = pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 
 
 def _valid_response(summary: str = "ok") -> str:
