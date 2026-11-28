@@ -243,7 +243,8 @@ explain why a particular status appears in the Checks tab.
   diagnostics to Reviewdog. Fork PRs use runner annotations in place of inline
   review comments. The job fails on an Actionlint error or a reporter error.
   If both fail, the job preserves the Actionlint exit code.
-  Health 42 and Maint 52 use Actionlint 1.7.3. Its [versioned manual](https://github.com/rhysd/actionlint/tree/4e683ab8014a63fafa117492a0c6053758e6d593/docs) covers checks, configuration and installation.
+  Health 42 and Maint 52 use Actionlint 1.7.3, pinned once in
+  `.github/config/workflow-linters.env`. Its [versioned manual](https://github.com/rhysd/actionlint/tree/4e683ab8014a63fafa117492a0c6053758e6d593/docs) covers checks, configuration and installation.
 - **Merge impact.** Informational; use the annotations to fix workflow schema
   errors before Gate runs.
 
