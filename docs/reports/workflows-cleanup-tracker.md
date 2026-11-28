@@ -7,6 +7,26 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Playbook regression and operator cleanup
+
+Stage 3 has **711/752 files and 39/43 folders**. Stage 4 has **1,446/1,540 files and 154/177 folders**. Across the original inventory the net change this session is **+6 accepted files and −1 folder**. The consumer documentation folder reopened when both hosted Python jobs exposed a regression.
+
+**Playbook cleanup correction.** After [#5444](https://github.com/stranske/Workflows/pull/5444) removed the duplicate, both native Python jobs still looked for its old raw-template path. It was the only failure on [#5445](https://github.com/stranske/Workflows/pull/5445). Each job passed all 17 affected worker cases and all 29 archival cases. All 16 receiving defaults have the canonical playbook. Repair [#5471](https://github.com/stranske/Workflows/pull/5471) now exercises the production manifest and every anchor. Removing an anchor or redirecting delivery failed as expected. Restoration passed all 96 owner tests. The source repair is in review. [Python 3.13](https://github.com/stranske/Workflows/actions/runs/46115040128/job/140888967956) · [Python 3.14](https://github.com/stranske/Workflows/actions/runs/46115040128/job/140888967989)
+
+| Source change in review | What the change does | Evidence |
+|---|---|---|
+| [#5474](https://github.com/stranske/Workflows/pull/5474) | Archives the one-incident Cursor checker and its 414-line test file. The guide recovers both at their original revision. | Both blobs recovered. Ordinary and Gate main each lose exactly the 94 archived test IDs. All 16 active protections still pass. The historical production observation remains unknown. |
+| [#5467](https://github.com/stranske/Workflows/pull/5467) | Removes the obsolete 150-line model-listing shell command and points operators to the maintained catalog. | The old command exited successfully with a parse error. Its replacement returned the seven expected IDs and exposed the missing-key case. Both maintained routes already exist on all 16 receivers. |
+| [#5465](https://github.com/stranske/Workflows/pull/5465) | Repairs the validator delivered to the integration project. | The old validator rejected valid code on the actual receiving revision. The revised validator passed the receiver and a fresh render, rejected four distinct broken inputs and passed after restoration. Ordinary receiver delivery is pending. |
+| [#5468](https://github.com/stranske/Workflows/pull/5468) | Moves 13 verifier parser cases beside their source and one Maint 46 wiring case beside its workflow tests. | Compared 46,958 ordinary IDs, 16,609 Gate main IDs, 30,340 grammar IDs and seven Selftest cases before and after. The moved wiring test caught a missing helper. |
+| [#5466](https://github.com/stranske/Workflows/pull/5466) | Removes a stale Monday schedule description from the reviewer configuration. | The installed weekly reviewer runs Thursday at 05:30. Moving the surrounding configuration lost three profile entries, lost a defer decision and broke a real receiver contract. |
+
+**Placements settled.** The Workflows-only completion reconciler successfully read a real Orchestrator artifact without writing. Three configuration files stay at the paths used by the installed reviewer and receivers. Two verifier suites stay with their receipt fixtures and Gate digest checks. Three workflow suites stay with the source and template contracts their 60 cases exercise. Altering the Selftest selector, consumer grant or Gate input made the corresponding test fail. The root and template token-export actions are still candidates for consolidation. Using the root source produced the same receiver target and bytes, while the standalone interface still exposes two rotation inputs missing from its proposed replacement.
+
+**Consumer delivery.** Three sealed canaries passed Gate and the normal [merge controller](https://github.com/stranske/Workflows/actions/runs/46116249786) prepared them. [Promotion](https://github.com/stranske/Workflows/actions/runs/46116581499) and the [campaign continuation](https://github.com/stranske/Workflows/actions/runs/46116704939) are recorded against the same immutable plan. The latest default-branch read found **0/16** receivers had removed the cycle-metrics helper. The earlier two helper retirements and canonical dependency script remain verified on **16/16**.
+
+Stage 1A remains 198/198, Stage 1B remains 27/27, and the original delivery checklist retains 26 production passes plus two replay-verified no-demand dispositions. The source PRs in this section have separate review, Gate and installation checks.
+
 ### November 27 overnight · Source consolidation and consumer installation
 
 Stage 3 has **710/752 files and 39/43 folders**. Stage 4 has **1,441/1,540 files and 155/177 folders**. This session added 42 net accepted original file decisions and 6 folder decisions.
@@ -504,12 +524,12 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
 | 2 · Evidence and archives | 1,945/2,901 | 118/220 | — |
-| 3 · Scripts, tools and packages | 710/752 | 39/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,441/1,540 | 155/177 | — |
+| 3 · Scripts, tools and packages | 711/752 | 39/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,446/1,540 | 154/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 204/334 | 26/47 | — |
-| **Total** | **4,327/5,554** | **338/487** | **198/198** |
+| **Total** | **4,333/5,554** | **337/487** | **198/198** |
 
-**Directory organization.** 4,115 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 4,121 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
