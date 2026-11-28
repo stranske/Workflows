@@ -15,11 +15,6 @@ const SPECS=Object.freeze({
   admitted:{workflow:'.github/workflows/agents-verify-to-new-pr.yml',job:'collect-correction',step:'Upload admitted correction request',member:'correction-admitted.json'},
   ledger:{workflow:'.github/workflows/agents-verify-to-new-pr.yml',job:'Apply admitted correction',step:'Consume admitted correction',member:'verifier-followup-ledger.ndjson'},
   receipt:{workflow:'.github/workflows/agents-verify-to-new-pr.yml',job:'Apply admitted correction',step:'Consume admitted correction',member:'correction-receipt.json'},
-  formatpause:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'auto-pilot',step:'Execute step - Format (inline)',member:'correction-format-pause.json'},
-  createdpr:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'auto-pilot',step:'Execute step - Create PR',member:'correction-created-pr.json'},
-  redispatch:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'auto-pilot',step:'Re-dispatch for next step',member:'correction-redispatch.json'},
-  formatredispatch:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'format-pause-wakeup',step:'Clear pause and redispatch format step',member:'correction-redispatch.json'},
-  started:{workflow:'.github/workflows/agents-auto-pilot.yml',job:'auto-pilot',step:'Record admitted correction start',member:'correction-started.json'},
 });
 function artifactName(kind,run,attempt,suffix='') {
   need(SPECS[kind] && positive(run) && positive(attempt),'Invalid correction artifact kind/execution');

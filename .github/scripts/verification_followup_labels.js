@@ -3,7 +3,7 @@
 // Single definition of the labels a verification follow-up issue is created with.
 // Used by both agents-80-pr-event-hub.yml (verify_to_issue) and
 // agents-verify-to-issue-v2.yml, so the two cannot drift again. The hub used to
-// apply `agents:auto-pilot` + `from:verification`, which intake skipped, so its
+// apply the retired Auto-Pilot label plus `from:verification`, which intake skipped, so its
 // follow-ups were never picked up.
 //
 // Labels: `follow-up`, the agent that produced the PR (`agent:<key>` and

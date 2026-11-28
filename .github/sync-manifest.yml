@@ -191,6 +191,12 @@ removals:
     description: "Remove receiver-only duplicate; canonical Workflows checkout retains this correction helper and its offline API"
   - target: .github/scripts/verifier_correction_runtime.js
     description: "Remove receiver-only duplicate; canonical Workflows checkout retains this correction helper and its offline API"
+  - target: .github/scripts/auto_pilot_transitions.js
+    description: "Remove the Auto-Pilot transition helper; Auto-Pilot was retired"
+  - target: .github/scripts/verifier_correction_autopilot.js
+    description: "Remove the Auto-Pilot continuation observer; Auto-Pilot was retired"
+  - target: .github/scripts/autopilot_format_retry_budget.js
+    description: "Remove the Auto-Pilot format-wakeup retry helper; Auto-Pilot was retired"
   - target: .github/workflows/dependabot-automerge.yml
     description: "Remove the retired Dependabot auto-merge workflow - the fleet is on Renovate (platformAutomerge covers auto-merge); see renovate-presets/fleet.json."
   - target: .github/workflows/agents-63-issue-intake.yml
@@ -541,9 +547,6 @@ scripts:
   - source: .github/scripts/autopilot_metrics.js
     description: "AutoPilot metrics collection and reporting"
 
-  - source: .github/scripts/auto_pilot_transitions.js
-    description: "Auto-pilot transition contract and next-step helper"
-
   - source: .github/scripts/github-api-with-retry.js
     description: "Shared GitHub API retry wrapper with exponential backoff and pagination support"
 
@@ -639,10 +642,6 @@ scripts:
     description: "Carries inert optional launch-basis correlation and authenticated exact-terminal dedup references; binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors, preserves the original edge on exact-event retries and reconciles older pending attempts through authoritative Actions reads and retains full-history completion deduplication without reparenting history"
     delivery: copy
 
-  - source: .github/scripts/verifier_correction_autopilot.js
-    description: "Authenticates existing auto-pilot continuation admission, prepared redispatches and actual native started/PR/pause receipts; no provider-start or closure authority"
-    delivery: copy
-
   - source: .github/scripts/verifier_correction_host.js
     description: "Collects fresh native corrective ownership/assignment/inventory facts and reconciles exact immutable issue and continuation identities"
     delivery: copy
@@ -656,7 +655,7 @@ scripts:
     delivery: copy
 
   - source: .github/scripts/verifier_correction_effects.js
-    description: "Local-tested correction effects adapter for the existing follow-up issue/autopilot lane; requires authenticated seed/request, fresh gates, durable existing-ledger intent and actual continuation reconciliation; source-wired with inert causal tests; authenticated classifier-origin deployment gap remains held"
+    description: "Correction effect identity (seed, scope digest, effect key, ledger validation); the Auto-Pilot dispatch consumer was removed with Auto-Pilot; requires authenticated seed/request, fresh gates, durable existing-ledger intent and actual continuation reconciliation; source-wired with inert causal tests; authenticated classifier-origin deployment gap remains held"
     delivery: copy
 
   - source: .github/scripts/verifier_correction_consumer.js
@@ -1336,9 +1335,6 @@ runtime_fetched:
     # No consumer-delivered workflow reads this module from the copy-synced tree,
     # and no script/tool imports it (grep: zero importers), so dropping it from
     # copy-sync is safe.
-  - source: .github/scripts/autopilot_format_retry_budget.js
-    delivery: runtime
-    description: "Compatibility runtime helper for the installed legacy consumer Auto-Pilot format wakeup. Keep readable until consumer delivery removes that workflow."
 
 
 excluded:

@@ -11,7 +11,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 RETIRED = tuple(
     f".github/scripts/verifier_correction_{name}"
-    for name in ("runtime.js", "collector.js", "profile.py", "seed.js")
+    for name in ("collector.js", "profile.py", "seed.js")
 )
 
 
@@ -40,7 +40,7 @@ def test_receiver_pruning_preserves_native_collection_and_source_offline_api(tmp
         [
             "node",
             "-e",
-            "for(const n of ['runtime','collector','seed']) require('./.github/scripts/verifier_correction_'+n)",
+            "for(const n of ['collector','seed']) require('./.github/scripts/verifier_correction_'+n)",
         ],
         cwd=source,
         text=True,

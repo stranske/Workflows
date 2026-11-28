@@ -1,4 +1,4 @@
-# LLM workflow dependency pins (used by agents-auto-pilot.yml)
+# LLM workflow dependency pins (used by the agent workflows that install LLM dependencies)
 # Rationale:
 # - These are standalone runtime pins for workflow LLM steps, not app deps.
 # - These pins intentionally drift from pyproject.toml/requirements.lock so

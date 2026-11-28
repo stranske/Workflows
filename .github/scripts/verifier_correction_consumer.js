@@ -81,7 +81,7 @@ function validateRequest(request) {
 
 function receipt(request, {state = 'confirmed_not_started', reason, issue = null, continuation = null, consumer, ownership = null}) {
   validateRequest(request);
-  requireThat(['confirmed_not_started','accepted_with_exact_issue_and_actual_autopilot_run_attempt','outcome_unknown'].includes(state), 'Invalid effect state');
+  requireThat(['confirmed_not_started','outcome_unknown'].includes(state), 'Invalid effect state');
   requireThat(text(reason) && exact(consumer, 'run_id run_attempt')
     && Object.values(consumer).every(value => typeof value === 'string' && ID.test(value)), 'Invalid consumer execution');
   if (ownership !== null) requireThat(ownership?.schema === 'closer-correction-ownership/v1'
@@ -90,15 +90,7 @@ function receipt(request, {state = 'confirmed_not_started', reason, issue = null
     && Array.isArray(ownership.evidence_refs) && ownership.evidence_refs.length > 0 && ownership.evidence_refs.every(text), 'Receipt ownership binding malformed');
   if (issue !== null) requireThat(identity(issue) && (ownership?.kind === 'no_incumbent'
     || canonical(issue) === canonical(request.incumbent.issue)), 'Receipt incumbent mismatch');
-  if (state === 'accepted_with_exact_issue_and_actual_autopilot_run_attempt') {
-    // This constructor validates shape only. The eventual effect producer must
-    // authenticate the run's exact issue/request binding before choosing it.
-    requireThat(issue && exact(continuation, 'workflow run_id run_attempt request_sha256 issue_node_id')
-      && continuation.workflow === 'agents-auto-pilot.yml'
-      && [continuation.run_id,continuation.run_attempt].every(value => typeof value === 'string' && ID.test(value))
-      && continuation.request_sha256 === request.request_sha256
-      && continuation.issue_node_id === issue.node_id, 'Actual exact auto-pilot continuation missing');
-  } else requireThat(continuation === null, 'Nonaccepted receipt cannot claim continuation');
+  requireThat(continuation === null, 'Receipt cannot claim a continuation: no effect producer is wired');
   const result = {schema:'closer-correction-receipt/v1', request_sha256:request.request_sha256,
     request, consumer, effect_state:state, reason, issue, continuation,
     ...(ownership === null ? {} : {ownership}),
@@ -184,15 +176,6 @@ function reconcileCorrection(request, authenticatedHistory, consumer) {
     if (row.request.original_operation.idempotency_key === request.original_operation.idempotency_key
         && row.request_sha256 !== request.request_sha256) throw new Error('Original idempotency key rebound');
     if (row.request_sha256 === request.request_sha256) matches.push(row);
-  }
-  const accepted = matches.filter(row => row.effect_state === 'accepted_with_exact_issue_and_actual_autopilot_run_attempt');
-  for (const row of accepted) receipt(request,{state:row.effect_state,reason:row.reason,issue:row.issue,
-    continuation:row.continuation,consumer:row.consumer,ownership:row.ownership || null});
-  if (accepted.length) {
-    requireThat(new Set(accepted.map(row => canonical(row.continuation))).size === 1,
-      'Conflicting actual auto-pilot continuations');
-    return receipt(request,{state:accepted[0].effect_state,reason:'exact_authenticated_request_already_accepted',
-      issue:accepted[0].issue,continuation:accepted[0].continuation,consumer,ownership:accepted[0].ownership || null});
   }
   // Missing receipts can mean an effect ran before its receipt was retained.
   // Even a prior collection-only refusal cannot reconcile a different effect.

@@ -2,7 +2,9 @@
 
 The managed receiver copies of `verifier_correction_runtime.js`,
 `verifier_correction_collector.js`, `verifier_correction_profile.py` and
-`verifier_correction_seed.js` are retired. Their canonical files under
+`verifier_correction_seed.js` are retired. (`verifier_correction_runtime.js` itself was
+deleted from Workflows with Auto-Pilot; its removal entry stays so stray receiver copies are
+cleaned up.) Their canonical files under
 Workflows `.github/scripts/` and all documented offline request/receipt APIs
 remain intact. This changes receiver distribution only.
 

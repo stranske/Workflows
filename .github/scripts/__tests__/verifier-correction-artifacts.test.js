@@ -135,17 +135,6 @@ test('missing/malformed or server-out-of-scope run timestamps cannot silently er
  }
 });
 
-test('canonical live precursor intents can be read by the child; started admission still requires completed producer step',async t=>{
- for(const kind of ['ledger','redispatch','formatredispatch','createdpr','started']) {
-  const f=await fixture(t,kind),suffix=kind==='ledger'?`${'a'.repeat(64)}-r1`:'',proof=await f.io.publish(kind,Buffer.from('inert immutable precursor\n'),suffix);
-  const child=await createArtifactTransport({github:f.github,repository:'stranske/example',current:{run_id:701,run_attempt:1},clock:()=>new Date('2026-10-26T00:02:00Z')});
-  const read=()=>child.load(proof,kind,artifactName(kind,700,2,suffix));
-  if(kind==='started')await assert.rejects(read(),/did not establish evidence/);
-  else assert.equal((await read()).proof.member_sha256,proof.member_sha256);
- }
-});
-
-
 test('private active stage is minted only by exact append/readback in this invocation, never by restart or retained JSON',async t=>{
  const f=await admitted(t),args={transport:f.io,request:f.request,since:'2026-10-26T00:00:00Z',admittedProof:f.proof};
  const ledger=await createArtifactLedger(args),record=intent(f);

@@ -161,34 +161,6 @@ test('only exact current native stage is exempt from no-incumbent starting work;
  f.state.retained.snapshots.push(structuredClone(f.state.retained.snapshots[0]));
  await assert.rejects(f.collect(f.request,{activeEffect}),/ambiguous|forked/);
 });
-test('native no-incumbent consumer passes its just-retained create and dispatch gates once, then uncertain dispatch never repeats',async()=>{
- const {createCorrectionEffectConsumer,seedForRequest}=require('../verifier_correction_effects');
- const f=await fixture(),records=[],effects={issues:0,dispatches:0},consumer={run_id:'700',run_attempt:'1'};
- let latestActive=null;
- const ledger={read:async()=>({revision:records.length,records:structuredClone(records)}),append:async args=>{
-  assert.equal(args.expected_revision,records.length);records.push(args.record);latestActive=nativeStageHistory(f,records);return args.record;
- },continuationSelector:async({issue})=>({request_sha256:f.request.request_sha256,effect_key:records.at(-1).effect_key,issue})};
- f.github.rest.issues.create=async payload=>{
-  effects.issues++;f.state.incumbent={id:99,number:9,node_id:'I_9',title:payload.title,body:payload.body,labels:payload.labels,
-   state:'open',html_url:'https://github.com/stranske/example/issues/9',assignees:[],user:{id:41898282,login:'github-actions[bot]',type:'Bot'},created_at:'2026-10-26T00:00:00Z'};
-  f.state.opened=[f.state.incumbent];f.state.changed=[f.state.incumbent];
-  return {status:201,data:f.state.incumbent,headers:{'x-github-request-id':'inert-native-create'}};
- };
- f.github.rest.actions={createWorkflowDispatch:async()=>{effects.dispatches++;return {status:204};}};
- const fresh=async(request,options={})=>{
-  const activeEffect=options.activeIntent?latestActive:null;
-  if(activeEffect)assert.equal(activeEffect.record_sha256,options.activeIntent.record_sha256);
-  return f.collect(request,{...options,activeEffect});
- };
- const consume=createCorrectionEffectConsumer({github:f.github,ledger,defaultBranch:'main',clock:()=>new Date('2026-10-26T00:00:00Z'),
- authenticate:async()=>({request:f.request,seed:seedForRequest(f.request),required_tests:f.request.required_tests}),collectFreshFacts:fresh,
- reconcile:async()=>({issues:effects.issues?[f.state.incumbent]:[]})});
- const first=await consume(f.request,consumer);assert.equal(first.effect_state,'outcome_unknown');assert.deepEqual(effects,{issues:1,dispatches:1},JSON.stringify(first));
- assert.deepEqual(records.map(row=>[row.kind,row.phase]),[['intent','issue_creation'],['issue_confirmed','issue_creation'],['intent','autopilot_dispatch']]);
- const next=await consume(f.request,consumer);assert.equal(next.effect_state,'outcome_unknown');assert.deepEqual(effects,{issues:1,dispatches:1});
-});
-
-
 test('nullable native source/PR and incumbent bodies preserve exact empty digest and chain-depth checks',async()=>{
  const {nativeBody}=require('../verifier_correction_consumer'),{createHash}=require('crypto');
  const empty=createHash('sha256').update('').digest('hex');
