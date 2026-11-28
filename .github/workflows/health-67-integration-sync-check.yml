@@ -208,10 +208,20 @@ jobs:
 
           echo "## Version Pins Comparison" >> "$GITHUB_STEP_SUMMARY"
 
-          # Compare key versions
+          # Compare EVERY pin the canonical file declares: the same key set that
+          # scripts/sync_dev_dependencies.DEV_TOOL_PACKAGES maps. A hand-kept subset
+          # compared 4 of 9 (tests/scripts/test_dev_tool_single_source.py).
           drift_found=false
+          mapfile -t pin_keys < <(grep -oE '^[A-Z0-9_]+_VERSION' "$CANONICAL")
+          if [ "${#pin_keys[@]}" -eq 0 ]; then
+            echo "::error::No *_VERSION pins found in $CANONICAL"
+            echo "❌ No pins found in the canonical file" >> "$GITHUB_STEP_SUMMARY"
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Compared ${#pin_keys[@]} pins: ${pin_keys[*]}" >> "$GITHUB_STEP_SUMMARY"
 
-          for key in BLACK_VERSION RUFF_VERSION MYPY_VERSION PYTEST_VERSION; do
+          for key in "${pin_keys[@]}"; do
             canonical_val=$(grep "^${key}=" "$CANONICAL" | cut -d= -f2)
             template_val=$(grep "^${key}=" "$TEMPLATE" | cut -d= -f2 || echo "MISSING")
             actual_val=$(grep "^${key}=" "$ACTUAL" | cut -d= -f2 || echo "MISSING")
