@@ -13,18 +13,21 @@ jobs:
     name: Open or update Release PR
     runs-on: ubuntu-latest
     steps:
+      # The App token is required, not optional: a tag pushed with github.token
+      # does not trigger maint-60, so the floating v1 tag silently stopped moving
+      # whenever minting failed and this step fell back. A mint failure now
+      # fails the run (cohesion review B15).
       - name: Mint GitHub App Token
         id: app_token
         uses: actions/create-github-app-token@v3
-        continue-on-error: true
         with:
-          client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
-          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
+          client-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
       - name: Run release-please
         uses: googleapis/release-please-action@v5
         with:
-          token: ${{ steps.app_token.outputs.token || github.token }}
+          token: ${{ steps.app_token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
