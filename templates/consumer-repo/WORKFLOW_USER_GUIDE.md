@@ -665,6 +665,7 @@ Workflows owns the manifest and stages updates in consumer pull requests. Follow
 <a name="maint-39-test-llm-providersyml---test-llm-providers"></a>
 <a name="maint-45-cosmetic-repairyml---cosmetic-code-repairs"></a>
 <a name="maint-46-post-ciyml---post-ci-cleanup"></a>
+<a name="maint-47-disable-legacy-workflowsyml---disable-deprecated-workflows"></a>
 <a name="review-registered-workflows-after-retirement"></a>
 <a name="tool-version-freshness-report-central-only"></a>
 <a name="maint-52-validate-workflowsyml---workflow-validation"></a>
