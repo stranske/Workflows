@@ -30,7 +30,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from scripts.langchain.verifier_shadow import PIPELINE, review_of
-from tools.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
+from scripts.model_eval.run_judge_backend_screen import JUDGE_TIMEOUT_SECONDS
 from tools.verifier_shadow_report import ListingError, gh_artifacts_for_runs, gh_download
 
 # One run may make several sequential judge calls (production chunks a large input, up to
@@ -58,7 +58,7 @@ def external_candidates(config: dict[str, Any], *, corpus: bool = False) -> list
 
 def make_judge(candidate: dict[str, Any]) -> Any:
     """The screen's judge for an external candidate (imported lazily: it pulls in pr_verifier)."""
-    from tools.run_judge_backend_screen import (
+    from scripts.model_eval.run_judge_backend_screen import (
         CHAT_API_PROVIDERS,
         CursorCliJudge,
         MuseApiJudge,

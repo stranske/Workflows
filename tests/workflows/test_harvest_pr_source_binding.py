@@ -58,8 +58,8 @@ def test_owner_repo_hash_reference_is_never_a_closing_reference() -> None:
 @pytest.mark.parametrize(
     ("event", "write", "expected_args"),
     [
-        ("schedule", "", "-m tools.harvest_verifier_corpus --write"),
-        ("workflow_dispatch", "false", "-m tools.harvest_verifier_corpus"),
+        ("schedule", "", "-m scripts.verifier.harvest_verifier_corpus --write"),
+        ("workflow_dispatch", "false", "-m scripts.verifier.harvest_verifier_corpus"),
     ],
     ids=["scheduled-write", "manual-preview"],
 )

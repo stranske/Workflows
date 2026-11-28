@@ -129,7 +129,7 @@ labels: **measured** (read from the Orchestrator's own ledger or the CLI, 2026-1
 
 | # | Option | Why it fits agy | Risk and mitigation | Cheapest test |
 | --- | --- | --- | --- | --- |
-| 1 | **Third judge in local verification** (and the judge screen). `agy-cli` is already a backend of `tools/run_judge_backend_screen.py` | A different model family than the incumbents, with schema-constrained output (`--json-schema`) | Silent success and soft permission denials: the backend uses `--mode plan`, an explicit model, a scratch workspace, and treats an empty response as an error | Screen it on the frozen corpus with the other judges and read the ensemble analysis |
+| 1 | **Third judge in local verification** (and the judge screen). `agy-cli` is already a backend of `scripts/model_eval/run_judge_backend_screen.py` | A different model family than the incumbents, with schema-constrained output (`--json-schema`) | Silent success and soft permission denials: the backend uses `--mode plan`, an explicit model, a scratch workspace, and treats an empty response as an error | Screen it on the frozen corpus with the other judges and read the ensemble analysis |
 | 2 | **Use-it-or-lose-it drain queue**: a scheduled job that, in the last 90 minutes of a block with spare units, dispatches queued read-style jobs | Measured 2026-10-17 over 14 days: 67 completed blocks, 30 idle, 62 under the 8-unit soft cap, 174 units used against 365 unused (ledger estimates; the cap itself is an assumption) | Queue only report-producing jobs; apply any change through diff review | Count blocks that enter drain with fewer than 8 units over one week before building anything |
 | 3 | **Long-context read-only audits** of a repository or a cross-repo question | Large context window, and the router already sends epic and cross-repo work here | No read-only mode: run against a disposable copy and require a clean `git status` afterwards | Audit one repository with known defects and score recall against the existing findings |
 | 4 | **Evaluator arm** in the A/B/C/D experiment harness | Verified in code and data 2026-10-17: agy is the last top-up evaluator and is preferred as a neutral when its seat is in drain. It is **not** excluded from the ranking: the pooled `gemini` judge was `ready` at weight 0.61, earned by older models. That is corrected by the model epoch below | Its own scratch directory per arm | Score agreement with the other evaluators (the existing reliability measure), after the epoch reset |
@@ -168,7 +168,7 @@ units come from the capacity ledger; a 429 or shed ends the pilot and is recorde
 | 5. Test generation | 10 jobs the testgen gate already scores | Gate pass rate against the incumbent on the same jobs | Candidate testgen lane if not below the incumbent |
 | 4. Evaluator replay | Archived experiments whose consensus ranking exists | Argon's `judge_reliability` row: `ready`, weight, mean error vs consensus | Counts in rankings again only when `ready`, at its earned weight |
 
-**First pilot run (2026-10-17, `tools/agy_pilot.py`, evidence `docs/evidence/judge-screen-20261017/agy-pilot-1.json`).**
+**First pilot run (2026-10-17, `scripts/model_eval/agy_pilot.py`, evidence `docs/evidence/judge-screen-20261017/agy-pilot-1.json`).**
 Exploratory: 5 seeded defects across two modules; a third module yielded no validated mutants. Tokens are as the backend reported them.
 
 | Backend | Pilot | Mode | Result | Tokens per item |

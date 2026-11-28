@@ -166,7 +166,7 @@ def evaluate_benchmark(payload: dict[str, Any], policy: dict[str, Any]) -> dict[
     minimum_cases = int(approval["minimum_adjudicated_cases"])
     minimum_per_category = int(approval["minimum_cases_per_category"])
     # Per-category floors may be overridden. Categories that cannot be labelled
-    # from realized outcomes (see tools/harvest_verifier_corpus.py) can never be
+    # from realized outcomes (see scripts/verifier/harvest_verifier_corpus.py) can never be
     # grown by the harvester, so holding them to the machine-harvestable floor
     # made `approved` unreachable without hand-labelling. See #2819.
     raw_overrides = approval.get("minimum_cases_per_category_overrides")

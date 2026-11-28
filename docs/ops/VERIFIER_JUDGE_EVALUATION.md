@@ -3,8 +3,8 @@
 This guide covers how a new model or agent earns a place among the pull-request verifier's judges,
 and how to decide, from evidence, whether a **third judge** (to break ties) or a **backup judge** (for
 when one token pool runs out) is worth enabling. It extends the existing selection pipeline
-(`config/model_selection_policy.json`, `tools/run_model_eval_cli_screen.py`,
-`tools/run_model_eval_api_confirm.py`, `tools/prepare_model_promotion.py`); it does not replace it.
+(`config/model_selection_policy.json`, `scripts/model_eval/run_model_eval_cli_screen.py`,
+`scripts/model_eval/run_model_eval_api_confirm.py`, `scripts/model_eval/prepare_model_promotion.py`); it does not replace it.
 
 ## 1. Two different things are called a "verify agent"
 
@@ -32,9 +32,9 @@ define the gates, with false PASS as the highest-cost error:
 A screen result is **exploratory evidence**. It can justify the capped API confirmation, never a
 promotion. Zero false PASS on 4 NON_PASS cases only bounds the false-PASS rate below about 0.49; the
 approval gate needs zero errors on roughly 70 or more NON_PASS cases to reach 0.05
-(`tools/analyze_judge_ensemble.cases_needed_for_bound`).
+(`scripts/model_eval/analyze_judge_ensemble.cases_needed_for_bound`).
 
-## 3. Screening a candidate: `tools/run_judge_backend_screen.py`
+## 3. Screening a candidate: `scripts/model_eval/run_judge_backend_screen.py`
 
 One tool, one set of cases, one production prompt, the same thresholds, several backends:
 
@@ -58,8 +58,8 @@ Safeguards built in (each pinned by a test):
 
 ```bash
 # incumbent baseline (existing Codex screen), then candidates on the same cases
-python -m tools.run_model_eval_cli_screen --models gpt-6.1-sol,gpt-6-luna --output codex-screen.json
-MUSE_API_KEY=... CURSOR_API_KEY=... python -m tools.run_judge_backend_screen \
+python -m scripts.model_eval.run_model_eval_cli_screen --models gpt-6.1-sol,gpt-6-luna --output codex-screen.json
+MUSE_API_KEY=... CURSOR_API_KEY=... python -m scripts.model_eval.run_judge_backend_screen \
   --judges claude-cli,muse-cli,cursor-cli,agy-cli,muse-api \
   --muse-api-price-in <USD/M> --muse-api-price-out <USD/M> --output judge-screen.json
 ```
@@ -74,7 +74,7 @@ came from. The price is **not** entered in `config/model_registry.json`: the reg
 reader accepts only the openai, anthropic and github-models providers, so a `meta` row fails 30 existing
 registry tests until provider support exists (section 6 lists it as a precondition).
 
-## 4. Deciding on a third judge or a backup: `tools/analyze_judge_ensemble.py`
+## 4. Deciding on a third judge or a backup: `scripts/model_eval/analyze_judge_ensemble.py`
 
 Feed it one or more screen outputs. It reports, from real per-case verdicts:
 

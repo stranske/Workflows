@@ -16,9 +16,9 @@ def test_maint78_automatic_paths_cannot_start_paid_model_calls() -> None:
     )
     upload = next(step for step in steps if "actions/upload-artifact@" in step.get("uses", ""))
 
-    assert "python -m tools.plan_model_eval" in report["run"]
+    assert "python -m scripts.model_eval.plan_model_eval" in report["run"]
     assert "workflow_dispatch" in screen["if"] and "inputs.mode == 'screen'" in screen["if"]
-    assert "python -m tools.run_model_eval_cli_screen" in screen["run"]
+    assert "python -m scripts.model_eval.run_model_eval_cli_screen" in screen["run"]
     assert 'auth.get("auth_mode") != "chatgpt"' in auth["run"]
     assert 'auth.get("OPENAI_API_KEY")' in auth["run"]
     confirm = next(
@@ -61,7 +61,7 @@ def test_auto_dispatch_maint77_chains_to_maint78_on_catalog_drift() -> None:
     )
     assert dispatch_idx < refresh_idx
     refresh = steps[refresh_idx]
-    assert "tools.refresh_model_eval_candidates --write" in refresh["run"]
+    assert "scripts.model_eval.refresh_model_eval_candidates --write" in refresh["run"]
     assert "--catalog-discovery catalog-discovery.json" in refresh["run"]
     upload = next(
         step for step in steps if step.get("name") == "Upload pilot candidates for MAINT-78"

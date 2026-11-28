@@ -145,10 +145,14 @@ Choose a common real-world use case and place it next to the workflow guide or s
 
 ### Scripts
 
-1. Add script to appropriate location:
-   - `.github/scripts/` - Workflow helper scripts
-   - `scripts/` - Standalone tools
-2. Include tests in `__tests__/` or `tests/workflows/`
+1. Choose the home with the rule in [STRUCTURE.md](STRUCTURE.md#where-code-goes) (first match wins):
+   - listed in `.github/sync-manifest.yml` → keep its path (consumers receive it there);
+   - separately versioned package → `packages/`;
+   - runs only inside a GitHub Actions job → `.github/scripts/`;
+   - has an entry point (`__main__`, `python -m`, shell) → `scripts/` (grouped, e.g. `scripts/langchain/`, `scripts/verifier/`, `scripts/model_eval/`);
+   - no entry point, imported from two or more folders → `tools/`;
+   - no entry point, all importers in one folder → next to them (that folder or a subpackage).
+2. Put tests where they mirror the code: `.github/scripts/__tests__/` for JavaScript, `tests/<area>/` for Python, with inputs under `tests/fixtures/<topic>/`
 3. Make executable if has shebang: `chmod +x script.sh`
 4. **Wrap all GitHub API calls** - See [API_CALL_PATTERN.md](../.github/scripts/API_CALL_PATTERN.md)
 5. Run the local JavaScript API audit with `node scripts/api-call-guard.js`.
@@ -173,6 +177,6 @@ Choose a common real-world use case and place it next to the workflow guide or s
 
 ## Questions?
 
-- Check existing [documentation](docs/)
+- Check existing [documentation](README.md)
 - Open an issue for bugs or feature requests
-- See [WORKFLOW_GUIDE.md](docs/WORKFLOW_GUIDE.md) for workflow architecture
+- See [WORKFLOW_GUIDE.md](WORKFLOW_GUIDE.md) for workflow architecture

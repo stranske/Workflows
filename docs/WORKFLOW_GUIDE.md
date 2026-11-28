@@ -296,7 +296,7 @@ names the exhausted judge and any backup that failed first.
 both production judges answered. One backup, drawn at random, reviews as an
 uncounted third judge. Its record is `third_reviewer` in `comparison.json`, with
 a collapsed note in the PR comment. The gate's verdict is always the production
-pair's. `tools/verifier_third_reviewer_readout.py` collects the records across
+pair's. `scripts/verifier/verifier_third_reviewer_readout.py` collects the records across
 repositories and prints per-backup agreement and how often the third verdict
 would have changed the conclusion.
 

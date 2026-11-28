@@ -20,11 +20,12 @@ def isolate_deliberate_break_worker_subprocesses(
 def synthetic_verifier_capacity_contract(monkeypatch):
     native = pr_verifier._native_capacity_contract
 
-    def contract(client):
+    def contract(client, **kwargs):
         # Only explicitly registered unit fakes bypass the native SDK binding.
         # The configured-adapter regressions never set this test-only marker.
+        # Keyword arguments (for example a paired `trial`) pass through unchanged.
         if getattr(client, "_unit_capacity_fake", False) is not True:
-            return native(client)
+            return native(client, **kwargs)
         payload = client._get_request_payload("")
         return {
             "profile": client.profile,

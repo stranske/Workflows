@@ -31,7 +31,7 @@ instructions are in the [representative proposal](VERIFY_REPRESENTATIVE_API_PROP
 
 ## Frozen input and existing execution path
 
-`tools.run_verify_paired` accepts no case path, model, endpoint, or repository
+`scripts.verifier.run_verify_paired` accepts no case path, model, endpoint, or repository
 argument. It verifies the original proposal SHA-256
 `3423da3d0c0f243f10d83f57e2243d5ce04b30511b5dbd589919b5ca4e3620b9`,
 all retained original packet file hashes, and the independent review digest.

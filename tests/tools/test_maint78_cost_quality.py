@@ -9,17 +9,15 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from tools.create_model_eval_snapshot import create_case
-from tools.generate_mutation_cases import coverage_sufficient, load_case
-from tools.model_eval_snapshots import (
-    coverage_blockers,
-    is_complex_coverage,
-    snapshot_digest,
-    verifier_prompt,
+from scripts.model_eval.create_model_eval_snapshot import create_case
+from scripts.model_eval.plan_model_eval import ROOT, build_plan, markdown
+from scripts.model_eval.run_model_eval_api_confirm import (
+    MAX_OUTPUT_TOKENS,
+    _invoke_api,
+    _price,
+    confirm,
 )
-from tools.plan_model_eval import ROOT, build_plan, markdown
-from tools.run_model_eval_api_confirm import MAX_OUTPUT_TOKENS, _invoke_api, _price, confirm
-from tools.run_model_eval_cli_screen import (
+from scripts.model_eval.run_model_eval_cli_screen import (
     CliResult,
     api_list_price_estimate,
     cli_model_ids,
@@ -29,6 +27,13 @@ from tools.run_model_eval_cli_screen import (
     run_screen,
     select_cases,
     token_usage,
+)
+from scripts.verifier.generate_mutation_cases import coverage_sufficient, load_case
+from tools.model_eval_snapshots import (
+    coverage_blockers,
+    is_complex_coverage,
+    snapshot_digest,
+    verifier_prompt,
 )
 
 # the screens compare candidates with the live production OpenAI judge
@@ -193,7 +198,7 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
 
 
 def test_readiness_coverage_matches_current_prompt():
-    from tools.run_judge_backend_screen import corpus_cases_with_snapshots
+    from scripts.model_eval.run_judge_backend_screen import corpus_cases_with_snapshots
 
     corpus, registry, policy = _inputs()
     stale = {}
@@ -267,7 +272,7 @@ def test_coverage_blockers_skip_empty_context() -> None:
 
 def test_api_confirmation_rejects_coverage_blockers_before_calls(monkeypatch):
     monkeypatch.setattr(
-        "tools.run_model_eval_api_confirm.build_plan",
+        "scripts.model_eval.run_model_eval_api_confirm.build_plan",
         lambda *args: {
             "input_alignment_ready": True,
             "confirmation_blockers": ["complex PASS coverage missing"],
@@ -460,7 +465,7 @@ def test_api_confirmation_is_paired_bounded_and_still_provisional(monkeypatch):
             100,
         )
 
-    monkeypatch.setattr("tools.run_model_eval_api_confirm._invoke_api", fake_api)
+    monkeypatch.setattr("scripts.model_eval.run_model_eval_api_confirm._invoke_api", fake_api)
     result = confirm(corpus, registry, policy, screen, github_token="x", client=object())
     assert result["complete"]
     assert result["api_calls_made"] == 16
@@ -582,7 +587,7 @@ def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeyp
         calls.append(model["model_id"])
         return json.dumps({"verdict": expected.replace("NON_PASS", "CONCERNS")}), 1000, 100
 
-    monkeypatch.setattr("tools.run_model_eval_api_confirm._invoke_api", fake_api)
+    monkeypatch.setattr("scripts.model_eval.run_model_eval_api_confirm._invoke_api", fake_api)
     result = confirm(
         corpus,
         registry,
@@ -621,7 +626,8 @@ def test_missing_cli_usage_fails_closed():
 def test_cli_screen_rejects_unpaired_or_unpriced_selection_before_fetch(monkeypatch):
     corpus, registry, policy = _screen_inputs()
     monkeypatch.setattr(
-        "tools.run_model_eval_cli_screen.cli_model_ids", lambda _: {INCUMBENT, "gpt-6-astra"}
+        "scripts.model_eval.run_model_eval_cli_screen.cli_model_ids",
+        lambda _: {INCUMBENT, "gpt-6-astra"},
     )
     with pytest.raises(ValueError, match="incumbent"):
         run_screen(corpus, registry, policy, models=["gpt-6-astra", "gpt-5.6-sol"], token="x")
@@ -640,7 +646,7 @@ def test_cli_catalog_is_pinned_and_tool_events_are_rejected(monkeypatch):
             )
         )
 
-    monkeypatch.setattr("tools.run_model_eval_cli_screen.subprocess.run", fake_catalog)
+    monkeypatch.setattr("scripts.model_eval.run_model_eval_cli_screen.subprocess.run", fake_catalog)
     assert cli_model_ids("codex") == {"gpt-6-sol"}
     assert received["command"][-1] == "--bundled"
     assert not has_tool_events('{"type":"item.completed","item":{"type":"agent_message"}}')
@@ -673,7 +679,9 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
         final.write_text("not JSON")
         return SimpleNamespace(stdout=stream, returncode=0)
 
-    monkeypatch.setattr("tools.run_model_eval_cli_screen.subprocess.run", fake_invocation)
+    monkeypatch.setattr(
+        "scripts.model_eval.run_model_eval_cli_screen.subprocess.run", fake_invocation
+    )
     outcome = invoke_cli("codex", INCUMBENT, "test")
     assert outcome.payload is None
     assert outcome.input_tokens == 1000 and outcome.output_tokens == 500
@@ -691,10 +699,12 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
         return CliResult({"verdict": "PASS"}, 1000, 500, 1.0)
 
     monkeypatch.setattr(
-        "tools.run_model_eval_cli_screen.cli_model_ids",
+        "scripts.model_eval.run_model_eval_cli_screen.cli_model_ids",
         lambda _: {INCUMBENT, "gpt-6-sol"},
     )
-    monkeypatch.setattr("tools.run_model_eval_cli_screen.invoke_cli", fake_screen_invocation)
+    monkeypatch.setattr(
+        "scripts.model_eval.run_model_eval_cli_screen.invoke_cli", fake_screen_invocation
+    )
     result = run_screen(
         corpus,
         registry,
@@ -761,7 +771,9 @@ def test_changed_production_snapshot_blocks_screen_before_model_calls(monkeypatc
     def unexpected_catalog(_):
         raise AssertionError("model catalog must not be read when the snapshot is invalid")
 
-    monkeypatch.setattr("tools.run_model_eval_cli_screen.cli_model_ids", unexpected_catalog)
+    monkeypatch.setattr(
+        "scripts.model_eval.run_model_eval_cli_screen.cli_model_ids", unexpected_catalog
+    )
     with pytest.raises(ValueError, match="candidate screen is not ready"):
         run_screen(
             corpus,
@@ -1049,7 +1061,7 @@ def test_mutation_cases_cannot_replace_real_non_pass_signal():
 def test_default_screen_model_lists_include_the_registry_incumbent():
     # a screen without the incumbent is refused, so a selection change must move these defaults too
     import yaml
-    from tools.run_model_eval_cli_screen import DEFAULT_MODELS
+    from scripts.model_eval.run_model_eval_cli_screen import DEFAULT_MODELS
 
     workflow = yaml.safe_load(
         (ROOT / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text()
