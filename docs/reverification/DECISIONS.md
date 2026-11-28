@@ -28,7 +28,7 @@ selection and scope-check branches in `scripts/cli_handler.py`.
 ## 2026-02-07 - Auth Coverage Baseline (PR #1325 Follow-Up)
 Decision: Record the auth coverage baseline as a reproducible command instead of a committed
 generated artifact. Recreate the historical output with
-`pytest tests/test_auth_validator.py tests/test_authentication.py --cov=scripts.auth_validator --cov=scripts.api_client --cov-report=term-missing -m "not slow"`.
+`pytest tests/test_auth_validator.py tests/scripts/test_authentication.py --cov=scripts.auth_validator --cov=scripts.api_client --cov-report=term-missing -m "not slow"`.
 
 Rationale: The command captures the exact test selection and coverage targets for
 `scripts/auth_validator.py` and `scripts/api_client.py`. Generated coverage output should be

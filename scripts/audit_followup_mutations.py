@@ -10,7 +10,10 @@ import re
 from pathlib import Path
 
 PYTHON_SOURCE = "scripts/langchain/followup_issue_generator.py"
-PYTHON_TEST = "tests/test_followup_issue_generator.py"
+PYTHON_TEST = "tests/langchain/test_followup_issue_generator.py"
+# The retained issue-3956 receipts name the test at its path when they were recorded; the file
+# moved under tests/langchain/ on 2026-11-28 (cohesion C7) with unchanged content.
+HISTORICAL_PYTHON_TEST = "tests/test_followup_issue_generator.py"
 NODE_SOURCE = ".github/scripts/agents_pr_meta_update_body.js"
 NODE_TEST = ".github/scripts/__tests__/agents-pr-meta-update-body.test.js"
 NODE_CASES = {
@@ -83,6 +86,12 @@ def _single_node_result(output: str, case: str, *, passed: bool) -> bool:
     return True
 
 
+def _current_case(case: str) -> str:
+    """Map a receipt's historical test node id onto the test file's current path."""
+    prefix = HISTORICAL_PYTHON_TEST + "::"
+    return PYTHON_TEST + "::" + case.removeprefix(prefix) if case.startswith(prefix) else case
+
+
 def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
     """Compare independently collected added cases with the retained evidence."""
     original_receipt = (root / EVIDENCE / "retained-mutation-reconciliation.json").read_text(
@@ -102,7 +111,7 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
         if case.startswith(PYTHON_TEST + "::")
         and case.removeprefix(PYTHON_TEST + "::").split("[")[0] in added
     }
-    mapped = {proof["test"] for proof in python["proofs"]}
+    mapped = {_current_case(proof["test"]) for proof in python["proofs"]}
     problems = []
     rows = []
     for label, receipt in (("Python", python), ("Node", node)):

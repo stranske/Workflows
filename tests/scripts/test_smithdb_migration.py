@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location(
-    "health", Path(__file__).parents[1] / "scripts/langsmith_observability_health.py"
+    "health", Path(__file__).parents[2] / "scripts/langsmith_observability_health.py"
 )
 health = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(health)
