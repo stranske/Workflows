@@ -69,7 +69,7 @@ For a YAML or script syntax failure, open [Minimal invariant CI](ci/WORKFLOWS.md
 
 - To investigate a failed Gate, use [Coverage Guardrails & Follow-ups](ci/WORKFLOWS.md#coverage-guardrails--follow-ups). For a guarded tolerance or snapshot repair, follow the [cosmetic repair procedure](ops/cosmetic-repair.md).
 - For release, integration, dependency and monthly audit workflows, start in [Autofix & Maintenance](ci/WORKFLOWS.md#autofix--maintenance). The [monthly audit checklist](ci/WORKFLOW_AUDIT_PROCEDURE.md) explains how to read the results and file findings.
-- For a failed sweep, an expiring credential or a drift alert, start in [Repository Health Checks](ci/WORKFLOWS.md#repository-health-checks). The [Health 40 runbook](ci/WORKFLOW_SYSTEM.md#health-40-sweep-health-40-sweepyml) describes the Actionlint and branch-protection checks.
+- For a failed sweep, an expiring credential or a drift alert, start in [Repository Health Checks](ci/WORKFLOWS.md#repository-health-checks). The [Health 40 runbook](ci/WORKFLOW_SYSTEM.md#health-40-sweep-health-40-sweepyml) describes the weekly Actionlint, liveness and belt-claim checks.
 - To investigate a pending consumer delivery, follow the [sync campaign entry points](ops/SYNC_DEPENDENCY_CAMPAIGN.md#consumer-sync-entry-points). To change the label guide delivered to consumers, edit [templates/consumer-repo/docs/LABELS.md](../templates/consumer-repo/docs/LABELS.md). For keepalive regression coverage on a PR, use the [self-test catalog](ci/WORKFLOWS.md#self-test-harness).
 
 ### Agents & Issues
@@ -436,7 +436,7 @@ These outputs land in the Actions run summary, with any follow-up issue filed in
 ## Maintenance Playbook
 1. PRs rely on the Gate workflow listed above. Keep it green; the post-CI summary will report its status automatically.
 2. Monitor failure tracker issues surfaced by the Gate summary job; it owns the delegation and auto-heal path end to end.
-3. Use `Health 40 Sweep` when you want the combined Actionlint + branch-protection sweep, or `Health 42 Actionlint` (`workflow_dispatch`) for an Actionlint-only rehearsal of complex workflow edits before pushing.
+3. Maint 52 Validate Workflows lints every PR; use `Health 42 Actionlint` (`workflow_dispatch`) for an Actionlint-only rehearsal of complex workflow edits before pushing.
 4. Dispatch `Maint 45 Cosmetic Repair` when you need a curated pytest + hygiene sweep that opens a helper PR with fixes.
 5. After archiving a workflow, compare the [registered Actions paths and states](archive/ARCHIVE_WORKFLOWS.md#registered-workflows-after-retirement) with the default branch.
 

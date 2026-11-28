@@ -175,7 +175,7 @@ explain why a particular status appears in the Checks tab.
 | **Gate** (`pr-00-gate.yml`) | Every pull request (`pull_request`), manual dispatch (`workflow_dispatch`) | ✅ Required status | Ruleset requires **`summary`** per `.github/config/required-contexts.json`; **`Gate / gate`** is the duplicate commit status the summary job still posts | Checks tab → **Gate** → **Re-run jobs** (failed or all) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after the Gate jobs finish | ✅ Required status | **`summary`** in PR checks, plus a timeline comment and coverage/status artifacts | Re-run the Gate workflow (the summary job runs automatically) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
-| **Health 40 Sweep** (`health-40-sweep.yml`) | Monday 05:05 UTC schedule, workflow-file pull requests, manual dispatch | ❌ Informational hygiene | Combined Actionlint + branch-protection jobs under **Actions → Health 40 Sweep** | Actions tab → workflow → **Run workflow** |
+| **Health 40 Sweep** (`health-40-sweep.yml`) | Monday 05:05 UTC and daily 06:25 UTC schedules, manual dispatch | ❌ Informational hygiene | Weekly Actionlint, liveness and belt-claim jobs under **Actions → Health 40 Sweep** | Actions tab → workflow → **Run workflow** |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`) | Manual dispatch (or via `workflow_call` from the sweep) | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
 | **Health 45 Agents Guard** (`agents-guard.yml`) | PR lifecycle and label events. The eligibility step reads the routing labels from the registry. | Policy check for eligible PRs | Commit status **`Health 45 Agents Guard / guard`** | Checks tab → **Health 45 Agents Guard** → **Re-run** after updating labels/reviews |
 > ℹ️ **Merge-gating recap.**
@@ -226,14 +226,15 @@ explain why a particular status appears in the Checks tab.
 
 #### Health 40 Sweep (`health-40-sweep.yml`)
 
-- **When it runs.** Monday 05:05 UTC on a schedule, manual dispatch, and on any
-  pull request (Actionlint runs only when workflow files change thanks to a
-  `paths-filter` gate).
-- **What it does.** Fan-out job that first evaluates workflow edits with
-  Actionlint and then verifies default-branch protection via the Health 44
-  helper on scheduled/manual runs.
-- **Merge impact.** Informational; it keeps weekly enforcement evidence fresh
-  without adding new required contexts.
+- **When it runs.** Monday 05:05 UTC (Actionlint of main, workflow liveness,
+  belt-claim reclaim), daily 06:25 UTC (liveness and reclaim only), and manual
+  dispatch. It has no pull request or push trigger: Maint 52 Validate Workflows
+  lints every PR and push.
+- **What it does.** Weekly Actionlint of main through Health 42, the
+  zero-job approval-hold liveness sweep, and stale belt-claim reclaim. Branch
+  protection is not checked here: Health 40 Repo Selfcheck reads it every
+  Monday and dispatches Health 44 (the only writer) when it finds drift.
+- **Merge impact.** Informational; it adds no required contexts.
 
 #### Health 42 Actionlint (`health-42-actionlint.yml`)
 
@@ -688,7 +689,7 @@ resolve existing reservations before removing the receiver's issuer variable.
 | **Maint 45 Cosmetic Repair** (`maint-45-cosmetic-repair.yml`, maintenance bucket) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Workflows/actions/workflows/maint-45-cosmetic-repair.yml) |
 | **Health 40 Repo Selfcheck** (`health-40-repo-selfcheck.yml`, maintenance bucket) | `schedule` (weekly, Mondays 06:20 UTC), `workflow_dispatch` | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Workflows/actions/workflows/health-40-repo-selfcheck.yml) |
 | **Health 41 Repo Health** (`health-41-repo-health.yml`, maintenance bucket) | `schedule` (weekly), `workflow_dispatch` | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Workflows/actions/workflows/health-41-repo-health.yml) |
-| **Health 40 Sweep** (`health-40-sweep.yml`, maintenance bucket) | `schedule` (weekly + daily), `pull_request`, `push`, `workflow_dispatch` | Run Actionlint on workflow edits and verify branch protection during sweeps. | ⚪ Scheduled/manual | [Health 40 sweep history](https://github.com/stranske/Workflows/actions/workflows/health-40-sweep.yml) |
+| **Health 40 Sweep** (`health-40-sweep.yml`, maintenance bucket) | `schedule` (weekly + daily), `workflow_dispatch` | Weekly Actionlint of main, daily workflow liveness and belt-claim reclaim. | ⚪ Scheduled/manual | [Health 40 sweep history](https://github.com/stranske/Workflows/actions/workflows/health-40-sweep.yml) |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`, maintenance bucket) | `workflow_dispatch`, `workflow_call` | Provide the reusable Actionlint leg for sweeps or focused rehearsals. | ⚪ Manual/reusable | [Health 42 logs](https://github.com/stranske/Workflows/actions/workflows/health-42-actionlint.yml) |
 | **Health 44 Gate Branch Protection** (`health-44-gate-branch-protection.yml`, maintenance bucket) | `pull_request`, `workflow_dispatch`, `workflow_call` | Verify the configured default-branch status contexts. | ⚪ Scheduled via sweep / manual | [Health 44 enforcement logs](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml) |
 | **Health 50 Security Scan** (`health-50-security-scan.yml`, maintenance bucket) | `push`, `pull_request`, `schedule` (weekly) | Run CodeQL security analysis on Python code to detect vulnerabilities. | ⚪ Automatic/scheduled | [Security scan runs](https://github.com/stranske/Workflows/actions/workflows/health-50-security-scan.yml) |
