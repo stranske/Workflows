@@ -176,7 +176,7 @@ For installation, required variables and the dependency read token, see the [cro
 
 ## Autofix & Maintenance
 
-* **Fleet Renovate intake** — `renovate-presets/fleet.json` bounds routine dependency work to Monday 01:00–05:00 America/Chicago (two commits per hour, three concurrent branches/PRs). Trusted GitHub Actions digest/pin/minor/patch updates share the green-automerge lane; routine releases wait three days and for non-pending update-branch checks; major updates require explicit Dependency Dashboard approval. Vulnerability alerts bypass those delays, and grouped lock-file maintenance uses the same explicit weekly window.
+* **Fleet Renovate intake** — `renovate-presets/fleet.json` bounds routine dependency work to Monday, all day America/Chicago (two commits per hour, three concurrent branches/PRs; a whole day because Mend's hosted runs can be 12 hours apart). Trusted GitHub Actions digest/pin/minor/patch updates share the green-automerge lane; routine releases wait three days and open their PR as soon as the branch exists (`prCreation: immediate`); major updates require explicit Dependency Dashboard approval. Vulnerability alerts bypass those delays, and grouped lock-file maintenance uses the same explicit weekly window.
 
 ### Autofix routes
 
