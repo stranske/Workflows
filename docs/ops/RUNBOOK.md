@@ -55,7 +55,8 @@ Related docs:
    `maint-68-sync-consumer-repos.yml`.
 2. For integration repo drift, inspect `health-67-integration-sync-check.yml`
    and `maint-69-sync-integration-repo.yml`.
-3. For labels documentation drift, inspect `maint-65-sync-label-docs.yml`.
+3. For labels documentation drift, inspect the `docs/LABELS.md` manifest entry
+   (Maint 68, consumers) and the Maint 69 apply step (Workflows-Integration-Tests).
 4. Confirm `.github/sync-manifest.yml` lists every exact-sync file before
    pushing template or workflow changes.
 

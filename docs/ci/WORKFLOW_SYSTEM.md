@@ -454,7 +454,7 @@ status updates:
 | Bucket | Where it runs | YAML entry points | Why it exists |
 | --- | --- | --- | --- |
 | PR checks | Every pull request event (including `pull_request_target` for fork visibility) | `pr-00-gate.yml` | Keep the default branch green by running the gating matrix before reviewers waste time. |
-| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-62-integration-consumer.yml`, `maint-65-sync-label-docs.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
+| Maintenance & repo health | Daily/weekly schedules plus manual dispatch | Gate summary job in `pr-00-gate.yml`, `maint-46-post-ci.yml`, `maint-45-cosmetic-repair.yml`, `maint-62-integration-consumer.yml`, `maint-66-monthly-audit.yml`, `health-4x-*.yml` | Scrub lingering CI debt, enforce branch protection, and surface drift before it breaks contributor workflows. |
 | Issue / agents automation | Gate `workflow_run` and hourly sweep; shared opener and closer; labelled issues | `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`, `agents-63-issue-intake.yml`, `agents-64-verify-agent-assignment.yml`, `agents-pr-meta-v4.yml`, `agents-guard.yml`, and companion keepalive/autofix workflows | Translate labelled issues into automated work while keeping the protected agents surface locked behind guardrails. |
 | Error checking, linting, and testing topology | Reusable fan-out invoked by Gate, Autofix and manually dispatched CI callers | `reusable-10-ci-python.yml`, `reusable-11-ci-node.yml`, `reusable-12-ci-docker.yml`, `reusable-13-cross-repo-smoke.yml`, `reusable-18-autofix.yml`, `reusable-20-pr-meta.yml`, `selftest-reusable-ci.yml` | Provide a single source of truth for lint/type/test/container jobs so every caller runs the same matrix with consistent tooling. |
 
@@ -529,10 +529,10 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   scenarios on a daily schedule (05:05 UTC), on release publication, or via
   manual dispatch, then reports the outcome in the job summary and manages the
   integration failure tracker issue when needed.
-- **Maint 65 Sync Label Docs** – `.github/workflows/maint-65-sync-label-docs.yml`
-  synchronizes the consumer-specific `templates/consumer-repo/docs/LABELS.md`
-  to consumer `docs/LABELS.md` files when the template changes or via manual
-  dispatch, ensuring consistent label conventions across the ecosystem.
+- **Label guide delivery** – the consumer-specific
+  `templates/consumer-repo/docs/LABELS.md` reaches consumer `docs/LABELS.md`
+  through the Maint 68 manifest sync and Workflows-Integration-Tests through
+  the Maint 69 apply step. The direct-push Maint 65 sync was retired.
 - **Maint 66 Monthly Audit** – `.github/workflows/maint-66-monthly-audit.yml`
   performs a comprehensive monthly audit of workflow health (1st of each month
   at 06:00 UTC), collecting run statistics, identifying high-failure workflows,

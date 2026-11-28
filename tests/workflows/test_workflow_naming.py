@@ -301,7 +301,6 @@ EXPECTED_NAMES = {
     "maint-52-sync-dev-versions.yml": "Maint 52 Sync Dev Versions",
     "maint-auto-update-pypi-versions.yml": "Maint Auto-Update PyPI Versions",
     "maint-62-integration-consumer.yml": "Maint 62 Integration Consumer",
-    "maint-65-sync-label-docs.yml": "Maint 65 Sync Label Docs",
     "maint-66-monthly-audit.yml": "Maint 66 Monthly Audit",
     "health-67-integration-sync-check.yml": "Health 67 Integration Sync Check",
     "health-68-consumer-sync-drift.yml": "Health 68 Consumer Sync Drift Check",

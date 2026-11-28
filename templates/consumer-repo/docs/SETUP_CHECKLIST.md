@@ -1171,9 +1171,9 @@ versions change, add your repo to these three workflows:
 
 ### 10.2 Label Documentation Sync
 
-2. No separate label-doc repository list is required. `maint-65-sync-label-docs.yml`
-   uses the shared registered-repository helper and copies the consumer-specific
-   `templates/consumer-repo/docs/LABELS.md` source to consumer `docs/LABELS.md`.
+2. No separate label-doc repository list is required. The consumer-specific
+   `templates/consumer-repo/docs/LABELS.md` is a Maint 68 manifest entry, so it
+   reaches consumer `docs/LABELS.md` through the regular Maint 68 sync PR.
 
 - [ ] Confirmed the repo appears in the shared registered-repository output
 - [ ] Confirmed `templates/consumer-repo/docs/LABELS.md` is the label-doc source
@@ -1182,11 +1182,11 @@ versions change, add your repo to these three workflows:
 
 `maint-52-sync-dev-versions.yml` no longer keeps its own repo list. It checks out
 `maint-68-sync-consumer-repos.yml` plus `scripts/list_registered_consumer_repos.py`
-and derives the set from §10.1 (see maint-52 lines ~85-86). The same is true of
-`maint-65-sync-label-docs.yml` (§10.2).
+and derives the set from §10.1 (see maint-52 lines ~85-86). The label guide
+(§10.2) travels with the Maint 68 sync itself.
 
 **So the "THREE workflows" framing above is out of date: there is ONE list
-(§10.1) and two derived consumers.** Corrected 2026-08-21 while onboarding
+(§10.1) and one derived consumer.** Corrected 2026-08-21 while onboarding
 `stranske/Orchestrator`, where following the old instruction would have meant
 editing a `REGISTERED_CONSUMER_REPOS` block that no longer exists in maint-52.
 
@@ -1199,12 +1199,6 @@ Test that sync workflows can access your repo:
 ```bash
 # Test workflow sync
 gh workflow run "Maint 68 Sync Consumer Repos" \
-  --repo stranske/Workflows \
-  -f repos="stranske/<your-repo>" \
-  -f dry_run=true
-
-# Test label doc sync
-gh workflow run "Maint 65 Sync Label Docs" \
   --repo stranske/Workflows \
   -f repos="stranske/<your-repo>" \
   -f dry_run=true

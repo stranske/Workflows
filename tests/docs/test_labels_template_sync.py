@@ -34,11 +34,57 @@ def test_consumer_template_labels_exclude_workflows_only_retry_surfaces() -> Non
     assert "templates/consumer-repo/docs/LABELS.md` → `docs/LABELS.md" in template
 
 
-def test_dedicated_label_sync_uses_the_consumer_template() -> None:
-    workflow = Path(".github/workflows/maint-65-sync-label-docs.yml").read_text(encoding="utf-8")
+MAINT_69 = Path(".github/workflows/maint-69-sync-integration-repo.yml")
 
-    assert workflow.count("templates/consumer-repo/docs/LABELS.md") >= 5
-    assert "--source docs/LABELS.md" not in workflow
+
+def _maint_69_steps() -> dict:
+    workflow = yaml.safe_load(MAINT_69.read_text(encoding="utf-8"))
+    return {step.get("name"): step for step in workflow["jobs"]["sync"]["steps"]}
+
+
+def test_direct_push_label_sync_is_retired() -> None:
+    # Maint 65 pushed straight to default branches and failed on 20 of its last 20 runs
+    # (branch protection). Consumers get the guide from the Maint 68 manifest entry above;
+    # WIT gets it from the Maint 69 apply step below. One writer per receiver.
+    assert not Path(".github/workflows/maint-65-sync-label-docs.yml").exists()
+    assert not Path("scripts/sync_label_docs.py").exists()
+
+
+def test_maint_69_delivers_the_consumer_label_guide_to_wit() -> None:
+    workflow = yaml.safe_load(MAINT_69.read_text(encoding="utf-8"))
+    source = "templates/consumer-repo/docs/LABELS.md"
+    assert source in workflow[True]["push"]["paths"]
+    steps = _maint_69_steps()
+    assert source in str(steps["Checkout Workflows repo"]["with"]["sparse-checkout"])
+    apply_script = str(steps["Apply template updates"]["run"])
+    assert f'cp "../workflows/{source}" docs/LABELS.md' in apply_script
+    assert "docs/LABELS.md" in str(steps["Commit and push changes"]["run"])
+
+
+def test_maint_69_apply_step_copies_the_label_guide(tmp_path: Path) -> None:
+    """Run the real label-guide lines of the apply heredoc against a scratch checkout."""
+    apply_script = str(_maint_69_steps()["Apply template updates"]["run"])
+    lines = apply_script.splitlines()
+    begin = next(i for i, line in enumerate(lines) if "Sync the consumer label guide" in line)
+    end = next(i for i in range(begin, len(lines)) if "Updated docs/LABELS.md" in lines[i])
+    snippet = "\n".join(line.strip() for line in lines[begin : end + 1])
+
+    source = tmp_path / "workflows" / "templates" / "consumer-repo" / "docs" / "LABELS.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("# Labels\n\ncanonical\n", encoding="utf-8")
+    receiver = tmp_path / "integration-tests"
+    (receiver / "docs").mkdir(parents=True)
+    (receiver / "docs" / "LABELS.md").write_text("# Labels\n\nstale\n", encoding="utf-8")
+
+    subprocess.run(["bash", "-euo", "pipefail", "-c", snippet], cwd=receiver, check=True, timeout=5)
+
+    assert (receiver / "docs" / "LABELS.md").read_bytes() == source.read_bytes()
+
+
+def test_wit_publication_stages_the_label_guide() -> None:
+    from scripts import publish_integration_sync
+
+    assert "docs/LABELS.md" in publish_integration_sync.DELIVERY_PATHS
 
 
 def test_label_sync_inventory_docs_name_the_consumer_source() -> None:
@@ -53,58 +99,3 @@ def test_label_sync_inventory_docs_name_the_consumer_source() -> None:
     ):
         text = path.read_text(encoding="utf-8")
         assert "templates/consumer-repo/docs/LABELS.md" in text, path
-
-
-@pytest.mark.parametrize(
-    ("token_available", "sync_outcome", "job_status", "dry_run", "expected"),
-    [
-        ("false", "skipped", "success", "false", "Skipped because no sync token was available."),
-        ("true", "success", "success", "true", "Preview completed. No files were pushed."),
-        ("true", "success", "success", "false", "Live sync completed. See the sync step log"),
-        (
-            "true",
-            "failure",
-            "failure",
-            "false",
-            "Live sync failed. Some repositories may have been updated.",
-        ),
-        ("true", "failure", "failure", "true", "Preview failed. No files were pushed."),
-        ("false", "skipped", "failure", "false", "Sync did not run. See preceding job steps."),
-        ("", "", "failure", "false", "Sync did not run. See preceding job steps."),
-    ],
-)
-def test_dedicated_label_sync_summary_reports_actual_outcome(
-    tmp_path, token_available, sync_outcome, job_status, dry_run, expected
-) -> None:
-    workflow = Path(".github/workflows/maint-65-sync-label-docs.yml")
-    steps = {
-        step["name"]: step
-        for step in yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]["sync"]["steps"]
-    }
-    sync = steps["Sync to consumer repos"]
-    summary = steps["Summary"]
-    assert summary["if"] == "${{ !cancelled() }}"
-    assert summary["env"] == {
-        "TOKEN_AVAILABLE": "${{ steps.token.outputs.token_available }}",
-        "SYNC_OUTCOME": f"${{{{ steps.{sync['id']}.outcome }}}}",
-        "JOB_STATUS": "${{ job.status }}",
-        "DRY_RUN": sync["env"]["DRY_RUN"],
-    }
-    assert "continue-on-error" not in sync
-    output = tmp_path / "summary"
-    subprocess.run(
-        ["bash", "-e", "-o", "pipefail", "-c", summary["run"]],
-        check=True,
-        timeout=5,
-        env={
-            **os.environ,
-            "GITHUB_STEP_SUMMARY": str(output),
-            "TOKEN_AVAILABLE": token_available,
-            "SYNC_OUTCOME": sync_outcome,
-            "JOB_STATUS": job_status,
-            "DRY_RUN": dry_run,
-        },
-    )
-    text = output.read_text(encoding="utf-8")
-    assert f"**Outcome:** {expected}" in text
-    assert "Synced" not in text

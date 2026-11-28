@@ -105,7 +105,6 @@ REVIEWED_SCRIPT_INTERPOLATIONS = frozenset(
         (".github/workflows/maint-52-sync-dev-versions.yml", "sync/step-4/run", "inputs.dry_run"),
         (".github/workflows/maint-52-sync-dev-versions.yml", "sync/step-4/run", "inputs.dry_run"),
         (".github/workflows/maint-52-sync-dev-versions.yml", "sync/step-5/run", "inputs.dry_run"),
-        (".github/workflows/maint-65-sync-label-docs.yml", "sync/step-5/run", "inputs.dry_run"),
         (".github/workflows/maint-66-monthly-audit.yml", "audit/step-8/run", "inputs.create_issue"),
         (
             ".github/workflows/maint-66-monthly-audit.yml",

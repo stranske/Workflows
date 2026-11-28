@@ -1056,18 +1056,14 @@ that workflow actually exists in the consumer checkout.
 
 ---
 
-### `maint-65-sync-label-docs.yml` - Sync Label Documentation
-**Purpose:** Copies the canonical consumer label guide to registered repositories
+### Label guide delivery (no dedicated workflow)
+**Purpose:** Keeps consumer `docs/LABELS.md` equal to the canonical consumer label guide
 
-**Trigger:** When `templates/consumer-repo/docs/LABELS.md` changes, or manually
+**How:** `templates/consumer-repo/docs/LABELS.md` is a Maint 68 manifest entry, so it reaches
+each consumer through the reviewed Maint 68 sync PR. Workflows-Integration-Tests receives it
+through the Maint 69 apply step. The older direct-push Maint 65 sync was retired on 2026-11-28.
 
-**What It Does:**
-1. Loads the shared registered consumer-repository list
-2. Copies `templates/consumer-repo/docs/LABELS.md` to consumer `docs/LABELS.md`
-3. Skips repositories whose copy is already identical
-4. Commits and pushes changed consumer copies, or reports a dry run
-
-**Use When:** After updating the consumer label guide or when reconciling label-doc drift
+**Use When:** After updating the consumer label guide, wait for the next Maint 68 sync PR
 
 ---
 

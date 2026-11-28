@@ -12,6 +12,7 @@ DELIVERY_PATHS = (
     ".github/workflows",
     ".github/actions",
     ".github/scripts",
+    "docs/LABELS.md",
     "scripts",
     "pyproject.toml",
     "requirements.lock",
