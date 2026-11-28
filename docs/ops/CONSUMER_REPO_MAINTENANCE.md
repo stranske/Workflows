@@ -1369,9 +1369,12 @@ sync script.
 ### Fleet Renovate intake policy
 
 All registered consumers extend `renovate-presets/fleet.json`. Routine dependency
-work is limited to Monday 01:00–05:00 America/Chicago, two commits per hour, and
-three concurrent branches/PRs. Routine releases wait three days and for non-pending
-update-branch checks; vulnerability alerts bypass each routine delay. Trusted GitHub Actions
+work is limited to Monday (all day, America/Chicago), two commits per hour, and
+three concurrent branches/PRs. The window is a whole day because the hosted Mend
+app's runs can be 12 hours apart; on 2026-11-23 none fell inside the earlier
+01:00–05:00 window. Routine releases wait three days, and the PR opens as soon as
+its branch exists (`prCreation: immediate`: consumer Gate runs only on PRs, so a
+branch never gets checks of its own); vulnerability alerts bypass each routine delay. Trusted GitHub Actions
 digest, pin, minor, and patch updates are grouped for green automerge, while majors
 stay visible in the Dependency Dashboard until explicitly approved. Lock-file
 maintenance is grouped into the same weekly maintenance window.
