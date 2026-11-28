@@ -232,12 +232,41 @@ function decodeAuthorityBlob(file, repository, prNumber) {
   return { state, sha: file.sha };
 }
 
+// A 404 from GET ref is not by itself proof that the authority branch is absent: GitHub
+// gives the same answer to a token that cannot see the ref. Absence is accepted only from a
+// successful matching-refs listing that contains no exact ref. Every other outcome rethrows
+// the original 404, so an unavailable branch still fails closed.
+async function readAuthorityBranchRef(request, repo) {
+  try {
+    return await request('GET', `/repos/${repo}/git/ref/heads/${BRANCH}`);
+  } catch (error) {
+    if (error.status !== 404) throw error;
+    let listing;
+    try {
+      listing = await request('GET', `/repos/${repo}/git/matching-refs/heads/${BRANCH}`);
+    } catch (_) {
+      throw error;
+    }
+    if (!Array.isArray(listing) ||
+        !listing.every((item) => item && typeof item.ref === 'string')) {
+      throw error;
+    }
+    if (listing.some((item) => item.ref === `refs/heads/${BRANCH}`)) {
+      throw new Error(`Authority branch ${BRANCH} appeared during absence read`);
+    }
+    return null;
+  }
+}
+
 async function readAuthorityStateForReplay(request, repository, prNumber) {
   const repo = String(repository).toLowerCase();
   const number = Number(prNumber);
   pathFor(repo, number);
 
-  const ref = await request('GET', `/repos/${repo}/git/ref/heads/${BRANCH}`);
+  const ref = await readAuthorityBranchRef(request, repo);
+  // A repository that never ran the challenge path has no authority branch, and so no
+  // ledger for any PR (stranske/Workflows before the agents-81 convergence).
+  if (ref === null) return null;
   const commitSha = ref?.object?.sha;
   if (ref?.object?.type !== 'commit' || !/^[0-9a-f]{40}$/.test(String(commitSha))) {
     throw new Error(`Authority branch ${BRANCH} did not resolve to a commit`);
@@ -1055,7 +1084,9 @@ async function hasAttemptIndexesForPr(request, repository, prNumber) {
 
 async function attemptIndexTree(request, repository) {
   const repo = String(repository).toLowerCase();
-  const ref = await request('GET', `/repos/${repo}/git/ref/heads/${BRANCH}`);
+  const ref = await readAuthorityBranchRef(request, repo);
+  // A proven-absent branch holds no attempt directory; callers treat this like a missing one.
+  if (ref === null) return { repo, commitSha: null, treeSha: null };
   const commitSha = ref?.object?.sha;
   if (ref?.object?.type !== 'commit' || !HEAD.test(String(commitSha))) {
     throw new Error('Authority attempt branch did not resolve to a commit');
