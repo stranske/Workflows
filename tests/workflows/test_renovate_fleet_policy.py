@@ -27,7 +27,11 @@ def test_fleet_renovate_intake_budget_is_bounded_to_the_weekly_window() -> None:
     assert preset["commitHourlyLimit"] == 2
     assert preset["prConcurrentLimit"] == 3
     assert preset["branchConcurrentLimit"] == 3
-    assert preset["prCreation"] == "not-pending"
+    # Consumer Gate runs only on pull_request, so a Renovate branch push gets no checks of its
+    # own (only Renovate's internal stability-days status). "not-pending" therefore waited
+    # forever for checks that only a PR starts: consumers opened 0 Renovate PRs from 08-01
+    # to 11-28 while their branches kept being refreshed. Open the PR at once.
+    assert preset["prCreation"] == "immediate"
     assert preset["minimumReleaseAge"] == "3 days"
 
 
@@ -111,3 +115,11 @@ def test_workflows_dependency_updates_preserve_reviewed_runtime_and_packets() ->
     assert set(trial_freeze) <= {"description", "matchFileNames", "enabled"}
     runtime = _rule(config, matchManagers=["github-actions"], matchPackageNames=["python"])
     assert runtime["allowedVersions"] == "<3.15"
+
+
+def test_workflows_has_no_private_pr_creation_override() -> None:
+    """The fleet preset is the one writer of prCreation; Workflows used to override it alone."""
+    workflows_config = json.loads((REPO_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    rules = workflows_config.get("packageRules", [])
+    assert all("prCreation" not in rule for rule in rules)
+    assert "prCreation" not in workflows_config
