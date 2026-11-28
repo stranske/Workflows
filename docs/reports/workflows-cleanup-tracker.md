@@ -9,7 +9,7 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ### November 28 · Verified integration delivery, historical recovery and local test discovery
 
-Stage 3 has **739/752 files and 39/43 folders** accepted. Stage 4 has **1,473/1,540 files and 158/177 folders** accepted. Across the repository this session added 95 net file decisions and 4 net folder decisions.
+Stage 3 has **739/752 files and 39/43 folders** accepted. Stage 4 has **1,473/1,540 files and 158/177 folders** accepted. Across the repository this session added 94 net file decisions and 4 net folder decisions.
 
 The original delivery checklist has 26 observed production passes and two replay-verified outcomes with no qualifying production event. Stage 1A has 198/198 accepted workflow decisions and Stage 1B has 27/27 root files.
 
@@ -17,7 +17,7 @@ The original delivery checklist has 26 observed production passes and two replay
 
 **Local test discovery.** Removing five JavaScript wrappers in [#5470](https://github.com/stranske/Workflows/pull/5470) silently reduced default Node discovery from 137 to 22. The green hosted Gate still exercised every missing test. [#5487](https://github.com/stranske/Workflows/pull/5487) restored all 115 missing cases on the current default. The ordinary command again runs the same 137 names with the same multiplicities. The explicit hosted commands on the baseline and repair each reported 4,071 passes and one skip, with zero case or outcome differences. The unchanged loop suite contributed 270 distinct passing cases.
 
-**Verified at destination.** [#5465](https://github.com/stranske/Workflows/pull/5465) delivered the integration validator to [receiving commit 0203fa68](https://github.com/stranske/Workflows-Integration-Tests/commit/0203fa68ec06cc6dc2e01cb04288cc234f990249). The documented command passed. Its [receiving CI](https://github.com/stranske/Workflows-Integration-Tests/actions/runs/46129927673) took 40 and 28 seconds across the full Python jobs. [#5481](https://github.com/stranske/Workflows/pull/5481) removed two issue 3743 evidence packets. All 52 files and 387,383 bytes recovered with identical Git blob IDs. [#5488](https://github.com/stranske/Workflows/pull/5488) restored the archive index route to four historical portfolio tests and three hash-matched source modules.
+**Verified at destination.** [#5465](https://github.com/stranske/Workflows/pull/5465) delivered the integration validator to [receiving commit 0203fa68](https://github.com/stranske/Workflows-Integration-Tests/commit/0203fa68ec06cc6dc2e01cb04288cc234f990249). The documented command passed. Its [receiving CI](https://github.com/stranske/Workflows-Integration-Tests/actions/runs/46129927673) took 40 and 28 seconds across the full Python jobs. [#5481](https://github.com/stranske/Workflows/pull/5481) removed two issue 3743 evidence packets. All 52 files and 387,383 bytes recovered with identical Git blob IDs. [#5488](https://github.com/stranske/Workflows/pull/5488) restored the archive index route to four historical portfolio tests and three hash-matched source modules. A later full Python Gate on #5495 found that the archive ledger requires offline local links. [#5496](https://github.com/stranske/Workflows/pull/5496) replaces the external link with the offline Git command. The existing ledger test reproduced the failure and all eight tests passed on the repair. The ledger decision is open.
 
 **Consumer delivery.** The native [run 46130384111](https://github.com/stranske/Workflows/actions/runs/46130384111) opened three canary PRs for a plan containing nine obsolete script removals. Two exact-head Gates passed. [Portable Alpha’s review](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2550#discussion_r4726388224) exposed a lost task identifier on the keepalive token-selection path. The separate [Health 68 comparison](https://github.com/stranske/Workflows/actions/runs/46130378078) actually ran on Template and reported zero blocked, one awaiting delivery. The 16-default readback at the start found all 144 legacy script copies still present. Fleet acceptance requires checking receiving defaults after promotion. Two canary PRs were subsequently prepared by the native Maint 71 candidate. Fleet promotion still depends on the shared-source repair. [Source repair #5495](https://github.com/stranske/Workflows/pull/5495) forwards the trusted keepalive task. Both hosted entry points selected the dedicated pool in the controlled check, while the general caller remained excluded. Review, installation and receiving refresh are pending.
 
@@ -570,13 +570,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 2,018/2,901 | 121/220 | — |
+| 2 · Evidence and archives | 2,017/2,901 | 121/220 | — |
 | 3 · Scripts, tools and packages | 739/752 | 39/43 | — |
 | 4 · Workflow source trees, templates, tests and configuration | 1,473/1,540 | 158/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 211/334 | 26/47 | — |
-| **Total** | **4,468/5,554** | **344/487** | **198/198** |
+| **Total** | **4,467/5,554** | **344/487** | **198/198** |
 
-**Directory organization.** 4,256 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 4,255 completed file decisions fall under 8 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
