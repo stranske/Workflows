@@ -166,8 +166,28 @@ jobs:
 
       - name: Install formatting tools
         if: steps.check_status.outputs.should_fix == 'true' && steps.integration_token.outputs.token_available == 'true'
+        # Same black/ruff versions WIT's own CI uses: its autofix-versions.env, which Maint 69
+        # keeps equal to the Workflows canonical file. Parsed, not sourced.
         run: |
-          python3 -m pip install black ruff
+          set -euo pipefail
+          pins="integration-tests/.github/workflows/autofix-versions.env"
+          if [ ! -f "$pins" ]; then
+            echo "::error::$pins is missing; refusing to format with unpinned tools"
+            exit 1
+          fi
+          pin() {
+            local value
+            value="$(sed -n "s/^$1=//p" "$pins" | tail -n 1 | tr -d '[:space:]')"
+            if ! printf '%s' "$value" | grep -Eq '^[0-9]+(\.[0-9]+)+$'; then
+              echo "::error::$1 in $pins is missing or not a version: '${value}'" >&2
+              return 1
+            fi
+            printf '%s' "$value"
+          }
+          black_version="$(pin BLACK_VERSION)"
+          ruff_version="$(pin RUFF_VERSION)"
+          echo "Installing black==${black_version} ruff==${ruff_version} from $pins"
+          python3 -m pip install "black==${black_version}" "ruff==${ruff_version}"
 
       - name: Apply formatting fixes
         if: steps.check_status.outputs.should_fix == 'true' && steps.integration_token.outputs.token_available == 'true'
