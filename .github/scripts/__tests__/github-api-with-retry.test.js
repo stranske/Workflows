@@ -197,6 +197,17 @@ test('rotation pool excludes the owner PAT', async () => {
   });
   assert.deepEqual(ownerOnlyDynamicSecrets, {});
 
+  const fallbackDynamicSecrets = collectTokenSecrets({
+    OWNER_PR_PAT: 'x',
+    TOKEN_ROTATION_ENV_KEYS: 'OWNER_PR_PAT',
+    TOKEN_ROTATION_KEYS: 'OWNER_PR_PAT,CUSTOM_POOL_PAT',
+    CUSTOM_POOL_PAT: 'custom-token',
+  });
+  assert.deepEqual(fallbackDynamicSecrets, {
+    TOKEN_ROTATION_KEYS: 'CUSTOM_POOL_PAT',
+    CUSTOM_POOL_PAT: 'custom-token',
+  });
+
   const jsonSecrets = collectTokenSecrets({
     TOKEN_ROTATION_JSON: JSON.stringify({
       pats: [
@@ -334,6 +345,43 @@ test('createTokenAwareRetry registers OWNER_PR_PAT on demand for exclusive tasks
       /API rate limit exceeded/,
     );
     assert.deepEqual(attemptedTokens, ['fallback']);
+  } finally {
+    balancer.tokenRegistry.tokens.clear();
+    balancer.tokenRegistry.lastRefresh = 0;
+  }
+});
+
+test('createTokenAwareRetry registers OWNER_PR_PAT from TOKEN_ROTATION_JSON on demand for exclusive tasks', async () => {
+  const balancer = require(path.join(__dirname, '../token_load_balancer'));
+  balancer.tokenRegistry.tokens.clear();
+  balancer.tokenRegistry.lastRefresh = Date.now();
+  try {
+    const env = {
+      SERVICE_BOT_PAT: 'service-token',
+      TOKEN_ROTATION_JSON: JSON.stringify({
+        pats: [{ id: 'OWNER_PR_PAT', token: 'owner-json-token' }],
+      }),
+    };
+    const getOctokit = (token) => ({ token });
+
+    const generalClient = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(generalClient.getTokenSource(), 'SERVICE_BOT_PAT');
+    assert.equal(balancer.tokenRegistry.tokens.has('OWNER_PR_PAT'), false);
+
+    const ownerClient = await createTokenAwareRetry({
+      github: { token: 'fallback' },
+      env,
+      task: 'pr-creation-as-owner',
+      tokenRegistry: balancer,
+      getOctokit,
+    });
+    assert.equal(ownerClient.getTokenSource(), 'OWNER_PR_PAT');
+    assert.equal(ownerClient.github.token, 'owner-json-token');
   } finally {
     balancer.tokenRegistry.tokens.clear();
     balancer.tokenRegistry.lastRefresh = 0;

@@ -654,6 +654,25 @@ function sanitizeRotationJson(value, allowOwnerPat) {
   }
 }
 
+function resolveOwnerPatSecret(secrets = {}) {
+  if (secrets.OWNER_PR_PAT) {
+    return secrets.OWNER_PR_PAT;
+  }
+  if (!secrets.TOKEN_ROTATION_JSON || typeof secrets.TOKEN_ROTATION_JSON !== 'string') {
+    return '';
+  }
+  try {
+    const parsed = JSON.parse(secrets.TOKEN_ROTATION_JSON);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.pats)) {
+      return '';
+    }
+    const entry = parsed.pats.find((item) => item?.id === 'OWNER_PR_PAT' && item?.token);
+    return entry?.token || '';
+  } catch {
+    return '';
+  }
+}
+
 function collectTokenSecrets(env = {}, options = {}) {
   const allowOwnerPat = isOwnerPatExclusiveTask(options?.task);
   const keys = [
@@ -679,7 +698,15 @@ function collectTokenSecrets(env = {}, options = {}) {
     'APP_2_PRIVATE_KEY',
   ];
 
-  const dynamicKeysRaw = env.TOKEN_ROTATION_ENV_KEYS || env.TOKEN_ROTATION_KEYS || '';
+  const sanitizedRotationEnvKeys = sanitizeRotationEnvKeys(
+    env.TOKEN_ROTATION_ENV_KEYS,
+    allowOwnerPat
+  );
+  const sanitizedRotationKeys = sanitizeRotationEnvKeys(
+    env.TOKEN_ROTATION_KEYS,
+    allowOwnerPat
+  );
+  const dynamicKeysRaw = sanitizedRotationEnvKeys || sanitizedRotationKeys || '';
   const dynamicKeys = dynamicKeysRaw
     .split(',')
     .map((entry) => entry.trim())
@@ -690,10 +717,15 @@ function collectTokenSecrets(env = {}, options = {}) {
     if (!env[key]) {
       return acc;
     }
-    if (!allowOwnerPat && (key === 'TOKEN_ROTATION_ENV_KEYS' || key === 'TOKEN_ROTATION_KEYS')) {
-      const sanitized = sanitizeRotationEnvKeys(env[key], allowOwnerPat);
-      if (sanitized) {
-        acc[key] = sanitized;
+    if (!allowOwnerPat && key === 'TOKEN_ROTATION_ENV_KEYS') {
+      if (sanitizedRotationEnvKeys) {
+        acc[key] = sanitizedRotationEnvKeys;
+      }
+      return acc;
+    }
+    if (!allowOwnerPat && key === 'TOKEN_ROTATION_KEYS') {
+      if (sanitizedRotationKeys) {
+        acc[key] = sanitizedRotationKeys;
       }
       return acc;
     }
@@ -774,29 +806,31 @@ async function createTokenAwareRetry(options = {}) {
     }
   } else if (
     registryInitialized &&
-    secrets.OWNER_PR_PAT &&
     registry?.tokenRegistry?.tokens instanceof Map &&
     !registry.tokenRegistry.tokens.has('OWNER_PR_PAT') &&
     typeof registry.registerToken === 'function'
   ) {
-    registry.registerToken({
-      id: 'OWNER_PR_PAT',
-      token: secrets.OWNER_PR_PAT,
-      type: 'PAT',
-      source: 'OWNER_PR_PAT',
-      account: 'stranske',
-      capabilities: registry.TOKEN_CAPABILITIES?.PAT || [
-        'read-repo',
-        'write-repo',
-        'pr-update',
-        'labels',
-        'comments',
-        'cross-repo',
-        'workflow-dispatch',
-        'statuses',
-      ],
-      priority: 5,
-    });
+    const ownerPatToken = resolveOwnerPatSecret(secrets);
+    if (ownerPatToken) {
+      registry.registerToken({
+        id: 'OWNER_PR_PAT',
+        token: ownerPatToken,
+        type: 'PAT',
+        source: 'OWNER_PR_PAT',
+        account: 'stranske',
+        capabilities: registry.TOKEN_CAPABILITIES?.PAT || [
+          'read-repo',
+          'write-repo',
+          'pr-update',
+          'labels',
+          'comments',
+          'cross-repo',
+          'workflow-dispatch',
+          'statuses',
+        ],
+        priority: 5,
+      });
+    }
   }
 
   let currentGithub = github;
