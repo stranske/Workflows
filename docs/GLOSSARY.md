@@ -20,13 +20,10 @@ For a one-page operator cheat-sheet see
 
 ## Pipeline & loop terms
 
-### Auto-pilot
-The fully automated issue-to-merge pipeline triggered by the `agents:auto-pilot`
-label on an issue. Stages: Format → Optimize → Apply → Capability Check →
-Create PR → Keepalive → Verify → (optional) Follow-up. Self-chains between
-stages via `workflow_dispatch` with a `force_step` input rather than label
-triggers, which avoids race conditions. Implemented by `agents-auto-pilot.yml`.
-See the "Auto-Pilot Pipeline" section of the top-level
+### Auto-pilot (retired)
+The former single-label issue-to-merge pipeline. It was retired in #5379 and its
+stages now run as separate pieces: format guard and optimizer, the opener lane,
+keepalive, and the closer lane. See the "Agent Pipeline" section of the top-level
 [`README.md`](../README.md).
 
 ### Keepalive
@@ -222,7 +219,7 @@ This is the canonical per-PR pause spelling — see the
 ### `needs-human`
 A durable human blocker on an issue or PR. Stops automation until a human removes
 the label; marks a policy/product/access/repeated-failure blocker that should not
-be retried blindly. Applied by verifier follow-up policy, auto-pilot blockers,
+be retried blindly. Applied by verifier follow-up policy,
 capability checks, and repeated keepalive failures (default: 3 failures →
 `needs-human`). One of the three sweep guardrails. See [`LABELS.md`](LABELS.md).
 

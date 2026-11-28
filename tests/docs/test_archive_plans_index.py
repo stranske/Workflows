@@ -43,9 +43,14 @@ ORIGINAL_ROUTES = {
 }
 
 ACTIVE_PLANS = [
-    "docs/TODO_EXTENDED_AUTOPILOT.md",
     "docs/REVIEW_EXTENDED_AUTOPILOT.md",
 ]
+
+# Archived 2026-11-28 when Auto-Pilot was retired (#5379).
+ARCHIVED_WITH_AUTOPILOT = {
+    "docs/TODO_EXTENDED_AUTOPILOT.md": "docs/archive/plans/TODO_EXTENDED_AUTOPILOT.md",
+    "docs/llm-dependencies-audit.md": "docs/archive/audits/llm-dependencies-audit.md",
+}
 
 
 def _resolve_link(source: Path, target: str) -> Path:
@@ -117,6 +122,14 @@ def test_extended_autopilot_docs_remain_active() -> None:
         path = REPO_ROOT / relative
         assert path.is_file(), relative
         assert "archived stub" not in path.read_text(encoding="utf-8").lower()
+
+
+def test_auto_pilot_documents_moved_to_archive() -> None:
+    ledger = ARCHIVE_LEDGER.read_text(encoding="utf-8")
+    for former, archived in ARCHIVED_WITH_AUTOPILOT.items():
+        assert not (REPO_ROOT / former).exists(), former
+        assert (REPO_ROOT / archived).is_file(), archived
+        assert archived in ledger and former in ledger
 
 
 def test_short_term_plan_summary_points_to_archive_ledger_section() -> None:

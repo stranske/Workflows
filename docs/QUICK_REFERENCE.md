@@ -36,7 +36,7 @@ interchangeable.** Pick by scope first. Full detail:
 - `needs-human` — independently confirmed authority blocker on an issue/PR.
   Automation failure, ambiguity, exhausted retries, and design choices are not
   sufficient; the record must name the exact human action and evidence.
-- `agents:auto-pilot-pause` — pauses auto-pilot dispatch on an issue.
+- `agents:auto-pilot-pause` — format-guard hold on an issue whose body does not validate; the opener lane rewrites the body and clears it. (The name is from the retired Auto-Pilot.)
 
 **Resume checklist** (from the runbook):
 
@@ -124,7 +124,6 @@ Canonical definitions: [`LABELS.md`](LABELS.md).
 
 | Label | What it does |
 |-------|--------------|
-| `agents:auto-pilot` | Runs the full issue-to-merge pipeline (on an issue) |
 | `agent:codex` / `agent:claude` | Route the issue/PR to that agent runner |
 | `agent:auto` | Delegate routing to the auto-delegation policy (capacity-stuck recovery) |
 | `agent:retry` | Force one keepalive re-dispatch (auto-removed) |

@@ -95,7 +95,7 @@ def test_delivery_entry_points_match_generated_delivery_review_policy() -> None:
     policy = json.loads(Path("config/consumer_sync_review_policy.json").read_text(encoding="utf-8"))
     active_mode = policy.get("generated_delivery_review")
     sections = {
-        "README.md": _section("README.md", "### First-party Consumers", "## Auto-Pilot Pipeline"),
+        "README.md": _section("README.md", "### First-party Consumers", "## Agent Pipeline"),
         "docs/INTEGRATION_GUIDE.md": _section(
             str(GUIDE), "### Method 2: Template Workflows", "### Method 3: Hybrid Approach"
         ),
