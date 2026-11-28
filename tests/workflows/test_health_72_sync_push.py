@@ -25,6 +25,26 @@ def _steps() -> list[dict]:
     return _workflow()["jobs"]["validate"]["steps"]
 
 
+def test_model_config_changes_trigger_sync_and_manifest_validation() -> None:
+    health_72 = _workflow()[True]
+    health_70_workflow = WORKFLOW.with_name("health-70-validate-sync-manifest.yml")
+    health_70 = yaml.safe_load(health_70_workflow.read_text(encoding="utf-8"))[True]
+    for event in ("pull_request", "push"):
+        for name in ("llm_slots", "model_registry", "verifier_semantic_rules"):
+            source = f"config/{name}.json"
+            assert source in health_70[event]["paths"]
+            assert source in health_72[event]["paths"]
+            assert f"templates/consumer-repo/{source}" in health_72[event]["paths"]
+
+
+def test_token_export_changes_trigger_template_sync() -> None:
+    source = ".github/actions/export-load-balancer-tokens/action.yml"
+    health_72 = _workflow()[True]
+    for event in ("pull_request", "push"):
+        assert source in health_72[event]["paths"]
+        assert f"templates/consumer-repo/{source}" in health_72[event]["paths"]
+
+
 def test_push_uses_a_scoped_app_token_and_github_token_only_reads() -> None:
     steps = _steps()
     mint = next(i for i, step in enumerate(steps) if step.get("id") == "app_token")

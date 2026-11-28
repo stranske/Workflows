@@ -1,5 +1,7 @@
 # Offline original-capture resource admission
 
+Recover the original validation outputs from the [October 11 packet index](../README.md#recover-the-october-11-validation-packets). The active resource-plan input remains alongside this guide.
+
 `tools/verifier_proof_resource_plan.py` is an offline accounting slice of source3820, not an executable semantic partitioner. The retained original capture is unchanged; its reassembly contract includes277 obligations,163 gaps and60 raw ranges. All11 retained original ZIP/metadata hashes match their frozen collection inventory. All61 ZIP member occurrences require118,319,651 raw bytes versus the unchanged67,108,864-byte cumulative extraction ceiling. Identical member content/provenance occurrences are not subtracted from the operational charge. ZIP listings are declared metadata: no member decompression, CRC validation, rendering, provider call, native fit or evidence completeness is claimed.
 
 The committed original-resource-plan.json binds full original contract and all archive/member occurrences; `admitted=false`. Global extraction, unproven semantic dependency closure, unproven native capacity/result matrix and original capture insufficiency remain explicit blockers. No input or historical receipt was modified. Original capture/context hash is f2f8732903e50b8cf4827dfe89a015efc6d4f2c66db8c01f4b090b41853c5223.

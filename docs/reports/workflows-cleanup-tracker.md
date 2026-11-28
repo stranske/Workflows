@@ -7,6 +7,94 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Installed test contracts and ordinary fleet promotion
+
+Stage 3 is complete at 752/752 files and 43/43 folders. Stage 4 has 1,518/1,540 file and 165/177 folder decisions accepted. Stage 1A has 198/198 accepted workflow decisions. Stage 1B has 27/27 root file decisions. The original checklist separately records 26 production passes and two qualified replays.
+
+[#5516](https://github.com/stranske/Workflows/pull/5516) installed the named Node test check. On each hosted runtime all three bridge tests ran exactly once. Removing the selected Node registration made the installed Maint 82 test fail, and restoring the name made it pass. The core jobs took 339 and 549 seconds. This closes the placements of tests/workflows and tests. [#5518](https://github.com/stranske/Workflows/pull/5518) corrected the operator guide. Its ten selected manifest tests passed and the separate check located the actual compiler and completeness calls in Health 70.
+
+Kept the generated portable Keepalive contract beside the supported resolver. On Trend’s default, all four resolver tests passed with the nine obsolete helpers removed from an exported checkout. Withholding the contract broke the relative import, and restoring it recovered the same four cases. [#5517](https://github.com/stranske/Workflows/pull/5517) installed one editing location for the token export action. Both input forms and the generated copy passed. 0/16 receiving defaults have the updated action.
+
+The public Autofix step and the portable report writer have separate jobs. All 15 public step cases passed on both hosted runtimes at [#5070](https://github.com/stranske/Workflows/pull/5070). The installed [#5503](https://github.com/stranske/Workflows/pull/5503) fallback staged the expected report from its actual sparse checkout in a replay. All 16 receiving defaults have the writer. All ten ordinary wrapper runs since installation skipped the worker, leaving the real fallback-only upload and current external full invocation unobserved.
+
+The independent Portable Alpha assessment in [run 46149340246](https://github.com/stranske/Workflows/actions/runs/46149340246) passed 30 cases with the source fix. The same suite failed the two exact token-pool cases when the fix was reversed. Maint 71 reported zero unresolved findings, reran the receiver Gate, and then accepted all three signed heads in [run 46150027712](https://github.com/stranske/Workflows/actions/runs/46150027712). GitHub Actions started the [ordinary fleet promotion](https://github.com/stranske/Workflows/actions/runs/46150102363).
+
+At the latest receiving-default readback, 0/144 old helper copies had been removed, 0/16 had the corrected setup guide, 64/64 unmanaged notes remained and 16/16 instructions linked their pinned archive. The three later helper retirements use a successor plan. 48/48 of those copies are still present.
+
+GitHub’s production promotion opened 13 receiving PRs beyond the three canaries. I compared all 16 actual PR file lists with the signed manifest: 144/144 planned old helper removals, 16/16 corrected guide blobs, and 0 edits to the four receiver-owned notes. 0/16 PRs had merged at readback. The [campaign reconciliation](https://github.com/stranske/Workflows/actions/runs/46150280401) reported 3 campaign_prepared, 12 delivery_sealed_checks_pending, 1 review_blocked.
+
+All 64 Copilot-note paths were checked through their complete receiver histories. Every introduced, base and promotion-head blob matched upstream. All 16 PRs leave the notes untouched; no genuinely receiver-edited version exists in the surveyed histories.
+
+[Trend #6265](https://github.com/stranske/Trend_Model_Project/pull/6265#discussion_r4727219844) revealed a real regression. Its four installed suites execute 13 named tests on the base, with ten passes and three pre-existing failures. On the promoted head all four suites fail at import. Retaining the four helpers restores the baseline outcomes. Only Trend has the four test paths among the 16 promotion heads. [Workflows #5525](https://github.com/stranske/Workflows/issues/5525) tracks the source fix and normal receiver verification.
+
+[#5523](https://github.com/stranske/Workflows/pull/5523) proposes a paired removal for the composer and its capability helper. All 16 approved receiving trees were searched. The previous full plan removed the composer and left its helper. Replaying the authored sync on Trend with the change removes both, and the second pass produces zero changes. Root capability support remains available. Receiver installation of this subsequent change is open.
+
+Reviewed nine Gate and verifier operator guides. Kept seven with their current operating procedures and replay inputs. [#5524](https://github.com/stranske/Workflows/pull/5524) corrects the remaining two guides to identify the required summary check, its downloadable artifact, and the actual recovery path. The artifact from an ordinary Gate run matched its published digest. The proposed guide correction awaits default-branch verification.
+
+Five issue #3743 validation folders contain raw inputs to current archive and comparison tests. Kept the 142 reviewed file placements together. Seven delivered archives passed and the 142 focused cases included missing and mismatched member controls.
+
+[#5520](https://github.com/stranske/Workflows/pull/5520) proposes removing 34 historical issue #3820 files. 67 historical digest bindings matched and the current semantic report was byte-identical.
+
+[#5521](https://github.com/stranske/Workflows/pull/5521) removed 15 historical issue #3743 files. The historical failure, failure and restored pass reproduced their recorded exit codes. The shared adapter is still present.
+
+[#5522](https://github.com/stranske/Workflows/pull/5522) removed 39 historical issue #4082 files. The original issue index still reaches the final operator summary and its six-output archive.
+
+Stage 2 has 2,388/2,901 file and 141/220 folder decisions. Stage 5 has 237/334 file and 29/47 folder decisions.
+
+### November 28 · Retained test contracts, configuration ownership and historical captures
+
+Stage 4 has 1,516/1,540 accepted file and 163/177 folder decisions. Stage 3 remains complete at 752/752 files and 43/43 folders. Stage 1A holds 198 accepted workflow decisions and Stage 1B holds all 27 root decisions. The original checklist has 26 production passes and two qualified replays.
+
+[#5509](https://github.com/stranske/Workflows/pull/5509) installed the root editing location for three portable configuration defaults. The installed generator and validator detected isolated changes to each source, the campaign fingerprint changed each time, and fresh configuration retained the expected bytes. All 16 existing receivers held the expected managed registry and verifier rules and retained their own slot configurations. [#5511](https://github.com/stranske/Workflows/pull/5511) fixed a shell round trip that stripped quotes from valid rotation JSON. Both installed action copies passed; all 16 receiving defaults still held the prior action.
+
+Kept all three verifier grammar suites in tests/scripts. Trying the existing feature subfolder preserved case names and marks in all 46,686 local, 16,337 core and 30,340 grammar cases. Reading a real historical Gate report with the new path identities lost timing attribution on both runtimes; the original locations recovered all 30,340 scheduled cases. Pinned Maint 88 comparisons and a published operator replay also use those paths. Kept the sync validator test with its script and compiler peers. Its documented manifest command passed ten selected cases at the existing location and exited 4 after relocation.
+
+[#5512](https://github.com/stranske/Workflows/pull/5512) retired the outdated merge queue instructions at their existing URL; all six archived and current navigation checks passed on main. Kept 17 files in two distinct report packets. One is read by the verification-binding audit harness, and the other records a UV resolution replay. Original file identities and recorded outputs were checked.
+
+[#5514](https://github.com/stranske/Workflows/pull/5514) removed 35 release-verifier capture and identity logs (55,622 bytes). Their pinned guide reproduced the retained steward result and the deliberate mismatch failed. [#5515](https://github.com/stranske/Workflows/pull/5515) removed 71 loose issue #3820 validation outputs (2,855,306 bytes). Six historical failing/passing pairs recovered from the indexed commits. Existing archive members, active resource-plan inputs, and their actual readers stay together. Nine further files retain 54 indexed comparison and registry results.
+
+[#5513](https://github.com/stranske/Workflows/pull/5513) installed three retirements from the portable distribution. The plan goes from 253 copies and 47 removals to 250 copies and 50 removals and keeps all other entries. A second application made zero further changes. Source receipt and actual receiving deletion are tracked separately.
+
+[#5516](https://github.com/stranske/Workflows/pull/5516) proposes a shared assertion for three workflow tests that select a named JavaScript case. The old Maint 82 wrapper passed when the selected case was renamed. The corrected wrapper failed with the missing name and passed after restoring the exact registration. All three owners and the baseline versus revised case identities were checked. With the repository interpreter invoked directly, all 72 affected tests passed both before and after the change; the fast discovery wrapper had introduced 17 failures on both trees.
+
+The [11:54 native producer](https://github.com/stranske/Workflows/actions/runs/46142056662) executed the signed source containing both the Copilot-note retirement and corrected receiver checklist. Both native plans omit all four notes. All 16 receiving defaults still link to the archived originals and retain their local notes. Three receiver PRs contain the corrected checklist and the nine earlier planned removals. All 16 defaults still have the old checklist and all 144 old paths. The [12:19 Maint 71 assessment](https://github.com/stranske/Workflows/actions/runs/46144119005) shows Travel and trip-planner prepared and Portable Alpha waiting for disposition of one finding.
+
+The [native Gate](https://github.com/stranske/Workflows/actions/runs/46145012116) recorded each of the three named workflow tests once and passing on both runtimes. The primary jobs took 339 and 549 seconds against a 600-second limit.
+
+Kept standalone consumer AGENTS.md and CLAUDE.md. Both documented downloads matched their source. Thirteen of 16 receivers hold both exact files. A shared-file import worked on a full checkout but lost its instructions on Claude-only bootstrap and in the repository whose custom agent guide uses different capitalization. The normal sync preserved the custom guides.
+
+The remaining 24 original Stage 4 files fall into eight groups. Nine retired helper copies need deletion on the receiving default branches. Four historical Copilot notes need the new ownership rule observed on an installed plan. Three newly retired helpers need their successor plan and receiver deletions. Two Keepalive/capability helpers still have installed relative imports. Two standalone token-action files have separate source-authoring and receiving checks. Two Autofix files cover the public standalone action and fallback-only report upload. The consumer guide needs its original bookmark restored and checked, and the setup checklist needs the corrected instructions on a receiving default. The test folders have a separate named-test delivery check.
+
+[#5517](https://github.com/stranske/Workflows/pull/5517) proposes making the root token action the sole authoring location. The isolated source edit propagated to the generated bootstrap action, changed the native campaign fingerprint and kept the receiver target and mode. Both normal shell inputs passed. Source review and receiving installation are tracked separately.
+
+[#5518](https://github.com/stranske/Workflows/pull/5518) corrects the operator guide that had described a validator test as verification of Health 70. Its proposed instructions exercise the manifest validator and locate the actual workflow commands separately.
+
+### November 28 · Scripts review complete and consumer verification
+
+Stage 3 is complete at 752/752 original files and 43/43 folders. Stage 4 has 1,508/1,540 file and 161/177 folder decisions accepted.
+
+Stage 1A has 198/198 accepted workflow decisions; 1B has 27/27 root files. Of the original 28 delivery checks, 26 passed on production events and two have qualified replays without production demand.
+
+[#5498](https://github.com/stranske/Workflows/pull/5498) moved the issue #3956 auditor beside the 52 retained mutation records. The installed command reproduced the full historical report SHA-256 and the distinct current-source drift result. The corrected native Gate executed all 67 auditor cases per runtime; the longest primary Python job took 569 seconds against the 600-second checkpoint. The final scripts folder decision used a real native JUnit report as input to its CI metrics command.
+
+[#5500](https://github.com/stranske/Workflows/pull/5500) installed the canonical Artifact Cache action. Two isolated source edits each changed the Maint 82 fingerprint, and the portable publisher reproduced both files byte-for-byte with their original modes. [#5501](https://github.com/stranske/Workflows/pull/5501) consolidated the metrics tests and moved retry and required-check tests to their script owner. On the actual merge, default, Gate core and grammar kept all 46,680, 16,331 and 30,340 case identities after path translation. Both native runtime reports retained the 22 metrics and six moved retry/check cases.
+
+The replacement [Maint 68 producer](https://github.com/stranske/Workflows/actions/runs/46136158020/attempts/2) recovered from its installation quota error by rerunning only its failed summary. The stable receiving PRs contain all nine file removals; receiving defaults are still the acceptance boundary. Two candidates were prepared and Portable Alpha’s finding remained open. The exact receiving workflow reproduced the missing keepalive pool on the original head and selected it on the corrected head. [The originating reviewer](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2550#discussion_r4726756347) returned a general same-head review. Maint 71 received the subsequent request for finding-specific disposition.
+
+[#5503](https://github.com/stranske/Workflows/pull/5503) corrects the Autofix fallback writer being dropped by the second sparse checkout. The actual fallback-only replay produced the expected report. [#5504](https://github.com/stranske/Workflows/pull/5504) and [#5505](https://github.com/stranske/Workflows/pull/5505) place renderer, configuration, registry, labeling and NDJSON cases with their owners. [#5502](https://github.com/stranske/Workflows/pull/5502) retires a duplicate Copilot ledger configuration; the supported instruction still covers all 69 tracked ledgers. [#5507](https://github.com/stranske/Workflows/pull/5507) removes the retired Decompose exception; the fourteen active drift exceptions and the complete Health 74 report matched before and after. See the linked PRs and register for their installed status.
+
+[#5506](https://github.com/stranske/Workflows/pull/5506) replaces the duplicated consumer maintenance manual with central procedures. The candidate removed 633 net lines. Its branch lost an explicit historical Maint 47 bookmark; the PR is paused and the current guide remains in place.
+
+[#5508](https://github.com/stranske/Workflows/pull/5508) removed 39 historical launch records totalling 60,894 bytes. One issue-specific guide recovers the whole packet from its original Git revision. All 39 path, mode and object entries matched, and the recovered negative and positive logs identify the same named test.
+
+Kept two portable helpers. The Trend Model project directly imports the post-work check, and the completion-comment helper has a working standalone fallback. Three other helper copies have no identified receiver caller and a successful removal trial. Their proposed retirement shares the sync manifest with [#5509](https://github.com/stranske/Workflows/pull/5509). The Keepalive contract still has a relative import in the portable resolver.
+
+[#5509](https://github.com/stranske/Workflows/pull/5509) makes three root defaults the editing location for generated template configuration. The trial preserved the actual customized Travel configuration, the default mirror bytes and the create-only rules. The distinct model-selection policy has independent receiving semantics and stays in place.
+
+Verified guarded merges on main: [#5498](https://github.com/stranske/Workflows/pull/5498) (`294c7086d`), [#5499](https://github.com/stranske/Workflows/pull/5499) (`2dd1052de`), [#5500](https://github.com/stranske/Workflows/pull/5500) (`2506f1f1f`), [#5501](https://github.com/stranske/Workflows/pull/5501) (`fcd289686`), [#5502](https://github.com/stranske/Workflows/pull/5502) (`70da750b0`), [#5503](https://github.com/stranske/Workflows/pull/5503) (`e252394c1`), [#5504](https://github.com/stranske/Workflows/pull/5504) (`ea78909ea`), [#5505](https://github.com/stranske/Workflows/pull/5505) (`c1f1d482c`), [#5507](https://github.com/stranske/Workflows/pull/5507) (`061d195fc`), [#5508](https://github.com/stranske/Workflows/pull/5508) (`7ce604c42`). Compared default, Gate core, and Gate grammar case identities and marks on both sides of [#5504](https://github.com/stranske/Workflows/pull/5504), [#5505](https://github.com/stranske/Workflows/pull/5505). The changed suites also passed from their installed homes. [#5511](https://github.com/stranske/Workflows/pull/5511) repairs valid JSON losing its quotes in the standalone token-pool action. The two previous action copies failed the same isolated shell round-trip. Both revised copies passed it; 43 focused cases passed.
+
+A direct read of all 16 receiving defaults found 144 of 144 old paths still present. The three staged receiver PRs remove all nine per PR. The [finding-specific disposition request](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2550#discussion_r4726781691) is open. The reassessment only returned a general review on head 91b05b2266. Maint 71 requires the reviewer’s explicit disposition for this thread.
+
 ### November 28 · Operator tools, portable templates and consumer delivery
 
 Stage 3 has 751/752 original file and 42/43 folder decisions accepted. Stage 4 has 1,487/1,540 file and 157/177 folder decisions accepted.
@@ -599,13 +687,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 2,018/2,901 | 121/220 | — |
-| 3 · Scripts, tools and packages | 751/752 | 42/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,487/1,540 | 157/177 | — |
-| 5 · Other documentation, instructions, configuration and final sweep | 211/334 | 26/47 | — |
-| **Total** | **4,494/5,554** | **346/487** | **198/198** |
+| 2 · Evidence and archives | 2,388/2,901 | 141/220 | — |
+| 3 · Scripts, tools and packages | 752/752 | 43/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,518/1,540 | 165/177 | — |
+| 5 · Other documentation, instructions, configuration and final sweep | 237/334 | 29/47 | — |
+| **Total** | **4,922/5,554** | **378/487** | **198/198** |
 
-**Directory organization.** 4,220 completed file decisions fall under 7 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,425 completed file decisions fall under 4 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 

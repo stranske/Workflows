@@ -108,7 +108,7 @@ def test_vendor_only_churn_is_not_deliverable(repository: Path, vendor: str, cle
 def test_consumer_residual_receipt(
     repository: Path, monkeypatch: pytest.MonkeyPatch, archive_entry: str
 ) -> None:
-    """Run the history and trend steps and comment builder without consumer copies."""
+    """Run the history, trend, comment and report paths without consumer copies."""
     checkout_name = "Checkout Workflows for PR comment and residual history"
     update_name = "Update residual history (same-repo)"
     trend_name = "Generate trend sparkline (same-repo)"
@@ -143,6 +143,18 @@ def test_consumer_residual_receipt(
         repository / "autofix_report_enriched.json",
     )
     env = {"WORKFLOWS_SCRIPTS_PATH": str(checkout_dir)}
+    emit = by_name["Emit JSON report (same-repo)"]
+    report_upload = by_name["Upload JSON report"]
+    assert steps.index(checkout) < steps.index(emit) < steps.index(report_upload)
+    assert emit["if"] == report_upload["if"]
+    assert not (repository / ".github/scripts/autofix_emit_report.py").is_file()
+    report_input = json.loads((repository / "autofix_report_enriched.json").read_text())
+    report = run_step(repository, emit["name"], extra_env={**env, "PR_NUMBER": "42"})
+    assert report.returncode == 0, report.stderr
+    staged = json.loads((repository / report_upload["with"]["path"]).read_text())
+    assert staged.pop("timestamp_utc", None), staged
+    assert staged == {**report_input, "pull_request": "42"}
+
     update = run_step(repository, update_name, extra_env=env)
     assert update.returncode == 0, update.stderr
     assert "Prepared updated history.json (artifact-only mode)" in update.stdout, update.stderr

@@ -40,6 +40,34 @@ and unchanged. Matching keepalive owns CI/review after PR birth; Reviewed Repo M
 Verify Closer owns full current-head checks, threads, seven-minute floor, guarded
 merge and compare before accepting this bounded chunk.
 
+## Recover the original launch captures
+
+The [publishing snapshot](https://github.com/stranske/Workflows/tree/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6/docs/evidence/issue-3743/launch-boundaries)
+retains the initial launch comparison, its compressed RED and GREEN receipts,
+the keepalive revalidation, and the later review controls. The guide and the
+current mutation driver stay in the checkout.
+
+From any directory in a Workflows checkout, run this command. It fetches the
+snapshot from Workflows when needed and prints a new directory containing the
+original repository-relative paths and file modes.
+
+```bash
+(
+  set -e
+  cd "$(git rev-parse --show-toplevel)"
+  revision=8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6
+  directory=docs/evidence/issue-3743/launch-boundaries
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 https://github.com/stranske/Workflows.git "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-3743-launch.XXXXXX")
+  git -c tar.umask=0022 archive --output="$recovered/evidence.tar" "$revision" -- "$directory"
+  tar -xpf "$recovered/evidence.tar" -C "$recovered"
+  rm "$recovered/evidence.tar"
+  printf '%s\n' "$recovered"
+)
+```
+
 ## Keepalive revalidation
 
 The existing ten named cases were strengthened to import a real dependency from
@@ -53,11 +81,15 @@ The mutation driver now resolves this checkout automatically, accepts `--repo` a
 `--output`, and retains compressed RED/GREEN captures and restored/test hashes. Run:
 
 ```sh
-python3 docs/evidence/issue-3743/launch-boundaries/wf-mutation-driver.py
+python3 docs/evidence/issue-3743/launch-boundaries/wf-mutation-driver.py --output "$(mktemp -d)"
 ```
 
-Fresh evidence lives in `revalidation/`; the original captures above are retained.
-`commands.json` records the matched test/coverage invocations and exits,
+The [recorded revalidation](https://github.com/stranske/Workflows/tree/8e7fcfd78bfe1d22547dc0a17b3edb14a1d0b9e6/docs/evidence/issue-3743/launch-boundaries/revalidation)
+preserves all 39 original files. [Recover the original launch captures](#recover-the-original-launch-captures)
+to retrieve this complete run at its original paths.
+
+In the recovered `revalidation/` directory, `commands.json` records the matched
+test and coverage invocations and exits,
 `wf-mutations.json` records all ten distinct source mutations, and `validation.json`
 records formatting, lint and template checks. Template completeness redirects only
 GITHUB_STEP_SUMMARY to a writable file under `/tmp`. The full Black command uses a
@@ -104,7 +136,7 @@ Five new driver cases check source restoration after launch error, timeout, red
 exit 0/2 and green timeout; actually removing its finally restoration fails all
 five, and byte-identical restoration passes all five. The ten original actual
 root/template production mutations were replayed successfully. Raw compressed
-logs and receipts are under `review-recovery/`; prior proof is retained unchanged.
+logs and receipts are under `review-recovery/` in the recovered publishing snapshot.
 Focused Black, Ruff and `git diff --check` pass. No full-suite or hosted CI PASS
 is inferred from this focused recovery.
 
@@ -123,7 +155,8 @@ Actually truncating the driver to root-only fails that test (exit1); exact-byte
 restoration passes(exit0). Synthetic logs are explicitly test controls; actual
 production mutation evidence remains the separate real ten-case replay.
 Current focused combined suite16PASS; real ten-case replay allRED1/GREEN0.
-Compressed raw outputs are retained under review-recovery/final.
+The recovered publishing snapshot contains the compressed raw outputs under
+`review-recovery/final/`.
 
 ### Recover the two production replays
 

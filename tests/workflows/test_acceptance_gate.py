@@ -13,6 +13,8 @@ import pytest
 from scripts.runner_lib import acceptance_gate
 from scripts.runner_lib.acceptance_gate import Command, extract_commands, run
 
+from tests.workflows.node_tap import assert_named_node_test
+
 
 @pytest.fixture
 def gate_venv_is_test_python(monkeypatch):
@@ -203,19 +205,7 @@ def test_stop_condition_refuses_failing_gate():
         text=True,
         check=False,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
-
-    # An unmatched filter can report a passing file-level subtest.
-    lines = result.stdout.splitlines()
-    passed_test = re.compile(rf"ok [0-9]+ - {re.escape(test_name)}")
-    if (
-        lines.count(f"# Subtest: {test_name}") != 1
-        or sum(passed_test.fullmatch(line) is not None for line in lines) != 1
-    ):
-        pytest.fail(
-            f"Expected exactly one passing Node testcase named {test_name!r}:\n"
-            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
+    assert_named_node_test(result, test_name)
 
 
 @pytest.mark.parametrize(

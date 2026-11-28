@@ -4,41 +4,8 @@
 # If either file changes, the fingerprint no longer matches and Health 74 fails
 # until the template is aligned or this baseline is deliberately re-reviewed.
 #
-# 2026-07-24b re-baseline: fingerprints regenerated after check_template_drift.py
-# gained action-pin canonicalization (uses:<action>@<ref> collapses to @<pinned>).
-# From here, Renovate action-pin bumps and the intentional pinned-vs-floating
-# divergence no longer change these fingerprints, so this allowlist stops going
-# stale on dependency bumps; only a genuine logic change to a root workflow will.
-#
-# 2026-08-05 re-baseline: auto-label now isolates the preliminary eligibility
-# sparse checkout under eligibility-source/ in both root and consumer workflows.
-# The remaining root/template differences are the already-reviewed consumer
-# action-pin and auth-plumbing contract.
-#
-# 2026-07-24 re-baseline: refreshed fingerprints for 13 entries (belt 71/72/73,
-# auto-label, autofix-dispatcher, capability-check, decompose, dedup, guard,
-# issue-optimizer, keepalive-loop-reporter, verifier, weekly-metrics) that went
-# stale after Renovate action-pin/dep bumps (#2799 actions/checkout v7.0.1;
-# #2776 coverage pins) moved the consumer templates' pinned SHAs. Verified via
-# git log that the ONLY commits touching these since the last baseline were those
-# dep bumps (root workflows keep floating major tags), so the divergence remains
-# the intentional action-pin-contract drift, not a missing consumer improvement.
-#
-# 2026-06-24 re-baseline: refreshed the consumer template fingerprints for
-# auto-label, capability-check, decompose, dedup, issue-optimizer, and
-# weekly-metrics after the setup-python v6 digest moved to ece7cb0. The root
-# workflows intentionally continue using floating major tags.
-#
-# 2026-06-14 re-baseline: refreshed the fingerprints of 7 entries (issue-intake,
-# auto-label, capability-check, decompose, dedup, issue-optimizer, weekly-metrics)
-# that went stale after action-version bumps (#2391/#2394) and root feature work.
-# The divergence is intentional, not a missing consumer improvement: consumer
-# template workflows SHA-pin third-party actions per the fleet action-pin contract
-# (docs/HISTORY.md, PR #1925) and carry LangSmith tracing env, while the root
-# Workflows-repo copies use floating major tags plus repo-internal concurrency +
-# sparse-checkout (docs/fixes/sparse-checkout-audit-2026-02-03.csv). Aligning the
-# template to root would strip the contractually-required consumer action pins, so
-# these are re-baselined rather than aligned.
+# Action pins are normalized before comparison. Each entry records the reason
+# for the divergence and when its content and fingerprint were last reviewed.
 
 [pair.1]
 main = .github/workflows/agents-63-issue-intake.yml
@@ -65,15 +32,6 @@ main_sha256 = d98c5ea59961e8776b4da0584f7f4e6ec864c6c348a84d6451ee4a8decbbe72e
 template_sha256 = 647591e3d88f42d4347ac4e1a5c672b7d1209a89d69077e7f4afccc575824f4b
 divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-22 after both surfaces migrated from the retired check_capability alias to classify_capabilities. The consumer template retains SHA-pinned actions and LangSmith tracing while the root workflow retains in-repo concurrency and sparse-checkout plumbing; do not align wholesale because that would strip the consumer security contract.
 divergence_reviewed = 2026-08-22
-fingerprint_refreshed = 2026-10-02
-
-[pair.8]
-main = .github/workflows/agents-decompose.yml
-template = templates/consumer-repo/.github/workflows/agents-decompose.yml
-main_sha256 = 1105cd9791715120b2bd9179643f9172507cd029e799720d4880239aa2850499
-template_sha256 = 14245c7a9644314f9bf4beeb0e4d735f6e43daaad086b1798579be26d5483ffe
-divergence = Named-secrets rollout 2026-08-23: both surfaces now pass named setup-api-client secret inputs instead of the whole-secrets-context blob, applied identically to root and consumer, and scoped to each workflow's DECLARED workflow_call secrets where that context is a closed set. Removing that handoff is the demonstrated remedy for GitHub's suspicious-workflow hold (agents-dedup then ran at run_attempt 1 with nothing approved after 22 days held). Prior divergence unchanged: Intentional divergence re-baselined 2026-08-09: root-only warning-only REST triage marker added; do not align wholesale because consumer pins and retry plumbing are contractually distinct.
-divergence_reviewed = 2026-08-09
 fingerprint_refreshed = 2026-10-02
 
 [pair.9]

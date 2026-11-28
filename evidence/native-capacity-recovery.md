@@ -19,9 +19,9 @@ same-payload native count/generation check remain enforced. Standard is unchange
 expanded fingerprints advance to `bounded-native-capacity-v4` to invalidate the
 old input contract.
 
-[Production RED/restored GREEN and validation](issue-3820/native-context-window-repair.md)
+[Production RED/restored GREEN and validation](https://github.com/stranske/Workflows/blob/3c84badc9c7859de9f9c97b47fe45c77200fde13/evidence/issue-3820/native-context-window-repair.md)
 record the new proof. The earlier
-[native recovery evidence](issue-3820/native-capacity-recovery.md) retains its
+[native recovery evidence](https://github.com/stranske/Workflows/blob/3c84badc9c7859de9f9c97b47fe45c77200fde13/evidence/issue-3820/native-capacity-recovery.md) retains its
 historical hashes, results and publication notes; its conservative sum policy and
 v3 fingerprint are superseded by this reviewer remedy. Its old SDK-version gap is
 addressed locally by the locked newer SDK tests, not by live provider acceptance.

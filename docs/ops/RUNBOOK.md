@@ -5,8 +5,8 @@ bootstrap path is stuck. Deeper references remain in the linked source docs.
 
 ## Gate Stuck Or Red
 
-1. Open the PR and read the latest `Gate / gate` check plus the Gate summary
-   comment.
+1. Open the PR and read the required `summary` check for the current head,
+   then check the Gate summary comment or [run artifact](ci-status-summary.md#read-the-report).
 2. If Gate is waiting on heavy jobs, inspect `python ci`, `docker smoke`, and
    `summary` in `.github/workflows/pr-00-gate.yml`.
 3. If the PR is docs-only, confirm the Gate detect job marked `doc_only=true`

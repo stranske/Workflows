@@ -1,5 +1,7 @@
 # Frozen capture obligation dependency floor — source3820
 
+Recover the original validation outputs from the [October 11 packet index](../README.md#recover-the-october-11-validation-packets).
+
 Existing PR3831 adds an operational reassembly contract to the CLI recorder and
 existing input snapshot. It binds canonical obligation manifest and complete raw
 byte inventory hashes, identities for every original obligation/gap, and one

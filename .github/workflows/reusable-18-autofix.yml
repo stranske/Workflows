@@ -1424,6 +1424,7 @@ jobs:
           ref: ${{ steps.workflows_ref.outputs.ref }}
           sparse-checkout: |
             /.github/actions/build-pr-comment/
+            /.github/scripts/autofix_emit_report.py
             /scripts/build_autofix_pr_comment.py
             /scripts/generate_residual_trend.py
             /scripts/update_residual_history.py

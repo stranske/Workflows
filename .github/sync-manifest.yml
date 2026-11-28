@@ -177,6 +177,12 @@ workflows:
 
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:
+  - target: .github/scripts/coverage_monitor_summary.js
+    description: "Retire the receiver copy of the weekly coverage checkpoint; Workflows runs its own helper."
+  - target: .github/scripts/keepalive_review_guard.js
+    description: "Retire the receiver copy of the progress review guard with its CLI; Workflows keeps both."
+  - target: .github/scripts/should-post-review.js
+    description: "Retire the receiver copy of the progress review CLI; the hosted keepalive loop runs it in Workflows."
   - target: .github/scripts/agents_pr_meta_orchestrator.js
     description: "Stop delivering a script no consumer loads (round-2 D2 hand-off; the Workflows root keeps it for agents-pr-meta-v4 / the keepalive dispatch handler)"
   - target: .github/scripts/agents_pr_meta_keepalive.js
@@ -189,6 +195,8 @@ removals:
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/keepalive_prompt_composer.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+  - target: .github/scripts/capability_bundle.js
+    description: "Remove the composer-only receiver helper with the retired prompt composer; Workflows retains the root validator"
   - target: .github/scripts/error_diagnostics.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/merge_manager.js
@@ -488,9 +496,6 @@ scripts:
   - source: .github/scripts/bot_comment_auth_coverage.js
     description: "Warning-only bot-comment App auth coverage preflight"
 
-  - source: .github/scripts/coverage_monitor_summary.js
-    description: "Machine-readable weekly coverage monitor checkpoint"
-
   - source: .github/scripts/weekly_metrics_artifacts.js
     description: "Bounded weekly metrics artifact selection contract; repo-listing 5xx fallback to priority workflow artifacts with reported HTTP status"
 
@@ -549,9 +554,6 @@ scripts:
   - source: .github/scripts/keepalive_post_work.js
     description: "Post-work handling for keepalive rounds"
 
-  - source: .github/scripts/capability_bundle.js
-    description: "Validates and selects capability-bundle/v1 fragments for keepalive prompts and metrics"
-
   - source: .github/scripts/github-api-with-retry.js
     description: "Shared GitHub API retry wrapper with exponential backoff and pagination support"
 
@@ -607,12 +609,6 @@ scripts:
           coverage. Overwrite-sync replaces it with the unsharded renderer, which drops the
           missing-shard failure and fails tests/test_delivery_required_contexts.py on generated
           delivery (Orchestrator sync PR 1016). Keep it local until the template supports sharded Gates.
-
-  - source: .github/scripts/should-post-review.js
-    description: "Evaluates whether a progress review comment should be posted"
-
-  - source: .github/scripts/keepalive_review_guard.js
-    description: "Guards against posting empty/null progress review comments"
 
   - source: .github/scripts/post_completion_comment.js
     description: "Posts completion comments on PRs"
@@ -1034,6 +1030,8 @@ actions:
     description: "Resolves repository default branches for Workflows dual-checkout patterns"
 
   - source: .github/actions/export-load-balancer-tokens/
+    source_tree: root
+    template_sync: exact
     is_directory: true
     description: "Export load balancer tokens action - required by reusable-10-ci-python.yml (deprecated, use setup-api-client)"
 
@@ -1052,10 +1050,14 @@ actions:
 # Configuration files for LLM providers and workflows
 llm_config:
   - source: config/llm_slots.json
+    source_tree: root
+    template_sync: exact
     description: "LLM slot configuration - defines provider/model slots for multi-provider workflows"
     sync_mode: create_only  # Don't overwrite - repos may customize provider preferences
 
   - source: config/model_registry.json
+    source_tree: root
+    template_sync: exact
     description: "Model registry - available LLM models, selections and optional reviewed exact native capacity/transport facts"
 
   - source: config/model_selection_policy.json
