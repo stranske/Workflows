@@ -441,3 +441,90 @@ def test_unexplained_incomplete_cached_window_stays_unknown():
     )
     assert report["collection"]["window_complete"] is False
     assert report["advisory_slo"]["state"] == "unknown"
+
+
+# --- Renovate liveness (cohesion review A2) ---------------------------------------
+
+
+def _liveness_snapshot(repos):
+    return {
+        "collection": {"window_complete": True},
+        "period": {"start": "2026-11-23T11:15:00Z", "end": "2026-11-30T11:15:00Z"},
+        **({"repos": repos} if repos is not None else {}),
+        "pulls": [
+            {
+                "repo": "stranske/A",
+                "number": 1,
+                "author": "renovate[bot]",
+                "head_ref": "renovate/non-major-updates",
+                "created_at": "2026-11-30T08:01:00Z",
+            },
+            {
+                "repo": "stranske/A",
+                "number": 2,
+                "author": "renovate[bot]",
+                "head_ref": "renovate/github-actions",
+                "created_at": "2026-11-30T09:01:00Z",
+            },
+            # Outside the window: does not count.
+            {
+                "repo": "stranske/B",
+                "number": 3,
+                "author": "renovate[bot]",
+                "head_ref": "renovate/non-major-updates",
+                "created_at": "2026-07-31T00:30:00Z",
+                "updated_at": "2026-11-24T00:00:00Z",
+            },
+            # Not Renovate: does not count.
+            {
+                "repo": "stranske/B",
+                "number": 4,
+                "author": "stranske",
+                "head_ref": "fix/x",
+                "created_at": "2026-11-25T00:00:00Z",
+            },
+            {
+                "repo": "stranske/Collab-Admin",
+                "number": 5,
+                "author": "renovate[bot]",
+                "head_ref": "renovate/x",
+                "created_at": "2026-11-30T08:00:00Z",
+            },
+        ],
+    }
+
+
+def test_renovate_liveness_counts_prs_per_repo_and_keeps_silent_repos_at_zero():
+    report = metrics.calculate(
+        _liveness_snapshot(["stranske/A", "stranske/B", "stranske/C", "stranske/Collab-Admin"]),
+        datetime(2026, 11, 30, 11, 15, tzinfo=UTC),
+    )
+    liveness = report["metrics"]["renovate_liveness"]
+    assert liveness == {
+        "measured": True,
+        "per_repo": {"stranske/A": 2, "stranske/B": 0, "stranske/C": 0},
+        "repos_with_prs": 1,
+        "repo_count": 3,
+    }
+    rendered = metrics.markdown(report)
+    assert "## Renovate liveness" in rendered
+    assert "**1 of 3**" in rendered
+    assert "| stranske/A | 2 |" in rendered
+    assert "Silent this window: stranske/B, stranske/C" in rendered
+
+
+def test_renovate_liveness_all_repos_live_has_no_silent_line():
+    report = metrics.calculate(
+        _liveness_snapshot(["stranske/A"]), datetime(2026, 11, 30, 11, 15, tzinfo=UTC)
+    )
+    rendered = metrics.markdown(report)
+    assert "**1 of 1**" in rendered
+    assert "Silent this window" not in rendered
+
+
+def test_renovate_liveness_without_a_repo_list_is_unmeasured_not_zero():
+    report = metrics.calculate(_liveness_snapshot(None), datetime(2026, 11, 30, 11, 15, tzinfo=UTC))
+    liveness = report["metrics"]["renovate_liveness"]
+    assert liveness["measured"] is False
+    assert liveness["repos_with_prs"] is None
+    assert "**unmeasured**" in metrics.markdown(report)

@@ -38,6 +38,8 @@ def test_efficiency_workflow_collects_fixture_backed_report_and_dedupes_tracker_
     assert "awk -F= '/^fingerprint=/{print $2}'" in text
     assert "from scripts.dependency_sync_efficiency_metrics import fingerprint" not in text
     assert "issues.createComment" in text
+    # Renovate liveness needs every repository read, including ones with no PRs.
+    assert "              repos,\n              pulls, workflow_runs, timeline_events," in text
     assert "EFFICIENCY_TRACKER_ISSUE: '2897'" in text
     assert "tracker === 1836" in text
     assert "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in text

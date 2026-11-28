@@ -80,6 +80,39 @@ def lane_for(pr: dict[str, Any]) -> str:
     return "traditional"
 
 
+RENOVATE_AUTHORS = frozenset({"renovate[bot]", "app/renovate"})
+
+
+def renovate_liveness(snapshot: dict[str, Any], start: datetime, end: datetime) -> dict[str, Any]:
+    """Renovate PRs created per repository in the reporting window.
+
+    Consumer Renovate opened no PRs from 2026-08-01 to 2026-11-28 while nothing in the
+    family measured it. ``measured`` is false when the collector did not list the
+    repositories it read: an unlisted repo cannot be told apart from a silent one, so
+    that case never reports zero.
+    """
+    listed = snapshot.get("repos")
+    if not isinstance(listed, list) or not listed:
+        return {"measured": False, "per_repo": {}, "repos_with_prs": None, "repo_count": None}
+    repos = sorted(
+        {str(repo) for repo in listed if str(repo) and not owner_excluded({"repo": str(repo)})}
+    )
+    counts: Counter[str] = Counter(dict.fromkeys(repos, 0))
+    for pr in snapshot.get("pulls", []):
+        repo = str(first(pr, "repo", "repository", "repository_name") or "")
+        author = str(first(pr, "author", "author_login", "user") or "").lower()
+        created = first(pr, "created_at", "createdAt")
+        if repo in counts and author in RENOVATE_AUTHORS and in_window(created, start, end):
+            counts[repo] += 1
+    per_repo = {repo: counts[repo] for repo in repos}
+    return {
+        "measured": True,
+        "per_repo": per_repo,
+        "repos_with_prs": sum(1 for count in per_repo.values() if count > 0),
+        "repo_count": len(per_repo),
+    }
+
+
 def generated(lane: str) -> bool:
     return lane in {"dependency-bot", "sync-generated", "dev-tool-sync"}
 
@@ -347,6 +380,7 @@ def calculate(snapshot: dict[str, Any], now: datetime) -> dict[str, Any]:
         "stable_median_review_settlement_minutes": median_review_settlement,
         "stable_median_head_to_seal_minutes": median_head_to_seal,
         "stable_pr_churn": stable_churn,
+        "renovate_liveness": renovate_liveness(snapshot, window_start, window_end),
     }
     breaches = {
         "generated_prs": generated_total > THRESHOLDS["generated_prs"],
@@ -405,6 +439,26 @@ def fingerprint(report: dict[str, Any]) -> str:
         "advisory_slo": report["advisory_slo"],
     }
     return hashlib.sha256(json.dumps(evidence, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def renovate_liveness_lines(liveness: dict[str, Any]) -> list[str]:
+    if not liveness.get("measured"):
+        return [
+            "Renovate PRs per repository: **unmeasured** (the collector listed no repositories)."
+        ]
+    per_repo = liveness.get("per_repo") or {}
+    silent = [repo for repo, count in per_repo.items() if count == 0]
+    lines = [
+        f"Repositories with at least one Renovate PR this window: "
+        f"**{liveness['repos_with_prs']} of {liveness['repo_count']}**",
+        "",
+        "| Repository | Renovate PRs created |",
+        "| --- | ---: |",
+        *[f"| {repo} | {count} |" for repo, count in per_repo.items()],
+    ]
+    if silent:
+        lines += ["", f"Silent this window: {', '.join(silent)}"]
+    return lines
 
 
 def markdown(report: dict[str, Any]) -> str:
@@ -487,6 +541,10 @@ def markdown(report: dict[str, Any]) -> str:
             "Median head-to-seal time: **{}**".format(
                 f"{median_seal:.1f}m" if median_seal is not None else "n/a"
             ),
+            "",
+            "## Renovate liveness",
+            "",
+            *renovate_liveness_lines(metrics.get("renovate_liveness") or {}),
             "",
             "## Collection limits",
             "",
