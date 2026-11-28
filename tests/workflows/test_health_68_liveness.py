@@ -87,7 +87,7 @@ def test_comparison_reads_the_drain_history() -> None:
     names = [step["name"] for step in steps]
     history = names.index("Read Maint 68 delivery history")
     assert history < names.index(COMPARE_STEP)
-    assert "maint-68-sync-consumer-repos.yml/runs?status=success" in steps[history]["run"]
+    assert "--write-deliveries artifacts/maint-68-deliveries.json" in steps[history]["run"]
     compare = next(step for step in steps if step["name"] == COMPARE_STEP)
     assert compare["env"]["CONSUMER_SYNC_DELIVERIES_JSON"] == "artifacts/maint-68-deliveries.json"
 

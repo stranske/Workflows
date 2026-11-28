@@ -75,22 +75,10 @@ jobs:
         # A failed read leaves no file, which the comparison treats as unreadable
         # (uncovered drift blocking at once), never as "no deliveries".
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          set -uo pipefail
-          mkdir -p artifacts
-          if gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/maint-68-sync-consumer-repos.yml/runs?status=success&per_page=100" \
-            --jq '[.workflow_runs[]
-                   | select(.display_title | test(" promote "))
-                   | {plan_id: ((.display_title | capture("(?<p>sha256:[0-9a-f]{64})")) // {p: null}).p,
-                      created_at, run_id: .id}]' \
-            > artifacts/maint-68-deliveries.json.tmp; then
-            mv artifacts/maint-68-deliveries.json.tmp artifacts/maint-68-deliveries.json
-            echo "Read $(jq length artifacts/maint-68-deliveries.json) Maint 68 promote run(s)."
-          else
-            rm -f artifacts/maint-68-deliveries.json.tmp
-            echo "::warning::Could not read the Maint 68 delivery history; uncovered drift is blocking at once."
-          fi
+          python3 scripts/check_consumer_sync_drift.py \
+            --write-deliveries artifacts/maint-68-deliveries.json
 
       - name: Compare consumer repos to templates
         id: compare

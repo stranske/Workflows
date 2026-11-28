@@ -2994,3 +2994,34 @@ def test_read_deliveries_keeps_unreadable_distinct_from_empty(tmp_path) -> None:
     empty = tmp_path / "empty.json"
     empty.write_text("[]", encoding="utf-8")
     assert check_consumer_sync_drift.read_deliveries(str(empty)) == []
+
+
+def test_parse_maint68_promotions_reads_plan_ids_from_successful_promotes_only() -> None:
+    plan = "sha256:" + "c" * 64
+    payload = {
+        "workflow_runs": [
+            {
+                "id": 1,
+                "conclusion": "success",
+                "created_at": "2026-11-28T05:16:33Z",
+                "display_title": f"Maint 68 promote auto  {plan}",
+            },
+            {
+                "id": 2,
+                "conclusion": "success",
+                "created_at": "2026-11-28T05:00:41Z",
+                "display_title": "Maint 68 canary auto   source=0aae3bb candidates=* dry=false",
+            },
+            {
+                "id": 3,
+                "conclusion": "failure",
+                "created_at": "2026-11-28T00:59:54Z",
+                "display_title": f"Maint 68 promote full repos=o/r {plan}",
+            },
+        ]
+    }
+    assert check_consumer_sync_drift.parse_maint68_promotions(payload) == [
+        {"plan_id": plan, "created_at": "2026-11-28T05:16:33Z", "run_id": 1}
+    ]
+    with pytest.raises(ValueError):
+        check_consumer_sync_drift.parse_maint68_promotions({"message": "Bad credentials"})

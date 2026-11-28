@@ -101,6 +101,11 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--write-deliveries",
+        default="",
+        help="Only write the Maint 68 delivery history to this path, then exit.",
+    )
+    parser.add_argument(
         "--report-json",
         default=os.environ.get("CONSUMER_SYNC_DRIFT_REPORT_JSON", ""),
         help="Optional path to write a machine-readable drift report.",
@@ -1211,6 +1216,60 @@ def fetch_remote_tree(
     return entries, None
 
 
+MAINT_68_WORKFLOW_FILE = "maint-68-sync-consumer-repos.yml"
+_PLAN_ID_IN_TITLE = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def parse_maint68_promotions(payload: object) -> list[dict[str, object]]:
+    """Successful Maint 68 promote runs, with the plan id each run name carries."""
+    runs = payload.get("workflow_runs") if isinstance(payload, dict) else None
+    if not isinstance(runs, list):
+        raise ValueError("Maint 68 run listing has no workflow_runs list")
+    deliveries: list[dict[str, object]] = []
+    for run in runs:
+        if not isinstance(run, dict) or run.get("conclusion") != "success":
+            continue
+        title = str(run.get("display_title") or "")
+        if " promote " not in f" {title} ":
+            continue
+        match = _PLAN_ID_IN_TITLE.search(title)
+        deliveries.append(
+            {
+                "plan_id": match.group(0) if match else None,
+                "created_at": run.get("created_at"),
+                "run_id": run.get("id"),
+            }
+        )
+    return deliveries
+
+
+def write_maint68_deliveries(path: str, repository: str, token: str) -> int:
+    """Write Maint 68's delivery history for the comparison; leave no file on failure."""
+    session = requests.Session()
+    if token:
+        session.headers["Authorization"] = f"Bearer {token}"
+    session.headers["Accept"] = "application/vnd.github+json"
+    url = (
+        f"https://api.github.com/repos/{repository}/actions/workflows/"
+        f"{MAINT_68_WORKFLOW_FILE}/runs?status=success&per_page=100"
+    )
+    try:
+        response = session.get(url, timeout=30)
+        response.raise_for_status()
+        deliveries = parse_maint68_promotions(response.json())
+    except (requests.RequestException, ValueError) as exc:
+        print(
+            f"::warning::Could not read the Maint 68 delivery history ({type(exc).__name__}); "
+            "uncovered drift is blocking at once."
+        )
+        return 0
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(deliveries, indent=2) + "\n", encoding="utf-8")
+    print(f"Read {len(deliveries)} successful Maint 68 promote run(s).")
+    return 0
+
+
 def read_deliveries(path: str) -> list[dict[str, object]] | None:
     """Load the Maint 68 delivery history; None means unreadable, never 'no deliveries'."""
     if not path:
@@ -1233,6 +1292,12 @@ def read_deliveries(path: str) -> list[dict[str, object]] | None:
 
 def main() -> int:
     args = parse_args()
+    if getattr(args, "write_deliveries", ""):
+        return write_maint68_deliveries(
+            args.write_deliveries,
+            os.environ.get("GITHUB_REPOSITORY", "stranske/Workflows"),
+            os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or "",
+        )
     repos = resolve_repos(args.repos)
     if not repos:
         print("::error::No repos provided or found in REGISTERED_CONSUMER_REPOS")
