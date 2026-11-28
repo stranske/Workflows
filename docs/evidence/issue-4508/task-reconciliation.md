@@ -1,5 +1,9 @@
 # Issue #4508 source verification
 
+## Current CI metrics test selector
+
+Run `python -m pytest tests/scripts/test_ci_metrics.py -m 'not slow' -q` from the Workflows root. This suite includes the metrics cases listed under both paths in the dated results below. The [original workflow-path suite](https://github.com/stranske/Workflows/blob/b00b9c4955740f0448f20dda3c177f37d7ec4228/tests/workflows/test_ci_metrics.py) is available at its recorded revision.
+
 ## Closer continuation, 2026-11-07
 
 Outcome: the existing branch passes the API wrapper guard without modifying
