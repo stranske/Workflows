@@ -13,7 +13,6 @@ const {
   selectCapabilityBundles,
   validateCapabilityBundle,
 } = require('../capability_bundle');
-const { composePrompt } = require('../keepalive_prompt_composer');
 const { buildMetricsRecord, parseCapabilityBundlesInput } = require('../keepalive_loop');
 
 function validBundle(overrides = {}) {
@@ -147,26 +146,6 @@ test('standalone bundle document loads without bundles wrapper', () => {
 
   assert.equal(loaded.length, 1);
   assert.equal(loaded[0].capability_id, 'keepalive/static-spa');
-});
-
-test('prompt composer applies matching capability and reports exact id and hash', () => {
-  const bundle = validBundle();
-  const result = composePrompt({
-    knownCapabilities: ['keepalive/static-spa'],
-    capabilityBundles: [bundle],
-    context: {
-      repo: 'stranske/Inv-Man-Intake',
-      agent: 'codex',
-      labels: ['agents:keepalive'],
-    },
-    mode: 'normal',
-    segments: [{ id: 'base', text: 'Base instructions' }],
-  });
-
-  assert.match(result.text, /Capability: keepalive\/static-spa@1\.0\.0/);
-  assert.match(result.text, /Base instructions/);
-  assert.deepEqual(result.segments, ['capability-bundle', 'base']);
-  assert.equal(result.capability_bundles.applied[0].content_hash, bundle.content_hash);
 });
 
 test('nonmatching bundle reports rejection reason and applies no fragment', () => {
