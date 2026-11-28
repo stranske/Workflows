@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Close a workflow's own failure-alert issue once a later run succeeds.
+"""Raise or close a workflow's own failure-alert issue.
+
+``--mode resolve`` (the default) closes the alert once a later run succeeds.
+``--mode raise`` is the matching failure path (cohesion review A5b): it edits
+the body of the open alert with the exact ``--title`` if there is one, and
+otherwise opens it, so each failed run produces exactly one issue update and a
+daily failure never stacks duplicate issues.
 
 Producers that open an "Action Required" alert issue on failure call this from
 a success path.  The helper only touches open issues that carry every
@@ -83,6 +89,37 @@ def resolve_alerts(
     return closed
 
 
+def raise_alert(
+    *,
+    repo: str,
+    labels: Sequence[str],
+    title: str,
+    body_file: str,
+    run: Runner = _gh,
+) -> tuple[str, int | None]:
+    """Open the alert, or edit the open one with the same title; one write either way."""
+    if not labels:
+        raise ValueError("at least one --label is required")
+    if not title:
+        raise ValueError("--mode raise needs exactly one exact --title")
+    list_args = ["issue", "list", "--repo", repo, "--state", "open"]
+    for label in labels:
+        list_args += ["--label", label]
+    list_args += ["--limit", LIST_LIMIT, "--json", "number,title"]
+    issues = json.loads(run(list_args) or "[]")
+    existing = next((i for i in issues if str(i.get("title", "")) == title), None)
+    if existing is not None:
+        number = int(existing["number"])
+        run(["issue", "edit", str(number), "--repo", repo, "--body-file", body_file])
+        return "updated", number
+    create_args = ["issue", "create", "--repo", repo, "--title", title, "--body-file", body_file]
+    for label in labels:
+        create_args += ["--label", label]
+    url = run(create_args).strip()
+    tail = url.rsplit("/", 1)[-1]
+    return "opened", int(tail) if tail.isdigit() else None
+
+
 def main(argv: Sequence[str] | None = None, run: Runner = _gh) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True)
@@ -91,9 +128,27 @@ def main(argv: Sequence[str] | None = None, run: Runner = _gh) -> int:
     parser.add_argument("--title-prefix", action="append", default=[], dest="prefixes")
     parser.add_argument("--run-url", default="")
     parser.add_argument("--workflow", default="")
+    parser.add_argument("--mode", choices=("resolve", "raise"), default="resolve")
+    parser.add_argument("--body-file", default="")
     args = parser.parse_args(argv)
     if not args.labels or not (args.titles or args.prefixes):
         parser.error("need at least one --label and one --title/--title-prefix")
+    if args.mode == "raise":
+        if len(args.titles) != 1 or args.prefixes or not args.body_file:
+            parser.error("--mode raise needs exactly one --title, no --title-prefix, and --body-file")
+        try:
+            action, number = raise_alert(
+                repo=args.repo,
+                labels=args.labels,
+                title=args.titles[0],
+                body_file=args.body_file,
+                run=run,
+            )
+        except subprocess.CalledProcessError as exc:
+            print(f"alert raise failed: {exc.stderr or exc}", file=sys.stderr)
+            return 1
+        print(f"{action} #{number if number is not None else '?'} ({args.titles[0]})")
+        return 0
     try:
         closed = resolve_alerts(
             repo=args.repo,

@@ -5,6 +5,9 @@
 # exposes no free auth-status probe in this workflow, so a present-but-revoked key is not
 # detected here (it would surface as a failed runner round). The key is never printed and no
 # model call is made.
+#
+# A failure raises (or refreshes) one alert issue and a pass closes it, through the shared
+# auth-alert-issue composite (cohesion review A5b). Before that, a failure only exited 1.
 name: Health 77 Cursor Auth Check
 
 on:
@@ -14,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,7 +27,16 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout alert helper
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/actions/auth-alert-issue
+            .github/scripts/resolve_alert_issue.py
+          sparse-checkout-cone-mode: false
+
       - name: Check CURSOR_API_KEY presence
+        id: key
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
         run: |
@@ -33,12 +46,35 @@ jobs:
           else
             status="missing"
           fi
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
           {
             echo "## Cursor auth check"
             echo ""
             echo "- CURSOR_API_KEY: **${status}** (presence-only; no authentication probe, no model call)"
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$status" = "missing" ]; then
+
+      - name: Raise or resolve the Cursor auth alert
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/auth-alert-issue
+        with:
+          status: ${{ steps.key.outputs.status == 'present' && 'ok' || 'failed' }}
+          title: '🚨 CURSOR_API_KEY is missing - Cursor runs cannot authenticate'
+          workflow: Health 77 Cursor Auth Check
+          github-token: ${{ github.token }}
+          detail: |
+            `CURSOR_API_KEY` is not set (key status: `${{ steps.key.outputs.status || 'unknown' }}`), so
+            `reusable-cursor-run.yml` cannot authenticate and Cursor rounds are skipped.
+
+            **To clear:** set the `CURSOR_API_KEY` repository secret
+            (Settings → Secrets and variables → Actions), then re-run this workflow.
+
+      - name: Verdict
+        if: always()
+        env:
+          KEY_STATUS: ${{ steps.key.outputs.status }}
+        run: |
+          if [ "${KEY_STATUS:-}" != "present" ]; then
             echo "::error::CURSOR_API_KEY is not set; Cursor workflows cannot authenticate."
             exit 1
           fi

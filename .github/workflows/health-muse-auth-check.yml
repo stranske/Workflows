@@ -5,6 +5,9 @@
 # this check is presence-only for the key, plus the two things that fail a round on a runner
 # regardless of the key: the CLI installing/starting, and Muse startup/sandbox helper selection Meta requires
 # on Linux CI. Only the local echo provider is used; no model API call is made, so this never spends.
+#
+# A failure raises (or refreshes) one alert issue and a pass closes it, through the shared
+# auth-alert-issue composite (cohesion review A5b). Before that, a failure only exited 1.
 name: Health 79 Muse Auth Check
 
 on:
@@ -14,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,6 +27,14 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout alert helper
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/actions/auth-alert-issue
+            .github/scripts/resolve_alert_issue.py
+          sparse-checkout-cone-mode: false
+
       - name: Check META_API_KEY presence
         id: key
         env:
@@ -67,7 +79,8 @@ jobs:
           fi
           rmdir "$probe_dir" 2>/dev/null || true
 
-      - name: Summary and verdict
+      - name: Summary
+        id: verdict
         if: always()
         env:
           KEY_STATUS: ${{ steps.key.outputs.status }}
@@ -83,10 +96,42 @@ jobs:
             echo "- Muse sandbox startup: **${SANDBOX_STATUS:-not checked}**"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "${KEY_STATUS:-}" != "present" ]; then
-            echo "::error::META_API_KEY is not set; Muse workflows cannot authenticate."
-            exit 1
+            reason="META_API_KEY is not set; Muse workflows cannot authenticate."
+          elif [ "${CLI_STATUS:-}" != "ok" ] || [ "${SANDBOX_STATUS:-}" != "ok" ]; then
+            reason="Muse CLI or sandbox is not usable on this runner (cli=${CLI_STATUS:-?}, sandbox=${SANDBOX_STATUS:-?})."
+          else
+            reason=""
           fi
-          if [ "${CLI_STATUS:-}" != "ok" ] || [ "${SANDBOX_STATUS:-}" != "ok" ]; then
-            echo "::error::Muse CLI or sandbox is not usable on this runner (cli=${CLI_STATUS:-?}, sandbox=${SANDBOX_STATUS:-?})."
+          if [ -n "$reason" ]; then
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=ok" >> "$GITHUB_OUTPUT"
+          fi
+          echo "reason=${reason}" >> "$GITHUB_OUTPUT"
+
+      - name: Raise or resolve the Muse auth alert
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/auth-alert-issue
+        with:
+          status: ${{ steps.verdict.outputs.status || 'failed' }}
+          title: '🚨 Muse runner check failed - Muse runs cannot start'
+          workflow: Health 79 Muse Auth Check
+          github-token: ${{ github.token }}
+          detail: |
+            ${{ steps.verdict.outputs.reason || 'The check did not reach a verdict; open the run.' }}
+
+            **To clear:** if the key is missing, set the `META_API_KEY` repository secret to the
+            Muse Code subscription console key (never a Default Project key). If the CLI or
+            sandbox failed, open the run log for the installer or `muse exec` error.
+
+      - name: Verdict
+        if: always()
+        env:
+          VERDICT: ${{ steps.verdict.outputs.status }}
+          REASON: ${{ steps.verdict.outputs.reason }}
+        run: |
+          if [ "${VERDICT:-}" != "ok" ]; then
+            echo "::error::${REASON:-Muse auth check did not reach a verdict.}"
             exit 1
           fi
