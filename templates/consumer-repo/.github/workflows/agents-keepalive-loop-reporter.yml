@@ -363,6 +363,26 @@ jobs:
             );
             core.info(`Originating worker execution evidence: ${workerEvidence}`);
             if (workerEvidence === 'unknown') {
+              // The one unknown that is not a failure: an attempt cancelled before any job
+              // existed (exact proof in keepalive_worker_evidence.js). Everything else that
+              // is unknown still fails closed below.
+              const { getCancelledBeforeStartEvidence } =
+                require('./.github/scripts/keepalive_worker_evidence.js');
+              const startEvidence = await getCancelledBeforeStartEvidence(
+                github, context.repo.owner, context.repo.repo, run.id, run.run_attempt || 1,
+                run.head_sha || ''
+              );
+              if (startEvidence === 'cancelled-before-start') {
+                const why = `upstream run ${run.id} attempt ${run.run_attempt || 1} ` +
+                  'was cancelled before any job started (0 jobs)';
+                core.notice(`Keepalive reporter not applicable: ${why}`);
+                await core.summary
+                  .addHeading('Keepalive reporter: not applicable', 3)
+                  .addRaw(`${why}; no authority receipt was prepared and no keepalive ` +
+                    'state was marked running by that attempt.\n')
+                  .write();
+                return;
+              }
               core.setFailed('Originating worker execution evidence is unknown; retry this reporter');
               return;
             }
