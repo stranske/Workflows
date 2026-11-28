@@ -94,18 +94,34 @@ certified by a new producer; a fresh legitimate publication is required.
 
 #### Gate job map
 
-Use this map when triaging Gate failures. It shows where the main checks run
-when selected and where to find their output. Open `summary` for the aggregate
-result and the Gate YAML for job selection conditions.
+Use this map to trace each job in the [Workflows Gate YAML](../../.github/workflows/pr-00-gate.yml).
+The `summary` job waits for every other job to finish or skip. Its aggregate
+evaluates PR resolution, delivery seal, both Python jobs, docs guard, Docker,
+and test quality. A selected app-baseline-kit result and a failed
+acceptance-criteria label job contribute to test quality. Check the individual
+GitHub scripts, PDF package, issue consistency, and ledger jobs for their
+separate results.
 
-| Job ID | Display name | Purpose | Artifacts / outputs | Notes |
+| Job ID | Display name | Purpose | Selection | Artifacts / outputs |
 | --- | --- | --- | --- | --- |
-| `python-ci` | python ci | Runs the core Python 3.13 and 3.14 matrix, with Ruff, Mypy and coverage when enabled. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Python 3.14 is the coverage-reference runtime. Coverage payloads are retained under `coverage/runtimes/<python>`. |
-| `python-ci-grammar` | python ci grammar | Runs the three verifier grammar suites in parallel on both runtimes, with coverage disabled. | `grammar-*` test artifacts. | Together the two Python jobs cover the canonical selection for each runtime. |
-| `github-scripts-tests` | github scripts tests | On non-doc PRs, runs `.github/scripts/__tests__/*.test.js` with Node.js 24 and separately runs `pytest tests/workflows/github_scripts` when that directory exists. | Job logs. | Installs the `requirements.txt` pydantic pin into the runner's `python3` for verifier tests that spawn it. Selftest CI uses the same JavaScript entry points. |
-| `docs-guard` | docs guard | Runs the reusable-workflow documentation guards even when the PR is docs-only. | None (logs only). | Applies in repositories that carry the Workflows docs guard tests. Drift in documented workflow inputs or outputs fails Gate. |
-| `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
-| `summary` | summary | Evaluates the delivery seal and applicable Python, docs guard, Docker and test-quality results, computes coverage deltas and maintains the consolidated PR comment. | Job summary, `gate-summary.md`, `gate-coverage.json`, `gate-coverage-delta.json`, `gate-coverage-summary.md`. | Publishes the ruleset-required **`summary`** check and the `Gate / gate` commit status. Open `github scripts tests` for its separate job result. |
+| `resolve-pr` | resolve Gate PR context | Binds PR identity and head, then reads the current title, body, and labels. | Every run. A numbered dispatch must target the open, current, same-repository PR head. | `pull_request` JSON, or `null` for a dispatch without a PR. |
+| `detect` | detect changed files | Classifies paths and computes which checks to run. | After PR context resolves. Manual dispatch forces full path classification. | Docs-only and core flags, Docker and app-baseline-kit selection, Python toggles, and classification details. |
+| `environment-gate` | privilege environment gate | Enters the selected GitHub environment before dependent jobs run. | After change detection. Workflow changes select `agent-high-privilege`; other changes select `agent-standard`. | Environment selection in job logs. |
+| `generated-delivery-seal` | generated delivery seal | Checks the exact-head delivery seal for generated sync PRs. | After PR context resolves. The action determines whether the seal applies. | Seal result and diagnostics in job logs. |
+| `python-ci` | python ci | Runs core tests on Python 3.13 and 3.14, with Ruff, Mypy, and coverage when enabled. | Non-docs-only runs with core CI selected. | `gate-coverage`, `gate-coverage-summary`, and `gate-coverage-trend`. Coverage under `coverage/runtimes/<python>` uses Python 3.14 as the reference. |
+| `python-ci-grammar` | python ci grammar | Runs the three verifier grammar suites on both runtimes with coverage disabled. Together the Python jobs cover the canonical selection. | Same selection as `python-ci`. | `grammar-*` test artifacts. |
+| `docs-guard` | docs guard | Checks documented reusable workflow inputs and outputs where the guard tests exist. Warns on stale managed AGENTS.md references. | After the environment gate, including docs-only runs. | Guard diagnostics in job logs and stale-reference annotations. |
+| `github-scripts-tests` | github scripts tests | Runs `.github/scripts/__tests__/*.test.js` with Node.js 24 and any Python suites in `tests/workflows/github_scripts`. Selftest CI uses the same JavaScript entry points. | Non-docs-only runs. The runner installs the `requirements.txt` pydantic pin into its `python3` for verifier tests that spawn it. | Test results in job logs. |
+| `packages-pdf-extract` | stranske-pdf-extract package tests | Installs the PDF extraction package with its development dependencies and runs its tests. | Non-docs-only runs. | Test results in job logs. |
+| `packages-app-baseline-kit` | app-baseline-kit package tests | Installs the package into a fresh virtual environment and tests the installation. | Runs when change detection requires the package check, including when it cannot rule out a change. | Test results in job logs. |
+| `issue-consistency` | issue consistency | Checks the PR title and source diff for consistent issue references when the Workflows checker is present. | Runs with a resolved PR number. | Checker or skip result in job logs. |
+| `test-quality` | test-quality | Checks test quality and secrets in the diff, replays a claimed deliberate break, and checks open sync-manifest issue citations when the test exists. | Non-docs-only runs with a resolved PR number. | Check logs and the `deliberate_break_marker` output. |
+| `acceptance-criteria-label` | acceptance-criteria label | Adds the `acceptance-criteria` label for the runtime merge guard without running PR-head code. | Runs when `test-quality` emits a true deliberate-break marker. | PR label and job logs. |
+| `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | Non-docs-only runs with core CI selected and Docker inputs changed. | Image-build and smoke-test results in job logs. |
+| `ledger-validation` | ledger validation | Validates issue ledgers when `.agents/issue-*-ledger.yml` files are present. | Non-docs-only runs. | Validation or skip result in job logs. |
+| `summary` | summary | Evaluates the aggregate results above, computes coverage deltas, and maintains the consolidated PR comment where permitted. | Always runs after its dependencies, including failures and skips. | Ruleset-required **`summary`** check, `Gate / gate` commit status where permitted, job summary, and applicable `gate-summary.md`, `gate-coverage.json`, `gate-coverage-delta.json`, and `gate-coverage-summary.md` artifacts. |
+
+This diagram shows selected dependencies. The table lists every job.
 
 ```mermaid
 flowchart TD
