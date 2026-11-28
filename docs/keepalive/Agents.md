@@ -177,7 +177,7 @@ If there is no stored auth session, run commands with an explicit token (for exa
 
 The repository supports two keepalive implementations. The **Codex CLI keepalive** is the current, canonical flow. The **legacy UI connector-bot** flow is retained for historical context and compatibility.
 
-See [`Keepalive_Approaches.md`](Keepalive_Approaches.md) for a full comparison and the rationale for preferring the CLI approach.
+See [`Keepalive_Approaches.md`](Keepalive_Approaches.md) for the current routing references and historical comparison.
 
 Do not mark checklist items complete or dispatch new keepalive rounds until the acceptance criteria in the canonical guide are satisfied. Update all relevant documents together if the contract evolves.
 
