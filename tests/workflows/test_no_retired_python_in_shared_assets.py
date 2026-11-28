@@ -1,7 +1,7 @@
-"""Shared tools and templates must not carry Python 3.12 (3.14 first, 3.13 backup).
+"""Shared tools, hosted research CLIs and templates must not carry Python 3.12 (3.14 first, 3.13 backup).
 
 The reusable CI pins are guarded elsewhere; this covers the assets that ship to every consumer or
-act as starter files: shared tools, starter workflows, the integration template and the version env.
+run in hosted research jobs or act as starter files: shared tools, starter workflows, the integration template and the version env.
 A hit here means a consumer inherits a retired runtime default, label or required-job rule.
 """
 
@@ -18,6 +18,8 @@ RETIRED = re.compile(r"(?<![\d.])3\.12(?!\d)|\bpy312\b|\"3-12\"|\bcore312\b")
 SCANNED = sorted(
     {
         *ROOT.glob("tools/*.py"),
+        *ROOT.glob("scripts/model_eval/*.py"),
+        *ROOT.glob("scripts/verifier/*.py"),
         *ROOT.glob("templates/*/tools/*.py"),
         *ROOT.glob("templates/*.yml"),
         *ROOT.glob("templates/integration-repo/.github/workflows/*.yml"),
@@ -38,6 +40,11 @@ def _hits(text: str) -> list[str]:
 
 
 def test_scan_covers_the_shared_assets() -> None:
+    paths = {path.relative_to(ROOT).as_posix() for path in SCANNED}
+    assert {
+        "scripts/model_eval/run_model_eval_pilot.py",
+        "scripts/verifier/run_verify_paired.py",
+    } <= paths
     names = {path.name for path in SCANNED}
     assert {"post_ci_summary.py", "resolve_mypy_pin.py", "ci-basic.yml"} <= names
 

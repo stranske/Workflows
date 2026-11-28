@@ -10,8 +10,8 @@ document does not authorize a dispatch.
 The [historical packet](../../config/verify_paired/historical-square) contains its selector, policy and both square cases. From the repository root, run these offline tests with the project interpreter to check the held policy and the two expected verdicts.
 
 ```sh
-python -m pytest -q tests/tools/test_run_verify_paired.py::test_source_proposed_policy_holds_before_subprocess \
-  tests/tools/test_run_verify_paired.py::test_actual_two_case_cli_four_generations_eight_counts_six_metadata
+python -m pytest -q tests/scripts/test_run_verify_paired.py::test_source_proposed_policy_holds_before_subprocess \
+  tests/scripts/test_run_verify_paired.py::test_actual_two_case_cli_four_generations_eight_counts_six_metadata
 ```
 
 MAINT-78's current `verify-paired` job invokes the runner with its
