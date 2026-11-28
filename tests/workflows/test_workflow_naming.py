@@ -249,7 +249,6 @@ def test_workflow_display_names_are_unique():
 EXPECTED_NAMES = {
     "agents-model-profile-trial.yml": "Agents Model Profile Trial",
     "agents-autofix-loop.yml": "Agents Autofix Loop",
-    "agents-autofix-dispatcher.yml": "Agents Autofix Dispatch",
     "agents-auto-label.yml": "Auto-Label Issues",
     "agents-bot-comment-handler.yml": "Agents Bot Comment Handler",
     "agents-capability-check.yml": "Capability Check",
