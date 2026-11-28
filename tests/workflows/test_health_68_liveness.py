@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -115,13 +116,90 @@ def test_manual_repo_scope_does_not_write_fleet_state(repos, outcome, publishes,
     assert _job_if_selected(jobs["resolve-drift"]["if"], context) is resolves
 
 
-def test_manual_repo_scope_has_run_specific_concurrency() -> None:
+FLEET_GROUP = "health-68-consumer-sync-drift"
+RUN_ID = "4242"
+
+
+def _concurrency_group(context: dict[str, str]) -> str:
+    """Evaluate the workflow-level group the way Actions does for these operands."""
     data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
-    group = " ".join(data["concurrency"]["group"].split())
-    assert "inputs.repos != ''" in group
-    assert "format('health-68-consumer-sync-drift-scoped-{0}', github.run_id)" in group
-    assert group.endswith("|| 'health-68-consumer-sync-drift' }}")
-    assert data["concurrency"]["cancel-in-progress"] is True
+    expression = " ".join(data["concurrency"]["group"].split())
+    expression = expression.removeprefix("${{").removesuffix("}}")
+    expression = re.sub(
+        r"format\('([^']*)\{0\}', github\.run_id\)",
+        lambda match: repr(match.group(1) + RUN_ID),
+        expression,
+    )
+    for key in sorted(context, key=len, reverse=True):
+        expression = expression.replace(key, repr(context[key]))
+    return eval(  # noqa: S307 - local authored expressions with fixed scalar contexts
+        expression.replace("&&", " and ").replace("||", " or "),
+        {"__builtins__": {}},
+    )
+
+
+MATRIX = [
+    # (event, upstream_event, conclusion, branch, repos, expected group)
+    ("schedule", "", "", "", "", FLEET_GROUP),
+    ("workflow_dispatch", "", "", "", "", FLEET_GROUP),
+    ("workflow_run", "schedule", "success", "main", "", FLEET_GROUP),
+    ("workflow_dispatch", "", "", "", "stranske/trip-planner", f"{FLEET_GROUP}-scoped-{RUN_ID}"),
+    # Runs that will not measure must not share the fleet group: concurrency applies
+    # before the job `if`, so before round 3 each skipped Maint 71 continuation (several
+    # an hour) cancelled the running comparison (06:15 schedule run cancelled 2026-11-28).
+    (
+        "workflow_run",
+        "repository_dispatch",
+        "success",
+        "main",
+        "",
+        f"{FLEET_GROUP}-unmeasured-{RUN_ID}",
+    ),
+    (
+        "workflow_run",
+        "workflow_dispatch",
+        "success",
+        "main",
+        "",
+        f"{FLEET_GROUP}-unmeasured-{RUN_ID}",
+    ),
+    ("workflow_run", "schedule", "failure", "main", "", f"{FLEET_GROUP}-unmeasured-{RUN_ID}"),
+    ("workflow_run", "schedule", "success", "feature", "", f"{FLEET_GROUP}-unmeasured-{RUN_ID}"),
+]
+
+
+@pytest.mark.parametrize(
+    ("event", "upstream_event", "conclusion", "branch", "repos", "group"), MATRIX
+)
+def test_only_measuring_runs_share_the_fleet_group(
+    event, upstream_event, conclusion, branch, repos, group
+) -> None:
+    context = {
+        "inputs.repos": repos,
+        "github.event_name": event,
+        "github.event.workflow_run.event": upstream_event,
+        "github.event.workflow_run.conclusion": conclusion,
+        "github.event.workflow_run.head_branch": branch,
+    }
+    assert _concurrency_group(context) == group
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    if not repos:
+        # The fleet group holds exactly the runs whose job measures.
+        measures = _job_if_selected(data["jobs"]["check-drift"]["if"], context)
+        assert (group == FLEET_GROUP) is measures
+
+
+def test_fleet_group_routes_on_the_job_if_verbatim() -> None:
+    """One predicate: the group repeats the check-drift `if` word for word."""
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    job_if = " ".join(data["jobs"]["check-drift"]["if"].split())
+    group = " ".join(data["concurrency"]["group"].split()).replace("( ", "(").replace(" )", ")")
+    assert f"({job_if}) && '{FLEET_GROUP}'" in group
+
+
+def test_measuring_runs_never_cancel_an_inflight_comparison() -> None:
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    assert data["concurrency"]["cancel-in-progress"] is False
 
 
 def test_liveness_config_names_the_compare_step() -> None:
