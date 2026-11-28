@@ -52,15 +52,11 @@ def test_health_actionlint_selects_reporter(tmp_path, event, fork, caller, varia
     assert output.read_text() == f"reporter={expected}\n"
 
 
-def test_health_sweep_uses_runner_annotations_for_the_automatic_push():
+def test_health_sweep_reports_weekly_lint_as_a_check():
     workflow = yaml.safe_load((ROOT / ".github/workflows/health-40-sweep.yml").read_text())
     call = workflow["jobs"]["actionlint"]
     assert call["uses"] == "./.github/workflows/health-42-actionlint.yml"
-    assert call["with"]["reporter"] == (
-        "${{ github.event_name == 'pull_request' && 'github-pr-review' "
-        "|| github.event_name == 'push' && 'github-annotations' "
-        "|| 'github-check' }}"
-    )
+    assert call["with"]["reporter"] == "github-check"
 
 
 @pytest.mark.parametrize(

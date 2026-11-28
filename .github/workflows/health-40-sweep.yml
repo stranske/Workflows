@@ -2,24 +2,23 @@ name: Health 40 Sweep
 
 on:
   workflow_dispatch:
-    inputs:
-      run_branch_protection:
-        description: 'Run branch-protection verification during manual sweeps'
-        type: boolean
-        default: true
   schedule:
-    # Weekly: the full sweep (actionlint + branch protection + liveness).
+    # Weekly: the full sweep (actionlint of main + liveness + belt claims).
     - cron: '5 5 * * 1'
     # Daily: workflow liveness only. A suspicious-workflow hold can appear within
     # hours of any workflow-file edit, so a weekly-only check leaves a workflow
     # silently dead for up to seven days. The liveness job is ~1 API call per
-    # workflow, so daily is cheap; the other jobs stay weekly (see DAILY_CRON).
+    # workflow, so daily is cheap; actionlint stays weekly (the `if:` below).
     - cron: '25 6 * * *'
-  pull_request:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/**/*.yml'
+  # No pull_request or push trigger (cohesion review round 2, D10): Maint 52
+  # Validate Workflows already runs actionlint on every PR and every push to
+  # main, without the paths-filter API call this sweep needed, so running Health
+  # 42 here as well linted each workflow PR twice.
+  #
+  # No branch-protection leg (round 2, A6): it called Health 44 and was never
+  # created on ten Mondays in a row (09-28..11-23), failing the whole sweep.
+  # Health 40 Repo Selfcheck reads the protection state every Monday and
+  # dispatches Health 44, the only writer, when it finds drift.
 
 permissions:
   contents: read
@@ -31,84 +30,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  detect:
-    name: detect workflow edits
-    runs-on: ubuntu-latest
-    outputs:
-      workflows: ${{ steps.result.outputs.workflows }}
-      run_branch_protection: ${{ steps.result.outputs.run_branch_protection || 'true' }}
-    steps:
-      - name: Detect workflow file changes
-        id: filter
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        uses: dorny/paths-filter@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          filters: |
-            workflows:
-              - '.github/workflows/**/*.yml'
-      - name: Publish change decision
-        id: result
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          FILTER_OUTCOME: ${{ steps.filter.outcome }}
-          FILTER_WORKFLOWS: ${{ steps.filter.outputs.workflows }}
-          EVENT_INPUTS_JSON: ${{ toJSON(github.event.inputs) }}
-        run: |
-          set -euo pipefail
-          note() {
-            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-              printf '%s\n' "$1" >>"$GITHUB_STEP_SUMMARY"
-            else
-              printf '%s\n' "$1"
-            fi
-          }
-
-          if [ "${EVENT_NAME}" = "pull_request" ]; then
-            if [ "${FILTER_OUTCOME}" = "failure" ]; then
-              note 'WARNING: paths-filter failed (likely rate limited); defaulting workflows=true'
-              echo "workflows=true" >> "$GITHUB_OUTPUT"
-            elif [ "${FILTER_WORKFLOWS}" = "true" ]; then
-              echo "workflows=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "workflows=false" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "workflows=true" >> "$GITHUB_OUTPUT"
-          fi
-
-          run_branch_protection="true"
-          inputs_json="${EVENT_INPUTS_JSON:-null}"
-          if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${inputs_json}" != "null" ]; then
-            parsed=$(echo "${inputs_json}" | jq -r '.run_branch_protection // empty')
-            if [ -n "${parsed}" ]; then
-              run_branch_protection="${parsed}"
-            fi
-          fi
-          echo "run_branch_protection=${run_branch_protection}" >> "$GITHUB_OUTPUT"
-
   actionlint:
     name: workflow lint (maint-36)
-    needs: detect
     # Excluded from the daily liveness tick so its cadence is unchanged.
-    if: >-
-      needs.detect.outputs.workflows == 'true' &&
-      github.event.schedule != '25 6 * * *'
+    if: github.event.schedule != '25 6 * * *'
     uses: ./.github/workflows/health-42-actionlint.yml
     with:
-      reporter: >-
-        ${{ github.event_name == 'pull_request' && 'github-pr-review'
-        || github.event_name == 'push' && 'github-annotations'
-        || 'github-check' }}
+      reporter: github-check
     secrets: inherit
 
   workflow-liveness:
     name: workflow liveness (zero-job approval holds)
-    needs: detect
-    # Schedule/dispatch only. The sweep costs ~1 API call per active workflow,
-    # so it must not run on every workflow-file push.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Schedule/dispatch only (the only triggers). The sweep costs ~1 API call
+    # per active workflow, so it must never run on a workflow-file push.
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -151,8 +85,6 @@ jobs:
 
   belt-claim-reclaim:
     name: reclaim stale belt claims
-    needs: detect
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -185,17 +117,3 @@ jobs:
               .addHeading('Belt claim reclaim')
               .addRaw(`${result.summary}\nBelt claims reclaimed: ${result.reclaimedCount}.`)
               .write();
-
-  branch-protection-verify:
-    name: branch protection sweep
-    needs: detect
-    if: >-
-      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
-      needs.detect.outputs.run_branch_protection != 'false' &&
-      github.event.schedule != '25 6 * * *'
-    permissions:
-      contents: read
-      pull-requests: read
-      actions: write
-    uses: ./.github/workflows/health-44-gate-branch-protection.yml
-    secrets: inherit
