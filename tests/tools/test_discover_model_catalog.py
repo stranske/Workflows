@@ -223,3 +223,31 @@ def test_record_baselines_cli_writes_the_registry(monkeypatch, tmp_path):
     assert written["catalog_baselines"]["openai"]["model_ids"] == ["gpt-a", "gpt-new"]
     assert written["review_by"] > "2026-11-28"
     assert discovery.main(["--registry", str(path), "--record-baselines"]) == 0
+
+
+def test_recorded_cutoff_precedes_the_fetch(monkeypatch, tmp_path):
+    """Review on #5563: a model released while the catalogs are read must not fall
+    behind `checked_at`, or catalog_diff would drop it as historical next week."""
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(_registry(), indent=2) + "\n", encoding="utf-8")
+    clock = [dt.datetime(2026, 11, 30, 5, 20, tzinfo=dt.UTC)]
+
+    class Clock(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return clock[0]
+
+    def fetch(provider):
+        clock[0] += dt.timedelta(minutes=1)  # each catalog read takes a minute
+        return [discovery.CatalogModel(f"{provider}-new")], None
+
+    monkeypatch.setattr(
+        discovery,
+        "dt",
+        SimpleNamespace(datetime=Clock, UTC=dt.UTC, date=dt.date, timedelta=dt.timedelta),
+    )
+    monkeypatch.setattr(discovery, "fetch_provider", fetch)
+    discovery.main(["--registry", str(path), "--record-baselines"])
+    written = json.loads(path.read_text(encoding="utf-8"))
+    for provider in discovery.PROVIDERS:
+        assert written["catalog_baselines"][provider]["checked_at"] == "2026-11-30T05:20:00Z"

@@ -75,7 +75,7 @@ def test_tracking_issue_uses_rechecked_findings(
         "#!/bin/sh\n"
         'case "$1" in\n'
         '  tools/check_model_registry_freshness.py) printf "%s\\n" "$FRESHNESS_JSON"; exit "$FRESHNESS_RC" ;;\n'
-        '  tools/discover_model_catalog.py) printf "%s\\n" "$DISCOVERY_JSON" > "$3"; exit "$DISCOVERY_RC" ;;\n'
+        '  tools/discover_model_catalog.py) echo "the tracker must not re-fetch" >&2; exit 9 ;;\n'
         '  *) exec "$TEST_PYTHON" "$@" ;;\n'
         "esac\n"
     )
@@ -107,6 +107,10 @@ def test_tracking_issue_uses_rechecked_findings(
         ),
         "DISCOVERY_RC": str(discovery_rc),
     }
+    # The tracker reads the freshness job's own discovery report (downloaded artifact).
+    (tmp_path / "catalog-discovery.json").write_text(
+        env["DISCOVERY_JSON"] if discovery_rc < 2 else "not json", encoding="utf-8"
+    )
     result = subprocess.run(
         ["bash", "-e", "-c", reports["run"]],
         cwd=tmp_path,
@@ -174,3 +178,23 @@ def test_scheduled_runs_record_baselines_through_the_maint_79_merge_path() -> No
     merge = next(s for s in ours if s.get("name") == "Enable auto-merge")["run"]
     theirs = next(s for s in maint79 if s.get("name") == "Enable auto-merge")["run"]
     assert merge == theirs
+
+
+def test_baseline_waits_for_the_announcement_from_the_same_observation() -> None:
+    """Review on #5563: an addition must not become 'known' before it was announced."""
+    jobs = yaml.safe_load(WORKFLOW.read_text())["jobs"]
+    record = jobs["record-baselines"]
+    assert record["needs"] == ["freshness", "tracking-issue"]
+    condition = " ".join(record["if"].split())
+    assert "!cancelled()" in condition
+    assert "needs.freshness.result == 'success'" in condition
+    assert (
+        "(needs.tracking-issue.result == 'success' || needs.tracking-issue.result == 'skipped')"
+        in condition
+    )
+    steps = jobs["tracking-issue"]["steps"]
+    download = next(s for s in steps if s.get("name") == "Download catalog discovery")
+    assert download["with"]["name"] == "model-catalog-discovery-${{ github.run_id }}"
+    reports = next(s for s in steps if s.get("id") == "reports")
+    assert "discover_model_catalog.py" not in reports["run"]
+    assert "env" not in reports  # no provider keys: it does not fetch

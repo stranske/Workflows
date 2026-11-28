@@ -160,18 +160,22 @@ jobs:
         with:
           python-version: '3.14'
 
+      # The catalog report is the one the freshness job recorded as the new baseline:
+      # one observation feeds both the announcement and the record, so an addition
+      # cannot be recorded without being announced (a second fetch could differ).
+      - name: Download catalog discovery
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: model-catalog-discovery-${{ github.run_id }}
+          path: .
+
       - name: Recreate freshness report
         id: reports
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: |
           set +e
           python3 tools/check_model_registry_freshness.py --json > freshness.json
           freshness_rc=$?
-          python3 tools/discover_model_catalog.py --output catalog-discovery.json
-          discovery_rc=$?
+          discovery_rc=$(python3 -c "import json;print(1 if json.load(open('catalog-discovery.json')).get('drift') else 0)") || discovery_rc=2
           cat freshness.json
           cat catalog-discovery.json
           if [ "$freshness_rc" -gt 1 ] || [ "$discovery_rc" -gt 1 ]; then
@@ -268,10 +272,16 @@ jobs:
     # Same mechanism as Maint 79's corpus PR: create-pull-request with OWNER_PR_PAT,
     # a seven-minute review window on an unchanged head, required checks, no active
     # review threads, then auto-merge pinned to the validated head.
+    # It waits for the tracker: additions become "known" only after they were
+    # announced. A failed tracker update leaves the baseline alone, so the next run
+    # announces them again. `skipped` means there was no drift, so nothing to announce.
     if: >-
+      !cancelled() &&
       github.event_name != 'pull_request' &&
-      needs.freshness.outputs.baselines_changed == 'true'
-    needs: freshness
+      needs.freshness.result == 'success' &&
+      needs.freshness.outputs.baselines_changed == 'true' &&
+      (needs.tracking-issue.result == 'success' || needs.tracking-issue.result == 'skipped')
+    needs: [freshness, tracking-issue]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:

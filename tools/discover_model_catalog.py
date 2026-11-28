@@ -240,11 +240,13 @@ def main(argv: list[str] | None = None) -> int:
 
     providers = args.provider or list(PROVIDERS)
     observed: dict[str, list[CatalogModel]] = {}
+    # The recorded `checked_at` is taken BEFORE any fetch. catalog_diff ignores unknown
+    # models created at or before it, so a later cutoff would hide a model released
+    # while the catalogs were being read.
+    cutoff = dt.datetime.now(tz=dt.UTC)
     report = build_report(registry, providers, observed)
     if args.record_baselines:
-        report["baseline_changes"] = record_observation(
-            registry, observed, providers, dt.datetime.now(tz=dt.UTC)
-        )
+        report["baseline_changes"] = record_observation(registry, observed, providers, cutoff)
         if report["baseline_changes"]:
             args.registry.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
     rendered = json.dumps(report, indent=2)
