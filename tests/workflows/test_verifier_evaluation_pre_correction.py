@@ -46,9 +46,7 @@ def _local_command_path(bin_path: Path) -> str:
     return str(bin_path)
 
 
-PRE_CORRECTION_SHELL = (
-    ROOT / "tests/fixtures/verifier_evaluation_transport/pre_correction_llm_evaluate.sh"
-)
+PRE_CORRECTION_SHELL = ROOT / "tests/workflows/fixtures/verifier_pre_correction_llm_evaluate.sh"
 PRE_CORRECTION_SHA256 = "0f30c765f1f295573edfe184a3c753a5181ace62daece522d7c1aacaa220b630"
 ORIGINAL_FAILURES = (
     "generator",
