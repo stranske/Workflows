@@ -29,7 +29,6 @@ the centralized CI and automation workflows from stranske/Workflows.
 | `agents-issue-optimizer.yml` | Formats issues using LangChain | `OPENAI_API_KEY` (optional) |
 | `agents-80-pr-event-hub.yml` | Consolidated PR event handling (pr-meta, bot comments, verify-to-issue) | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
 | `agents-81-gate-followups.yml` | Consolidated Gate follow-ups (keepalive, autofix, post-CI) | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
-| `agents-orchestrator.yml` | (Legacy) Scheduled keepalive sweeps | `SERVICE_BOT_PAT`, `ACTIONS_BOT_PAT` |
 | `agents-guard.yml` | Security gate for agent workflows | None |
 | `agents-verifier.yml` | Validates agent completions | `SERVICE_BOT_PAT` |
 
@@ -40,9 +39,6 @@ their **2026-02-15** deadline. Use `agents-80-pr-event-hub.yml` and
 
 **Migration toggle:** set repository variable `USE_CONSOLIDATED_WORKFLOWS=true` to enable the
 consolidated hubs.
-
-**Note:** `agents-orchestrator.yml` is legacy. New setups should use `agents-81-gate-followups.yml`
-which integrates with the Gate workflow for more reliable triggering.
 
 ## Architecture
 
@@ -65,9 +61,8 @@ steps:
     uses: actions/checkout@v6
     with:
       repository: stranske/Workflows
-         # Keep this aligned with the ref you use in `uses: stranske/Workflows/...@<ref>`.
-         # Prefer stable tags (`v1`) for most consumers.
-         ref: v1
+      # Match the ref used by the consumer's reusable Workflows caller.
+      ref: main
       sparse-checkout: .github/scripts
       path: workflows-lib
 ```
@@ -175,11 +170,11 @@ Use an exact commit SHA when you need stricter reproducibility or a controlled r
 |--------|---------|------|
 | `KEEPALIVE_AUTHORITY_SIGNING_KEY` | Dedicated random HMAC key for signed authority-challenge claims | Always required for terminal authority confirmation, independent of the authentication choice above; a missing key fails closed. Do not reuse an App private key |
 
-### Legacy Secrets (for agents-orchestrator.yml)
+### Actions Token Fallback
 
 | Secret | Purpose | Note |
 |--------|---------|------|
-| `ACTIONS_BOT_PAT` | Workflow dispatch triggers | Only needed for orchestrator |
+| `ACTIONS_BOT_PAT` | Workflow dispatch and write token fallback | Used by active PR event and Gate follow-up workflows |
 
 ## Required Repository Variables
 
@@ -369,7 +364,7 @@ If migrating from `agents-orchestrator.yml` to `agents-81-gate-followups.yml`:
 3. **Update concurrency groups** to use PR number
 4. **Test with dry_run** enabled
 5. **Remove orchestrator** workflow once confirmed working
-6. **Remove `ACTIONS_BOT_PAT`** secret (no longer needed)
+6. Keep `ACTIONS_BOT_PAT` if an active workflow uses it as a credential fallback.
 
 Key differences:
 - Orchestrator: scheduled polling every 30 minutes
