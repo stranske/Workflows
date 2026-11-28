@@ -1,6 +1,6 @@
 # Auto-Pilot Metrics Schema
 
-> **Retired.** Auto-Pilot was retired in #5379 and nothing produces these records now. This page is kept as the record format that `scripts/aggregate_agent_metrics.py` can still read from older artifacts. The collector scripts and workflow edits named below are historical.
+> **Retired.** Auto-Pilot was retired in #5379 and nothing produces these records now. The aggregator, the weekly artifact selector and the LangSmith dashboard no longer read `autopilot-metrics-*` artifacts (removed after the last one expired). This page is kept only as the historical record format; the collector scripts and workflow edits named below no longer exist.
 
 Auto-pilot metrics are logged as newline-delimited JSON (NDJSON), one record per
 line. Each record describes either a step execution, a cycle summary, or an

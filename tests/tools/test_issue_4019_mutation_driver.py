@@ -19,6 +19,10 @@ RERUN_RECEIPTS_PATH = (
     ROOT / "docs/evidence/issue-4019/r3/integration-rerun/mutations/mutation-receipts.json"
 )
 METRICS_READER_PATH = "scripts/aggregate_agent_metrics.py"
+# Mutation 02 targeted the Auto-Pilot summary in the metrics reader, removed with Auto-Pilot
+# (#5379) once its artifacts had expired. The frozen receipts keep recording it; the live
+# source no longer contains its target line, so the live-source checks skip it.
+RETIRED_READER_MUTATIONS = {"02"}
 # The retained reader bytes are recoverable at 0513e66b7c91; the historical
 # integration-rerun commit is unavailable. CI's shallow checkout has neither.
 HISTORICAL_METRICS_SHA256 = "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
@@ -408,7 +412,8 @@ def test_verified_mutation_receipts_inventory():
                     f"# revision: {expected_rev}\n"
                 ), f"{packet}: {name} revision mismatch"
             live_bytes = (ROOT / rel_path).read_bytes()
-            assert live_bytes.decode("utf-8").count(old) == count
+            if mid not in RETIRED_READER_MUTATIONS:
+                assert live_bytes.decode("utf-8").count(old) == count
             if rel_path == METRICS_READER_PATH:
                 assert receipt["sha256_before"] == HISTORICAL_METRICS_SHA256
             elif verify_live_digest:
@@ -421,7 +426,7 @@ def test_verified_mutation_receipts_inventory():
 
 @pytest.mark.parametrize(
     ("mutation_id", "expected_error", "message"),
-    [("01", AssertionError, None), ("02", AssertionError, None), ("03", TypeError, "not iterable")],
+    [("01", AssertionError, None), ("03", TypeError, "not iterable")],
 )
 def test_current_metrics_reader_mutation_still_has_named_failure(
     tmp_path, monkeypatch, mutation_id, expected_error, message

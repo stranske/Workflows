@@ -19,7 +19,6 @@ const EXACT_METRICS_ARTIFACTS = new Set([
 ]);
 
 const PREFIXED_METRICS_ARTIFACTS = [
-  'autopilot-metrics-',
   'issue-optimizer-metrics-',
   'issue-intake-format-metrics-',
   'codex-cli-freshness-',
@@ -44,7 +43,6 @@ const PATTERNED_METRICS_ARTIFACTS = [
 // re-derives this list from the workflow files, so it cannot drift silently.
 const NO_PRODUCER_FAMILIES = [
   'agents-verifier-disposition-metrics',
-  'autopilot-metrics',
   'issue-intake-format-metrics',
   'issue-optimizer-metrics',
 ];
