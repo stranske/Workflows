@@ -173,7 +173,10 @@ def test_maint80_builds_conformance_from_its_own_downloads() -> None:
 
 
 def test_routine_observability_retention_is_bounded() -> None:
-    for name in ("maint-80-langsmith-metrics-dashboard.yml", "health-84-langsmith-observability.yml"):
+    for name in (
+        "maint-80-langsmith-metrics-dashboard.yml",
+        "health-84-langsmith-observability.yml",
+    ):
         for step in _steps(name):
             if "actions/upload-artifact@" in step.get("uses", ""):
                 assert step["with"]["retention-days"] == 30, (name, step.get("name"))
