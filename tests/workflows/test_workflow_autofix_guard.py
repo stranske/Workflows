@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import subprocess
 from typing import Any
 
+import pytest
 import yaml
 
 WORKFLOWS = pathlib.Path(".github/workflows")
 GITHUB_SCRIPTS = pathlib.Path(".github/scripts")
+AUTOFIX_CALLERS = [
+    WORKFLOWS / "autofix.yml",
+    pathlib.Path("templates/consumer-repo") / WORKFLOWS / "autofix.yml",
+]
 
 
 def _load_yaml(name: str) -> dict[str, Any]:
@@ -54,6 +60,55 @@ def test_autofix_loop_does_not_subscribe_to_workflow_job_events() -> None:
     assert (
         "workflow_job" not in triggers
     ), "workflow_job events create noisy push-associated autofix runs with no correctness gain"
+
+
+@pytest.mark.parametrize(
+    "caller",
+    AUTOFIX_CALLERS,
+    ids=["source", "consumer-template"],
+)
+def test_other_label_names_take_a_run_specific_group_before_the_pr_group(
+    caller: pathlib.Path,
+) -> None:
+    concurrency = yaml.safe_load(caller.read_text(encoding="utf-8"))["concurrency"]
+    group = " ".join(concurrency["group"].split())
+    assert (
+        "${{ ( github.event_name == 'pull_request_target' && "
+        "github.event.label.name != 'autofix' && github.event.label.name != 'autofix:clean' && "
+        "format('label-event-{0}', github.run_id) ) || github.event.pull_request.number"
+    ) in group
+    assert concurrency["cancel-in-progress"] is True
+
+
+@pytest.mark.parametrize("caller", AUTOFIX_CALLERS, ids=["source", "consumer-template"])
+def test_manual_label_eligibility_uses_actions_case_insensitive_match(
+    caller: pathlib.Path,
+) -> None:
+    resolve = yaml.safe_load(caller.read_text(encoding="utf-8"))["jobs"]["resolve"]
+    eligibility = next(step["with"] for step in resolve["steps"] if step.get("id") == "eligibility")
+    probe = r"""
+const { evaluateEligibility } = require('./.github/actions/agent-event-eligibility/eligibility.js');
+const inputs = JSON.parse(process.argv[1]);
+const cases = [['AutoFix', 'true'], ['AutoFix:Clean', 'true'], ['autofix:patch', 'false']];
+const results = cases.map(([label, matched]) => evaluateEligibility({
+  payload: {
+    action: 'labeled',
+    label: { name: label },
+    pull_request: { labels: [{ name: 'autofix:clean' }] },
+  },
+  eventName: 'pull_request_target',
+  expectedActions: inputs['expected-actions'],
+  customPredicate: inputs['custom-predicate'].replace('${{ env.AUTOFIX_REQUEST_LABEL }}', matched),
+}).shouldRun);
+console.log(JSON.stringify(results));
+"""
+    completed = subprocess.run(
+        ["node", "-e", probe, json.dumps(eligibility)], check=True, capture_output=True, text=True
+    )
+    assert json.loads(completed.stdout) == [True, True, False]
+    assert resolve["env"]["AUTOFIX_REQUEST_LABEL"] == (
+        "${{ github.event.label.name == 'autofix' || github.event.label.name == 'autofix:clean' }}"
+    )
 
 
 def test_agents_autofix_loop_uses_direct_retry_helper_contract() -> None:

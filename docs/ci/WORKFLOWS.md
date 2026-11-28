@@ -189,7 +189,11 @@ For a skipped formatter, open **Resolve Context** in the CI Autofix Loop run. On
 failed or timed-out CI runs it checks for a relevant lint failure and Python
 changes on the PR. To request formatting directly, apply `autofix` or
 `autofix:clean` to an open, non-draft PR from the same repository with Python
-changes. Maint 71 handles generated sync PRs.
+changes. GitHub's case-insensitive label comparison governs both concurrency and
+eligibility, so registered spellings such as `Autofix:Clean` request the same
+cosmetic-only mode as `autofix:clean`. Other label names get a separate
+concurrency group per run, which protects pending and running formatting
+requests. Maint 71 handles generated sync PRs.
 
 For an admitted run, inspect the reusable job for the repair commit on the PR
 branch. If the job reports patch delivery, download `autofix-patch-pr-<number>`

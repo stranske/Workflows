@@ -36,9 +36,16 @@ permissions:
   pull-requests: write
 
 concurrency:
+  # Keep other label events out of the PR's running and pending slots.
   group: >-
     autofix-${{
-      github.event.pull_request.number
+      (
+        github.event_name == 'pull_request_target' &&
+        github.event.label.name != 'autofix' &&
+        github.event.label.name != 'autofix:clean' &&
+        format('label-event-{0}', github.run_id)
+      )
+      || github.event.pull_request.number
       || (
         github.event.workflow_run.pull_requests &&
         github.event.workflow_run.pull_requests[0] &&
@@ -53,6 +60,10 @@ jobs:
   resolve:
     name: Resolve Context
     runs-on: ubuntu-latest
+    env:
+      AUTOFIX_REQUEST_LABEL: >-
+        ${{ github.event.label.name == 'autofix' || github.event.label.name == 'autofix:clean' }}
+      AUTOFIX_CLEAN_LABEL_PRESENT: ${{ contains(github.event.pull_request.labels.*.name, 'autofix:clean') }}
     outputs:
       should_run: ${{ steps.context.outputs.should_run || 'false' }}
       pr_number: ${{ steps.context.outputs.pr_number }}
@@ -85,7 +96,7 @@ jobs:
           expected-actions: completed,labeled
           custom-predicate: >-
             (event_name == 'pull_request_target' && action == 'labeled' &&
-             (label.name == 'autofix' || label.name == 'autofix:clean')) ||
+             ${{ env.AUTOFIX_REQUEST_LABEL }}) ||
             (event_name == 'workflow_run' && (workflow_run.conclusion == 'failure' || workflow_run.conclusion == 'timed_out') &&
              length(workflow_run.pull_requests) > 0)
 
@@ -236,6 +247,14 @@ jobs:
 
             const setOutputs = ({ pr, sameRepo, callerActor }) => {
               const labels = (pr.labels || []).map((l) => l.name);
+              if (
+                context.eventName === 'pull_request_target' &&
+                process.env.AUTOFIX_CLEAN_LABEL_PRESENT === 'true' &&
+                !labels.includes('autofix:clean')
+              ) {
+                // The reusable workflow receives the canonical clean-mode label.
+                labels.push('autofix:clean');
+              }
               core.setOutput('should_run', 'true');
               core.setOutput('pr_number', pr.number);
               core.setOutput('head_ref', pr.head.ref);
@@ -414,15 +433,8 @@ jobs:
               return;
             }
 
-            const label =
-              context.payload.label?.name?.toLowerCase();
-            if (
-              label !== 'autofix' &&
-              label !== 'autofix:clean'
-            ) {
-              core.info(
-                `Label '${label}' is not an autofix trigger.`,
-              );
+            if (process.env.AUTOFIX_REQUEST_LABEL !== 'true') {
+              core.info(`Label '${context.payload.label?.name}' is not an autofix trigger.`);
               core.setOutput('should_run', 'false');
               return;
             }
