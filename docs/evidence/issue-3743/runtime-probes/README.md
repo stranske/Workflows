@@ -16,6 +16,36 @@ without abridgment. `source-provenance.json` verifies that both production copie
 and all four baseline test files are byte-identical to base
 `98b6ed3de1fdea92e3eb00420c863f873a00a210`.
 
+## Recover the original matched-run files
+
+The [original runtime-probe tree](https://github.com/stranske/Workflows/tree/0c0334c6e92588c158f1c9362f1409062477de09/docs/evidence/issue-3743/runtime-probes)
+preserves the original root-level baseline and candidate coverage JSON, JUnit and
+console files, comparison, controls, ranking, and formatter and template logs.
+Their recorded digests are in `manifest.prepack-historical.json`. The later
+revalidation and closer archives remain alongside this guide.
+
+From a Workflows clone, use the command below to recover the original tree into
+a new temporary directory. It fetches the exact commit when needed in a shallow
+clone.
+
+```sh
+(
+  set -e
+  cd "$(git rev-parse --show-toplevel)"
+  revision=0c0334c6e92588c158f1c9362f1409062477de09
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 origin "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-3743-runtime-probes.XXXXXX")
+  git -c tar.umask=0022 archive --output="$recovered/source.tar" "$revision" docs/evidence/issue-3743/runtime-probes
+  tar -xpf "$recovered/source.tar" -C "$recovered"
+  rm "$recovered/source.tar"
+  printf '%s\n' "$recovered"
+)
+```
+
+## Repeat the runtime-probe checks
+
 Replay into a directory that does not already exist:
 
 ```sh
