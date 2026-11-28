@@ -161,9 +161,8 @@ a summary. There is also a **Gate-driven** repair path: when Gate fails,
 `agents-81-gate-followups.yml` (via `workflow_run`) routes the failure to
 `agents-autofix-loop.yml`, which handles larger fix-ups (pyproject sync, scripted
 rewrites, merge-conflict handling). In Workflows itself the loop starts once from
-Gate's `workflow_run`. Gate no longer sends the legacy `autofix_gate_failure`
-`repository_dispatch`, so `agents-autofix-dispatcher.yml` has no sender and is
-awaiting removal.
+Gate's `workflow_run`. The legacy `autofix_gate_failure` dispatch and its
+`agents-autofix-dispatcher.yml` listener were retired on 2026-11-28.
 
 ---
 

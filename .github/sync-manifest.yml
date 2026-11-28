@@ -100,8 +100,6 @@ workflows:
   - source: .github/agents/belt-labels.json
     description: "Canonical belt queue labels shared by dispatcher, worker, auto-pilot, and cleanup tooling"
 
-  - source: .github/workflows/agents-autofix-dispatcher.yml
-    description: "Autofix dispatch bridge - acknowledges legacy Gate repository_dispatch events; agents-81-gate-followups handles repair work"
 
   # Post-merge trusted-base execution, job-scoped permissions and declared secrets.
   - source: .github/workflows/agents-verifier.yml
@@ -179,6 +177,8 @@ workflows:
 
 # Files to remove from consumer repos (obsolete / harmful when present)
 removals:
+  - target: .github/workflows/agents-autofix-dispatcher.yml
+    description: "Remove the retired autofix dispatch bridge; Gate no longer sends autofix_gate_failure, and agents-81 starts Gate-driven repair from workflow_run"
   - target: .github/workflows/agents-decompose.yml
     description: "Remove the retired Task Decomposition workflow; Issue Optimizer retains task splitting and the shared decomposer"
   - target: .github/scripts/sync_tracker_state/index.js

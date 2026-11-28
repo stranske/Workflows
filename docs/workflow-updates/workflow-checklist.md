@@ -14,7 +14,7 @@ This checklist will track optimization, consolidation, or archival work for ever
 | [x] | `agents-73-codex-belt-conveyor-dispatch.yml` | Retired manual source-side conveyor preview. |
 | [x] | `agents-auto-label.yml` | Still the LangChain-based labeler; removed the redundant App mint so it runs entirely on the shared API client. |
 | [x] | `agents-auto-pilot.yml` | Retired. The shared opener admits work and assigns the worker. |
-| [x] | `agents-autofix-dispatcher.yml` | Dispatch path still needed (Gate autofix failure → loop); kept as-is and documented that it simply forwards run metadata using the App token. |
+| [x] | `agents-autofix-dispatcher.yml` | Retired 2026-11-28 (cohesion B2). Gate no longer sends `autofix_gate_failure`; the Autofix Loop starts from Gate `workflow_run` and agents-81 handles consumer repairs. |
 | [x] | `agents-autofix-loop.yml` | Re-added the Gate `workflow_run` trigger (alongside the dispatcher path) so Gate failures still launch repairs even in repos that haven’t adopted the new dispatch event, and updated every `withRetry` call to use the token-aware client so rate-limit rotation actually works. |
 | [x] | `agents-autofix-rebase.yml` | New helper keeps PRs rebased via the App token and files `autofix:conflict` only when manual work is needed. |
 | [x] | `agents-bot-comment-autolabel.yml` | Auto-labels trusted bot review comments with `autofix:bot-comments` so inline fixes run without human input. |
