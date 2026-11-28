@@ -93,3 +93,113 @@ def test_snapshot_issue_is_created_and_updated_as_a_durable_tracker() -> None:
     assert "const trackerLabelName = 'tracker:durable';" in script
     assert "labels: [labelName, trackerLabelName]" in script
     assert "existingLabels.add(trackerLabelName);" in script
+
+
+# --- Cohesion review A4: one branch-protection writer --------------------------
+
+WORKFLOWS_DIR = ROOT / ".github/workflows"
+CONFIG_ARG = "--config .github/config/required-contexts.json"
+
+
+def _protection_tool_invocations() -> list[tuple[str, str, str]]:
+    """Every step in every workflow that runs enforce_gate_branch_protection.py."""
+    found: list[tuple[str, str, str]] = []
+    for path in sorted(WORKFLOWS_DIR.glob("*.yml")):
+        document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for job in (document.get("jobs") or {}).values():
+            for step in job.get("steps") or []:
+                run = str(step.get("run") or "")
+                if "enforce_gate_branch_protection.py" in run:
+                    found.append((path.name, str(step.get("name")), " ".join(run.split())))
+    return found
+
+
+def test_health44_is_the_only_workflow_that_applies_branch_protection() -> None:
+    invocations = _protection_tool_invocations()
+    writers = [(name, step) for name, step, run in invocations if "--apply" in run]
+    assert writers == [
+        ("health-44-gate-branch-protection.yml", "Enforce gate branch protection")
+    ], writers
+
+
+def test_every_branch_protection_reader_uses_the_shared_config_not_a_literal() -> None:
+    # A deliberate second context added to required-contexts.json reaches the
+    # one writer and every checker, because none of them names a context.
+    invocations = _protection_tool_invocations()
+    assert {name for name, _, _ in invocations} >= {
+        "health-40-repo-selfcheck.yml",
+        "health-44-gate-branch-protection.yml",
+    }
+    for name, step, run in invocations:
+        assert CONFIG_ARG in run, (name, step)
+        assert "--context" not in run, (name, step)
+
+
+def test_selfcheck_snapshot_is_read_only() -> None:
+    step = _workflow_step("Snapshot branch protection state")
+    assert "--check" in step["run"]
+    assert "--apply" not in step["run"]
+    names = {
+        s.get("name") for s in yaml.safe_load(WORKFLOW.read_text())["jobs"]["repo-health"]["steps"]
+    }
+    assert "Enforce branch protection policy" not in names
+    assert "'enforce+verify'" not in WORKFLOW.read_text(encoding="utf-8")
+
+
+# --- Cohesion review A5d: zizmor alert count and trend -------------------------
+
+
+def test_zizmor_count_step_is_best_effort_and_permitted() -> None:
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    assert workflow["permissions"]["security-events"] == "read"
+    step = _workflow_step("Count open zizmor alerts")
+    assert step["continue-on-error"] is True
+    assert step["if"] == "always()"
+    assert "countOpenAlerts" in step["with"]["script"]
+    assert "'[health] repository self-check'" in step["with"]["script"]
+
+
+def _extract_heredoc(step_name: str) -> str:
+    run = _workflow_step(step_name)["run"]
+    match = re.search(r"python - <<'PY'\n(?P<body>.*?)\nPY", run, flags=re.DOTALL)
+    assert match, f"{step_name} heredoc not found"
+    return textwrap.dedent(match.group("body"))
+
+
+def _render_status_body(tmp_path: Path, zizmor_md: str | None) -> str:
+    import subprocess
+    import sys
+
+    if zizmor_md is not None:
+        (tmp_path / "repo-health-zizmor.md").write_text(zizmor_md, encoding="utf-8")
+    script = tmp_path / "render.py"
+    script.write_text(_extract_heredoc("Generate repo health status body"), encoding="utf-8")
+    subprocess.run([sys.executable, str(script)], cwd=tmp_path, check=True)
+    return (tmp_path / "repo-health-issue.md").read_text(encoding="utf-8")
+
+
+def test_status_body_carries_the_zizmor_section(tmp_path: Path) -> None:
+    section = "## Security scan alerts\n\n*Open zizmor alerts:* `963`\n"
+    body = _render_status_body(tmp_path, section)
+    assert "*Open zizmor alerts:* `963`" in body
+
+
+def test_status_body_says_not_counted_when_the_count_step_did_not_run(tmp_path: Path) -> None:
+    body = _render_status_body(tmp_path, None)
+    assert "*Open zizmor alerts:* not counted: the count step did not run" in body
+    assert "`0`" not in body
+
+
+def test_protection_drift_does_not_skip_signal_collection() -> None:
+    """Without the old apply step, --check exits 1 on drift; that must be reported, not fatal."""
+    snapshot = _workflow_step("Snapshot branch protection state")
+    assert snapshot["id"] == "protection-snapshot"
+    assert snapshot["continue-on-error"] is True
+    collect = _workflow_step("Collect repository signals")
+    assert collect["env"]["PROTECTION_SNAPSHOT_OUTCOME"] == (
+        "${{ steps.protection-snapshot.outcome }}"
+    )
+    script = collect["with"]["script"]
+    assert "snapshotOutcome === 'failure'" in script
+    assert "key: 'protection-drift'" in script
+    assert "status: 'warn'" in script.split("key: 'protection-drift'")[1][:200]

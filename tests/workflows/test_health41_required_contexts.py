@@ -90,6 +90,7 @@ def _run_protection_script(
         const warnings = [];
         const infos = [];
         const summaryRaw = [];
+        const outputs = {};
         const summaryStub = {
           addHeading() { return summaryStub; },
           addTable() { return summaryStub; },
@@ -142,6 +143,7 @@ def _run_protection_script(
           fs,
           core: {
             setFailed(message) { failures.push(String(message)); },
+            setOutput(name, value) { outputs[name] = String(value); },
             warning(message) { warnings.push(String(message)); },
             info(message) { infos.push(String(message)); },
             summary: summaryStub,
@@ -166,6 +168,7 @@ def _run_protection_script(
             warnings,
             infos,
             summaryRaw,
+            outputs,
             threw: scriptError,
           }));
         };
@@ -474,3 +477,44 @@ def test_health41_gate_status_publication_tests_retain_duplicate_gate_context() 
 
     consolidation_source = GATE_CONSOLIDATION_TEST.read_text(encoding="utf-8")
     assert "publish the Gate / gate commit status" in consolidation_source
+
+
+def test_health41_drift_failure_text_is_exported_for_the_tracker_issue() -> None:
+    """Cohesion review A5a: the failure text reaches the report-failure job."""
+    outcome = _run_protection_script(
+        branch_rules=[],
+        protection_error={"status": 404, "message": "Branch not protected"},
+        required_contexts=["summary"],
+    )
+    assert len(outcome["failures"]) == 1, outcome
+    assert outcome["outputs"].get("failure_detail") == outcome["failures"][0]
+    assert "Branch protection drift detected" in outcome["outputs"]["failure_detail"]
+
+
+def test_health41_failure_is_routed_to_the_self_check_tracker_once() -> None:
+    document = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    jobs = document["jobs"]
+    sweep = jobs["weekly-sweep"]
+    assert sweep["outputs"]["failure_detail"] == (
+        "${{ steps.verify-protection.outputs.failure_detail }}"
+    )
+    report = jobs["report-failure"]
+    assert report["needs"] == "weekly-sweep"
+    assert "failure()" in report["if"]
+    assert "needs.weekly-sweep.result == 'failure'" in report["if"]
+    assert report["permissions"]["issues"] == "write"
+    scripts = [
+        step["with"]["script"]
+        for step in report["steps"]
+        if "with" in step and "script" in step["with"]
+    ]
+    assert len(scripts) == 1
+    assert "recordTrackerFailure" in scripts[0]
+    assert "Health 41 Repo Health" in scripts[0]
+    # The tracker title lives in one module that the self-check also uses.
+    helper = (REPO_ROOT / ".github/scripts/health_tracker_issue.js").read_text(encoding="utf-8")
+    selfcheck = (REPO_ROOT / ".github/workflows/health-40-repo-selfcheck.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "const TRACKER_TITLE = '[health] repository self-check failed';" in helper
+    assert "const issueTitle = '[health] repository self-check failed';" in selfcheck

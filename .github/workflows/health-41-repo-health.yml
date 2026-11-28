@@ -111,6 +111,8 @@ jobs:
     needs: rate-limit-check
     if: needs.rate-limit-check.outputs.proceed == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      failure_detail: ${{ steps.verify-protection.outputs.failure_detail }}
     env:
       STALE_BRANCH_DAYS: ${{ vars.REPO_HEALTH_STALE_BRANCH_DAYS || '30' }}
       STALE_PR_DAYS: ${{ vars.REPO_HEALTH_STALE_PR_DAYS || '30' }}
@@ -410,6 +412,7 @@ jobs:
             core.info('Repository health summary written to workflow run.');
 
       - name: Verify default branch protection
+        id: verify-protection
         uses: actions/github-script@v9
         env:
           DEFAULT_BRANCH: ${{ steps.summarise.outputs.default-branch }}
@@ -426,6 +429,12 @@ jobs:
                     githubInstance.paginate(method, params),
                 };
             const { withRetry } = retryHelpers;
+            // The failure text is also a step output so the report-failure job
+            // can quote it on the self-check tracker issue (cohesion review A5a).
+            const fail = (message) => {
+              core.setOutput('failure_detail', message);
+              core.setFailed(message);
+            };
 
             const defaultBranch = process.env.DEFAULT_BRANCH || null;
             if (!defaultBranch) {
@@ -434,7 +443,7 @@ jobs:
                 'Ensure the summarise step completed successfully and',
                 'outputs.default-branch is set.',
               ].join(' ');
-              core.setFailed(failure);
+              fail(failure);
               return;
             }
 
@@ -455,7 +464,7 @@ jobs:
                 throw new Error('required_contexts or contexts must be an array of non-empty strings');
               }
             } catch (error) {
-              core.setFailed(
+              fail(
                 `Unable to load required contexts from ${requiredContextsPath}: ${error.message}`,
               );
               return;
@@ -579,7 +588,7 @@ jobs:
               const failure = `Unable to read branch protection configuration for ${defaultBranch}: ${
                 readErrors.join('; ')
               }`;
-              core.setFailed(failure);
+              fail(failure);
               core.summary.addHeading('Default branch protection', 2).addRaw(failure, true);
               await core.summary.write();
               return;
@@ -667,7 +676,7 @@ jobs:
                 `${defaultBranch}) so required status checks are exactly:`,
                 `${expectedListForPointer}.`,
               ].join(' ');
-              core.setFailed(driftFailure);
+              fail(driftFailure);
               return;
             }
 
@@ -675,3 +684,54 @@ jobs:
             await summary.write();
 
             core.info('Branch protection configuration matches expectations.');
+
+  # Health 41 failed eight Mondays in a row (2026-09-21..11-09) and nothing was
+  # filed. Every failure now lands on the self-check's tracker issue, exactly
+  # one update per failed run (cohesion review A5a).
+  report-failure:
+    name: Route failure to the self-check tracker issue
+    needs: weekly-sweep
+    if: ${{ failure() && needs.weekly-sweep.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout tracker helper
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts/health_tracker_issue.js
+            .github/scripts/github-api-with-retry.js
+            .github/scripts/error_classifier.js
+            .github/scripts/token_load_balancer.js
+          sparse-checkout-cone-mode: false
+
+      - name: Update the self-check tracker issue
+        uses: actions/github-script@v9
+        env:
+          FAILURE_DETAIL: ${{ needs.weekly-sweep.outputs.failure_detail }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { recordTrackerFailure } = require('./.github/scripts/health_tracker_issue.js');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'health-41-tracker-issue',
+              capabilities: ['issues:write'],
+            });
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const result = await recordTrackerFailure({
+              github,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              source: 'Health 41 Repo Health',
+              detail: process.env.FAILURE_DETAIL || '',
+              runUrl,
+              withRetry,
+            });
+            core.info(`Tracker issue #${result.number}: ${result.action}.`);
