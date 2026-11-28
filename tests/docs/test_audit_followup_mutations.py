@@ -2,10 +2,15 @@
 
 import hashlib
 import json
+import runpy
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from scripts import audit_followup_mutations as auditor
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+AUDITOR_PATH = REPO_ROOT / "docs/evidence/issue-3956/audit_followup_mutations.py"
+auditor = SimpleNamespace(**runpy.run_path(str(AUDITOR_PATH)))
 
 
 @pytest.fixture
