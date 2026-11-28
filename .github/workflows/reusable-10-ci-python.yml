@@ -103,6 +103,13 @@ on:
         required: false
         default: true
         type: boolean
+      typecheck-paths:
+        description: >-
+          Space-separated paths mypy checks. Paths that do not exist are dropped; when
+          none exist, mypy checks the repository root.
+        required: false
+        default: 'src'
+        type: string
       coverage-python-version:
         description: Optional runtime for coverage; empty instruments all selected runtimes.
         required: false
@@ -1602,6 +1609,8 @@ jobs:
       - name: Mypy (type check)
         id: mypy
         continue-on-error: true
+        env:
+          INPUT_TYPECHECK_PATHS: ${{ inputs['typecheck-paths'] }}
         run: |
           set -euo pipefail
           args=()
@@ -1610,11 +1619,24 @@ jobs:
           fi
           # Exclude .workflows-lib (synced from source repo with different config)
           args+=("--exclude" ".workflows-lib")
-          target="src"
-          if [ ! -d "$target" ]; then
-            target="."
+          read -r -a requested <<< "${INPUT_TYPECHECK_PATHS:-src}"
+          targets=()
+          for path in "${requested[@]}"; do
+            if [ -e "$path" ]; then
+              targets+=("$path")
+            else
+              echo "mypy: requested path '$path' does not exist; skipped"
+            fi
+          done
+          if [ "${#targets[@]}" -eq 0 ]; then
+            targets=(".")
           fi
-          mypy "${args[@]}" "$target"
+          echo "mypy targets: ${targets[*]}"
+          if [ "${targets[*]}" != "." ]; then
+            # Name every checked file so a path that silently left the type-checked set shows.
+            find "${targets[@]}" -name '*.py' -not -path '*/.workflows-lib/*' | sort | sed 's/^/  mypy file: /'
+          fi
+          mypy "${args[@]}" "${targets[@]}"
 
       - name: Finalize mypy
         id: finalize
