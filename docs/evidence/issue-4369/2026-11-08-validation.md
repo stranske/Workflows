@@ -2229,7 +2229,7 @@ BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4558-round4-black-runtime timeout -k 2
 ```
 
 It exits **0**, **977 files would be left unchanged**; the
-[complete Black output](runtime-4550/4558-round4-black.log) is retained.
+[complete Black output](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-round4-black.log) is retained.
 `git diff --check` also exits 0. Commands, results and current PR state are
 summarized in the [round-4 receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round4-readback.json).
 
@@ -2289,7 +2289,7 @@ for candidate `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, source
 [the terminal target report](runtime-4550/4557-maint71-target.json).
 Discussion **4434491702 is excluded**, without claiming its old thread resolved.
 
-The [workflow-specific inventories](runtime-4550/4558-seat-round4-inventory.json)
+The [workflow-specific inventories](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round4-inventory.json)
 cover 23:20:00Z through **2026-11-09T00:01:34Z** with no event filter and complete
 pagination: **0 Maint 68 runs, 0 Maint 71 runs**. Together with the retained
 preceding intervals, no qualifying next producer has been observed. Existing
@@ -2537,7 +2537,7 @@ blob IDs, nonzero exits and moving refs are rejected. No production symbol
 was repaired from a historical diagnostic log.
 
 The [focused test receipt](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-round8-tests.json) and
-[complete log](runtime-4550/4558-round8-tests.log) record **71 passed in 1.03s**,
+[complete log](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-round8-tests.log) record **71 passed in 1.03s**,
 exit **0**, with 21 new mutation cases. Relevant-file Black and Ruff pass.
 These tests validate retained evidence; they do not constitute another hosted
 full-suite execution or clear the upstream non-PASS assessment.
@@ -2574,7 +2574,7 @@ BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4558-round8-black-runtime timeout -k 2
 
 The hook schedules callbacks only; formatting, safe checks, file selection
 and reporting are unchanged. It is outside the repository. The complete
-[Black log](runtime-4550/4558-round8-black.log) and its hash are retained.
+[Black log](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-round8-black.log) and its hash are retained.
 `git diff --check` exits 0. No protected file was edited.
 
 Publication blocker: explicit-path `git add` exited **128**:
@@ -2677,7 +2677,7 @@ no remote checklist completion is claimed.
 Outcome: **0 reproduced code failures from the cited Gate; T5/A3 remain
 unverified**. Check boundary: **2026-11-09T01:49:57Z**. The round's outcome
 command is the existing read-only observer:
-`node docs/evidence/issue-4369/observe-maint68.js docs/evidence/issue-4369/runtime-4550/4558-seat-round8-producer-inventory.json`.
+`node docs/evidence/issue-4369/observe-maint68.js <recovered-directory>/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-producer-inventory.json`.
 It prints `producers: []` and `chain_acceptance: false`. Execution bounds are
 60 seconds per GitHub read and 30 seconds per local receipt check. Stop at the
 first unresolved step after three failed attempts or 60 minutes, whichever
@@ -2697,8 +2697,8 @@ docs and test-quality jobs. Neither a new code defect nor Gate success can be
 inferred from the cancelled predecessor. No workflow repair or pin change is
 justified by that summary.
 
-The [producer inventory](runtime-4550/4558-seat-round8-producer-inventory.json)
-and [merger inventory](runtime-4550/4558-seat-round8-merger-inventory.json)
+The [producer inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-producer-inventory.json)
+and [merger inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-merger-inventory.json)
 cover **2026-11-09T01:23:40Z–2026-11-09T01:49:57Z** with exact workflow IDs,
 no event filter, and complete pagination. The observer exits 0 for each:
 [producer result](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round8-producer-observation.json)
@@ -2992,8 +2992,8 @@ No discussion was resolved or waived by this round.
 
 Outcome **A3=unproved**. Complete workflow-specific inventories cover
 **2026-11-09T02:21:41Z–2026-11-09T02:45:58Z** without an event filter:
-[producer inventory](runtime-4550/4558-seat-round9-producer-inventory.json),
-[merger inventory](runtime-4550/4558-seat-round9-merger-inventory.json).
+[producer inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-producer-inventory.json),
+[merger inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-merger-inventory.json).
 Both retain an explicit empty terminal page, total **0**, and matching exact
 workflow identities. The bounded observer replays exit **0** and find no runs
 ([producer](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round9-producer-observation.json),
@@ -3323,10 +3323,10 @@ on this evidence-only PR head. No production source or dependency pin changed.
 
 The complete workflow-specific inventories cover
 **2026-11-09T03:01:54Z–03:30:44Z**. The
-[producer inventory](runtime-4550/4558-seat-round10-producer-inventory.json)
+[producer inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-producer-inventory.json)
 and [replay](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-producer-observation.json) contain
 zero Maint 68 runs. The
-[merger inventory](runtime-4550/4558-seat-round10-merger-inventory.json)
+[merger inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-merger-inventory.json)
 and [replay](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round10-merger-observation.json) contain
 two Maint 71 workflow-dispatch runs, **42555977107** and **42556352733**.
 Their caller origin remains **UNKNOWN**. Their downloaded reports
@@ -3491,9 +3491,9 @@ full-suite run on this evidence-only PR head.
 
 The complete workflow-specific inventory covers
 **2026-11-09T03:30:44Z–04:02:49.512954Z**. The
-[producer inventory](runtime-4550/4558-seat-round11-producer-inventory.json)
+[producer inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-producer-inventory.json)
 contains zero Maint 68 runs. The
-[merger inventory](runtime-4550/4558-seat-round11-merger-inventory.json)
+[merger inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-merger-inventory.json)
 contains successful workflow-dispatch runs **42557538415** and **42558127073**.
 Their retained [first report](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42557538415-sync-pr-merge-report.json)
 and [second report](https://github.com/stranske/Workflows/blob/d17b088aa5c97e6b024101c39252480c622e8395/docs/evidence/issue-4369/runtime-4550/4558-seat-round11-42558127073-sync-pr-merge-report.json)
@@ -3553,8 +3553,8 @@ revision. The retained payload `cmp` exits 0. Focused receipt checks using
 `/opt/anaconda3/bin/python3` pass **124 tests**. These checks validate the retained
 acceptance evidence; they do not claim the full suites ran on this PR head.
 
-The complete [producer inventory](runtime-4550/4558-seat-round12-producer-inventory.json)
-and [merger inventory](runtime-4550/4558-seat-round12-merger-inventory.json)
+The complete [producer inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-producer-inventory.json)
+and [merger inventory](https://github.com/stranske/Workflows/blob/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550/4558-seat-round12-merger-inventory.json)
 cover **2026-11-09T04:02:49Z–04:15:43.557153Z** with no event filter and complete
 pagination. There are **zero Maint 68 runs** and one Maint 71 run,
 **42559723593**, completed successfully with event `workflow_dispatch`.
@@ -3886,6 +3886,35 @@ Recover a capture using its filename and publication commit.
   out=$(mktemp -d "${TMPDIR:-/tmp}/workflows-runtime-receipt.XXXXXX")
   git show "$revision:docs/evidence/issue-4369/runtime-4550/$receipt" > "$out/$receipt"
   shasum -a 256 "$out/$receipt"
+)
+```
+
+### Remaining historical runtime and seat captures
+
+The [published runtime snapshot](https://github.com/stranske/Workflows/tree/82812e11eef40db67ba59c79bb5cb61f03a24430/docs/evidence/issue-4369/runtime-4550)
+contains the remaining completed format, test, run and seat captures. The
+current observer, test fixtures and bound formatting inputs remain directly
+available in the checkout.
+
+From any directory in a Workflows checkout, run the following command. The
+output is a fresh directory containing the original repository-relative
+paths. For a historical observer command, pass its original JSON at that
+path in the recovered directory.
+
+```bash
+(
+  set -e
+  cd "$(git rev-parse --show-toplevel)"
+  revision=82812e11eef40db67ba59c79bb5cb61f03a24430
+  directory=docs/evidence/issue-4369/runtime-4550
+  if ! git cat-file -e "$revision^{commit}" 2>/dev/null; then
+    git fetch --no-tags --depth=1 https://github.com/stranske/Workflows.git "$revision"
+  fi
+  recovered=$(mktemp -d "${TMPDIR:-/tmp}/issue-4369-history.XXXXXX")
+  git -c tar.umask=0022 archive --output="$recovered/evidence.tar" "$revision" -- "$directory"
+  tar -xpf "$recovered/evidence.tar" -C "$recovered"
+  rm "$recovered/evidence.tar"
+  printf '%s\n' "$recovered"
 )
 ```
 
