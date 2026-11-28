@@ -245,6 +245,8 @@ removals:
     description: "Remove the retired Auto-Pilot step timer"
   - target: scripts/autopilot_metrics_collector.py
     description: "Remove the retired Auto-Pilot metrics writer"
+  - target: .github/scripts/autopilot_metrics.js
+    description: "Remove the legacy Auto-Pilot cycle metrics builder after retirement of its producer"
   - target: .github/scripts/rate-limit-aware-client.js
     description: "Remove retired rate-limit-aware client from template consumers (superseded by github-rate-limited-wrapper.js)"
   - target: .github/scripts/verifier_correction_artifact_sdk/package.json
@@ -543,9 +545,6 @@ scripts:
 
   - source: .github/scripts/capability_bundle.js
     description: "Validates and selects capability-bundle/v1 fragments for keepalive prompts and metrics"
-
-  - source: .github/scripts/autopilot_metrics.js
-    description: "AutoPilot metrics collection and reporting"
 
   - source: .github/scripts/github-api-with-retry.js
     description: "Shared GitHub API retry wrapper with exponential backoff and pagination support"
