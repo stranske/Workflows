@@ -14,7 +14,12 @@ from tests.scripts.pr_verifier.test_verifier_evaluate_evidence_minimum import (
     replace_inventory,
     run_evaluate,
 )
-from tests.scripts.verifier_capacity_fakes import complete_capture_context
+from tests.scripts.verifier_capacity_fakes import (
+    complete_capture_context,
+    synthetic_verifier_capacity_contract,  # noqa: F401
+)
+
+pytestmark = pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 
 PARAGRAPH = (
     "These are recovered existing CI artifacts. No new coverage run, mutation run or "

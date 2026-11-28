@@ -10,6 +10,9 @@ import pytest
 from scripts.langchain import pr_verifier as verifier
 
 from tests.scripts.pr_verifier.test_pr_verifier_file_chunks import Client, patch
+from tests.scripts.verifier_capacity_fakes import synthetic_verifier_capacity_contract  # noqa: F401
+
+pytestmark = pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 
 
 @pytest.mark.parametrize(

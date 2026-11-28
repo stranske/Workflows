@@ -6,7 +6,12 @@ from types import SimpleNamespace
 import pytest
 from scripts.langchain import pr_verifier as verifier
 
-from tests.scripts.verifier_capacity_fakes import with_capacity
+from tests.scripts.verifier_capacity_fakes import (
+    synthetic_verifier_capacity_contract,  # noqa: F401
+    with_capacity,
+)
+
+pytestmark = pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 
 
 def patch(name, size=20000):
