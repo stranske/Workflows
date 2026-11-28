@@ -25,7 +25,7 @@ def _steps() -> list[dict]:
     return _workflow()["jobs"]["validate"]["steps"]
 
 
-def test_checkout_credentials_are_the_app_token_and_github_token_only_reads() -> None:
+def test_push_uses_a_scoped_app_token_and_github_token_only_reads() -> None:
     steps = _steps()
     mint = next(i for i, step in enumerate(steps) if step.get("id") == "app_token")
     checkout = next(
@@ -34,9 +34,13 @@ def test_checkout_credentials_are_the_app_token_and_github_token_only_reads() ->
         if str(step.get("uses", "")).startswith("actions/checkout")
     )
     assert mint < checkout
-    assert (
-        steps[checkout]["with"]["token"] == "${{ steps.app_token.outputs.token || github.token }}"
-    )
+    assert steps[checkout]["with"]["persist-credentials"] is False
+    sync = next(step for step in steps if step.get("name") == SYNC_STEP)
+    assert sync["env"]["APP_TOKEN"] == "${{ steps.app_token.outputs.token }}"
+    assert 'git push "$push_url"' in sync["run"]
+    mint_with = steps[mint]["with"]
+    assert mint_with["repositories"] == "${{ github.event.repository.name }}"
+    assert mint_with["permission-contents"] == "write"
     assert _workflow()["permissions"] == {"contents": "read"}
     assert "secrets.GITHUB_TOKEN" not in WORKFLOW.read_text(encoding="utf-8")
 
@@ -47,7 +51,7 @@ def _git(cwd: Path, *args: str) -> str:
     ).stdout
 
 
-def _run_sync(tmp_path: Path, minted: str) -> subprocess.CompletedProcess[str]:
+def _run_sync(tmp_path: Path, token: str) -> subprocess.CompletedProcess[str]:
     remote = tmp_path / "remote.git"
     subprocess.run(["git", "init", "-q", "--bare", str(remote)], check=True)
     work = tmp_path / "work"
@@ -68,14 +72,19 @@ def _run_sync(tmp_path: Path, minted: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["bash", "-c", step["run"]],
         cwd=work,
-        env={**os.environ, "APP_TOKEN_MINTED": minted, "HEAD_REF": "feature"},
+        env={
+            **os.environ,
+            "APP_TOKEN": token,
+            "HEAD_REF": "feature",
+            "SYNC_PUSH_URL": str(remote),
+        },
         capture_output=True,
         text=True,
     )
 
 
 def test_needed_sync_without_app_token_fails_with_an_instruction(tmp_path) -> None:
-    result = _run_sync(tmp_path, "false")
+    result = _run_sync(tmp_path, "")
     assert result.returncode == 1
     assert "::error::templates/consumer-repo is out of sync" in result.stdout
     assert "Run ./scripts/sync_templates.sh" in result.stdout
@@ -86,7 +95,7 @@ def test_needed_sync_without_app_token_fails_with_an_instruction(tmp_path) -> No
 
 
 def test_needed_sync_with_app_token_pushes_the_commit(tmp_path) -> None:
-    result = _run_sync(tmp_path, "true")
+    result = _run_sync(tmp_path, "app-token")
     assert result.returncode == 0, result.stdout + result.stderr
     log = _git(tmp_path / "remote.git", "log", "--format=%s", "feature")
     assert log.splitlines()[0] == "chore: sync consumer templates"
