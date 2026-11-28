@@ -23,8 +23,12 @@ def _route_for(labels: list[str]) -> dict[str, object]:
     script = (
         f"const prData = {json.dumps(pr_data)};\n"
         "const outputs = {};\n"
+        "const stop = (reason, stopReason = '') => ({stop_reason: stopReason || reason});\n"
+        "const result = (() => {\n"
         f"{match.group('routing')}\n"
-        "process.stdout.write(JSON.stringify({agentType: outputs.agent_type, autofixEnabled}));\n"
+        "return {agentType: outputs.agent_type, autofixEnabled};\n"
+        "})();\n"
+        "process.stdout.write(JSON.stringify(result));\n"
     )
     result = subprocess.run(
         ["node", "-e", script],
@@ -45,3 +49,7 @@ def test_autofix_fallback_never_selects_auto():
         "agentType": "claude",
         "autofixEnabled": True,
     }
+
+
+def test_autofix_leaves_local_loop_prs_to_the_local_loop():
+    assert _route_for(["agent:codex", "agents:local-loop"]) == {"stop_reason": "local_loop"}

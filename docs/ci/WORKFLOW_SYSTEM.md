@@ -174,7 +174,6 @@ explain why a particular status appears in the Checks tab.
 | --- | --- | --- | --- | --- |
 | **Gate** (`pr-00-gate.yml`) | Every pull request (`pull_request`), manual dispatch (`workflow_dispatch`) | ✅ Required status | Ruleset requires **`summary`** per `.github/config/required-contexts.json`; **`Gate / gate`** is the duplicate commit status the summary job still posts | Checks tab → **Gate** → **Re-run jobs** (failed or all) |
 | **Gate summary job** (`pr-00-gate.yml`, job `summary`) | Runs automatically after the Gate jobs finish | ✅ Required status | **`summary`** in PR checks, plus a timeline comment and coverage/status artifacts | Re-run the Gate workflow (the summary job runs automatically) |
-| **Health 41 Repo Health** (`health-41-repo-health.yml`) | Monday 07:15 UTC schedule, manual dispatch | ❌ Informational hygiene | Run log under **Actions → Health 41 Repo Health** | Actions tab → workflow → **Run workflow** |
 | **Health 40 Sweep** (`health-40-sweep.yml`) | Monday 05:05 UTC and daily 06:25 UTC schedules, manual dispatch | ❌ Informational hygiene | Weekly Actionlint, liveness and belt-claim jobs under **Actions → Health 40 Sweep** | Actions tab → workflow → **Run workflow** |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`) | Manual dispatch (or via `workflow_call` from the sweep) | ❌ Informational linting | Check annotations in the associated workflow run | Actions tab → workflow → **Run workflow** (set `REPORTER` inputs if needed) |
 | **Health 45 Agents Guard** (`agents-guard.yml`) | PR lifecycle and label events. The eligibility step reads the routing labels from the registry. | Policy check for eligible PRs | Commit status **`Health 45 Agents Guard / guard`** | Checks tab → **Health 45 Agents Guard** → **Re-run** after updating labels/reviews |
@@ -210,19 +209,6 @@ explain why a particular status appears in the Checks tab.
   so reviewers always have the latest snapshot in one place.
 - **Merge impact.** The ruleset requires the `summary` job. The job also
   publishes the duplicate `Gate / gate` commit status and the CI summary comment.
-
-#### Health 41 Repo Health (`health-41-repo-health.yml`)
-
-- **When it runs.** Monday 07:15 UTC on a schedule, or via manual dispatch.
-- **What it does.** Audits stale branches, unassigned issues, and default-branch
-  protection drift, publishing the weekly hygiene dashboard in the run summary.
-  It compares `.github/config/required-contexts.json` (currently **`summary`**)
-  with the union of effective branch rules and classic protection. A complete
-  read with missing or unexpected contexts produces a drift failure and lists
-  the differences. A read failure identifies the unreadable source. Restore
-  access to that source and rerun Health 41 to determine whether protection
-  needs repair.
-- **Merge impact.** Informational background signal; does not gate pull requests.
 
 #### Health 40 Sweep (`health-40-sweep.yml`)
 
@@ -279,8 +265,6 @@ explain why a particular status appears in the Checks tab.
   independently; a successful rerun posts a fresh timeline summary with updated
   coverage links after Gate turns green. CLI alternative: `gh run rerun
   <gate-run-id>`.
-- **Health 41 Repo Health.** Actions tab → **Health 41 Repo Health → Run
-  workflow**. CLI: `gh workflow run health-41-repo-health.yml`.
 - **Health 42 Actionlint.** Actions tab → **Health 42 Actionlint → Run
   workflow** (set `REPORTER` inputs via repository variables). CLI:
   `gh workflow run health-42-actionlint.yml`.
@@ -348,7 +332,7 @@ fires where” without diving into the full tables:
   - **Primary workflows.** Gate summary job inside `pr-00-gate.yml`,
     `maint-46-post-ci.yml`, `maint-coverage-guard.yml`,
     `maint-45-cosmetic-repair.yml`,
-    and the health guardrails (`health-40`, `health-41`, `health-42`, `health-44`, and `agents-guard` as Health 45; `health-43-ci-signature-guard.yml` archived).
+    and the health guardrails (`health-40`, `health-42`, `health-44`, and `agents-guard` as Health 45; `health-43-ci-signature-guard.yml` archived).
   - **Triggers.** Combination of the Gate summary job running after Gate,
     recurring schedules (health guardrails), and manual dispatch for
     Maint 45.
@@ -357,7 +341,7 @@ fires where” without diving into the full tables:
   - **Where to inspect logs.** Gate summary job: [Gate workflow history](https://github.com/stranske/Workflows/actions/workflows/pr-00-gate.yml).
     Maint 46: [workflow history](https://github.com/stranske/Workflows/actions/workflows/maint-46-post-ci.yml).
     Maint 45: [workflow history](https://github.com/stranske/Workflows/actions/workflows/maint-45-cosmetic-repair.yml).
-    Health guardrails: the [Health 40–45 dashboards](https://github.com/stranske/Workflows/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+41+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+44+Gate+Branch+Protection+OR+workflow%3AHealth+45+Agents+Guard) (Health 43 retired; signature-verify fixture validation moved into `pr-00-gate.yml` and `selftest-ci.yml` after `health-43-ci-signature-guard.yml` was archived).
+    Health guardrails: the [Health 40–45 dashboards](https://github.com/stranske/Workflows/actions?query=workflow%3AHealth+40+repo+OR+workflow%3AHealth+42+Actionlint+OR+workflow%3AHealth+44+Gate+Branch+Protection+OR+workflow%3AHealth+45+Agents+Guard) (Health 43 retired; signature-verify fixture validation moved into `pr-00-gate.yml` and `selftest-ci.yml` after `health-43-ci-signature-guard.yml` was archived).
 - **Issue / agents automation**
   - **Primary workflows.** `agents-keepalive-loop.yml`, `agents-keepalive-sweep.yml`,
     the [shared opener and closer](../ops/LOCAL_LANES.md#lanes-overview),
@@ -550,7 +534,6 @@ Keep this table handy when you are triaging automation: it confirms which workfl
   labelled PR if changes are needed.
 - **Health checks** – recurring workflows that keep the repo honest:
   - `health-40-repo-selfcheck.yml` (weekly pulse, Mondays 06:20 UTC),
-  - `health-41-repo-health.yml` (weekly sweep),
   - `health-42-actionlint.yml` (actionlint enforcement),
   - `health-44-gate-branch-protection.yml` (required check enforcement; signature-verify fixture validation moved into `pr-00-gate.yml` and `selftest-ci.yml` after `health-43-ci-signature-guard.yml` was archived),
   - `health-codex-auth-check.yml` (Codex auth token expiration monitoring),
@@ -688,7 +671,6 @@ resolve existing reservations before removing the receiver's issuer variable.
 | **Maint 46 Post CI** (`maint-46-post-ci.yml`, maintenance bucket) | `workflow_run` (Gate, `completed`) | Recovery-only: inspect the Gate run for a missing or failed `summary` job; when recovery is needed, collect the Gate artifacts, render the consolidated CI summary with coverage deltas, publish a markdown preview, and refresh the Gate commit status. Its independent trusted failure-tracker job processes both failed and healthy same-repository PR Gate runs and uploads the exact issue snapshot path. | ⚪ Automatic follow-up | [Maint 46 runs](https://github.com/stranske/Workflows/actions/workflows/maint-46-post-ci.yml) |
 | **Maint 45 Cosmetic Repair** (`maint-45-cosmetic-repair.yml`, maintenance bucket) | `workflow_dispatch` | Run pytest + fixers manually and open a labelled PR when changes are required. | ⚪ Manual | [Maint 45 manual entry](https://github.com/stranske/Workflows/actions/workflows/maint-45-cosmetic-repair.yml) |
 | **Health 40 Repo Selfcheck** (`health-40-repo-selfcheck.yml`, maintenance bucket) | `schedule` (weekly, Mondays 06:20 UTC), `workflow_dispatch` | Capture repository pulse metrics. | ⚪ Scheduled | [Health 40 summary](https://github.com/stranske/Workflows/actions/workflows/health-40-repo-selfcheck.yml) |
-| **Health 41 Repo Health** (`health-41-repo-health.yml`, maintenance bucket) | `schedule` (weekly), `workflow_dispatch` | Perform weekly dependency and repo hygiene sweep. | ⚪ Scheduled | [Health 41 dashboard](https://github.com/stranske/Workflows/actions/workflows/health-41-repo-health.yml) |
 | **Health 40 Sweep** (`health-40-sweep.yml`, maintenance bucket) | `schedule` (weekly + daily), `workflow_dispatch` | Weekly Actionlint of main, daily workflow liveness and belt-claim reclaim. | ⚪ Scheduled/manual | [Health 40 sweep history](https://github.com/stranske/Workflows/actions/workflows/health-40-sweep.yml) |
 | **Health 42 Actionlint** (`health-42-actionlint.yml`, maintenance bucket) | `workflow_dispatch`, `workflow_call` | Provide the reusable Actionlint leg for sweeps or focused rehearsals. | ⚪ Manual/reusable | [Health 42 logs](https://github.com/stranske/Workflows/actions/workflows/health-42-actionlint.yml) |
 | **Health 44 Gate Branch Protection** (`health-44-gate-branch-protection.yml`, maintenance bucket) | `pull_request`, `workflow_dispatch`, `workflow_call` | Verify the configured default-branch status contexts. | ⚪ Scheduled via sweep / manual | [Health 44 enforcement logs](https://github.com/stranske/Workflows/actions/workflows/health-44-gate-branch-protection.yml) |
@@ -725,7 +707,7 @@ resolve existing reservations before removing the receiver's issuer variable.
 | **Sync/Dependency Campaign** (`maint-82-sync-dependency-campaign.yml`, maintenance bucket) | `schedule` (10-minute continuation sweep), `workflow_dispatch`, `repository_dispatch` | Refreshes the GitHub-visible campaign issue and persists Maint 71 handoffs as a durable queue. Due transient review/check holds dispatch at most one candidate, delivery, and dev-tool lane; actionable review or source failures remain assigned rather than retried as timers. | ⚪ Scheduled/manual | [Sync/Dependency campaign runs](https://github.com/stranske/Workflows/actions/workflows/maint-82-sync-dependency-campaign.yml) |
 | **Maint 83 Bootstrap Consumer** (`maint-83-bootstrap-consumer.yml`, maintenance bucket) | `schedule` (Mondays 06:17 UTC), `workflow_dispatch` | Runs weekly read-only settings verification across registered consumers and applies the manual GitHub-settings bootstrap a freshly-registered consumer needs: workflow permissions, required variables, the automation-bot collaborator invite, and the load-bearing `priority:high` / `priority:normal` / `priority:low` opener-routing labels. Manual dispatch is dry-run by default; execute mode performs cross-repository settings and label writes through `scripts/bootstrap_consumer_settings.py`. | ⚪ Scheduled/manual | [Bootstrap consumer runs](https://github.com/stranske/Workflows/actions/workflows/maint-83-bootstrap-consumer.yml) |
 | **Maint 84 Prune Agent Stubs** (`maint-84-prune-agent-stubs.yml`, maintenance bucket) | `schedule` (Mondays 08:00 UTC), `workflow_dispatch` | Garbage-collects `agents/<agent>-<N>.md` bootstrap stubs whose issue `#N` is closed via `scripts/prune_agent_stubs.py`, preventing unbounded accumulation; dry-run by default on manual dispatch. | ⚪ Scheduled/manual | [Prune agent stubs runs](https://github.com/stranske/Workflows/actions/workflows/maint-84-prune-agent-stubs.yml) |
-| **Maint 85 Keepalive Durability Export** (`maint-85-keepalive-durability-export.yml`, maintenance bucket) | `schedule` (Mondays 09:45 UTC), `workflow_dispatch` | Classifies merged keepalive PRs after a grace period and emits Workflows-owned `langsmith-fleet/v1` durability records for Orchestrator outcome ingest. | ⚪ Scheduled/manual | [Keepalive durability export runs](https://github.com/stranske/Workflows/actions/workflows/maint-85-keepalive-durability-export.yml) |
+| **Maint 85 Keepalive Durability Export** (`maint-85-keepalive-durability-export.yml`, maintenance bucket) | `schedule` (Mondays 08:30 UTC, before Maint 80 at 09:00), `workflow_dispatch` | Classifies merged keepalive PRs after a grace period and emits Workflows-owned `langsmith-fleet/v1` durability records for Orchestrator outcome ingest. | ⚪ Scheduled/manual | [Keepalive durability export runs](https://github.com/stranske/Workflows/actions/workflows/maint-85-keepalive-durability-export.yml) |
 | **Maint 60 Release** (`maint-60-release.yml`, maintenance bucket) | `push` (tags `v*`) | Move the floating `v1` tag to each new `v1.x` tag (release-please writes the release). | ⚪ Tag-triggered | [Release workflow runs](https://github.com/stranske/Workflows/actions/workflows/maint-60-release.yml) |
 | **Maint 61 Release Please** (`maint-61-release-please.yml`, maintenance bucket) | `push` (`main`) | Open or update the release-please Release PR from Conventional Commits using the manifest seeded at `1.1.2`; merges create changelog updates, tags, and GitHub releases. | ⚪ Automatic on main | [Release Please runs](https://github.com/stranske/Workflows/actions/workflows/maint-61-release-please.yml) |
 | **Agents Guard** (`agents-guard.yml`, agents bucket) | `pull_request` (`opened`, `reopened`, `synchronize`, `ready_for_review`); `pull_request_target` (`labeled`, `unlabeled`) when the PR carries a trusted registry routing label from `.github/agents/registry.yml` (protected-file authorization labels such as `agents:allow-change` do not start evaluation unless a routing label is also present) | Evaluate protected-file policy on eligible events. Inspect failures for missing policy requirements or trusted registry evidence. | Policy status **`Health 45 Agents Guard / guard`** | [Agents Guard run history](https://github.com/stranske/Workflows/actions/workflows/agents-guard.yml) |
@@ -866,7 +848,7 @@ profile and actual limits. Expanded does not weaken completeness or CI floors.
 - Maintainers can point to the most recent [Workflow System Overview](../ci/WORKFLOW_SYSTEM.md) update in pull-request history, demonstrating that contributors can discover the guardrails without escalation.
 - Gate runs and passes on docs-only PRs; the **`summary`** job reports success and
   satisfies the ruleset requirement.
-- Health 41 and Health 44 confirm the effective default-branch ruleset requires
+- The Health 40 self-check and Health 44 confirm the effective default-branch ruleset requires
   **`summary`** (per `.github/config/required-contexts.json`).
 - Gate publishes the consolidated summary. Find formatter commits and artifacts in the [Autofix caller](WORKFLOWS.md#autofix-routes).
 

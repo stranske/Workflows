@@ -15,8 +15,6 @@ reusable workflow in the no-output section.
 <!-- OUTPUT-REFERENCE-START -->
 | Workflow | Output | Type | Description | Example |
 | --- | --- | --- | --- | --- |
-| `reusable-20-pr-meta.yml` | `keepalive_detected` | string (boolean-like) | Whether a keepalive comment was detected | `needs.pr_meta.outputs.keepalive_detected` |
-| `reusable-20-pr-meta.yml` | `keepalive_reason` | string | Reason for keepalive dispatch decision | `needs.pr_meta.outputs.keepalive_reason` |
 | `reusable-bot-comment-handler.yml` | `comments_found` | string (boolean-like) | Whether unresolved bot comments were found | `needs.bot_comments.outputs.comments_found` |
 | `reusable-bot-comment-handler.yml` | `comments_count` | string (number-like) | Number of unresolved bot comments found | `needs.bot_comments.outputs.comments_count` |
 | `reusable-bot-comment-handler.yml` | `agent_triggered` | string (boolean-like) | Whether the agent was triggered to address comments | `needs.bot_comments.outputs.agent_triggered` |
@@ -197,31 +195,13 @@ The workflows below do not expose `workflow_call` outputs. They publish artifact
 - `reusable-13-cross-repo-smoke.yml`
 - `reusable-18-autofix.yml`
 - `reusable-19-dependency-repair-contract.yml`
+- `reusable-20-pr-meta.yml`
 - `reusable-agents-issue-bridge.yml`
 - `reusable-agents-pr-health.yml`
 - `reusable-model-profile-trial.yml`
 <!-- OUTPUT-NONE-END -->
 
 ## Example usage in dependent jobs
-
-### Gate keepalive dispatch using `reusable-20-pr-meta.yml`
-
-```yaml
-jobs:
-  pr_meta:
-    uses: stranske/Workflows/.github/workflows/reusable-20-pr-meta.yml@v1
-    with:
-      pr_number: ${{ github.event.pull_request.number }}
-      event_name: issue_comment
-      event_action: created
-
-  keepalive_notice:
-    needs: pr_meta
-    if: needs.pr_meta.outputs.keepalive_detected == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Keepalive reason: ${{ needs.pr_meta.outputs.keepalive_reason }}"
-```
 
 ### Summarize Codex output from `reusable-codex-run.yml`
 

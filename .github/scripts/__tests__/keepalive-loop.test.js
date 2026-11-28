@@ -407,6 +407,33 @@ test('evaluateKeepaliveLoop skips a paused PR even on a green Gate with work rem
   assert.equal(result.reason, 'paused');
 });
 
+test('evaluateKeepaliveLoop leaves an agents:local-loop PR to the local loop', async () => {
+  // Manager-Database#1944 (2026-11-21): hosted keepalive posted a status comment, a fingerprint
+  // comment and runner reservations, and pushed commits, on a PR the local loop owned.
+  const pr = {
+    number: 1944,
+    head: { ref: 'gemini/issue-1', sha: 'sha-1944' },
+    labels: [{ name: 'agent:gemini' }, { name: 'agents:local-loop' }],
+    body: '## Tasks\n- [ ] one\n## Acceptance Criteria\n- [ ] a\n',
+  };
+  const github = buildGithubStub({
+    pr,
+    workflowRuns: [{ head_sha: 'sha-1944', conclusion: 'failure' }],
+  });
+  github.rest.actions.listWorkflowRuns = async () => assert.fail('local-loop PR must not reach Gate');
+  const result = await evaluateKeepaliveLoop({
+    github,
+    context: buildContext(pr.number),
+    core: buildCore(),
+    forceRetry: true,
+  });
+  assert.equal(result.action, 'skip');
+  assert.equal(result.reason, 'local-loop');
+  // prNumber 0 keeps the finish job (summary + fingerprint comments) off the PR.
+  assert.equal(result.prNumber, 0);
+  assert.deepEqual(github.actions, []);
+});
+
 test('evaluateKeepaliveLoop skips a needs-human PR until the label is cleared (#2267)', async () => {
   const pr = {
     number: 268,

@@ -114,6 +114,7 @@ def test_fleet_registry_declares_trusted_artifact_workflows() -> None:
         ".github/workflows/pr-00-gate.yml",
         ".github/workflows/selftest-reusable-ci.yml",
         ".github/workflows/maint-62-integration-consumer.yml",
+        ".github/workflows/maint-85-keepalive-durability-export.yml",
     ]
 
 
@@ -172,13 +173,38 @@ def test_dashboard_issue_upserts_single_pinned_issue() -> None:
     assert "LangSmith Trace Coverage Report - Week of $START_DATE" not in source
 
 
-def test_workflows_fleet_entry_is_paused_until_emitter_exists() -> None:
+def test_workflows_fleet_entry_is_resumed_on_its_scheduled_producer() -> None:
+    """Round-2 B1: maint-85 is trusted and runs before its reader, and the entry is live.
+
+    The entry must NOT use a CI-fallback-eligible status ("implemented"): Workflows'
+    own Gate runs reusable-10, which would then upload a fallback
+    langsmith-fleet.ndjson on every PR, and maint-80 reads the NEWEST artifact of
+    that name, so a one-row fallback would displace maint-85's real records.
+    """
+    from scripts import ensure_langsmith_fleet_artifact
+
     registry = json.loads(FLEET_REGISTRY.read_text(encoding="utf-8"))
     workflows_entry = next(
         entry for entry in registry["repos"] if entry["repo"] == "stranske/Workflows"
     )
+    assert workflows_entry["rollout_status"] != "paused"
+    assert "review_by" not in workflows_entry
+    assert (
+        workflows_entry["rollout_status"]
+        not in ensure_langsmith_fleet_artifact.ELIGIBLE_ROLLOUT_STATUSES
+    )
+    producer = ".github/workflows/maint-85-keepalive-durability-export.yml"
+    assert producer in registry["trusted_artifact_workflow_paths"]
 
-    assert workflows_entry["rollout_status"] == "paused"
+    def monday_minutes(path: str) -> int:
+        workflow = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        (cron,) = [entry["cron"] for entry in triggers["schedule"]]
+        minute, hour, _dom, _month, dow = cron.split()
+        assert dow == "1"
+        return int(hour) * 60 + int(minute)
+
+    assert monday_minutes(producer) < monday_minutes(str(WORKFLOW))
 
 
 def test_fleet_status_is_warning_only_and_appended_to_report() -> None:

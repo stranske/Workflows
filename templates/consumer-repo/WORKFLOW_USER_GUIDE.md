@@ -828,23 +828,6 @@ Review the receiving PR for this repository's dependency changes.
 
 ---
 
-### `health-41-repo-health.yml` - Comprehensive Health Check
-**Purpose:** Deep health assessment of repository
-
-**Trigger:** Weekly scheduled
-
-**Checks:**
-- Stale issues/PRs
-- Unused labels
-- Deprecated workflows
-- Security vulnerabilities
-- Outdated dependencies
-- Missing documentation
-
-**Result:** Health report issue with action items
-
----
-
 ### `health-42-actionlint.yml` - Workflow Linting
 **Purpose:** Validates workflow YAML syntax and best practices
 

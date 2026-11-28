@@ -28,9 +28,28 @@ def test_valid_fixture_passes_registry_validation() -> None:
     assert errors == []
 
 
+def _registry_with_paused_workflows_entry() -> dict:
+    """The live registry has no paused entry since round-2 B1; build one to test the rules."""
+    registry = copy.deepcopy(langsmith_fleet.load_registry(REGISTRY))
+    workflows_entry = next(
+        entry for entry in registry["repos"] if entry["repo"] == "stranske/Workflows"
+    )
+    workflows_entry.update(
+        {
+            "rollout_status": "paused",
+            "paused_at": "2026-06-13T13:36:33Z",
+            "pause_reason": "artifact rollout paused",
+            "pause_owner": "stranske/Workflows#2150",
+            "resume_condition": "a conformant langsmith-fleet.ndjson artifact",
+            "review_by": "2026-09-15",
+        }
+    )
+    langsmith_fleet.validate_registry(registry)
+    return registry
+
+
 def test_paused_registry_entry_requires_governance_metadata() -> None:
-    registry = langsmith_fleet.load_registry(REGISTRY)
-    broken = copy.deepcopy(registry)
+    broken = _registry_with_paused_workflows_entry()
     workflows_entry = next(
         entry for entry in broken["repos"] if entry["repo"] == "stranske/Workflows"
     )
@@ -38,19 +57,6 @@ def test_paused_registry_entry_requires_governance_metadata() -> None:
 
     with pytest.raises(ValueError, match="pause_owner.*when rollout_status is paused"):
         langsmith_fleet.validate_registry(broken)
-
-
-def test_paused_registry_entry_has_reviewable_resume_contract() -> None:
-    registry = langsmith_fleet.load_registry(REGISTRY)
-    workflows_entry = next(
-        entry for entry in registry["repos"] if entry["repo"] == "stranske/Workflows"
-    )
-
-    assert workflows_entry["paused_at"] == "2026-06-13T13:36:33Z"
-    assert workflows_entry["pause_owner"] == "stranske/Workflows#2150"
-    assert workflows_entry["review_by"] == "2026-09-15"
-    assert "cloud LangSmith tracing remains active" in workflows_entry["pause_reason"]
-    assert "conformant langsmith-fleet.ndjson" in workflows_entry["resume_condition"]
 
 
 def test_valid_fixture_covers_each_registry_repo_surface() -> None:
@@ -812,7 +818,7 @@ def test_registry_validation_rejects_each_entry_contract(kind: str, message: str
 def test_paused_registry_timestamps_are_governed(
     paused_at: str, review_by: str, message: str
 ) -> None:
-    registry = copy.deepcopy(langsmith_fleet.load_registry(REGISTRY))
+    registry = _registry_with_paused_workflows_entry()
     paused = next(entry for entry in registry["repos"] if entry["rollout_status"] == "paused")
     paused["paused_at"] = paused_at
     paused["review_by"] = review_by
