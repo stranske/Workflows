@@ -13,7 +13,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def _run_dev_check(
     tmp_path: Path,
     *,
-    allowlist: list[str],
     files: list[str],
     output: str,
     exit_code: int,
@@ -36,9 +35,6 @@ def _run_dev_check(
     )
     actionlint.chmod(0o755)
 
-    allowlist_file = tmp_path / "allowlist.txt"
-    allowlist_file.write_text("\n".join(allowlist) + ("\n" if allowlist else ""), encoding="utf-8")
-
     file_list = tmp_path / "files.txt"
     file_list.write_text("\n".join(files) + "\n", encoding="utf-8")
 
@@ -46,7 +42,6 @@ def _run_dev_check(
     env["PATH"] = f"{tmp_path}{os.pathsep}{env.get('PATH', '')}"
     env["DEV_CHECK_ACTIONLINT_ONLY"] = "true"
     env["DEV_CHECK_ACTIONLINT_FILE_LIST"] = str(file_list)
-    env["DEV_CHECK_SECRETS_ALLOWLIST"] = str(allowlist_file)
     env["FAKE_ACTIONLINT_OUTPUT"] = output
     env["FAKE_ACTIONLINT_EXIT"] = str(exit_code)
     env["FAKE_ACTIONLINT_WAIT"] = str(actionlint_timeout).lower()
@@ -64,13 +59,12 @@ def _run_dev_check(
     )
 
 
-def test_dev_check_reports_unexpected_secrets_key_outside_allowlist(tmp_path: Path) -> None:
+def test_dev_check_reports_unexpected_step_secrets_in_template(tmp_path: Path) -> None:
     file_path = "templates/consumer-repo/.github/workflows/bad.yml"
     output = f'{file_path}:10:1: unexpected key "secrets" for "step"'
 
     result = _run_dev_check(
         tmp_path,
-        allowlist=[],
         files=[file_path],
         output=output,
         exit_code=1,
@@ -81,22 +75,6 @@ def test_dev_check_reports_unexpected_secrets_key_outside_allowlist(tmp_path: Pa
     assert 'unexpected key "secrets" for "step"' in combined
 
 
-def test_dev_check_allows_allowlisted_secrets_key(tmp_path: Path) -> None:
-    file_path = "templates/consumer-repo/.github/workflows/allowlisted.yml"
-    output = f'{file_path}:20:2: unexpected key "secrets" for "step"'
-
-    result = _run_dev_check(
-        tmp_path,
-        allowlist=[file_path],
-        files=[file_path],
-        output=output,
-        exit_code=1,
-    )
-    combined = result.stdout + result.stderr
-    assert result.returncode == 0
-    assert 'unexpected key "secrets" for "step"' not in combined
-
-
 def test_dev_check_reports_unexpected_secrets_even_when_actionlint_succeeds(
     tmp_path: Path,
 ) -> None:
@@ -105,7 +83,6 @@ def test_dev_check_reports_unexpected_secrets_even_when_actionlint_succeeds(
 
     result = _run_dev_check(
         tmp_path,
-        allowlist=[],
         files=[file_path],
         output=output,
         exit_code=0,
@@ -119,7 +96,6 @@ def test_dev_check_reports_unexpected_secrets_even_when_actionlint_succeeds(
 def test_dev_check_passes_for_clean_actionlint_output(tmp_path: Path) -> None:
     result = _run_dev_check(
         tmp_path,
-        allowlist=[],
         files=[".github/workflows/health-42-actionlint.yml"],
         output="",
         exit_code=0,
@@ -135,7 +111,6 @@ def test_dev_check_reports_silent_actionlint_failure(
 ) -> None:
     result = _run_dev_check(
         tmp_path,
-        allowlist=[],
         files=[".github/workflows/health-42-actionlint.yml"],
         output="",
         exit_code=exit_code,
@@ -147,15 +122,14 @@ def test_dev_check_reports_silent_actionlint_failure(
     assert "✓ Workflow YAML validation" not in result.stdout
 
 
-def test_dev_check_reports_mixed_diagnostics_without_allowlisted_context(tmp_path: Path) -> None:
-    allowlisted = "templates/consumer-repo/.github/workflows/allowlisted.yml"
+def test_dev_check_reports_both_diagnostics_and_context(tmp_path: Path) -> None:
+    template = "templates/consumer-repo/.github/workflows/bad.yml"
     invalid = ".github/workflows/health-42-actionlint.yml"
     diagnostic = f"{invalid}:19:5: workflow is missing jobs"
     result = _run_dev_check(
         tmp_path,
-        allowlist=[allowlisted],
-        files=[allowlisted, invalid],
-        output=f'{allowlisted}:20:2: unexpected key "secrets" for "step"\n  ignored snippet\n'
+        files=[template, invalid],
+        output=f'{template}:20:2: unexpected key "secrets" for "step"\n  template snippet\n'
         f"{diagnostic}\n  invalid snippet",
         exit_code=1,
     )
@@ -164,20 +138,19 @@ def test_dev_check_reports_mixed_diagnostics_without_allowlisted_context(tmp_pat
     assert result.returncode == 1
     assert diagnostic in combined
     assert "invalid snippet" in combined
-    assert "ignored snippet" not in combined
-    assert 'unexpected key "secrets"' not in combined
+    assert "template snippet" in combined
+    assert 'unexpected key "secrets"' in combined
 
 
 @pytest.mark.skipif(shutil.which("timeout") is None, reason="requires the command timeout")
-def test_dev_check_reports_actual_actionlint_timeout_after_allowlisted_output(
+def test_dev_check_reports_actual_actionlint_timeout_after_diagnostic(
     tmp_path: Path,
 ) -> None:
-    file_path = "templates/consumer-repo/.github/workflows/allowlisted.yml"
+    file_path = "templates/consumer-repo/.github/workflows/bad.yml"
     result = _run_dev_check(
         tmp_path,
-        allowlist=[file_path],
         files=[file_path],
-        output=f'{file_path}:20:2: unexpected key "secrets" for "step"\n  ignored snippet',
+        output=f'{file_path}:20:2: unexpected key "secrets" for "step"\n  template snippet',
         exit_code=0,
         actionlint_timeout=True,
     )
@@ -186,17 +159,16 @@ def test_dev_check_reports_actual_actionlint_timeout_after_allowlisted_output(
     assert result.returncode == 1
     assert "timed out after 1s" in combined
     assert "increase DEV_CHECK_TIMEOUT" in combined
-    assert 'unexpected key "secrets"' not in combined
-    assert "ignored snippet" not in combined
+    assert 'unexpected key "secrets"' in combined
+    assert "template snippet" in combined
 
 
-def test_dev_check_reports_killed_actionlint_after_allowlisted_output(tmp_path: Path) -> None:
-    file_path = "templates/consumer-repo/.github/workflows/allowlisted.yml"
+def test_dev_check_reports_killed_actionlint_after_diagnostic(tmp_path: Path) -> None:
+    file_path = "templates/consumer-repo/.github/workflows/bad.yml"
     result = _run_dev_check(
         tmp_path,
-        allowlist=[file_path],
         files=[file_path],
-        output=f'{file_path}:20:2: unexpected key "secrets" for "step"\n  ignored snippet',
+        output=f'{file_path}:20:2: unexpected key "secrets" for "step"\n  template snippet',
         exit_code=0,
         kill_after_output=True,
     )
@@ -204,5 +176,5 @@ def test_dev_check_reports_killed_actionlint_after_allowlisted_output(tmp_path: 
     combined = result.stdout + result.stderr
     assert result.returncode == 1
     assert "actionlint exit status 137" in combined
-    assert 'unexpected key "secrets"' not in combined
-    assert "ignored snippet" not in combined
+    assert 'unexpected key "secrets"' in combined
+    assert "template snippet" in combined

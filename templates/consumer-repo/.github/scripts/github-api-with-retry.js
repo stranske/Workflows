@@ -603,11 +603,82 @@ async function paginateWithRetry(github, method, params, options = {}) {
   );
 }
 
-function collectTokenSecrets(env = {}) {
+function isOwnerPatExclusiveTask(task) {
+  if (!task || typeof task !== 'string') {
+    return false;
+  }
+  try {
+    const { TOKEN_SPECIALIZATIONS } = require('./token_load_balancer');
+    return Boolean(TOKEN_SPECIALIZATIONS?.OWNER_PR_PAT?.primaryTasks?.includes(task));
+  } catch {
+    return [
+      'pr-creation-as-owner',
+      'cross-repo-sync',
+      'dependabot-automerge',
+      'label-sync',
+    ].includes(task);
+  }
+}
+
+function sanitizeRotationEnvKeys(value, allowOwnerPat) {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => Boolean(entry) && (allowOwnerPat || entry !== 'OWNER_PR_PAT'))
+    .join(',');
+}
+
+function sanitizeRotationJson(value, allowOwnerPat) {
+  if (!value || typeof value !== 'string' || allowOwnerPat) {
+    return value;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.pats)) {
+      return value;
+    }
+    const filteredPats = parsed.pats.filter((entry) => entry?.id !== 'OWNER_PR_PAT');
+    if (filteredPats.length === parsed.pats.length) {
+      return value;
+    }
+    const remainingApps = Array.isArray(parsed.apps) ? parsed.apps : [];
+    if (filteredPats.length === 0 && remainingApps.length === 0) {
+      return '';
+    }
+    return JSON.stringify({ ...parsed, pats: filteredPats });
+  } catch {
+    return value;
+  }
+}
+
+function resolveOwnerPatSecret(secrets = {}) {
+  if (secrets.OWNER_PR_PAT) {
+    return secrets.OWNER_PR_PAT;
+  }
+  if (!secrets.TOKEN_ROTATION_JSON || typeof secrets.TOKEN_ROTATION_JSON !== 'string') {
+    return '';
+  }
+  try {
+    const parsed = JSON.parse(secrets.TOKEN_ROTATION_JSON);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.pats)) {
+      return '';
+    }
+    const entry = parsed.pats.find((item) => item?.id === 'OWNER_PR_PAT' && item?.token);
+    return entry?.token || '';
+  } catch {
+    return '';
+  }
+}
+
+function collectTokenSecrets(env = {}, options = {}) {
+  const allowOwnerPat = isOwnerPatExclusiveTask(options?.task);
   const keys = [
     'SERVICE_BOT_PAT',
     'ACTIONS_BOT_PAT',
-    'OWNER_PR_PAT',
+    ...(allowOwnerPat ? ['OWNER_PR_PAT'] : []),
     'AGENTS_AUTOMATION_PAT',
     'TOKEN_ROTATION_JSON',
     'TOKEN_ROTATION_ENV_KEYS',
@@ -627,17 +698,45 @@ function collectTokenSecrets(env = {}) {
     'APP_2_PRIVATE_KEY',
   ];
 
-  const dynamicKeysRaw = env.TOKEN_ROTATION_ENV_KEYS || env.TOKEN_ROTATION_KEYS || '';
+  const sanitizedRotationEnvKeys = sanitizeRotationEnvKeys(
+    env.TOKEN_ROTATION_ENV_KEYS,
+    allowOwnerPat
+  );
+  const sanitizedRotationKeys = sanitizeRotationEnvKeys(
+    env.TOKEN_ROTATION_KEYS,
+    allowOwnerPat
+  );
+  const dynamicKeysRaw = sanitizedRotationEnvKeys || sanitizedRotationKeys || '';
   const dynamicKeys = dynamicKeysRaw
     .split(',')
     .map((entry) => entry.trim())
-    .filter(Boolean);
+    .filter((entry) => Boolean(entry) && (allowOwnerPat || entry !== 'OWNER_PR_PAT'));
   const allKeys = Array.from(new Set([...keys, ...dynamicKeys]));
 
   return allKeys.reduce((acc, key) => {
-    if (env[key]) {
-      acc[key] = env[key];
+    if (!env[key]) {
+      return acc;
     }
+    if (!allowOwnerPat && key === 'TOKEN_ROTATION_ENV_KEYS') {
+      if (sanitizedRotationEnvKeys) {
+        acc[key] = sanitizedRotationEnvKeys;
+      }
+      return acc;
+    }
+    if (!allowOwnerPat && key === 'TOKEN_ROTATION_KEYS') {
+      if (sanitizedRotationKeys) {
+        acc[key] = sanitizedRotationKeys;
+      }
+      return acc;
+    }
+    if (!allowOwnerPat && key === 'TOKEN_ROTATION_JSON') {
+      const sanitized = sanitizeRotationJson(env[key], allowOwnerPat);
+      if (sanitized) {
+        acc[key] = sanitized;
+      }
+      return acc;
+    }
+    acc[key] = env[key];
     return acc;
   }, {});
 }
@@ -677,7 +776,7 @@ async function createTokenAwareRetry(options = {}) {
   }
 
   const registry = tokenRegistry || require('./token_load_balancer');
-  const secrets = collectTokenSecrets(env || {});
+  const secrets = collectTokenSecrets(env || {}, { task });
   const resolvedGithubToken = githubToken || env?.GITHUB_TOKEN || env?.GH_TOKEN || '';
   const hasTokenInputs =
     Boolean(resolvedGithubToken) ||
@@ -704,6 +803,33 @@ async function createTokenAwareRetry(options = {}) {
       registryInitialized = true;
     } catch (error) {
       logWithCore(core, 'warning', `Token registry initialization failed: ${error.message}`);
+    }
+  } else if (
+    registryInitialized &&
+    registry?.tokenRegistry?.tokens instanceof Map &&
+    !registry.tokenRegistry.tokens.has('OWNER_PR_PAT') &&
+    typeof registry.registerToken === 'function'
+  ) {
+    const ownerPatToken = resolveOwnerPatSecret(secrets);
+    if (ownerPatToken) {
+      registry.registerToken({
+        id: 'OWNER_PR_PAT',
+        token: ownerPatToken,
+        type: 'PAT',
+        source: 'OWNER_PR_PAT',
+        account: 'stranske',
+        capabilities: registry.TOKEN_CAPABILITIES?.PAT || [
+          'read-repo',
+          'write-repo',
+          'pr-update',
+          'labels',
+          'comments',
+          'cross-repo',
+          'workflow-dispatch',
+          'statuses',
+        ],
+        priority: 5,
+      });
     }
   }
 
@@ -1219,6 +1345,7 @@ module.exports = {
   recordRateLimitIncident,
   withRetry,
   paginateWithRetry,
+  collectTokenSecrets,
   createTokenAwareRetry,
   sleep,
   // Category-aware retry (former github_api_retry.js)
