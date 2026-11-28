@@ -9,6 +9,8 @@ const os = require('node:os');
 const {
   getAgentConfig,
   getRunnerWorkflow,
+  isLocalLoopOwned,
+  LOCAL_LOOP_LABEL,
   loadAgentRegistry,
   parseRegistryYaml,
   resolveAgentFromLabels,
@@ -374,4 +376,13 @@ test('validateAgentRegistry rejects profiles with unknown agents', () => {
     },
     /references unknown agent/,
   );
+});
+
+test('isLocalLoopOwned reads the one agents:local-loop label in any label shape', () => {
+  assert.equal(LOCAL_LOOP_LABEL, 'agents:local-loop');
+  assert.equal(isLocalLoopOwned(['agent:codex', 'agents:local-loop']), true);
+  assert.equal(isLocalLoopOwned([{ name: 'Agents:Local-Loop' }]), true);
+  assert.equal(isLocalLoopOwned(['agent:codex', 'agents:keepalive']), false);
+  assert.equal(isLocalLoopOwned([]), false);
+  assert.equal(isLocalLoopOwned(undefined), false);
 });
