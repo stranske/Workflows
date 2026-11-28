@@ -32,21 +32,18 @@ env:
   MANUAL_GATE_RUN_ID: >-
     ${{
       inputs.gate_run_id ||
-      github.event.client_payload.gate_run_id ||
       github.event.workflow_run.id ||
       ''
     }}
   MANUAL_PR_NUMBER: >-
     ${{
       inputs.pr_number ||
-      github.event.client_payload.pr_number ||
       github.event.workflow_run.pull_requests[0].number ||
       ''
     }}
   MANUAL_HEAD_SHA: >-
     ${{
       inputs.head_sha ||
-      github.event.client_payload.head_sha ||
       github.event.workflow_run.head_sha ||
       ''
     }}
@@ -55,7 +52,6 @@ concurrency:
   group: >-
     agents-autofix-loop-${{
       inputs.pr_number ||
-      github.event.client_payload.pr_number ||
       github.event.workflow_run.pull_requests[0].number ||
       github.run_id
     }}
