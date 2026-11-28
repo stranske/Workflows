@@ -36,11 +36,11 @@ restored byte-identically after each mutation. Their SHA-256 before and after is
 `704ce62c2b3d0470476571d3703799b8c9aac73a74ed7a0e61ea772fdd6f749a`.
 
 Commands, per-parameter outcomes, mutation diffs, and source/test hashes are
-retained in the [automation evidence directory](automation/):
-[prior implementation RED](automation/prior-implementation-red.txt),
-[behavioral control RED](automation/in-test-import-red.txt),
-[restored GREEN](automation/restored-green.txt), and the
-[mutation manifest](automation/mutation-manifest.json).
+retained in the [historical automation evidence directory](https://github.com/stranske/Workflows/tree/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation):
+[prior implementation RED](https://github.com/stranske/Workflows/blob/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation/prior-implementation-red.txt),
+[behavioral control RED](https://github.com/stranske/Workflows/blob/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation/in-test-import-red.txt),
+[restored GREEN](https://github.com/stranske/Workflows/blob/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation/restored-green.txt), and the
+[mutation manifest](https://github.com/stranske/Workflows/blob/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation/mutation-manifest.json).
 Retained transcripts remove trailing whitespace only; all output lines and
 outcomes remain present. Mutation diffs use zero context to avoid whitespace-only
 context lines in the evidence files.
@@ -64,13 +64,13 @@ python3 -m pytest tests/scripts/test_check_deliberate_break.py -q -m "not slow" 
 | Branch coverage | 89.15% (230/258) | 89.15% (230/258) |
 
 Full output and JSON measurements are retained as
-[before](automation/coverage-before.txt) and [after](automation/coverage-after.txt).
+[before](https://github.com/stranske/Workflows/blob/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation/coverage-before.txt) and [after](https://github.com/stranske/Workflows/blob/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation/coverage-after.txt).
 The replacement tests strengthen subprocess integration evidence for branches
 already covered by mocks, so the percentage is unchanged.
 
 ## Validation and remaining boundary
 
-[Validation output](automation/checks.txt) records passing template sync,
+[Validation output](https://github.com/stranske/Workflows/blob/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation/checks.txt) records passing template sync,
 template completeness, focused Black/Ruff, `git diff --check`, and helper
 byte-identity checks. `docs/keepalive/GoalsAndPlumbing.md` already describes the
 verified collection/execution boundary and the genuine in-test import control.
@@ -81,14 +81,14 @@ Black's parallel worker paths failed or hung here. The retained
 [serial dispatch adapter](automation/black-serial-dispatch.txt) calls Black's
 unchanged `reformat_one` formatter, validation, and reporting routines for every
 selected file, preserving the CLI options and failure exit status.
-The required [repository-wide formatting gate](automation/black-all.txt),
+The required [repository-wide formatting gate](https://github.com/stranske/Workflows/blob/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation/black-all.txt),
 `black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`,
 passes with all 661 files unchanged using that adapter.
 
 The literal `/opt/anaconda3/bin/python3 -m pytest
 tests/scripts/test_check_deliberate_break.py -q` acceptance check remains pending:
 that interpreter is absent in this runner. The
-[launch attempt](automation/requested-interpreter.txt) records the missing path.
+[launch attempt](https://github.com/stranske/Workflows/blob/f3ac8a9dbf658f203f09ec57606f5583d8a21fda/docs/evidence/issue-3743/automation/requested-interpreter.txt) records the missing path.
 The available-interpreter results above do not claim to satisfy that exact-path
 requirement.
 
@@ -106,6 +106,31 @@ creation was rejected because it requires approval while this run's approval
 policy is `never`. The verified changes can be committed in an isolated writable
 checkout and delivered as a Git bundle; remote publication and PR/issue checklist
 updates remain unavailable in this run.
+
+## Recover the original validation records
+
+The original fifteen transcripts, JUnit reports, coverage captures and mutation records are retained at the pinned revision. Extract into an empty directory to preserve their original paths and bytes:
+
+```sh
+git archive f3ac8a9dbf658f203f09ec57606f5583d8a21fda -- \
+  docs/evidence/issue-3743/automation/black-all.txt \
+  docs/evidence/issue-3743/automation/checks.txt \
+  docs/evidence/issue-3743/automation/coverage-after.json \
+  docs/evidence/issue-3743/automation/coverage-after.txt \
+  docs/evidence/issue-3743/automation/coverage-before.json \
+  docs/evidence/issue-3743/automation/coverage-before.txt \
+  docs/evidence/issue-3743/automation/in-test-import-red.txt \
+  docs/evidence/issue-3743/automation/in-test-import-red.xml \
+  docs/evidence/issue-3743/automation/mutation-diffs.txt \
+  docs/evidence/issue-3743/automation/mutation-manifest.json \
+  docs/evidence/issue-3743/automation/prior-implementation-red.txt \
+  docs/evidence/issue-3743/automation/prior-implementation-red.xml \
+  docs/evidence/issue-3743/automation/requested-interpreter.txt \
+  docs/evidence/issue-3743/automation/restored-green.txt \
+  docs/evidence/issue-3743/automation/restored-green.xml | tar -xf -
+```
+
+The shared [serial dispatch adapter](automation/black-serial-dispatch.txt) remains in the working tree for the other validation reports.
 
 ## Historical archive validation runs
 
