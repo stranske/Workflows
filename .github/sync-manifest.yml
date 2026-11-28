@@ -195,6 +195,8 @@ removals:
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/keepalive_prompt_composer.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
+  - target: .github/scripts/capability_bundle.js
+    description: "Remove the composer-only receiver helper with the retired prompt composer; Workflows retains the root validator"
   - target: .github/scripts/error_diagnostics.js
     description: "Remove a delivered script nothing loads (round-2 D8: no workflow, action or script in Workflows or the consumers calls it)"
   - target: .github/scripts/merge_manager.js
@@ -551,9 +553,6 @@ scripts:
 
   - source: .github/scripts/keepalive_post_work.js
     description: "Post-work handling for keepalive rounds"
-
-  - source: .github/scripts/capability_bundle.js
-    description: "Validates and selects capability-bundle/v1 fragments for keepalive prompts and metrics"
 
   - source: .github/scripts/github-api-with-retry.js
     description: "Shared GitHub API retry wrapper with exponential backoff and pagination support"

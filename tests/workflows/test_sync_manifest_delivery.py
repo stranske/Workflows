@@ -749,3 +749,17 @@ def test_fine_art_archive_context_files_are_skip_synced() -> None:
         assert (
             "faee7246" in reasons["stranske/Fine-Art-Archive"]
         ), f"{source}: the Fine-Art-Archive skip reason must cite incident commit faee7246"
+
+
+def test_retired_capability_helper_is_removed_with_its_composer() -> None:
+    """A full sync must not remove the dependency while retaining its importer."""
+    manifest = _load_manifest()
+    targets = {entry["target"] for entry in manifest.get("removals", [])}
+    assert {
+        ".github/scripts/keepalive_prompt_composer.js",
+        ".github/scripts/capability_bundle.js",
+    } <= targets
+    assert ".github/scripts/capability_bundle.js" not in _sources_in_sections(
+        manifest, COPY_SYNCED_SECTIONS
+    )
+    assert (REPO_ROOT / ".github/scripts/capability_bundle.js").is_file()
