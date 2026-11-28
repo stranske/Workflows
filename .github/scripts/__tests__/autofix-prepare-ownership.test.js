@@ -159,3 +159,38 @@ for (const lane of LANES) {
     );
   });
 }
+
+for (const lane of LANES) {
+  for (const [labels, reason] of [
+    [['agent:gemini'], 'autofix_unsupported'],
+    [['agent:vibe'], 'unknown_agent'],
+    [['agent:codex', 'agent:claude'], 'multiple_agent_labels'],
+  ]) {
+    test(`${lane.name}: ${labels.join('+')} stops before the runner reservation (${reason})`, async () => {
+      // Cohesion round 2 (D1): the reservation key is PR/head/agent, shared with keepalive.
+      const { outputs, calls } = await runPrepare(lane, labels);
+      assert.equal(outputs.__failed, undefined);
+      assert.equal(outputs.should_run, 'false');
+      assert.equal(outputs.stop_reason, 'autofix_unsupported');
+      assert.equal(outputs.agent_type, '');
+      assert.deepEqual(
+        calls.filter((name) => name.startsWith('issues.') || name.includes('listJobs')),
+        [],
+      );
+    });
+  }
+
+  test(`${lane.name}: every pr_autofix agent has an autofix job, and only those`, () => {
+    const { loadAgentRegistry } = require(path.join(ROOT, '.github/scripts/agent_registry.js'));
+    const registry = loadAgentRegistry({ registryPath: path.join(ROOT, '.github/agents/registry.yml') });
+    const capable = Object.entries(registry.agents)
+      .filter(([, config]) => config.capabilities?.pr_autofix === true)
+      .map(([key]) => key)
+      .sort();
+    const text = fs.readFileSync(path.join(ROOT, lane.file), 'utf8');
+    const jobs = [...text.matchAll(/needs\.prepare\.outputs\.agent_type == '([a-z]+)'/g)]
+      .map((match) => match[1])
+      .sort();
+    assert.deepEqual(jobs, capable);
+  });
+}
