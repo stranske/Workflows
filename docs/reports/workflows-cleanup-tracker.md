@@ -7,6 +7,32 @@ The earlier dated headings link to their original sections on GitHub. For offlin
 
 ## Current structure review
 
+### November 28 · Scripts review complete and consumer verification
+
+Stage 3 is complete at 752/752 original files and 43/43 folders. Stage 4 has 1,508/1,540 file and 161/177 folder decisions accepted.
+
+Stage 1A has 198/198 accepted workflow decisions; 1B has 27/27 root files. Of the original 28 delivery checks, 26 passed on production events and two have qualified replays without production demand.
+
+[#5498](https://github.com/stranske/Workflows/pull/5498) moved the issue #3956 auditor beside the 52 retained mutation records. The installed command reproduced the full historical report SHA-256 and the distinct current-source drift result. The corrected native Gate executed all 67 auditor cases per runtime; the longest primary Python job took 569 seconds against the 600-second checkpoint. The final scripts folder decision used a real native JUnit report as input to its CI metrics command.
+
+[#5500](https://github.com/stranske/Workflows/pull/5500) installed the canonical Artifact Cache action. Two isolated source edits each changed the Maint 82 fingerprint, and the portable publisher reproduced both files byte-for-byte with their original modes. [#5501](https://github.com/stranske/Workflows/pull/5501) consolidated the metrics tests and moved retry and required-check tests to their script owner. On the actual merge, default, Gate core and grammar kept all 46,680, 16,331 and 30,340 case identities after path translation. Both native runtime reports retained the 22 metrics and six moved retry/check cases.
+
+The replacement [Maint 68 producer](https://github.com/stranske/Workflows/actions/runs/46136158020/attempts/2) recovered from its installation quota error by rerunning only its failed summary. The stable receiving PRs contain all nine file removals; receiving defaults are still the acceptance boundary. Two candidates were prepared and Portable Alpha’s finding remained open. The exact receiving workflow reproduced the missing keepalive pool on the original head and selected it on the corrected head. [The originating reviewer](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2550#discussion_r4726756347) returned a general same-head review. Maint 71 received the subsequent request for finding-specific disposition.
+
+[#5503](https://github.com/stranske/Workflows/pull/5503) corrects the Autofix fallback writer being dropped by the second sparse checkout. The actual fallback-only replay produced the expected report. [#5504](https://github.com/stranske/Workflows/pull/5504) and [#5505](https://github.com/stranske/Workflows/pull/5505) place renderer, configuration, registry, labeling and NDJSON cases with their owners. [#5502](https://github.com/stranske/Workflows/pull/5502) retires a duplicate Copilot ledger configuration; the supported instruction still covers all 69 tracked ledgers. [#5507](https://github.com/stranske/Workflows/pull/5507) removes the retired Decompose exception; the fourteen active drift exceptions and the complete Health 74 report matched before and after. See the linked PRs and register for their installed status.
+
+[#5506](https://github.com/stranske/Workflows/pull/5506) replaces the duplicated consumer maintenance manual with central procedures. The candidate removed 633 net lines. Its branch lost an explicit historical Maint 47 bookmark; the PR is paused and the current guide remains in place.
+
+[#5508](https://github.com/stranske/Workflows/pull/5508) removed 39 historical launch records totalling 60,894 bytes. One issue-specific guide recovers the whole packet from its original Git revision. All 39 path, mode and object entries matched, and the recovered negative and positive logs identify the same named test.
+
+Kept two portable helpers. The Trend Model project directly imports the post-work check, and the completion-comment helper has a working standalone fallback. Three other helper copies have no identified receiver caller and a successful removal trial. Their proposed retirement shares the sync manifest with [#5509](https://github.com/stranske/Workflows/pull/5509). The Keepalive contract still has a relative import in the portable resolver.
+
+[#5509](https://github.com/stranske/Workflows/pull/5509) makes three root defaults the editing location for generated template configuration. The trial preserved the actual customized Travel configuration, the default mirror bytes and the create-only rules. The distinct model-selection policy has independent receiving semantics and stays in place.
+
+Verified guarded merges on main: [#5498](https://github.com/stranske/Workflows/pull/5498) (`294c7086d`), [#5499](https://github.com/stranske/Workflows/pull/5499) (`2dd1052de`), [#5500](https://github.com/stranske/Workflows/pull/5500) (`2506f1f1f`), [#5501](https://github.com/stranske/Workflows/pull/5501) (`fcd289686`), [#5502](https://github.com/stranske/Workflows/pull/5502) (`70da750b0`), [#5503](https://github.com/stranske/Workflows/pull/5503) (`e252394c1`), [#5504](https://github.com/stranske/Workflows/pull/5504) (`ea78909ea`), [#5505](https://github.com/stranske/Workflows/pull/5505) (`c1f1d482c`), [#5507](https://github.com/stranske/Workflows/pull/5507) (`061d195fc`), [#5508](https://github.com/stranske/Workflows/pull/5508) (`7ce604c42`). Compared default, Gate core, and Gate grammar case identities and marks on both sides of [#5504](https://github.com/stranske/Workflows/pull/5504), [#5505](https://github.com/stranske/Workflows/pull/5505). The changed suites also passed from their installed homes. [#5511](https://github.com/stranske/Workflows/pull/5511) repairs valid JSON losing its quotes in the standalone token-pool action. The two previous action copies failed the same isolated shell round-trip. Both revised copies passed it; 43 focused cases passed.
+
+A direct read of all 16 receiving defaults found 144 of 144 old paths still present. The three staged receiver PRs remove all nine per PR. The [finding-specific disposition request](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2550#discussion_r4726781691) is open. The reassessment only returned a general review on head 91b05b2266. Maint 71 requires the reviewer’s explicit disposition for this thread.
+
 ### November 28 · Operator tools, portable templates and consumer delivery
 
 Stage 3 has 751/752 original file and 42/43 folder decisions accepted. Stage 4 has 1,487/1,540 file and 157/177 folder decisions accepted.
@@ -599,13 +625,13 @@ Counts use the November 19 inventory. A completed decision has evidence for keep
 |---|---:|---:|---:|
 | 1A · Workflow purpose and efficiency | — | — | 198/198 completed · 0 drainable now · 0 blocked · 0 pending checks have a recorded structural decision |
 | 1B · Root files | 27/27 | — | — |
-| 2 · Evidence and archives | 2,018/2,901 | 121/220 | — |
-| 3 · Scripts, tools and packages | 751/752 | 42/43 | — |
-| 4 · Workflow source trees, templates, tests and configuration | 1,487/1,540 | 157/177 | — |
+| 2 · Evidence and archives | 2,058/2,901 | 122/220 | — |
+| 3 · Scripts, tools and packages | 752/752 | 43/43 | — |
+| 4 · Workflow source trees, templates, tests and configuration | 1,508/1,540 | 161/177 | — |
 | 5 · Other documentation, instructions, configuration and final sweep | 211/334 | 26/47 | — |
-| **Total** | **4,494/5,554** | **346/487** | **198/198** |
+| **Total** | **4,556/5,554** | **352/487** | **198/198** |
 
-**Directory organization.** 4,220 completed file decisions fall under 7 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
+**Directory organization.** 3,893 completed file decisions fall under 5 top-level directories whose placement is still open. A file can have verified behavior while its parent and neighboring directories still need a common placement rule. The count includes historical evidence, which can share a placement and recovery decision by group.
 
 Stage 3 includes `.github/scripts`. Stage 5 includes the repository root as a folder and the remaining documentation. A folder closes after its descendants have decisions. Final reconciliation also covers changes since the inventory and a fresh run of all three agent routes.
 
