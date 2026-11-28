@@ -10,7 +10,7 @@ from unittest import mock
 import pytest
 from scripts.langchain import pr_verifier
 
-from tests.scripts.test_native_capacity_recovery import native as _native_fixture
+from tests.scripts.pr_verifier.test_native_capacity_recovery import native as _native_fixture
 from tests.scripts.verifier_capacity_fakes import complete_capture_context
 
 native = _native_fixture

@@ -11,7 +11,7 @@ from tools.verifier_capture_obligation_manifest import (
     parse_context_source_coverage,
 )
 
-from tests.scripts.test_native_capacity_recovery import native as _native_fixture
+from tests.scripts.pr_verifier.test_native_capacity_recovery import native as _native_fixture
 from tests.scripts.verifier_capacity_fakes import complete_capture_context
 
 native = _native_fixture

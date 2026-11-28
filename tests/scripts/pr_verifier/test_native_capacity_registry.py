@@ -12,7 +12,7 @@ import pytest
 from scripts.langchain import pr_verifier
 from tools import langchain_client, llm_registry
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 REGISTRY = ROOT / "config/model_registry.json"
 
 

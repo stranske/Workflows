@@ -139,7 +139,7 @@ def test_synced_large_file_parity_checks_guard_against_difflib_hangs() -> None:
     parity_test_functions = {
         # The verifier sync-manifest suite no longer compares template bytes:
         # those copies were deleted (cohesion C1) and consumers receive the root files.
-        "tests/scripts/test_native_capacity_registry.py": (
+        "tests/scripts/pr_verifier/test_native_capacity_registry.py": (
             "test_native_facts_and_helper_are_managed_with_exact_template_parity",
         ),
         "tests/workflows/test_keepalive_authority_delivery.py": (
