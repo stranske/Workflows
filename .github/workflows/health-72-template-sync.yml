@@ -4,6 +4,12 @@ on:
   pull_request:
     paths:
       - '.github/sync-manifest.yml'
+      - 'config/llm_slots.json'
+      - 'config/model_registry.json'
+      - 'config/verifier_semantic_rules.json'
+      - 'templates/consumer-repo/config/llm_slots.json'
+      - 'templates/consumer-repo/config/model_registry.json'
+      - 'templates/consumer-repo/config/verifier_semantic_rules.json'
       - '.github/scripts/**/*.js'
       - 'scripts/aggregate_agent_metrics.py'
       - 'scripts/langchain/checklist_utils.py'
@@ -15,6 +21,12 @@ on:
     branches: [main]
     paths:
       - '.github/sync-manifest.yml'
+      - 'config/llm_slots.json'
+      - 'config/model_registry.json'
+      - 'config/verifier_semantic_rules.json'
+      - 'templates/consumer-repo/config/llm_slots.json'
+      - 'templates/consumer-repo/config/model_registry.json'
+      - 'templates/consumer-repo/config/verifier_semantic_rules.json'
       - '.github/scripts/**/*.js'
       - 'scripts/aggregate_agent_metrics.py'
       - 'scripts/langchain/checklist_utils.py'

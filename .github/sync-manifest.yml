@@ -1052,10 +1052,14 @@ actions:
 # Configuration files for LLM providers and workflows
 llm_config:
   - source: config/llm_slots.json
+    source_tree: root
+    template_sync: exact
     description: "LLM slot configuration - defines provider/model slots for multi-provider workflows"
     sync_mode: create_only  # Don't overwrite - repos may customize provider preferences
 
   - source: config/model_registry.json
+    source_tree: root
+    template_sync: exact
     description: "Model registry - available LLM models, selections and optional reviewed exact native capacity/transport facts"
 
   - source: config/model_selection_policy.json

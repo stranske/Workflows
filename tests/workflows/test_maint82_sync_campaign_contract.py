@@ -40,20 +40,32 @@ def test_campaign_refresh_passes_current_sync_hash_to_runner():
     assert "currentSyncHash," in script
 
 
-@pytest.mark.parametrize("filename", ["action.yml", "artifact_cache.js"])
-def test_campaign_hash_tracks_canonical_artifact_cache(tmp_path, filename):
+MODEL_CONFIG_PATHS = (
+    "config/llm_slots.json",
+    "config/model_registry.json",
+    "config/verifier_semantic_rules.json",
+)
+
+
+@pytest.fixture
+def campaign_hash(tmp_path):
     if shutil.which("sha256sum") is None:
         pytest.skip("sha256sum is required to run the authored workflow step")
 
     data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     step = next(step for step in data["jobs"]["campaign"]["steps"] if step.get("id") == "hash")
-    for path in ("templates/consumer-repo", "tools", "scripts", ".github/scripts"):
+    for path in (
+        "templates/consumer-repo",
+        "tools",
+        "scripts",
+        ".github/scripts",
+        ".github/actions/artifact-cache",
+        "config",
+    ):
         (tmp_path / path).mkdir(parents=True)
     (tmp_path / ".github/sync-manifest.yml").write_text("version: 1\n", encoding="utf-8")
-    family = tmp_path / ".github/actions/artifact-cache"
-    family.mkdir(parents=True)
-    source = family / filename
-    source.write_text("initial\n", encoding="utf-8")
+    for path in MODEL_CONFIG_PATHS:
+        (tmp_path / path).write_text("{}\n", encoding="utf-8")
     output = tmp_path / "github-output"
 
     def read_hash():
@@ -69,9 +81,23 @@ def test_campaign_hash_tracks_canonical_artifact_cache(tmp_path, filename):
         )
         return output.read_text(encoding="utf-8")
 
-    before = read_hash()
+    return read_hash
+
+
+@pytest.mark.parametrize("filename", ["action.yml", "artifact_cache.js"])
+def test_campaign_hash_tracks_canonical_artifact_cache(tmp_path, campaign_hash, filename):
+    source = tmp_path / ".github/actions/artifact-cache" / filename
+    source.write_text("initial\n", encoding="utf-8")
+    before = campaign_hash()
     source.write_text("updated\n", encoding="utf-8")
-    assert read_hash() != before
+    assert campaign_hash() != before
+
+
+@pytest.mark.parametrize("path", MODEL_CONFIG_PATHS)
+def test_campaign_hash_tracks_canonical_model_config(tmp_path, campaign_hash, path):
+    before = campaign_hash()
+    (tmp_path / path).write_text('{"changed": true}\n', encoding="utf-8")
+    assert campaign_hash() != before
 
 
 def test_campaign_refresh_consumes_maint71_delivery_handoffs():
