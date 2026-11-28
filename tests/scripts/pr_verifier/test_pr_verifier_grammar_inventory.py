@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tests.scripts import test_pr_verifier_delivery_destinations as delivery
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 INVENTORY = ROOT / "docs/ci/verifier-grammar-inventory.json"
 MATRICES = ROOT / "docs/ci/verifier-grammar-matrices.json"
 

@@ -49,7 +49,7 @@ extraction ceiling. That replay establishes capture, not source #612 verificatio
 Validation: `node --test .github/scripts/__tests__/agents-verifier-context.test.js`
 and `python3 -m pytest -q tests/tools/test_verifier_artifact_capture.py
 tests/tools/test_verifier_capture_obligation_manifest.py
-tests/scripts/test_pr_verifier_semantic_integration.py`. Raw-member tampering,
+tests/scripts/pr_verifier/test_pr_verifier_semantic_integration.py`. Raw-member tampering,
 missing files, omitted occurrences, duplicate archives, corrupted archives and
 cumulative overflow must fail before provider generation.
 

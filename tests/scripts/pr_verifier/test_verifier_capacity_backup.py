@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from scripts.langchain import pr_verifier as pv
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 ANTHROPIC_CAP = (
     "LLM invocation failed: Verifier input capacity blocked: Error code: 400 - {'type': 'error', "
     "'error': {'type': 'invalid_request_error', 'message': 'You have reached your specified API "

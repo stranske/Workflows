@@ -12,7 +12,7 @@ from scripts.langchain import pr_verifier
 from scripts.scope_consumer_sync_plan import select_plan
 from scripts.sync_manifest_compiler import compile_manifest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 MANIFEST = ROOT / ".github" / "sync-manifest.yml"
 PR_VERIFIER = ROOT / "scripts" / "langchain" / "pr_verifier.py"
 API_CLIENT = ROOT / "scripts" / "api_client.py"
