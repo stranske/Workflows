@@ -26,19 +26,13 @@ from typing import NamedTuple
 # Path to the version pins file
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 
-# Map env keys to PyPI package names
-# This is the authoritative mapping for all synced dev tools
-PACKAGE_MAPPING: dict[str, str] = {
-    "BLACK_VERSION": "black",
-    "RUFF_VERSION": "ruff",
-    "ISORT_VERSION": "isort",
-    "DOCFORMATTER_VERSION": "docformatter",
-    "MYPY_VERSION": "mypy",
-    "PYTEST_VERSION": "pytest",
-    "PYTEST_COV_VERSION": "pytest-cov",
-    "PYTEST_XDIST_VERSION": "pytest-xdist",
-    "COVERAGE_VERSION": "coverage",
-}
+try:
+    from scripts.sync_dev_dependencies import pinned_dev_tools
+except ModuleNotFoundError:  # direct script execution
+    from sync_dev_dependencies import pinned_dev_tools  # type: ignore[no-redef]
+
+# Repository copy of the pin file, used to derive the tool list independently of cwd.
+CANONICAL_PIN_FILE = Path(__file__).resolve().parents[1] / PIN_FILE
 
 
 class VersionInfo(NamedTuple):
@@ -137,6 +131,13 @@ def parse_env_file(path: Path) -> dict[str, str]:
         values[key.strip()] = value.strip()
 
     return values
+
+
+# Env key -> PyPI package for every tool autofix-versions.env pins, derived through the one
+# package map in sync_dev_dependencies.DEV_TOOL_PACKAGES (no second hand-kept list).
+PACKAGE_MAPPING: dict[str, str] = pinned_dev_tools(parse_env_file(CANONICAL_PIN_FILE))
+if not PACKAGE_MAPPING:
+    raise RuntimeError(f"No dev-tool pins found in {CANONICAL_PIN_FILE}")
 
 
 def update_env_file(path: Path, updates: dict[str, str]) -> None:

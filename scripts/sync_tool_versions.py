@@ -12,6 +12,11 @@ from pathlib import Path
 # Removed: typing.Dict, typing.Tuple - use builtin dict, tuple
 from re import Pattern
 
+try:
+    from scripts.sync_dev_dependencies import pinned_dev_tools
+except ModuleNotFoundError:  # direct script execution
+    from sync_dev_dependencies import pinned_dev_tools  # type: ignore[no-redef]
+
 PIN_FILE = Path(".github/workflows/autofix-versions.env")
 PYPROJECT_FILE = Path("pyproject.toml")
 TEMPLATE_FILE = Path("templates/consumer-repo/.github/workflows/autofix-versions.env")
@@ -42,55 +47,34 @@ def _format_entry(pattern: str, version: str) -> str:
     return pattern.format(version=version)
 
 
-TOOL_CONFIGS: tuple[ToolConfig, ...] = (
-    ToolConfig(
-        env_key="BLACK_VERSION",
-        package_name="black",
-        pyproject_pattern=_compile(r'"black==(?P<version>[^"]+)"'),
-        pyproject_format='"black=={version}"',
-    ),
-    ToolConfig(
-        env_key="RUFF_VERSION",
-        package_name="ruff",
-        pyproject_pattern=_compile(r'"ruff==(?P<version>[^"]+)"'),
-        pyproject_format='"ruff=={version}"',
-    ),
-    ToolConfig(
-        env_key="ISORT_VERSION",
-        package_name="isort",
-        pyproject_pattern=_compile(r'"isort==(?P<version>[^"]+)"'),
-        pyproject_format='"isort=={version}"',
-    ),
-    ToolConfig(
-        env_key="DOCFORMATTER_VERSION",
-        package_name="docformatter",
-        pyproject_pattern=_compile(r'"docformatter==(?P<version>[^"]+)"'),
-        pyproject_format='"docformatter=={version}"',
-    ),
-    ToolConfig(
-        env_key="MYPY_VERSION",
-        package_name="mypy",
-        pyproject_pattern=_compile(r'"mypy(?:==|>=)(?P<version>[^"]+)"'),
-        pyproject_format='"mypy=={version}"',
-    ),
-    ToolConfig(
-        env_key="PYTEST_VERSION",
-        package_name="pytest",
-        pyproject_pattern=_compile(r'"pytest==(?P<version>[^"]+)"'),
-        pyproject_format='"pytest=={version}"',
-    ),
-    ToolConfig(
-        env_key="PYTEST_COV_VERSION",
-        package_name="pytest-cov",
-        pyproject_pattern=_compile(r'"pytest-cov==(?P<version>[^"]+)"'),
-        pyproject_format='"pytest-cov=={version}"',
-    ),
-    ToolConfig(
-        env_key="COVERAGE_VERSION",
-        package_name="coverage",
-        pyproject_pattern=_compile(r'"coverage==(?P<version>[^"]+)"'),
-        pyproject_format='"coverage=={version}"',
-    ),
+# pyproject may express these tools as a floor (">=") as well as an exact pin.
+FLOOR_ALLOWED_PACKAGES = frozenset({"mypy"})
+
+
+def _tool_config(env_key: str, package: str) -> ToolConfig:
+    operator = "(?:==|>=)" if package in FLOOR_ALLOWED_PACKAGES else "=="
+    return ToolConfig(
+        env_key=env_key,
+        package_name=package,
+        pyproject_pattern=_compile(rf'"{re.escape(package)}{operator}(?P<version>[^"]+)"'),
+        pyproject_format=f'"{package}=={{version}}"',
+    )
+
+
+def _canonical_pins() -> dict[str, str]:
+    path = Path(__file__).resolve().parents[1] / PIN_FILE
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line and not line.lstrip().startswith("#") and "=" in line:
+            key, raw_value = line.split("=", 1)
+            values[key.strip()] = raw_value.strip()
+    return values
+
+
+# One config per tool pinned in autofix-versions.env, named through the single package map.
+TOOL_CONFIGS: tuple[ToolConfig, ...] = tuple(
+    _tool_config(env_key, package)
+    for env_key, package in pinned_dev_tools(_canonical_pins()).items()
 )
 
 

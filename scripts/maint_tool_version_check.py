@@ -13,6 +13,11 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+try:
+    from scripts.sync_dev_dependencies import pinned_dev_tools
+except ModuleNotFoundError:  # direct script execution
+    from sync_dev_dependencies import pinned_dev_tools  # type: ignore[no-redef]
+
 
 @dataclass(frozen=True)
 class ToolSpec:
@@ -33,72 +38,42 @@ class ToolStatus:
     has_update: bool
 
 
-TOOLS: tuple[ToolSpec, ...] = (
-    ToolSpec(
-        "black",
-        "black",
-        "black_current",
-        "black_latest",
-        "BLACK_CURRENT",
-        "BLACK_LATEST",
-    ),
-    ToolSpec(
-        "coverage",
-        "coverage",
-        "coverage_current",
-        "coverage_latest",
-        "COVERAGE_CURRENT",
-        "COVERAGE_LATEST",
-    ),
-    ToolSpec(
-        "docformatter",
-        "docformatter",
-        "docformatter_current",
-        "docformatter_latest",
-        "DOCFORMATTER_CURRENT",
-        "DOCFORMATTER_LATEST",
-    ),
-    ToolSpec(
-        "isort",
-        "isort",
-        "isort_current",
-        "isort_latest",
-        "ISORT_CURRENT",
-        "ISORT_LATEST",
-    ),
-    ToolSpec(
-        "mypy",
-        "mypy",
-        "mypy_current",
-        "mypy_latest",
-        "MYPY_CURRENT",
-        "MYPY_LATEST",
-    ),
-    ToolSpec(
-        "pytest",
-        "pytest",
-        "pytest_current",
-        "pytest_latest",
-        "PYTEST_CURRENT",
-        "PYTEST_LATEST",
-    ),
-    ToolSpec(
-        "pytest-cov",
-        "pytest-cov",
-        "pytest_cov_current",
-        "pytest_cov_latest",
-        "PYTEST_COV_CURRENT",
-        "PYTEST_COV_LATEST",
-    ),
-    ToolSpec(
-        "ruff",
-        "ruff",
-        "ruff_current",
-        "ruff_latest",
-        "RUFF_CURRENT",
-        "RUFF_LATEST",
-    ),
+PIN_FILE = Path(__file__).resolve().parents[1] / ".github/workflows/autofix-versions.env"
+
+
+def read_pins(path: Path = PIN_FILE) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip()
+    return values
+
+
+def _tool_spec(package: str) -> ToolSpec:
+    slug = package.replace("-", "_")
+    return ToolSpec(
+        package,
+        package,
+        f"{slug}_current",
+        f"{slug}_latest",
+        f"{slug.upper()}_CURRENT",
+        f"{slug.upper()}_LATEST",
+    )
+
+
+# Every tool autofix-versions.env pins, named through the one package map
+# (sync_dev_dependencies.DEV_TOOL_PACKAGES). Before 2026-11-28 this was a hand-kept
+# list that never checked pytest-xdist.
+_PINS = read_pins()
+PINNED_TOOLS: dict[str, str] = pinned_dev_tools(_PINS)
+TOOLS: tuple[ToolSpec, ...] = tuple(
+    _tool_spec(package) for package in sorted(PINNED_TOOLS.values())
 )
+CURRENT_BY_PACKAGE: dict[str, str] = {
+    package: _PINS[env_key] for env_key, package in PINNED_TOOLS.items()
+}
 
 VERSION_RE = re.compile(
     r"(?P<version>\d+(?:\.\d+)+(?:[-_.]?(?:a|b|rc|post|dev)\d*)?)",
@@ -196,10 +171,8 @@ def render_issue_body(
     instructions = "\n".join(
         [
             "source .github/workflows/autofix-versions.env",
-            'pip install "black==$BLACK_VERSION" "ruff==$RUFF_VERSION" '
-            '"isort==$ISORT_VERSION" "docformatter==$DOCFORMATTER_VERSION" '
-            '"mypy==$MYPY_VERSION" "pytest==$PYTEST_VERSION" '
-            '"pytest-cov==$PYTEST_COV_VERSION" "coverage==$COVERAGE_VERSION"',
+            "pip install "
+            + " ".join(f'"{package}==${env_key}"' for env_key, package in PINNED_TOOLS.items()),
             "black --check --line-length 100 .",
             "ruff check .",
             "mypy src tests",
@@ -246,8 +219,16 @@ def command_latest() -> int:
 
 
 def command_compare() -> int:
-    current = {spec.name: os.getenv(spec.current_env, "") for spec in TOOLS}
-    latest = {spec.name: os.getenv(spec.latest_env, "") for spec in TOOLS}
+    # Current comes from the pin file unless a caller overrides it; latest comes from the
+    # environment when the `latest` step exported it, otherwise straight from PyPI.
+    current = {
+        spec.name: os.getenv(spec.current_env) or CURRENT_BY_PACKAGE.get(spec.name, "")
+        for spec in TOOLS
+    }
+    latest = {
+        spec.name: os.getenv(spec.latest_env) or latest_pypi_version(spec.package) or "unknown"
+        for spec in TOOLS
+    }
     statuses = compare_versions(current, latest)
     report = render_report(statuses)
     updates = render_updates(statuses)

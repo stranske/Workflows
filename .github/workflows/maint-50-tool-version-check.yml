@@ -29,45 +29,11 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Check current versions
-        id: current
-        run: |
-          source .github/workflows/autofix-versions.env
-          {
-            echo "black_current=${BLACK_VERSION}"
-            echo "ruff_current=${RUFF_VERSION}"
-            echo "isort_current=${ISORT_VERSION}"
-            echo "docformatter_current=${DOCFORMATTER_VERSION}"
-            echo "mypy_current=${MYPY_VERSION}"
-            echo "pytest_current=${PYTEST_VERSION}"
-            echo "pytest_cov_current=${PYTEST_COV_VERSION}"
-            echo "coverage_current=${COVERAGE_VERSION}"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Check latest PyPI versions
-        id: latest
-        run: |
-          python scripts/maint_tool_version_check.py latest
-
       - name: Compare versions and generate report
         id: compare
+        # Current versions come from autofix-versions.env and latest from PyPI, for every
+        # tool the env file pins (scripts/maint_tool_version_check.py derives the list).
         env:
-          BLACK_CURRENT: ${{ steps.current.outputs.black_current }}
-          RUFF_CURRENT: ${{ steps.current.outputs.ruff_current }}
-          DOCFORMATTER_CURRENT: ${{ steps.current.outputs.docformatter_current }}
-          ISORT_CURRENT: ${{ steps.current.outputs.isort_current }}
-          MYPY_CURRENT: ${{ steps.current.outputs.mypy_current }}
-          PYTEST_CURRENT: ${{ steps.current.outputs.pytest_current }}
-          PYTEST_COV_CURRENT: ${{ steps.current.outputs.pytest_cov_current }}
-          COVERAGE_CURRENT: ${{ steps.current.outputs.coverage_current }}
-          BLACK_LATEST: ${{ steps.latest.outputs.black_latest }}
-          RUFF_LATEST: ${{ steps.latest.outputs.ruff_latest }}
-          DOCFORMATTER_LATEST: ${{ steps.latest.outputs.docformatter_latest }}
-          ISORT_LATEST: ${{ steps.latest.outputs.isort_latest }}
-          MYPY_LATEST: ${{ steps.latest.outputs.mypy_latest }}
-          PYTEST_LATEST: ${{ steps.latest.outputs.pytest_latest }}
-          PYTEST_COV_LATEST: ${{ steps.latest.outputs.pytest_cov_latest }}
-          COVERAGE_LATEST: ${{ steps.latest.outputs.coverage_latest }}
           WORKFLOW_URL: >-
             ${{ github.event.repository.html_url
             }}/actions/workflows/maint-50-tool-version-check.yml

@@ -68,6 +68,7 @@ jobs:
           sparse-checkout: |
             .github/workflows/autofix-versions.env
             scripts/update_versions_from_pypi.py
+            scripts/sync_dev_dependencies.py
           sparse-checkout-cone-mode: false
 
       - name: Setup Python
