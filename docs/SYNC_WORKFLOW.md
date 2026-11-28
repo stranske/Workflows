@@ -1,139 +1,63 @@
 # Workflow Sync Process
 
-`scripts/sync_templates.sh` compiles the complete sync manifest before making
-filesystem changes and rejects source or destination symlink/containment
-violations. Keep source selection in `scripts/validate_template_sync.py`; the
-synchronizer and validator intentionally consume the same compiled list.
+The maintained operator procedure is the [consumer repository maintenance guide](ops/CONSUMER_REPO_MAINTENANCE.md).
+The manifest selects sources from both the Workflows root and the consumer template;
+Maint 68 reads each compiled entry's `resolved_source`. See [what gets synced](ops/CONSUMER_REPO_MAINTENANCE.md#what-gets-synced).
 
 ## Purpose
-Prevent propagating bugs to consumer repos by validating changes in the source (Workflows) repo before syncing.
+
+Validate shared changes in Workflows and deliver the reviewed payload to consumers.
 
 ## Before Any Sync
 
 ### 0. Verify Template Sync (CRITICAL)
 
-**If you modified `.github/scripts/` or another manifest-declared exact template-sync file, ensure templates are synced:**
-
-```bash
-# Check for out-of-sync templates
-python scripts/validate_template_sync.py
-
-# If validation fails:
-./scripts/sync_templates.sh
-
-# Verify fixed:
-python scripts/validate_template_sync.py
-
-# Commit template changes:
-git add templates/consumer-repo/<changed-path>
-git commit -m "sync: update templates with latest script changes"
-```
-
-**Why?** Consumer repos sync from `templates/consumer-repo/`. If exact-sync source files are changed but templates aren't updated, no sync PRs will be created with those changes.
-
-The CI workflow `health-72-template-sync.yml` enforces this, but check manually before triggering sync.
+For manifest-declared exact template mirrors, run `python scripts/validate_template_sync.py`.
+If it reports drift, run `./scripts/sync_templates.sh`, re-run the validator and
+review the resulting changes. The publisher and validator use the same compiled
+source list; Health 72 also checks it.
 
 ### 1. Validate in Workflows Repo
-```bash
-# In /workspaces/Workflows
-cd /workspaces/Workflows
 
-# Run all validation checks
-python -m ruff check .
-python -m mypy tools/ scripts/ .github/scripts/
-python -m pytest tests/ -x
-
-# If any fail, fix them BEFORE syncing
-```
+Run the tests and production checks appropriate to the changed source. The
+[delivery scope and production checks](ops/CONSUMER_REPO_MAINTENANCE.md#delivery-scope-and-production-checks)
+define the current procedure.
 
 ### 2. Check for Existing Sync Issues
-```bash
-# Check open sync PRs across all consumer repos
-for repo in "consumer-repo-1" "consumer-repo-2" "consumer-repo-3"; do
-    echo "=== $repo ==="
-    gh pr list --repo "stranske/$repo" --search "sync" --state open \
-        --json number,title,createdAt | jq -c '.[] | {num: .number, created: .createdAt}'
-done
-```
+
+Use the [sync and dependency campaign contract](ops/SYNC_DEPENDENCY_CAMPAIGN.md)
+to inspect existing delivery state.
 
 ### 3. Review Bot Comments on Latest Sync PRs
-```bash
-# For each repo with open sync PRs, check bot comments on the LATEST one
-for repo in "consumer-repo-1" "consumer-repo-2" "consumer-repo-3"; do
-    latest=$(gh pr list --repo "stranske/$repo" --search "sync" --state open \
-        --json number --jq '.[0].number')
-    if [ -n "$latest" ]; then
-        echo "=== $repo PR #$latest ==="
-        gh api "repos/stranske/$repo/pulls/$latest/comments" \
-            --jq '.[] | select(.user.login | contains("bot")) |
-                  {path, line, body: .body[0:200]}'
-    fi
-done
-```
+
+Follow that contract to inspect and resolve the current review findings.
 
 ## Fixing Issues Found
 
+Repair shared sources in Workflows and follow the maintained consumer delivery
+procedure for the affected payload.
+
 ### If Validation Fails in Workflows
-1. Fix the issue in Workflows repo
-2. Create PR for the fix
-3. Get it merged to main
-4. THEN trigger sync
-5. Do NOT manually fix in consumer repos - let sync propagate the fix
+
+Repair the shared source and repeat the affected checks.
 
 ### If Bot Comments Found
-1. Address in Workflows source if it's a template issue
-2. Document if it's expected (like models:read permission)
-3. Do NOT merge sync PRs until issues are resolved or documented
+
+Assess active findings against the exact delivery head.
 
 ## Stable Delivery PRs
 
-Maint 68 coalesces canary updates into `sync/workflows-candidate` and promoted
-updates into `sync/workflows-delivery`. It updates the same ready-for-review PR
-in place. Before an actual push it disables auto-merge and adds
-`sync:delivery-staging` without changing readiness; if the computed base/tree
-is unchanged it preserves the existing review lifecycle.
-
-Maint 71 is the sole merge/close authority. It starts bounded review for staged
-PRs, requires one available reviewer response after seven minutes
-(or degrades after an all-capacity signal / fifteen-minute no-response
-timeout), and never waives active review threads. It seals the exact head,
-triggers a fresh Gate, and merges only after that Gate succeeds. The staging
-label blocks shared merge lanes until Maint 71 completes the merge.
-
-For a configured native conversation disposition, CodeRabbit uses protocol v2.
-Maint 71 posts a fresh task whose binding includes v2, so a v1 task or answer
-cannot be replayed. The response must start with the exact task-author mention
-(`@login` or that exact mention in backticks), followed by standalone `ACCEPT`,
-the exact-head acceptance token, and the bound v2 marker. A normal PR
-conversation reply is sufficient; inline reply capability is not required.
-This acknowledgement only supplies reviewed finding evidence: Maint 71 still
-revalidates the live thread, exact head, lease, and merge gates before any
-resolution or merge action.
+Maint 68 prepares stable candidate and delivery PRs; Maint 71 owns their review,
+reconciliation and merge. Use the [generated delivery ownership procedure](ops/CONSUMER_REPO_MAINTENANCE.md#generated-delivery-ownership)
+for current exact-head gates and review handling.
 
 ### Reconcile the stable lanes
-```bash
-gh workflow run maint-71-merge-sync-prs.yml \
-  --repo stranske/Workflows \
-  -f active_sync_hash=candidate
-```
 
-```bash
-gh workflow run maint-71-merge-sync-prs.yml \
-  --repo stranske/Workflows \
-  -f active_sync_hash=delivery
-```
-
-Do not use direct `gh pr merge`, admin merge, or auto-merge on these stable
-branches. Re-run Maint 71 after the recorded quiet-period/check timestamp.
+Follow the maintained procedure rather than using a command copied from an older
+snapshot. The [original guide](https://github.com/stranske/Workflows/blob/0c0334c6e92588c158f1c9362f1409062477de09/docs/SYNC_WORKFLOW.md)
+remains available for historical context.
 
 ## Summary Checklist
 
-- [ ] Run ruff/mypy/tests in Workflows repo
-- [ ] Fix any issues found
-- [ ] Check for open sync PRs across all consumer repos
-- [ ] Refresh each stable candidate or delivery PR in place through Maint 68
-- [ ] Keep refreshed PRs ready for review and labeled `sync:delivery-staging`
-- [ ] Use Maint 71 to start the review window, settle available reviewer evidence, and seal the exact head
-- [ ] Verify zero active non-outdated review threads and passing required checks on the sealed head
-- [ ] Let Maint 71 merge only the sealed stable delivery; use its reconciliation output for stale attempts
-- [ ] If issues found, fix in Workflows and re-sync (do NOT fix in consumers)
+Use the [manual sync trigger and delivery guide](ops/CONSUMER_REPO_MAINTENANCE.md#manual-sync-trigger)
+for the current sequence and acceptance evidence.
