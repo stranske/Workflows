@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {executionBinding,reconcilePendingExecution}=require('../../.github/scripts/verifier_pending_execution.js');
-const {assessmentIdentity,completedEvent}=require('../../.github/scripts/verification_event.js');
-const {verification_event:event}=require('../fixtures/verification_event/canonical.json');
+const {executionBinding,reconcilePendingExecution}=require('../verifier_pending_execution.js');
+const {assessmentIdentity,completedEvent}=require('../verification_event.js');
+const {verification_event:event}=require('../../../tests/fixtures/verification_event/canonical.json');
 const assessment=assessmentIdentity({mode:'evaluate',provider:'anthropic'});
 const state={schema:'verifier-event-state/v1',status:'pending',repo:event.repo,pr:event.pr,head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,verification_event:event,assessment_identity:assessment,run_id:'10',run_attempt:'1',execution_binding:executionBinding('evaluate')};
 const run=()=>({id:10,run_attempt:1,status:'completed',conclusion:'cancelled',path:'.github/workflows/agents-verifier.yml',event:'workflow_dispatch',head_sha:'c'.repeat(40),repository:{full_name:event.repo},head_repository:{full_name:event.repo}});

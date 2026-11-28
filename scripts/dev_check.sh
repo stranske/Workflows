@@ -245,8 +245,6 @@ quick_check() {
 
 ACTIONLINT_BIN=""
 ACTIONLINT_IGNORE_ARGS=()
-ACTIONLINT_SECRETS_ALLOWLIST=()
-ACTIONLINT_SECRETS_MESSAGE='unexpected key "secrets"'
 HAS_TIMEOUT=false
 if command -v timeout >/dev/null 2>&1; then
     HAS_TIMEOUT=true
@@ -278,113 +276,28 @@ build_actionlint_ignore_args() {
     fi
 }
 
-build_actionlint_command() {
-    local cmd_name="$1"
-    local files_name="$2"
-    local -a cmd_ref=("$ACTIONLINT_BIN")
-    if [[ ${#ACTIONLINT_IGNORE_ARGS[@]} -gt 0 ]]; then
-        cmd_ref+=("${ACTIONLINT_IGNORE_ARGS[@]}")
-    fi
-    local -a files_ref=()
-    eval "files_ref=(\"\${${files_name}[@]}\")"
-    cmd_ref+=("${files_ref[@]}")
-    eval "$cmd_name=(\"\${cmd_ref[@]}\")"
-}
-load_actionlint_secrets_allowlist() {
-    local allowlist_file="${DEV_CHECK_SECRETS_ALLOWLIST:-.github/actionlint-secrets-allowlist.txt}"
-    ACTIONLINT_SECRETS_ALLOWLIST=()
-    if [[ -f "$allowlist_file" ]]; then
-        while IFS= read -r entry; do
-            ACTIONLINT_SECRETS_ALLOWLIST+=("$entry")
-        done < <(sed -e 's/[[:space:]]*$//' -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$allowlist_file")
-    fi
-}
-
-is_actionlint_secrets_allowlisted() {
-    local file="$1"
-    for pattern in "${ACTIONLINT_SECRETS_ALLOWLIST[@]}"; do
-        if [[ "$file" == $pattern ]]; then
-            return 0
-        fi
-    done
-    return 1
-}
-
-filter_actionlint_output() {
-    local input_file="$1"
-    local output_file="$2"
-    local secrets_found=false
-    local unexpected_found=false
-    local unexpected_message=""
-    local skip_context=false
-    local path_line_pattern='^[^[:space:]].*:[0-9]+:[0-9]+:'
-
-    : > "$output_file"
-    while IFS= read -r line; do
-        if [[ "$skip_context" == true ]]; then
-            if [[ "$line" =~ $path_line_pattern ]]; then
-                skip_context=false
-            else
-                continue
-            fi
-        fi
-
-        if [[ "$line" == *"$ACTIONLINT_SECRETS_MESSAGE"* ]]; then
-            secrets_found=true
-            local file_path="${line%%:*}"
-            if [[ -n "$file_path" ]] && is_actionlint_secrets_allowlisted "$file_path"; then
-                skip_context=true
-                continue
-            fi
-            unexpected_found=true
-            if [[ -z "$unexpected_message" ]]; then
-                unexpected_message="${line##*: }"
-            fi
-        fi
-        printf '%s\n' "$line" >> "$output_file"
-    done < "$input_file"
-
-    if [[ "$unexpected_found" == true ]]; then
-        echo "${unexpected_message:-$ACTIONLINT_SECRETS_MESSAGE}" >&2
-        return 2
-    fi
-    if [[ "$secrets_found" == true ]]; then
-        return 1
-    fi
-    return 0
-}
-
 run_actionlint_for_files() {
     local name="$1"
-    local files_name="$2"
-    local -a files_ref=()
-    eval "files_ref=(\"\${${files_name}[@]}\")"
-    if [[ ${#files_ref[@]} -eq 0 ]]; then
+    shift
+    if [[ $# -eq 0 ]]; then
         return 0
     fi
 
     local output_file
     output_file=$(mktemp -t "devcheck_actionlint.XXXX")
-    local filtered_file
-    filtered_file=$(mktemp -t "devcheck_actionlint_filtered.XXXX")
 
     if [[ "$VERBOSE_MODE" == true ]]; then
         echo -e "${BLUE}Running: ${ACTIONLINT_BIN} ${ACTIONLINT_IGNORE_ARGS[*]}${NC}"
     fi
 
-    local -a actionlint_cmd=()
-    build_actionlint_command actionlint_cmd "$2"
-
     local exit_code=0
-    run_with_timeout "$CHECK_TIMEOUT" "${actionlint_cmd[@]}" > "$output_file" 2>&1 || exit_code=$?
+    run_with_timeout "$CHECK_TIMEOUT" "$ACTIONLINT_BIN" "${ACTIONLINT_IGNORE_ARGS[@]}" "$@" \
+        > "$output_file" 2>&1 || exit_code=$?
 
-    local filter_status=0
-    filter_actionlint_output "$output_file" "$filtered_file" || filter_status=$?
-
-    if [[ $exit_code -eq 0 && $filter_status -eq 0 ]] ||
-        [[ $exit_code -le 1 && $filter_status -eq 1 && ! -s "$filtered_file" ]]; then
+    # Preserve the failure when a local wrapper reports this error and exits zero.
+    if [[ $exit_code -eq 0 ]] && ! grep -Fq 'unexpected key "secrets"' "$output_file"; then
         echo -e "${GREEN}✓ $name${NC}"
-        rm -f "$output_file" "$filtered_file"
+        rm -f "$output_file"
         return 0
     fi
 
@@ -399,14 +312,14 @@ run_actionlint_for_files() {
         echo -e "${RED}✗ $name${NC}"
     fi
 
-    if [[ -s "$filtered_file" ]]; then
+    if [[ -s "$output_file" ]]; then
         if [[ "$VERBOSE_MODE" == true ]]; then
             echo -e "${YELLOW}Output:${NC}"
         fi
-        head -10 "$filtered_file" | sed 's/^/  /'
+        head -10 "$output_file" | sed 's/^/  /'
     fi
 
-    rm -f "$output_file" "$filtered_file"
+    rm -f "$output_file"
     return 1
 }
 
@@ -430,13 +343,12 @@ collect_actionlint_targets() {
 
 run_actionlint_checks() {
     build_actionlint_ignore_args
-    load_actionlint_secrets_allowlist
 
     local -a workflow_files=()
     collect_actionlint_targets workflow_files
 
     local status=0
-    if ! run_actionlint_for_files "Workflow YAML validation" workflow_files; then
+    if ! run_actionlint_for_files "Workflow YAML validation" "${workflow_files[@]}"; then
         status=1
     fi
 
@@ -445,7 +357,7 @@ run_actionlint_checks() {
         mapfile -t template_files < <(
             find templates/consumer-repo/.github/workflows -type f -name '*.yml' -print
         )
-        if ! run_actionlint_for_files "Workflow YAML validation (templates)" template_files; then
+        if ! run_actionlint_for_files "Workflow YAML validation (templates)" "${template_files[@]}"; then
             status=1
         fi
     fi
