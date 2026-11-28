@@ -90,8 +90,18 @@ def test_recursion_guard_counts_only_self_dispatched_retries() -> None:
     [
         # Auto-Pilot is retired (#5379): a leftover `agents:auto-pilot` label no longer
         # makes the optimizer skip the issue.
-        ("agents:optimize", "sync\nagents:auto-pilot", 0, "phase=analyze\nissue_number=1768\nshould_run=true"),
-        ("agents:apply-suggestions", "agents:auto-pilot\nsync", 0, "phase=apply\nissue_number=1768\nshould_run=true"),
+        (
+            "agents:optimize",
+            "sync\nagents:auto-pilot",
+            0,
+            "phase=analyze\nissue_number=1768\nshould_run=true",
+        ),
+        (
+            "agents:apply-suggestions",
+            "agents:auto-pilot\nsync",
+            0,
+            "phase=apply\nissue_number=1768\nshould_run=true",
+        ),
         ("agents:optimize", "", 0, "phase=analyze\nissue_number=1768\nshould_run=true"),
         ("agents:apply-suggestions", "sync", 0, "phase=apply\nissue_number=1768\nshould_run=true"),
         # The label phase no longer reads labels, so a failing read cannot block it.

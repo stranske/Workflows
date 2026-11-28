@@ -154,7 +154,7 @@ def test_dashboard_issue_uses_durable_tracker_labels() -> None:
 
 def test_run_discovery_targets_workflows_with_runs() -> None:
     source = WORKFLOW.read_text(encoding="utf-8")
-    discovery_line = next(line for line in source.splitlines() if "for WORKFLOW_PATH in" in line)
+    discovery_line = next(line for line in source.splitlines() if "WORKFLOW_PATH=" in line)
 
     # Auto-Pilot was retired in #5379; its runs age out of the 7-day window.
     assert "AUTOPILOT_WORKFLOW" not in source
