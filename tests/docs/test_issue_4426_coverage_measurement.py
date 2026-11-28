@@ -360,7 +360,9 @@ def test_pre_round_below_90_percent_leaves_the_180_unit_rule_in_force() -> None:
 
     project = PYPROJECT.read_text(encoding="utf-8")
     assert "branch = true" in project
-    assert 'source = ["scripts", "tools", "src"]' in project
+    # The measured source also listed "src", which then held only omitted autofix
+    # samples; src/ was removed on 2026-11-28 (round-2 E3) without changing what is measured.
+    assert 'source = ["scripts", "tools"]' in project
     prose = (EVIDENCE / "coverage-measurement.md").read_text(encoding="utf-8")
     for phrase in (
         "81.83%",
