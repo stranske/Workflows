@@ -1,5 +1,9 @@
 # Workflows #3820 source recovery evidence
 
+The [historical validation runs](historical-runs.md) index recovers the original
+reports, captures, and mutation scripts mentioned below. The original commands
+document executions at the recorded source revisions.
+
 ## CodeRabbit extraction and receipt I/O corrections
 
 The full review `5479536243` and full threads `4238096234` and `4238096249`
