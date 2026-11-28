@@ -99,29 +99,12 @@ instructions.
 
 ## Consumer Repo Setup
 
-### 1. Add the workflow
-
-Copy `agents-bot-comment-handler.yml` to `.github/workflows/`:
-
-```bash
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/workflows/agents-bot-comment-handler.yml \
-  -o .github/workflows/agents-bot-comment-handler.yml
-```
-
-### 2. Add the prompt template
-
-```bash
-mkdir -p .github/codex/prompts
-curl -sL https://raw.githubusercontent.com/stranske/Workflows/v1/templates/consumer-repo/.github/codex/prompts/fix_bot_comments.md \
-  -o .github/codex/prompts/fix_bot_comments.md
-```
-
-### 3. Create the label
-
-Create `autofix:bot-comments` label in your repository:
-- **Name:** `autofix:bot-comments`
-- **Color:** `#7057ff` (purple)
-- **Description:** Trigger bot to address review bot comments
+Consumers use the centrally managed `agents-80-pr-event-hub.yml`, which routes
+bot-comment events to the reusable handler. Follow the
+[consumer maintenance guide](ops/CONSUMER_REPO_MAINTENANCE.md) and
+[integration guide](INTEGRATION_GUIDE.md) for managed workflow and prompt
+installation. The former standalone consumer wrapper is a manifest-declared
+removal; do not copy it from an old version tag.
 
 ## Usage
 
@@ -144,13 +127,10 @@ For PRs created by agents (with `agent:*` labels), the workflow automatically ru
 
 ### Testing
 
-```bash
-# Dry run - see what would be processed
-gh workflow run agents-bot-comment-handler.yml -f pr_number=123 -f dry_run=true
-
-# Full run
-gh workflow run agents-bot-comment-handler.yml -f pr_number=123
-```
+In a consumer, use the `Agents PR Event Hub` manual dispatch with `pr_number`,
+`handler=bot-comments`, and `dry_run=true` to preview the handler. The Workflows
+repository has its own `agents-bot-comment-handler.yml` wrapper. See the
+[workflow guide](WORKFLOW_GUIDE.md#agents--issues) for the current routes.
 
 ## Configuration
 
