@@ -171,7 +171,6 @@ Cursor and Muse have one. Use this table as the checklist; each row names a real
 | Autofix loop | `.github/workflows/agents-autofix-loop.yml` | `autofix-<agent>` job, **and** the agent key in the `supportedAgents` allow-list (a job without the allow-list entry can never run; Cursor's job was dead for months this way) |
 | Delegation policy | `.github/scripts/agent_delegation_policy.js` (+ template copy) | default registry entry; runner map |
 | Keepalive secrets map | `.github/scripts/keepalive_loop.js` (+ template copy) | `HAS_<AGENT>_AUTH` → secret name |
-| Auto-pilot | `.github/workflows/agents-auto-pilot.yml` (+ template copy) | `HAS_<SECRET>` availability flag |
 | Bot-comment routing | `.github/scripts/bot-comment-handler.js` | legacy `agent:<key>` route |
 | Runner provider set | `scripts/runner_lib/core.py` | add the key to `PROVIDERS` and, if it takes prompts, `PROMPT_PROVIDERS`. **Consumers run their own copy** (Stage 5) |
 | Artifact filtering | `scripts/stage_agent_changes.py` | the agent's root output filename patterns |
@@ -278,7 +277,6 @@ the pass number before you start.
 | Path | Canary | Pass number (real trial) |
 | --- | --- | --- |
 | Keepalive | PR labelled `agent:<key>`, `agents:keepalive`, `agents:max-runs:1`, tasks in its source issue | A commit by the agent adding the requested files; the loop reports `Agent: <Name>` |
-| Belt | Issue labelled `agent:<key>` + `agents:auto-pilot` | The belt creates `<prefix>NNN` and opens the PR; the agent commits; `ledger validation` passes |
 | Autofix | A PR with a deliberately failing test | The agent's autofix job runs and pushes a fix |
 | Issue intake | Issue labelled `agent:<key>` | The intake reaches the agent's real runner and produces a commit |
 

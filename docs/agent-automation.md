@@ -210,7 +210,9 @@ After each major step, the workflow re-dispatches itself to continue the pipelin
 - Better logging and debugging per step
 - Recovery from transient failures
 
-### Usage
+### Usage (retired)
+
+The steps below applied to the retired Auto-Pilot workflow. For current issue starts, see the [shared opener](ops/LOCAL_LANES.md#lanes-overview).
 
 1. Apply `agents:auto-pilot` to an issue formatted with the Agent task template.
 2. Optional: add `runner:<name>` to override the registry default agent.
@@ -329,7 +331,7 @@ and retains the `metrics-retention-log` audit artifact for 90 days. Run the CLI 
 - **GitHub App tokens DO trigger other workflows** - no anti-recursion protection
 - The optimizer violation of "labels as status markers only" was masked until App tokens were added
 
-**Current ownership check.** The [issue optimizer](../.github/workflows/agents-issue-optimizer.yml) reads the issue’s current labels in the event repository before checkout. On a label-triggered Analyze or Apply, an issue carrying `agents:auto-pilot` stays with Auto-Pilot. A failed label read stops the standalone job before it can run either phase. An explicit operator dispatch keeps its selected phase.
+**Former ownership check.** Until Auto-Pilot was retired (#5379) the [issue optimizer](../.github/workflows/agents-issue-optimizer.yml) read the issue’s labels and left an issue carrying `agents:auto-pilot` to Auto-Pilot. That check was removed with Auto-Pilot; the optimizer now runs the requested phase, and an explicit operator dispatch keeps its selected phase.
 
 Same protection added for `agents:format` and `agents:optimize` labels.
 
