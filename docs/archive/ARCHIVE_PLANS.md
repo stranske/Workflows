@@ -4,6 +4,10 @@ This ledger records superseded plans, point-in-time audits and historical keepal
 
 For retired GitHub workflows, see [`ARCHIVE_WORKFLOWS.md`](ARCHIVE_WORKFLOWS.md).
 
+## Archived portfolio test fixtures
+
+The [portfolio recovery guide](https://github.com/stranske/Workflows/blob/363fdcfc605abc608289ebd3b17418aea8e0a0be/src/trend_analysis/README.md#archived-portfolio-fixtures) contains the commands to replay the four original tests with their score data and recover the final versions of `constants.py`, `selector.py` and `weighting.py`.
+
 ## Historical Actionlint references
 
 The [workflow guide](../ci/WORKFLOW_SYSTEM.md) links to the manual for the Actionlint version used by Health 42 and Maint 52. Six copies formerly under `docs/archive/plans/` can be recovered from Git.
